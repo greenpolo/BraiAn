@@ -287,7 +287,7 @@ def exclude_regions(df, regs_to_exclude, edges, tree):
     return df
 
 #%%
-def load_cell_counts(root, exclude_dict, edges, tree, sum_dict=None):
+def load_cell_counts(root, exclude_dict, edges, tree, area_key, tracer_key, marker_key):
     '''
     Function to load cell counts, stored in .csv files in the 'root' directory,
     as Pandas dataframes.
@@ -371,7 +371,10 @@ def load_cell_counts(root, exclude_dict, edges, tree, sum_dict=None):
                 region_dict = find_regions_and_classes_in_slice(data)
 
                 # Combine cell counts
-                df = sum_cell_counts(data, sum_dict=sum_dict)
+                df = pd.DataFrame(data, columns=[area_key, tracer_key])
+                df.rename(columns={area_key: 'area', tracer_key: marker_key}, inplace=True)
+                df = df[df['area'] > 0]
+                # df = sum_cell_counts(data, sum_dict=sum_dict)
                 
                 # Take care of regions to be excluded
                 regs_to_exclude = list(dict.fromkeys(regs_to_exclude))
@@ -383,50 +386,6 @@ def load_cell_counts(root, exclude_dict, edges, tree, sum_dict=None):
                 df_list.append(df)
     
     return df_list,slice_regions,slice_data
-    
-#%%
-def sum_cell_counts(data, sum_dict=None):
-    '''
-    This function takes as input raw data from a csv file (data = a dataframe created with pd.read_csv).
-    It converts counts (Num CTB (only), Num CTB: Rabies (only), etc) to number of detected cells ('CTB, RAB', etc).
-    To do this it sums the relevant counts.
-    The sum_dict specifies which columns in the raw data should be summed to determine the number of detected cells.
-    Example: sum_dict = {'RAB': 'Num Rabies', 'Num CTB: Rabies', 'Num Rabies: TVA', 'Num CTB: Rabies: TVA'}
-             means that the total number of Rabies+ neurons is the sum of single positives (Rabies), double positves
-             (Rabies+TVA and Rabies+CTB) and triple positives (Rabies+TVA+CTB).
-    '''
-    
-    # If sum dict was not specified, create a default one
-    # In this case there was previously: if not(sum_dict==None). I removed the not because it would run otherwise
-    # I think you got confused  with the condition, but I'm poiting this out just in case I've misunderstood so that you can correct me!
-    # In any case I didn't modify the dictionary below as I wanted to make sure the program was actually using the one specified in the notebook
-    if (sum_dict==None):
-        sum_dict = {'area': 'DAPI: DAPI area um^2',
-                    'CTB': ['Num CTB', 'Num CTB: Rabies', 'Num CTB: TVA', 'Num CTB: Rabies: TVA'],
-                    'RAB': ['Num Rabies', 'Num CTB: Rabies', 'Num Rabies: TVA', 'Num CTB: Rabies: TVA'],
-                    'TVA': ['Num TVA', 'Num CTB: TVA', 'Num Rabies: TVA', 'Num CTB: Rabies: TVA'],
-                    'CTB_RAB': ['Num CTB: Rabies', 'Num CTB: Rabies: TVA'],
-                    'CTB_TVA': ['Num CTB: TVA', 'Num CTB: Rabies: TVA'],
-                    'RAB_TVA': ['Num Rabies: TVA', 'Num CTB: Rabies: TVA'],
-                    'CTB_RAB_TVA': 'Num CTB: Rabies: TVA'
-                   }
-    
-    # Make an empty table with rows = all regions in current slice, columns = param_list
-    df = pd.DataFrame(np.nan, index=data.index, columns=list(sum_dict.keys()))
-    
-    # Warning: below, you'll notice that columns are summed a bit weirdly.
-    # I used df['c'] = df[['a','b']].sum(axis=1, min_count=1) to sum up columns 'a' and 'b'.
-    # min_count=1 ensures that the sum of NaN values is NaN (and not 0).
-
-    for key, value in sum_dict.items():
-        if ((key=='area') or (key=='CTB_RAB_TVA')): # no summing necessary
-            df[key] = data[value]
-        else:
-            df[key] = data[value].sum(axis=1, min_count=1)
-
-    # Return only those regions where DAPI was found
-    return df[df['area'] > 0]
-    #return df
 
 #%%
 def init_dict(key_list, init_value):
@@ -501,12 +460,10 @@ def normalize_cell_counts(brain_df, tracer):
     return norm_cell_counts
 
 #%%
-def collect_and_analyze_cell_counts(root, animal_list, AllenBrain, sum_dict=None):
+def collect_and_analyze_cell_counts(root, animal_list, AllenBrain, area_key, tracer_key, marker_key):
 
     normalizations = ['Density','Percentage','RelativeDensity']
-    tracers =  ['CTB', 'RAB', 'TVA',                # single positives + double positives + triple positives
-                'CTB_RAB', 'CTB_TVA', 'RAB_TVA',    # double positives + triple positives
-                'CTB_RAB_TVA']
+    markers = [marker_key]
 
     # Load brain ontology (brain hierarchy) --------------------------------------
     edges = AllenBrain.edges_dict
@@ -517,7 +474,7 @@ def collect_and_analyze_cell_counts(root, animal_list, AllenBrain, sum_dict=None
     # This is a dataframe with hierarchical columns. 
     # Hierarchy: tracer -> animal -> hemisphere.
     row_iterables = [brain_region_dict.keys(), animal_list]
-    col_iterables = [tracers, normalizations]
+    col_iterables = [markers, normalizations]
     row_multi_index = pd.MultiIndex.from_product(row_iterables)
     col_multi_index = pd.MultiIndex.from_product(col_iterables)
     results = pd.DataFrame(np.nan, index=row_multi_index, columns=col_multi_index)
@@ -525,7 +482,7 @@ def collect_and_analyze_cell_counts(root, animal_list, AllenBrain, sum_dict=None
     # Loop over animals, load the data and normalize counts --------------------
     for animal in animal_list:
 
-        print('Importing slices in '+animal+'...')
+        print(f'Importing slices in {animal}...')
         input_path = os.path.join(root, animal, 'results')
         output_path = os.path.join(root, animal, 'results_python')
         if not(os.path.exists(output_path)):
@@ -535,8 +492,8 @@ def collect_and_analyze_cell_counts(root, animal_list, AllenBrain, sum_dict=None
         exclude_dict = list_regions_to_exclude(os.path.join(root, animal))
 
         # Load cell counts, excluding the regions we want to exclude
-        df_list,slice_regions,slice_data = load_cell_counts(input_path, exclude_dict, edges, tree, sum_dict=sum_dict)
-        print('Imported ' + str(len(df_list)) + ' slices.\n')
+        df_list,slice_regions,slice_data = load_cell_counts(input_path, exclude_dict, edges, tree, area_key, tracer_key, marker_key)
+        print(f'Imported {str(len(df_list))} slices.')
 
         # Now comes the tricky part. We'll first concatenate the dataframes
         # of all slices into one big dataframe (brain_df).
@@ -548,20 +505,20 @@ def collect_and_analyze_cell_counts(root, animal_list, AllenBrain, sum_dict=None
         # Save brain_df
         brain_df.to_csv(os.path.join(output_path, animal+'_cell_counts.txt'), sep='\t', mode='w')
                         
-        print('Raw cell counts are saved to ' + output_path)
+        print(f'Raw cell counts are saved to {output_path}\n')
 
         # Normalize the results
-        for t in tracers: # loop over tracers ('RAB', 'CTB', ...)
+        for m in markers:
 
             # Normalize
-            normalized_cell_counts = normalize_cell_counts(brain_df, t)
+            normalized_cell_counts = normalize_cell_counts(brain_df, m)
 
             # Save results per animal
             present_regions = normalized_cell_counts.index.to_list()
             for region in present_regions: # loop over all regions present
 
                 for norm in normalizations: # loop over normalization methods
-                    results.loc[(region, animal), (t, norm)] = normalized_cell_counts.loc[region, norm]
+                    results.loc[(region, animal), (m, norm)] = normalized_cell_counts.loc[region, norm]
         
     return results
 
