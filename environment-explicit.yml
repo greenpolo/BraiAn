@@ -1,0 +1,11 @@
+name: cfos_env
+channels:
+  - defaults
+dependencies:
+  - ipykernel
+  - pandas
+  - networkx
+  - plotly
+  - nbformat
+  - python-kaleido
+prefix: /home/carlo/.local/share/conda/envs/cfos_env
