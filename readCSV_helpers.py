@@ -460,7 +460,10 @@ def normalize_cell_counts(brain_df, tracer):
     return norm_cell_counts
 
 #%%
-def collect_and_analyze_cell_counts(root, animal_list, AllenBrain, area_key, tracer_key, marker_key):
+def collect_and_analyze_cell_counts(root, animal_list,
+                                    AllenBrain, area_key, 
+                                    tracer_key, marker_key,
+                                    output_path_root):
 
     normalizations = ['Density','Percentage','RelativeDensity']
     markers = [marker_key]
@@ -484,9 +487,6 @@ def collect_and_analyze_cell_counts(root, animal_list, AllenBrain, area_key, tra
 
         print(f'Importing slices in {animal}...')
         input_path = os.path.join(root, animal, 'results')
-        output_path = os.path.join(root, animal, 'results_python')
-        if not(os.path.exists(output_path)):
-            os.mkdir(output_path)
 
         # Load regions to exclude for this animal
         exclude_dict = list_regions_to_exclude(os.path.join(root, animal))
@@ -503,6 +503,8 @@ def collect_and_analyze_cell_counts(root, animal_list, AllenBrain, area_key, tra
         brain_df = brain_df.groupby(brain_df.index, axis=0).sum()
 
         # Save brain_df
+        output_path = os.path.join(output_path_root, animal)
+        os.makedirs(output_path, exist_ok=True)
         brain_df.to_csv(os.path.join(output_path, animal+'_cell_counts.txt'), sep='\t', mode='w')
                         
         print(f'Raw cell counts are saved to {output_path}\n')
