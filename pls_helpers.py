@@ -24,7 +24,7 @@ class PLS:
     - Ly (pd dataframe): latent variables of Y, i.e. projection of Y on u.
     '''
     
-    def __init__(self, results_il, results_bla, animal_list_il, animal_list_bla,  regions, tracer, normalization):
+    def __init__(self, results_il, results_bla, animal_list_il, animal_list_bla, regions, tracer, normalization):
         
         # Fill a data matrix
         animal_list = animal_list_il + animal_list_bla
@@ -32,14 +32,14 @@ class PLS:
 
         for animal in animal_list_il:
             data.loc[regions,animal] = results_il.swaplevel(axis=0).loc[(animal,regions),(tracer,normalization)].reset_index(level=0, drop=True)
-            data.loc['group',animal] = 1
+            data.loc['group',animal] = True
 
         for animal in animal_list_bla:
             data.loc[regions,animal] = results_bla.swaplevel(axis=0).loc[(animal,regions),(tracer,normalization)].reset_index(level=0, drop=True)
-            data.loc['group',animal] = 0
+            data.loc['group',animal] = False
 
-        self.X = data.loc[regions].T.dropna('columns')
-        self.y = data.loc['group'].T
+        self.X = data.loc[regions].T.dropna(axis='columns').astype('float64', copy=False)
+        self.y = data.loc['group'].T.astype('bool', copy=False)
         self.u, self.s, self.v = self.partial_least_squares_correlation(self.X,self.y)
         
         self.Lx = self.X @ self.v
