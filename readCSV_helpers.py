@@ -248,7 +248,7 @@ def list_regions_to_exclude(path_to_animal):
     return exclude_dict
     
 #%%
-def exclude_regions(df, regs_to_exclude, edges, tree):
+def exclude_regions(df, regs_to_exclude, AllenBrain):
     '''
     Take care of regions to be excluded from the analysis.
     If a region is to be excluded, 2 things must happen:
@@ -266,7 +266,7 @@ def exclude_regions(df, regs_to_exclude, edges, tree):
         # from their parent regions.
         child = reg
         while True:
-            parent = edges[child]
+            parent = AllenBrain.edges_dict[child]
             row = hemi+': '+parent
             # Subtract the counting results from the parent region.
             # Use fill_value=0 to prevent "3-NaN=NaN".
@@ -278,7 +278,7 @@ def exclude_regions(df, regs_to_exclude, edges, tree):
 
         # Step 2: Remove the regions that should be excluded
         # together with their daughter regions.
-        subregions = list_all_subregions(reg, tree)
+        subregions = list_all_subregions(reg, AllenBrain.tree_dict)
         for subreg in subregions:
             row = hemi+': '+subreg
             if row in df.index:
@@ -287,7 +287,7 @@ def exclude_regions(df, regs_to_exclude, edges, tree):
     return df
 
 #%%
-def load_cell_counts(root, exclude_dict, edges, tree, area_key, tracer_key, marker_key):
+def load_cell_counts(root, exclude_dict, AllenBrain, area_key, tracer_key, marker_key):
     '''
     Function to load cell counts, stored in .csv files in the 'root' directory,
     as Pandas dataframes.
@@ -378,7 +378,7 @@ def load_cell_counts(root, exclude_dict, edges, tree, area_key, tracer_key, mark
                 
                 # Take care of regions to be excluded
                 regs_to_exclude = list(dict.fromkeys(regs_to_exclude))
-                df = exclude_regions(df, regs_to_exclude, edges, tree)
+                df = exclude_regions(df, regs_to_exclude, AllenBrain)
                 
                 # Store results in dictionaries / lists
                 slice_regions[f] = region_dict
@@ -469,8 +469,6 @@ def collect_and_analyze_cell_counts(root, animal_list,
     markers = [marker_key]
 
     # Load brain ontology (brain hierarchy) --------------------------------------
-    edges = AllenBrain.edges_dict
-    tree = AllenBrain.tree_dict
     brain_region_dict = AllenBrain.brain_region_dict
 
     # Initialize a results dataframe. --------------------------------------------
@@ -492,7 +490,7 @@ def collect_and_analyze_cell_counts(root, animal_list,
         exclude_dict = list_regions_to_exclude(os.path.join(root, animal))
 
         # Load cell counts, excluding the regions we want to exclude
-        df_list,slice_regions,slice_data = load_cell_counts(input_path, exclude_dict, edges, tree, area_key, tracer_key, marker_key)
+        df_list,slice_regions,slice_data = load_cell_counts(input_path, exclude_dict, AllenBrain, area_key, tracer_key, marker_key)
         print(f'Imported {str(len(df_list))} slices.')
 
         # Now comes the tricky part. We'll first concatenate the dataframes
