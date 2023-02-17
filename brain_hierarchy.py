@@ -13,7 +13,8 @@ import networkx as nx
 from networkx.drawing.nx_pydot import graphviz_layout
 import plotly.graph_objects as go
 
-from operator import xor, itemgetter
+import copy
+from operator import xor
 from visit_dict import *
 
 class AllenBrainHierarchy:
@@ -161,9 +162,22 @@ class AllenBrainHierarchy:
         return {area["acronym"]: area["name"] for area in all_nodes}
 
     
-    def to_nx_attributes(self, attrs):
-        all_nodes = get_all_nodes(self.dict, "children")
-        {node["id"]: itemgetter(*attrs)(node) for node in all_nodes}
+    def to_nx_attributes(self, attributes):
+        # due to a bug of networkx it's not possible to call an attribute 'name'.
+        # However we have a 'name' attribute in Allen's JSON.
+        # For this reason we change it to 'region_name'
+        if "region_name" in attributes:
+            def change_attr_name(d, old_attr, new_attr):
+                d[new_attr] = d[old_attr]
+                del d[old_attr]
+            brain_dict = copy.deepcopy(self.dict)
+            visit_bfs(brain_dict, "children", lambda node,_: change_attr_name(node, "name", "region_name"))
+        else:
+            brain_dict = self.dict
+
+        all_areas = get_all_nodes(brain_dict, "children")
+        attributes_dict = {area["id"]: {attribute: area[attribute] for attribute in attributes} for area in all_areas}
+        return attributes_dict
 
     def get_nx_graph(self):
         G = nx.Graph()
@@ -171,12 +185,11 @@ class AllenBrainHierarchy:
         G.add_edges_from(edges.items())
         
         # Add attributes to the regions
-        attribute_columns = ['acronym','name','color_hex_triplet','depth']
+        attribute_columns = ['acronym', 'region_name', 'color_hex_triplet', 'depth']
         attrs = self.to_nx_attributes(attribute_columns)
         nx.set_node_attributes(G, attrs)
         #for col_name in attribute_columns:
         #    nx.set_node_attributes(G, self.df[col_name].to_dict(), col_name)
-
         return G
 
     def plot_plotly_graph(self):
@@ -189,8 +202,9 @@ class AllenBrainHierarchy:
         G = self.get_nx_graph()
         if not(hasattr(self, 'pos')):
             print('Calculating node positions...')
-            self.pos = graphviz_layout(G, prog='dot')
-            nx.set_node_attributes(G, self.pos, 'pos')
+            self.nx_node_pos = graphviz_layout(G, prog='dot')
+            self.nx_node_pos = {int(n):p for n,p in self.nx_node_pos.items()}
+            nx.set_node_attributes(G, self.nx_node_pos, name='pos')
 
         edge_x = []
         edge_y = []
@@ -234,7 +248,7 @@ class AllenBrainHierarchy:
             # Region name as text to show
             node_text.append(G.nodes()[node_id]['region_name'] + ' (' +
                              G.nodes()[node_id]['acronym'] + '), ' + 
-                             'level = ' + str(G.nodes()[node_id]['distance_from_root'])) 
+                             'level = ' + str(G.nodes()[node_id]['depth'])) 
 
         node_trace.marker.color = node_colors
         node_trace.text = node_text

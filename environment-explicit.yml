@@ -8,4 +8,5 @@ dependencies:
   - plotly
   - nbformat
   - python-kaleido
+  - pydot
 prefix: /home/carlo/.local/share/conda/envs/cfos_env
