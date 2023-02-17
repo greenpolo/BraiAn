@@ -1,7 +1,14 @@
+# for breadth-first search
 def pop_queue(q):
     x = q[0]
     return q[1:], x
 
+# for depth-first search
+def pop_stack(s):
+    x = s[-1]
+    return s[:-1], x
+
+# Breadth-first search
 def find_subtree(node, key, value, children_key):
     if key in node and node[key] == value:
         return node
@@ -9,11 +16,12 @@ def find_subtree(node, key, value, children_key):
     to_visit = node[children_key]
     while len(to_visit) != 0:
         to_visit, child = pop_queue(to_visit)
-        if key in child and child[key] == value:
+        if child[key] == value:
             return child
         to_visit.extend(child[children_key])
     return None
 
+# Breadth-first visit
 def visit_bfs(node, children_key, fun):
     to_visit = [node]
     depth = 0

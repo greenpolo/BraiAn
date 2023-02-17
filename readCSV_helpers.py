@@ -212,22 +212,20 @@ def exclude_regions(df, regs_to_exclude, AllenBrain):
     '''
 
     for reg_hemi in regs_to_exclude:
+        if ": " not in reg_hemi:
+            raise SyntaxError("A region_to_exclude file is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'")
         hemi = reg_hemi.split(': ')[0]
         reg = reg_hemi.split(': ')[1]
 
         # Step 1: subtract counting results of the regions to be excluded
         # from their parent regions.
-        child = reg
-        while True:
-            parent = AllenBrain.edges_dict[child]
-            row = hemi+': '+parent
+        regions_above = AllenBrain.get_regions_above(reg)
+        for region in regions_above:
+            row = hemi+': '+region
             # Subtract the counting results from the parent region.
             # Use fill_value=0 to prevent "3-NaN=NaN".
             if row in df.index and reg_hemi in df.index:
-                df.loc[row] = df.loc[row].subtract( df.loc[reg_hemi], fill_value=0 )
-            if (parent == 'root'):
-                break
-            child = parent # go one step further in the tree
+                df.loc[row] = df.loc[row].subtract(df.loc[reg_hemi], fill_value=0 )
 
         # Step 2: Remove the regions that should be excluded
         # together with their daughter regions.

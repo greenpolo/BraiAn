@@ -24,6 +24,7 @@ class AllenBrainHierarchy:
         self.dict = allen_data["msg"][0]
         if blacklisted_acronyms:
             self.blacklist_regions(blacklisted_acronyms)
+            # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
 
         self.add_depth_to_regions()
@@ -40,6 +41,8 @@ class AllenBrainHierarchy:
         # Then find every region to-be-blacklisted, and blacklist all its tree
         for blacklisted_acronym in blacklisted_acronyms:
             blacklisted_region = find_subtree(self.dict, attr, blacklisted_acronym, "children")
+            if not blacklisted_region:
+                raise ValueError(f"Can't find a region with '{attr}'='{blacklisted_region}' to blacklist in Allen's Brain")
             visit_bfs(blacklisted_region, "children", lambda n,d: set_blacklisted(n, True))
 
     def add_depth_to_regions(self):
@@ -119,13 +122,36 @@ class AllenBrainHierarchy:
         Output
         ------
             subregions (list)
-            List of all subregions at all hierarchical levels.
+            List of all subregions at all hierarchical levels, including 'region_acronym'.
         '''
         attr = "acronym"
         region = find_subtree(self.dict, attr, region_acronym, "children")
+        if not region:
+            raise ValueError(f"Can't find a region with '{attr}'='{region_acronym}' in Allen's Brain")
         subregions = get_all_nodes(region, "children")
         return [subregion[attr] for subregion in subregions]
-
+    
+    def get_regions_above(self, region_acronym):
+        '''
+        This function lists all the regions for which 'region_acronym' is a subregion.
+        
+        Inputs
+        ------
+            region_acronym (str)
+            Acronym of the region of which you want to know the regions above.
+            
+        Output
+        ------
+            subregions (list)
+            List of all regions above, excluding 'region_acronym'.
+        '''
+        path = []
+        attr = "acronym"
+        while region_acronym in self.edges_dict.keys():
+            parent = self.edges_dict[region_acronym]
+            path.append(parent)
+            region_acronym = parent
+        return path
 
     def get_full_names(self):
         '''
