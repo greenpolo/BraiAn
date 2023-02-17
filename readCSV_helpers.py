@@ -140,53 +140,6 @@ def find_regions_and_classes_in_slice(data):
     return region_dict
 
 #%%
-def list_all_subregions(region_to_list, tree):
-    '''
-    This function lists all subregions belonging to region_to_list.
-    It includes subregions on all hierarchical levels.
-    
-    Inputs
-    ------
-        region_to_list (str)
-        Name of the region of which you want to know the subregions.
-        
-        tree (dict)
-        Dictionary with brain regions as keys and their children as value.
-        
-    Output
-    ------
-        subregions (list)
-        List of all subregions.
-    '''
-    
-    d = copy.deepcopy(tree) 
-    subregions = [region_to_list]
-
-    # Initialize the region to list as child.
-    child = region_to_list
-
-    # Keep walking as long as the region_to_list is in the
-    # copied brain dictionary.
-    while region_to_list in d.keys(): 
-
-        region = child
-        # Add this subregion to the list, if it wasn't in there already
-        if region not in subregions:
-            subregions.append(region)
-
-        if region in d.keys():   # If the region still has unlisted children ...
-            parent = region      # the region now becomes a parent ...
-            child = d[parent][0] # and we take the first of its children as new child.
-
-        else:                         # If the region has no unlisted children ...
-            d[parent].remove(region)  # we remove it from its parent ...
-            child = region_to_list    # and go back to start.
-            if len(d[parent])==0:     # We remove the parent if this was the last child.
-                del d[parent]
-    
-    return subregions
-
-#%%
 def list_regions_to_exclude_from_file(path_to_exclusion_file):
     '''
     Read the csv file containing the regions to exclude for each image,
@@ -278,7 +231,7 @@ def exclude_regions(df, regs_to_exclude, AllenBrain):
 
         # Step 2: Remove the regions that should be excluded
         # together with their daughter regions.
-        subregions = list_all_subregions(reg, AllenBrain.tree_dict)
+        subregions = AllenBrain.list_all_subregions(reg)
         for subreg in subregions:
             row = hemi+': '+subreg
             if row in df.index:
@@ -364,17 +317,14 @@ def load_cell_counts(root, exclude_dict, AllenBrain, area_key, tracer_key, marke
                 elif not(left_hemi) and right_hemi: # if we have only right, data = data_right
                     data = data_right
 
-                # We want the Area in mm^2
-                #data['DAPI: DAPI area mm^2'] = data['DAPI: DAPI area um^2']*1000000
-
                 # Find regions in current slice
                 region_dict = find_regions_and_classes_in_slice(data)
 
                 # Combine cell counts
                 df = pd.DataFrame(data, columns=[area_key, tracer_key])
                 df.rename(columns={area_key: 'area', tracer_key: marker_key}, inplace=True)
+                #@assert (df.area > 0).all()
                 df = df[df['area'] > 0]
-                # df = sum_cell_counts(data, sum_dict=sum_dict)
                 
                 # Take care of regions to be excluded
                 regs_to_exclude = list(dict.fromkeys(regs_to_exclude))
@@ -430,6 +380,7 @@ def sort_hemispheres(data):
     
     return data_sorted.rename(columns={'Sum':'cell counts'})
 
+# TODO: check if the normalization is correct
 #%%
 def normalize_cell_counts(brain_df, tracer):
     '''
