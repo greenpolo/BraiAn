@@ -27,7 +27,8 @@ class PLS:
     def __init__(self, group_1_results, group_2_results, group_1_names, group_2_names, regions, tracer, normalization):
         
         # Fill a data matrix
-        animal_list = group_1_names + group_2_names
+        animal_list = list(group_1_names.union(group_2_names)) #group_1_names + group_2_names
+        animal_list.sort()
         data = pd.DataFrame(index=regions+['group'], columns=animal_list)
 
         for animal in group_1_names:
