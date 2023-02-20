@@ -36,7 +36,7 @@ class AllenBrainHierarchy:
     def blacklist_regions(self, blacklisted_acronyms):
         attr = "acronym"
         def set_blacklisted(node, is_blacklisted):
-            node["is_blacklisted"] = is_blacklisted
+            node["blacklisted"] = is_blacklisted
         # First label every region as 'not blacklisted'
         visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
         # Then find every region to-be-blacklisted, and blacklist all its tree
@@ -53,15 +53,28 @@ class AllenBrainHierarchy:
 
     def select_at_depth(self, level):
         def is_selected(node, depth):
-            return not node["is_blacklisted"] and (
-                depth == level or \
-                (depth < level and not node["children"])
-            )
-        areas = get_where(self.dict, "children", is_selected)
-        return [area["acronym"] for area in areas]
+            return depth == level or (depth < level and not node["children"])
+        add_boolean_attribute(self.dict, "children", "selected", is_selected)
 
     def select_at_structural_level(self, level):
-        areas = get_where(self.dict, "children", lambda node,d: node["st_level"] == level)
+        add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["st_level"] == level)
+
+    # Meant for selecting Summary Structures.
+    # Summary Structures is a list of non-overlapping, finer divisions, independent of their exact depth in the tree
+    # i.e., they're brain regions that are often used in the literature.
+    # They can be retrieved from Table S2 of the following paper:
+    # https://www.sciencedirect.com/science/article/pii/S0092867420304025
+    def select_from_csv(self, file):
+        regions = pd.read_csv(file, sep="\t", index_col=0)
+        add_boolean_attribute(self.dict, "children", "selected", lambda n,d: n["id"] in regions["id"].values)
+    
+    def unselect_all(self):
+        if "selected" in self.dict:
+            del_attribute(self.dict, "children", "selected")
+
+    def get_selected_regions(self):
+        assert "selected" in self.dict, "No area is selected."
+        areas = get_where(self.dict, "children", lambda n,d: n["selected"] and not n["blacklisted"])
         return [area["acronym"] for area in areas]
     
     def get_sibiling_areas(self, acronym=None, id=None) -> list:

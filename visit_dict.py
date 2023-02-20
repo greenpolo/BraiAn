@@ -34,6 +34,16 @@ def visit_bfs(node, children_key, fun):
             to_visit.extend(child[children_key])
         depth += 1
 
+def add_boolean_attribute(tree, children_key, attr_name, is_true, visit=visit_bfs):
+    def select(node, depth):
+        node[attr_name] = is_true(node, depth)
+    visit(tree, children_key, select)
+
+def del_attribute(tree, children_key, attr_name, visit=visit_bfs):
+    def del_attr(node, depth):
+        del node[attr_name]
+    visit(tree, children_key, del_attr)
+
 def get_where(tree, children_key, filter_fun, visit=visit_bfs) -> list[dict]:
     nodes = []
     add_if_true = lambda node,depth: nodes.append(node) if filter_fun(node,depth) else None
@@ -108,5 +118,5 @@ if __name__ == "__main__":
     #print([summary_st for summary_st in summary_sts if summary_st not in [r[0] for r in all_discrepancies]])
     print(f"N TOTAL DISCREPANCIES: {len(all_discrepancies)}")
     print(f"N SUMMARY STRUCTURES: {len(summary_sts)}")
-    print(f"N DISCREPANCIES - SUMMARY STRUCTURES: {len(discrepancies) - len(summary_sts)}")
+    #print(f"N DISCREPANCIES - SUMMARY STRUCTURES: {len(discrepancies) - len(summary_sts)}")
     print(f"N DISCREPANCIES: {len(discrepancies)}")
