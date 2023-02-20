@@ -349,127 +349,39 @@ def init_dict(key_list, init_value):
         output_dict[key] = init_value
     
     return output_dict
-
 #%%
-def sort_hemispheres(data):
+def merge_hemispheres(slice):
     '''
-    Function takes as input a dataframe with only one column (the data to plot).
-    The rows represent regions, with left and right seperated.
+    Function takes as input a dataframe. Each row represents a left/right part of a region.
     
-    The output is a dataframe with three columns:
-    'Left' for each region, 'Right' for each region and the sum of the two.
+    The output is a dataframe with each column being the sum of the two hemispheres
     '''
-    
-    all_regions = data.index.to_list()
-    present_regions = [find_region_abbreviation(r) for r in all_regions]
-    present_regions = list(dict.fromkeys(present_regions)) # remove doubles
-    
-    # Put normalized counts of seperate hemispheres in seperate columns
-    data_sorted = pd.DataFrame(np.nan, index=present_regions, columns=['Left', 'Right', 'Sum'])
-    for region in present_regions:
-        if 'Left: ' + region in all_regions:
-            data_sorted['Left'][region] = data['Left: ' + region]
-        if 'Right: ' + region in all_regions:
-            data_sorted['Right'][region] = data['Right: ' + region]
+    corresponding_region = [find_region_abbreviation(region) for region in slice.index]
+    return slice.groupby(corresponding_region, axis=0).sum(min_count=1)
 
-    # Sum of left and right
-    data_sorted['Sum'] = data_sorted[['Left','Right']].sum(axis=1, min_count=1)
-    data_sorted = data_sorted.drop(columns = ['Left', 'Right'])
-    
-    return data_sorted.rename(columns={'Sum':'cell counts'})
-
-# TODO: check if the normalization is correct
 #%%
 def normalize_cell_counts(brain_df, tracer):
     '''
     Do normalization of the cell counts for one tracer.
-    The tracer can be any column name of brain_df, e.g. 'TVA', 'RAB', 'CTB_RAB'.
-    The output will be a dataframe with three columns: 'Left', 'Right' and 'Sum'.
-    The columns 'Left' and 'Right' are normalized w.r.t one hemisphere only.
-    The 'Sum' column is normalized w.r.t the whole brain.
+    The tracer can be any column name of brain_df, e.g. 'CFos'.
+    The output will be a dataframe with three columns: 'Density', 'Percentage' and 'RelativeDensity'.
+    Each row is one of the original brain regions
     '''
-    
-    # Sort the hemispheres (Get 'Left', 'Right' and 'sum' as seperate columns)
-    area = sort_hemispheres(brain_df['area'])
-    cell_counts = sort_hemispheres(brain_df[tracer])
     
     # Init dataframe
     columns = ['Density','Percentage','RelativeDensity']
-    norm_cell_counts = pd.DataFrame(np.nan, index=cell_counts.index, columns=columns)
+    norm_cell_counts = pd.DataFrame(np.nan, index=brain_df.index, columns=columns)
 
     # Get the the brainwide area and cell counts (corresponding to the root)
-    brainwide_area = area.loc['root']
-    brainwide_cell_counts = cell_counts.loc['root']
+    brainwide_area = brain_df["area"]["root"]
+    brainwide_cell_counts = brain_df[tracer]["root"]
     
     # Do the normalization for each column seperately.
-    norm_cell_counts['Density'] = cell_counts / area
-    norm_cell_counts['Percentage'] = cell_counts / brainwide_cell_counts 
-    norm_cell_counts['RelativeDensity'] = (cell_counts / area) / (brainwide_cell_counts / brainwide_area)
+    norm_cell_counts['Density'] = brain_df[tracer] / brain_df["area"]
+    norm_cell_counts['Percentage'] = brain_df[tracer] / brainwide_cell_counts 
+    norm_cell_counts['RelativeDensity'] = (brain_df[tracer] / brain_df["area"]) / (brainwide_cell_counts / brainwide_area)
     
     return norm_cell_counts
-
-#%%
-def collect_and_analyze_cell_counts(root, animal_list,
-                                    AllenBrain, area_key, 
-                                    tracer_key, marker_key,
-                                    output_path_root):
-
-    normalizations = ['Density','Percentage','RelativeDensity']
-    markers = [marker_key]
-
-    # Load brain ontology (brain hierarchy) --------------------------------------
-    brain_region_dict = AllenBrain.brain_region_dict
-
-    # Initialize a results dataframe. --------------------------------------------
-    # This is a dataframe with hierarchical columns. 
-    # Hierarchy: tracer -> animal -> hemisphere.
-    row_iterables = [brain_region_dict.keys(), animal_list]
-    col_iterables = [markers, normalizations]
-    row_multi_index = pd.MultiIndex.from_product(row_iterables)
-    col_multi_index = pd.MultiIndex.from_product(col_iterables)
-    results = pd.DataFrame(np.nan, index=row_multi_index, columns=col_multi_index)
-
-    # Loop over animals, load the data and normalize counts --------------------
-    for animal in animal_list:
-
-        print(f'Importing slices in {animal}...')
-        input_path = os.path.join(root, animal, 'results')
-
-        # Load regions to exclude for this animal
-        exclude_dict = list_regions_to_exclude(os.path.join(root, animal))
-
-        # Load cell counts, excluding the regions we want to exclude
-        df_list,slice_regions,slice_data = load_cell_counts(input_path, exclude_dict, AllenBrain, area_key, tracer_key, marker_key)
-        print(f'Imported {str(len(df_list))} slices.')
-
-        # Now comes the tricky part. We'll first concatenate the dataframes
-        # of all slices into one big dataframe (brain_df).
-        # Then, we combine the rows with the same index (=region name), and sum them.
-        # That is, we sum the results (area, cell counts) per region across slices.
-        brain_df = pd.concat(df_list)
-        brain_df = brain_df.groupby(brain_df.index, axis=0).sum()
-
-        # Save brain_df
-        output_path = os.path.join(output_path_root, animal)
-        os.makedirs(output_path, exist_ok=True)
-        brain_df.to_csv(os.path.join(output_path, animal+'_cell_counts.txt'), sep='\t', mode='w')
-                        
-        print(f'Raw cell counts are saved to {output_path}\n')
-
-        # Normalize the results
-        for m in markers:
-
-            # Normalize
-            normalized_cell_counts = normalize_cell_counts(brain_df, m)
-
-            # Save results per animal
-            present_regions = normalized_cell_counts.index.to_list()
-            for region in present_regions: # loop over all regions present
-
-                for norm in normalizations: # loop over normalization methods
-                    results.loc[(region, animal), (m, norm)] = normalized_cell_counts.loc[region, norm]
-        
-    return results
 
 #%%
 def save_results(results_df, output_path, filename):
