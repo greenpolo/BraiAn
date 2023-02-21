@@ -5,10 +5,13 @@ Spyder Editor
 This is a temporary script file.
 """
 
+from brain_hierarchy import AllenBrainHierarchy
+
 import pandas as pd
 import os
 import numpy as np
-import copy
+import plotly.graph_objects as go
+from itertools import product
 
 #%%
 def get_image_names_in_folder(path):
@@ -106,38 +109,6 @@ def find_region_abbreviation(region_class):
         region_abb = str(region_class)
         
     return region_abb
-
-#%%
-def filter_uppercase_characters(string):
-    '''
-    This function returns all uppercase characters in the input string.
-    Example: 'ACAd' returns 'ACA'.
-    '''
-    uppercase = [char for char in string if char.isupper()]
-    return ''.join(uppercase)
-
-#%%
-def find_regions_and_classes_in_slice(data):
-    '''
-    This function reads a dataframe that corresponds to a brain slice,
-    and returns a dictionary with the names of the classes appearing
-    in the slice as keys, and the full region names as the corresponding value.
-    Example: 
-    region_dict['ACAd'] = 'Anterior cingulate area, dorsal part' 
-    '''
-    # Get the number of rows, columns in dataframe
-    num_regions, num_measurements = data.shape
-    # Initialize region_dict
-    region_dict = {}
-    # Loop through all regions
-    for region_class in data.index.tolist():
-        # Put the region class name (abbreviation)
-        # as key in the dictionary, and the full region name as corresponding value.
-        region_name = data.loc[region_class,'Name']
-        region_class = find_region_abbreviation(region_class)
-        region_dict[region_class] = region_name
-        
-    return region_dict
 
 #%%
 def list_regions_to_exclude_from_file(path_to_exclusion_file):
@@ -250,8 +221,6 @@ def load_cell_counts(root, exclude_dict, AllenBrain, area_key, tracer_key, marke
     file_names = os.listdir(root)
     
     # Init dicts and lists to store data
-    slice_regions = {}   # which regions do we have per slice?
-    slice_data = {}      # what are the cell counts per slice?
     df_list = []         # list of all slice dataframes
     
     # Loop through the image names
@@ -315,9 +284,6 @@ def load_cell_counts(root, exclude_dict, AllenBrain, area_key, tracer_key, marke
                 elif not(left_hemi) and right_hemi: # if we have only right, data = data_right
                     data = data_right
 
-                # Find regions in current slice
-                region_dict = find_regions_and_classes_in_slice(data)
-
                 # Combine cell counts
                 df = pd.DataFrame(data, columns=[area_key, tracer_key])
                 df.rename(columns={area_key: 'area', tracer_key: marker_key}, inplace=True)
@@ -329,26 +295,10 @@ def load_cell_counts(root, exclude_dict, AllenBrain, area_key, tracer_key, marke
                 df = exclude_regions(df, regs_to_exclude, AllenBrain)
                 
                 # Store results in dictionaries / lists
-                slice_regions[f] = region_dict
-                slice_data[f] = df
                 df_list.append(df)
     
-    return df_list,slice_regions,slice_data
+    return df_list
 
-#%%
-def init_dict(key_list, init_value):
-    '''
-    This function initializes a dictionary with keys as specified in key_list,
-    and corresponding values in init_value.
-    
-    key_list: list with keys
-    init_value: value to initialize with
-    '''
-    output_dict = {}
-    for key in key_list:
-        output_dict[key] = init_value
-    
-    return output_dict
 #%%
 def merge_hemispheres(slice):
     '''
@@ -397,3 +347,107 @@ def save_results(results_df, output_path, filename):
     print('Results are saved in '+output_path)
     print('\nDone!')
     return True
+
+def read_group_slices(animal_root: str, animal_dirs: list[str], AllenBrain: AllenBrainHierarchy, \
+                        area_key: str, tracer_key: str, marker_key) -> list[list[pd.DataFrame]]:
+    animals_slices_paths = [os.path.join(animal_root, animal, 'results') for animal in animal_dirs]
+    animals_excluded_regions = [list_regions_to_exclude(os.path.join(animal_root, animal)) for animal in animal_dirs]
+    # load_cell_counts() -> list[pd.DataFrame]
+    return [load_cell_counts(input_path, exluded_regions, AllenBrain, area_key, tracer_key, marker_key) for (input_path, exluded_regions) in zip(animals_slices_paths, animals_excluded_regions)]
+
+def area_µm2_to_mm2(group) -> None:
+    for slices in group:
+        for slice in slices:
+            slice.area = slice.area * 1e-06
+
+# for each brain region, aggregate marker counts from all the animal's slices into one value.
+# aggregation methods: sum, std, coefficient of variation
+def sum_cell_counts(slices: list[pd.DataFrame]) -> pd.DataFrame:# methods: Callable[[int, int], int]):
+    slices_df = pd.concat(slices)
+    slices_df = slices_df.groupby(slices_df.index, axis=0).sum()
+    return slices_df
+
+def animal_cell_density(slices: list[pd.DataFrame], marker_key: str) -> pd.Series:
+    slices_marker_densities = [slice[marker_key] / slice["area"] for slice in slices]
+    return pd.concat(slices_marker_densities)
+
+# https://en.wikipedia.org/wiki/Coefficient_of_variation
+def coefficient_variation(x) -> np.float64:
+    avg = x.mean()
+    if len(x) > 1 and avg != 0:
+        return x.std(ddof=1) / avg
+    else:
+        return 0
+
+def reduce_brain_densities(slices: list[pd.DataFrame], marker_key: str, mode, hemisphere_distinction=False) -> pd.Series:
+    match mode:
+        case "mean" | "avg":
+            reduction_fun = np.mean
+        case "std":
+            reduction_fun = np.std
+        case "variation" | "cvar":
+            reduction_fun = coefficient_variation
+        case _:
+            raise NameError("Invalid mode selected.")
+    if not hemisphere_distinction:
+        slices = [merge_hemispheres(slice) for slice in slices]
+    marker_densities = animal_cell_density(slices, marker_key)
+    reduction_per_region = marker_densities.groupby(marker_densities.index, axis=0).apply(reduction_fun)
+    return reduction_per_region
+
+def write_brains(root_output_path: str, animal_names: list[str], animal_brains: list[pd.DataFrame]) -> None:
+    assert len(animal_names) == len(animal_brains),\
+        f"The number of animals read and analysed ({len(animal_brains)}) differs from the numner of animals in the input group ({len(animal_names)})"
+    for i in range(len(animal_names)):
+        brain = animal_brains[i]
+        name = animal_names[i]
+        output_path = os.path.join(root_output_path, animal_names[i])
+        os.makedirs(output_path, exist_ok=True)
+        output_path = os.path.join(output_path, name+'_summed.csv')
+        brain.to_csv(output_path, sep='\t', mode='w')
+        print(f'Raw summed cell counts are saved to {output_path}')
+
+def analyze(animal_names: list[str], animal_brains: list[pd.DataFrame], marker_key: str, AllenBrain: AllenBrainHierarchy) -> pd.DataFrame:
+    brain = pd.concat({name: normalize_cell_counts(brain, marker_key) for name,brain in zip(animal_names, animal_brains)})
+    brain = pd.concat({marker_key: brain}, axis=1)
+    brain = brain.reorder_levels([1,0], axis=0)
+    ordered_indices = product(AllenBrain.brain_region_dict.keys(), animal_names)
+    brain = brain.reindex(ordered_indices, fill_value=np.nan)
+    return brain
+
+def plot_cv_above_threshold(brains_CV, brains_name, marker_key, cv_threshold=1) -> go.Figure: 
+    fig = go.Figure()
+    for i,cv in enumerate(brains_CV):
+        above_threshold_filter = cv > cv_threshold
+        # Scatterplot (animals)
+        fig.add_trace(go.Scatter(
+                            mode = 'markers',
+                            y = cv[above_threshold_filter],
+                            x = [i]*above_threshold_filter.sum(),
+                            text = cv.index[above_threshold_filter],
+                            opacity=0.7,
+                            marker=dict(
+                                size=7,
+                                line=dict(
+                                    color='rgb(0,0,0)',
+                                    width=1
+                                )
+                            ),
+                            showlegend=False
+                    )
+        )
+
+    fig.update_layout(
+        title = f"Coefficient of variaton of {marker_key} across brain slices > {cv_threshold}",
+        
+        xaxis = dict(
+            tickmode = 'array',
+            tickvals = np.arange(0,len(brains_name)),
+            ticktext = brains_name
+        ),
+        yaxis=dict(
+            title = "Brain regions' CV"
+        ),
+        width=700, height=500
+    )
+    return fig
