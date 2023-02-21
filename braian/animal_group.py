@@ -7,14 +7,17 @@ from .brain_hierarchy import AllenBrainHierarchy
 from .animal_brain import AnimalBrain, merge_hemispheres
 
 class AnimalGroup:
-    def __init__(self, name: str, animals: list[AnimalBrain], marker: str, AllenBrain: AllenBrainHierarchy,
+    def __init__(self, name: str, animals: list[AnimalBrain], AllenBrain: AllenBrainHierarchy,
                 hemisphere_distinction=False) -> None:
         assert all([brain.mode == "sum" for brain in animals]), "Can't normalize AnimalBrains whose slices' cell count were not summed."
+        assert len(animals) > 0, "Inside the group there must be at least one animal."
+        self.marker = animals[0].marker
+        assert all([brain.marker == self.marker for brain in animals]), "All AnimalBrain composing the group must use the same marker."
         if not hemisphere_distinction:
             animals = [merge_hemispheres(animal_brain) for animal_brain in animals]
         self.name = name
-        self.data = pd.concat({brain.name: self.normalize_cell_counts(brain, marker) for brain in animals})
-        self.data = pd.concat({marker: self.data}, axis=1)
+        self.data = pd.concat({brain.name: self.normalize_cell_counts(brain, self.marker) for brain in animals})
+        self.data = pd.concat({self.marker: self.data}, axis=1)
         self.data = self.data.reorder_levels([1,0], axis=0)
         ordered_indices = product(AllenBrain.brain_region_dict.keys(), [animal.name for animal in animals])
         self.data = self.data.reindex(ordered_indices, fill_value=np.nan)

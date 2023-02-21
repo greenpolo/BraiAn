@@ -5,7 +5,7 @@ from .sliced_brain import *
 from .animal_brain import *
 from .animal_group import *
 
-def plot_cv_above_threshold(brains_CV, brains_name, marker_key, cv_threshold=1) -> go.Figure: 
+def plot_cv_above_threshold(brains_CV, brains_name, marker, cv_threshold=1) -> go.Figure: 
     fig = go.Figure()
     for i,cv in enumerate(brains_CV):
         above_threshold_filter = cv > cv_threshold
@@ -28,7 +28,7 @@ def plot_cv_above_threshold(brains_CV, brains_name, marker_key, cv_threshold=1) 
         )
 
     fig.update_layout(
-        title = f"Coefficient of variaton of {marker_key} across brain slices > {cv_threshold}",
+        title = f"Coefficient of variaton of {marker} across brain slices > {cv_threshold}",
         
         xaxis = dict(
             tickmode = 'array',

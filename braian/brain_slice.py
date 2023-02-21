@@ -7,6 +7,7 @@ class BrainSlice:
     def __init__(self, AllenBrain: AllenBrainHierarchy, csv_file: str, excluded_regions_file: str,
                     name: str, area_key: str, tracer_key: str, marker_key, area_units="µm2") -> None:
         self.name = name
+        self.marker = marker_key
         with open(excluded_regions_file, mode="r", encoding="utf-8") as file:
             excluded_regions = file.readlines()
         excluded_regions = [line.strip() for line in excluded_regions]
@@ -85,12 +86,12 @@ class BrainSlice:
     def area_µm2_to_mm2(self) -> None:
         self.data.area = self.data.area * 1e-06
 
-    def add_marker_density(self, marker) -> None:
+    def add_density(self) -> None:
         '''
         Adds a 'density' column to the BrainSlice
         '''
-        if f"{marker}_density" not in self.data.columns:
-            self.data[f"{marker}_density"] = self.data[marker] / self.data["area"]
+        if f"{self.marker}_density" not in self.data.columns:
+            self.data[f"{self.marker}_density"] = self.data[self.marker] / self.data["area"]
 
 
 def find_region_abbreviation(region_class):

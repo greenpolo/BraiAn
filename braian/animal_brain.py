@@ -16,22 +16,23 @@ def coefficient_variation(x) -> np.float64:
         return 0
 
 class AnimalBrain:
-    def __init__(self, sliced_brain, marker, mode="sum", hemisphere_distinction=True) -> None:
+    def __init__(self, sliced_brain, mode="sum", hemisphere_distinction=True) -> None:
         if not hemisphere_distinction:
             sliced_brain = merge_sliced_hemispheres(sliced_brain)
         if mode == "sum":
             self.data = self.sum_slices(sliced_brain)
         else:
-            sliced_brain.add_marker_density(marker)
-            self.data = self.reduce_brain_densities(sliced_brain, marker, mode)
+            sliced_brain.add_density()
+            self.data = self.reduce_brain_densities(sliced_brain, mode)
         self.name = sliced_brain.name
+        self.marker = sliced_brain.marker
         self.mode = mode
     
     def sum_slices(self, sliced_brain) -> pd.DataFrame:
         all_slices = sliced_brain.concat_slices()
         return all_slices.groupby(all_slices.index, axis=0).sum()
 
-    def reduce_brain_densities(self, sliced_brain, marker, mode) -> pd.Series:
+    def reduce_brain_densities(self, sliced_brain, mode) -> pd.Series:
         match mode:
             case "mean" | "avg":
                 reduction_fun = np.mean
@@ -41,7 +42,7 @@ class AnimalBrain:
                 reduction_fun = coefficient_variation
             case _:
                 raise NameError("Invalid mode selected.")
-        all_slices = sliced_brain.concat_slices()[f"{marker}_density"]
+        all_slices = sliced_brain.concat_slices()[f"{sliced_brain.marker}_density"]
         return all_slices.groupby(all_slices.index, axis=0).apply(reduction_fun)
 
     def write_brains(self, output_path: str) -> None:
