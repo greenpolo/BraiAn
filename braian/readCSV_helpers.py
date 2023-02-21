@@ -5,7 +5,7 @@ Spyder Editor
 This is a temporary script file.
 """
 
-from brain_hierarchy import AllenBrainHierarchy
+from .brain_hierarchy import AllenBrainHierarchy
 
 import pandas as pd
 import os

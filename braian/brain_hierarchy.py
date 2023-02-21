@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 
 import copy
 from operator import xor
-from visit_dict import *
+from .visit_dict import *
 
 class AllenBrainHierarchy:
     def __init__(self, path_to_allen_json, blacklisted_acronyms=[]):
