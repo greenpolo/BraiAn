@@ -46,7 +46,6 @@ class AnimalBrain:
         return all_slices.groupby(all_slices.index, axis=0).apply(reduction_fun)
 
     def write_all_brains(self, output_path: str) -> None:
-        output_path = os.path.join(output_path, self.name)
         os.makedirs(output_path, exist_ok=True)
         output_path = os.path.join(output_path, f"{self.name}_{self.mode}.csv")
         self.data.to_csv(output_path, sep="\t", mode="w")
