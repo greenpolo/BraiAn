@@ -45,7 +45,7 @@ class AnimalBrain:
         all_slices = sliced_brain.concat_slices()[f"{sliced_brain.marker}_density"]
         return all_slices.groupby(all_slices.index, axis=0).apply(reduction_fun)
 
-    def write_brains(self, output_path: str) -> None:
+    def write_all_brains(self, output_path: str) -> None:
         output_path = os.path.join(output_path, self.name)
         os.makedirs(output_path, exist_ok=True)
         output_path = os.path.join(output_path, f"{self.name}_{self.mode}.csv")

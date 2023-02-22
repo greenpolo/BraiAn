@@ -5,6 +5,7 @@ from itertools import product
 
 from .brain_hierarchy import AllenBrainHierarchy
 from .animal_brain import AnimalBrain, merge_hemispheres
+from .utils import save_csv
 
 class AnimalGroup:
     def __init__(self, name: str, \
@@ -72,16 +73,8 @@ class AnimalGroup:
         assert selected_regions is not None or animal is not None, "You must specify at least one of 'selected_regions' and 'animal' parameters"
         return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)[self.marker]
     
-    def to_csv(self, output_path, filename) -> bool:
-        if not(os.path.exists(output_path)):
-            os.mkdir(output_path)
-            print('\nCreated a new results_python folder '+output_path+' \n')
-        else:
-            print('\n! A results_python folder already existed in root. I am overwriting previous results!\n')
-        self.data.to_csv(os.path.join(output_path, filename), sep='\t', mode='w')
-
-        print(f"Results are saved in {output_path}")
-        return True
+    def to_csv(self, output_path, file_name, overwrite=False) -> None:
+        save_csv(self.data, output_path, file_name, overwrite=overwrite)
     
     @staticmethod
     def from_csv(group_name, root_dir, file_name):
