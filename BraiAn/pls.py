@@ -52,19 +52,34 @@ class PLS:
     def partial_least_squares_correlation(self,X,y):
     
         Y = pd.get_dummies(y)
-        
+#        print ('\n X:')
+#        print (X)
+#        print('\n y:')
+#        print (y)
+#        print ('\n gtdummies Y:')
+#        print(Y)
         num_animals,num_groups = Y.shape
-        
+#        print('\n num_animals:')
+#        print(num_animals)
+#        print('\n num_groups:')
+#        print(num_groups)
 
         # Compute M = diag{1.T * Y}.inv * Y.T * X (the average for each group)
         M = np.linalg.inv(np.diag(np.ones(num_animals).dot(Y))).dot( Y.T.dot(X) ).astype('float')
-        
+#        print('\n M:')
+#        print(M)
         # Mean-center M to get R
         R = M - np.ones((num_groups,1)).dot( np.ones((1,num_groups)).dot(M) ) / num_groups
-        
+#        print('\n other matrix to subtract to m:')
+#        print(num_animals)
+#        print('\n R:')
+#        print(R)
         # SVD
         u, s, vh = np.linalg.svd(R, full_matrices=False)
-        
+#        print('\n u:')
+#        print(u)
+#        print('\n s:')
+#        print(s)
         return u,s,vh.T
     
     def bootstrap_salience_scores(self,rank,num_bootstrap):
@@ -97,12 +112,16 @@ class PLS:
             
             X_perm = pd.DataFrame( self.X.to_numpy().astype('float') )
             y_perm = pd.Series( self.y.to_numpy()[random_index].astype('float') )
-            
+#            print ('y_perm after i='+ str(i)+': \n')
+#            print (y_perm)
+#            print ('\n x_perm after i='+ str(i)+': \n')
+#            print (X_perm)
             
             if np.array_equal(y_perm.to_numpy(), self.y.to_numpy()):
-                
+#                print ('in continue lop after after i='+ str(i)+': \n')
                 continue
 
+#            print('\n for i=' + str(i))
             u_random, singular_values[count,:], vh_random = self.partial_least_squares_correlation(X_perm,y_perm)
             count += 1
             
