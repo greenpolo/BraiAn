@@ -1,9 +1,9 @@
 from .brain_hierarchy import *
 from .pls_helpers import *
-from .brain_slice import *
-from .sliced_brain import *
-from .animal_brain import *
-from .animal_group import *
+from .brain_slice import BrainSlice, merge_slice_hemispheres
+from .sliced_brain import SlicedBrain, merge_sliced_hemispheres
+from .animal_brain import AnimalBrain, merge_hemispheres, filter_selected_regions
+from .animal_group import AnimalGroup
 
 def plot_cv_above_threshold(brains_CV, brains_name, marker, cv_threshold=1) -> go.Figure: 
     fig = go.Figure()

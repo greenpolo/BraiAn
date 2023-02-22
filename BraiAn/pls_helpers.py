@@ -10,6 +10,7 @@ import os
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from .animal_group import AnimalGroup
 
 class PLS:
     '''
@@ -24,19 +25,21 @@ class PLS:
     - Ly (pd dataframe): latent variables of Y, i.e. projection of Y on u.
     '''
     
-    def __init__(self, group_1_results, group_2_results, group_1_names, group_2_names, regions, tracer, normalization):
+    def __init__(self, group_1: AnimalGroup, group_2: AnimalGroup, regions: list[str], normalization: str) -> None:
         
         # Fill a data matrix
-        animal_list = list(group_1_names.union(group_2_names)) #group_1_names + group_2_names
+        group_1_animals = group_1.get_animals()
+        group_2_animals = group_2.get_animals()
+        animal_list = list(group_1_animals.union(group_2_animals))
         animal_list.sort()
         data = pd.DataFrame(index=regions+['group'], columns=animal_list)
 
-        for animal in group_1_names:
-            data.loc[regions,animal] = group_1_results.swaplevel(axis=0).loc[(animal,regions),(tracer,normalization)].reset_index(level=0, drop=True)
+        for animal in group_1_animals:
+            data.loc[regions,animal] = group_1.select(regions, animal)[normalization]
             data.loc['group',animal] = True
 
-        for animal in group_2_names:
-            data.loc[regions,animal] = group_2_results.swaplevel(axis=0).loc[(animal,regions),(tracer,normalization)].reset_index(level=0, drop=True)
+        for animal in group_2_animals:
+            data.loc[regions,animal] = group_2.select(regions, animal)[normalization]
             data.loc['group',animal] = False
 
         self.X = data.loc[regions].T.dropna(axis='columns').astype('float64', copy=False)
