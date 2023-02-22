@@ -58,20 +58,48 @@ class AnimalGroup:
 
         return norm_cell_counts
     
+    def get_normalization_methods(self):
+        return self.data.columns.get_level_values(1).to_list()
+    
     def get_animals(self):
         return {index[1] for index in self.data.index}
     
+    def get_all_regions(self):
+        return self.data.index.get_level_values(0).to_list()
+    
     def get_regions(self):
-        return set(self.data.index.get_level_values(0))
+        return set(self.get_all_regions())
     
     def is_comparable(self, other) -> bool:
         if type(other) != AnimalGroup:
             return False
-        return self.marker == other.marker and self.get_regions() == other.get_regions()
+        return self.marker == other.marker and \
+                self.get_regions() == other.get_regions()
     
-    def select(self, selected_regions: list[str]=None, animal: str=None) -> pd.DataFrame:
-        assert selected_regions is not None or animal is not None, "You must specify at least one of 'selected_regions' and 'animal' parameters"
+    def select(self, selected_regions: list[str], animal=None) -> pd.DataFrame:
+        if animal is None:
+            animal = list(self.get_animals())
         return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)[self.marker]
+    
+    def group_by_region(self, col=None):
+        if col is None:
+            # pd.DataFrame
+            data = self.data      
+        else:
+            # pd.Series
+            data = self.data[self.marker, col]
+        return data.groupby(self.get_all_regions())
+    
+    def get_plot_title(self, normalization):
+        match normalization:
+            case "Density":
+                return f"[#{self.marker} / area]"
+            case "Percentage":
+                return f"[#{self.marker} / brain]"
+            case "RelativeDensity":
+                return f"[#{self.marker} / area] / [{self.marker} (brain) / area (brain)]"
+            case _:
+                raise ValueError(f"Normalization methods available are: {', '.join(self.get_normalization_methods())}")
     
     def to_csv(self, output_path, file_name, overwrite=False) -> None:
         save_csv(self.data, output_path, file_name, overwrite=overwrite)

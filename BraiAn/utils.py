@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 
 def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False, sep="\t") -> None:
     os.makedirs(output_path, exist_ok=True)
@@ -13,39 +12,15 @@ def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False,
             print(f"WARNING: The file {file_name} already exists in {output_path}. Overwriting previous CSV!")
     df.to_csv(file_path, sep=sep, mode="w")
 
-def plot_cv_above_threshold(brains_CV, brains_name, marker, cv_threshold=1) -> go.Figure: 
-    fig = go.Figure()
-    for i,cv in enumerate(brains_CV):
-        above_threshold_filter = cv > cv_threshold
-        # Scatterplot (animals)
-        fig.add_trace(go.Scatter(
-                            mode = 'markers',
-                            y = cv[above_threshold_filter],
-                            x = [i]*above_threshold_filter.sum(),
-                            text = cv.index[above_threshold_filter],
-                            opacity=0.7,
-                            marker=dict(
-                                size=7,
-                                line=dict(
-                                    color='rgb(0,0,0)',
-                                    width=1
-                                )
-                            ),
-                            showlegend=False
-                    )
-        )
+def regions_to_plot(pls=None, groups: list=None, normalization: str=None, threshold: float=0.0) -> list[str]:
+    if pls is not None:
+        return pls.X.columns.to_list()
+    elif groups is not None and threshold is not None and normalization is not None:
+        groups_means = [group.group_by_region(col=normalization).mean(numeric_only=True) for group in groups]
+        mean_sum = sum(groups_means)
+        return mean_sum[(mean_sum > threshold) & (mean_sum.notnull())].sort_values().index.to_list()
+    raise ValueError("You must specify either the 'pls' or ('groups', 'normalization', 'threshold') parameters.")
 
-    fig.update_layout(
-        title = f"Coefficient of variaton of {marker} across brain slices > {cv_threshold}",
-        
-        xaxis = dict(
-            tickmode = 'array',
-            tickvals = np.arange(0,len(brains_name)),
-            ticktext = brains_name
-        ),
-        yaxis=dict(
-            title = "Brain regions' CV"
-        ),
-        width=700, height=500
-    )
-    return fig
+def nrange(bottom, top, n):
+    step = (abs(bottom)+abs(top))/(n-1)
+    return np.arange(bottom, top+step, step)

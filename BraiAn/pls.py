@@ -26,7 +26,12 @@ class PLS:
     '''
     
     def __init__(self, group_1: AnimalGroup, group_2: AnimalGroup, regions: list[str], normalization: str) -> None:
-        
+        assert group_1.is_comparable(group_2), "Group 1 and Group 2 are not comparable!\n\
+Please check that you're reading two groups that normalized on the same brain regions and on the same marker."
+        assert normalization in group_1.get_normalization_methods(), f"normalization method '{normalization}' not found.\n\
+Available normalizations methods are: {group_1.get_normalization_methods()}"
+        assert normalization in group_2.get_normalization_methods(), f"normalization method '{normalization}' not found.\n\
+Available normalizations methods are: {group_2.get_normalization_methods()}"
         # Fill a data matrix
         group_1_animals = group_1.get_animals()
         group_2_animals = group_2.get_animals()
