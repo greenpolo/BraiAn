@@ -133,7 +133,7 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
         self.singular_values = singular_values[:count,:]
         return self.s,self.singular_values
     
-    def plot_salience_scores(self, threshold, output_path, file_title, brain_region_dict,
+    def plot_salience_scores(self, threshold, output_path, file_title,
                              fig_width=300, fig_height=500):
 
         to_plot = self.v_salience_scores[(self.v_salience_scores[0]>threshold) | (self.v_salience_scores[0]<-threshold)]

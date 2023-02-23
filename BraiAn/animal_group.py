@@ -32,7 +32,7 @@ class AnimalGroup:
         all_animals = pd.concat({brain.name: self.normalize_animal(brain, self.marker) for brain in animals})
         all_animals = pd.concat({self.marker: all_animals}, axis=1)
         all_animals = all_animals.reorder_levels([1,0], axis=0)
-        ordered_indices = product(AllenBrain.brain_region_dict.keys(), [animal.name for animal in animals])
+        ordered_indices = product(AllenBrain.full_name.keys(), [animal.name for animal in animals])
         return all_animals.reindex(ordered_indices, fill_value=np.nan)
     
     def normalize_animal(self, animal_brain, tracer) -> AnimalBrain:

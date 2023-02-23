@@ -29,9 +29,9 @@ class AllenBrainHierarchy:
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
 
         self.add_depth_to_regions()
-        self.edges_dict = self.get_all_parent_areas()
-        self.tree_dict = self.get_all_subregions()
-        self.brain_region_dict = self.get_full_names()
+        self.parent_region = self.get_all_parent_areas()
+        self.direct_subregions = self.get_all_subregions()
+        self.full_name = self.get_full_names()
     
     def blacklist_regions(self, blacklisted_acronyms):
         attr = "acronym"
@@ -161,8 +161,8 @@ class AllenBrainHierarchy:
         '''
         path = []
         attr = "acronym"
-        while region_acronym in self.edges_dict.keys():
-            parent = self.edges_dict[region_acronym]
+        while region_acronym in self.parent_region.keys():
+            parent = self.parent_region[region_acronym]
             path.append(parent)
             region_acronym = parent
         return path

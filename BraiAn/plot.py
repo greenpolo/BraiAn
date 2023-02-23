@@ -15,7 +15,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
     sem = group.group_by_region(col=normalization).sem(numeric_only=True)
     y_axis, ticklabels = pd.factorize(group.data.loc[selected_regions].index.get_level_values(0))
     if not use_acronyms:
-        ticklabels = [AllenBrain.brain_region_dict[acronym] for acronym in ticklabels]
+        ticklabels = [AllenBrain.full_name[acronym] for acronym in ticklabels]
     
     # Barplot (group)
     fig.add_trace(go.Bar(

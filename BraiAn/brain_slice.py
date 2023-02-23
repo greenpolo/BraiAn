@@ -30,7 +30,7 @@ class BrainSlice:
         self.exclude_regions(excluded_regions, AllenBrain)
         match area_units:
             case "µm2":
-                self.area_µm2_to_mm2()
+                self._area_µm2_to_mm2_()
             case "mm2":
                 pass
             case _:
@@ -83,7 +83,7 @@ class BrainSlice:
                 if row in self.data.index:
                     self.data = self.data.drop(row)
     
-    def area_µm2_to_mm2(self) -> None:
+    def _area_µm2_to_mm2_(self) -> None:
         self.data.area = self.data.area * 1e-06
 
     def add_density(self) -> None:
