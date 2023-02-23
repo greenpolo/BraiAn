@@ -112,3 +112,25 @@ def plot_cv_above_threshold(brains_CV, brains_name, marker, cv_threshold=1) -> g
         width=700, height=500
     )
     return fig
+
+def plot_permutation(experiment, permutation, n) -> go.Figure:
+    fig = go.Figure(data=[
+            go.Histogram(x=permutation[:,0], nbinsx=10, name=f"Sampling distribution<br>under H0 ({n} permutations)")
+        ])
+    fig.add_vline(x=experiment, line_width=2, line_color="red", annotation_text="Experiment")
+    fig.update_layout(        
+            xaxis = dict(
+                title="First singular value"
+            ),
+            yaxis=dict(
+                title = "Frequency"
+            ),
+            width=800, height=500, showlegend=True,
+            legend=dict(
+                yanchor="top",
+                y=0.98,
+                xanchor="left",
+                x=0.63
+            )
+        )
+    return fig

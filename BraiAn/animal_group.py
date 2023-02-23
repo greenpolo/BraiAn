@@ -29,6 +29,15 @@ class AnimalGroup:
         
     
     def normalize_animals(self, animals, AllenBrain) -> pd.DataFrame:
+        '''
+        returns a DataFrame where, for each region and for each animal, gives:
+        - the percentage
+        - the density
+        - the relative density
+        If a brain region is not present in (one/any) animal, it fills every value with NaN
+
+        NOTE: The brain regions are sorted by Breadth-First in the AllenBrain hierarchy
+        '''
         all_animals = pd.concat({brain.name: self.normalize_animal(brain, self.marker) for brain in animals})
         all_animals = pd.concat({self.marker: all_animals}, axis=1)
         all_animals = all_animals.reorder_levels([1,0], axis=0)
