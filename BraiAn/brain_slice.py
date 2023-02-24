@@ -3,24 +3,44 @@ import pandas as pd
 from .brain_hierarchy import AllenBrainHierarchy
 import copy
 
+class BrainSliceFileError(Exception):
+    def __init__(self, animal=None, file=None, *args: object) -> None:
+        self.animal_name = animal
+        self.file_path = file
+        super().__init__(*args)
+class ExcludedRegionsNotFoundError(BrainSliceFileError):
+    def __str__(self):
+        return f"Animal '{self.animal_name}' - could not read the expected regions_to_exclude: {self.file_path}"
+class EmptyResultsError(BrainSliceFileError):
+    def __str__(self):
+        return f"Animal '{self.animal_name}' - empty file: {self.file_path}"
+class InvalidResultsError(BrainSliceFileError):
+    def __str__(self):
+        return f"Animal '{self.animal_name}' - could not read results file: {self.file_path}"
+class MissingResultsColumnError(BrainSliceFileError):
+    def __init__(self, column, *args: object) -> None:
+        self.column = column
+        super().__init__(*args)
+    def __str__(self):
+        return f"Animal '{self.animal_name}' - column '{self.column}' is missing in file: {self.file_path}"
+class InvalidRegionsHemisphereError(BrainSliceFileError):
+    def __str__(self):
+        return f"Animal '{self.animal_name}' - results file {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
+class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
+    def __str__(self):
+        return f"Animal '{self.animal_name}' - regions_to_exclude file {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
+
+
 class BrainSlice:
     def __init__(self, AllenBrain: AllenBrainHierarchy, csv_file: str, excluded_regions_file: str,
-                    name: str, area_key: str, tracer_key: str, marker_key, area_units="µm2") -> None:
+                    animal:str, name: str, area_key: str, tracer_key: str, marker_key, area_units="µm2") -> None:
+        self.animal = animal
         self.name = name
         self.marker = marker_key
-        with open(excluded_regions_file, mode="r", encoding="utf-8") as file:
-            excluded_regions = file.readlines()
-        excluded_regions = [line.strip() for line in excluded_regions]
-
-        try:
-            data = self.read_csv_data(csv_file)
-        except Exception as e:
-            if os.stat(csv_file).st_size == 0:
-                print(f"Empty file: {csv_file}")
-            else:
-                print(f"Could not read file: {csv_file}\n")
-            raise e
-
+        
+        excluded_regions = self.read_regions_to_exclude(excluded_regions_file)
+        data = self.read_results_data(csv_file)
+        self.check_columns(data, [area_key, tracer_key], csv_file)
         self.data = pd.DataFrame(data, columns=[area_key, tracer_key])
         self.data.rename(columns={area_key: 'area', tracer_key: marker_key}, inplace=True)
         #@assert (df.area > 0).all()
@@ -35,19 +55,57 @@ class BrainSlice:
                 pass
             case _:
                 raise ValueError("A brain slice's area can only be expressed in µm² or mm²!")
+    def read_regions_to_exclude(self, file_path) -> list[str]:
+        try:
+            with open(file_path, mode="r", encoding="utf-8") as file:
+                excluded_regions = file.readlines()
+        except FileNotFoundError:
+            raise ExcludedRegionsNotFoundError(animal=self.animal, file=file_path)
+        return [line.strip() for line in excluded_regions]
     
-    def read_csv_data(self, csv_file) -> pd.DataFrame:
-        data = pd.read_csv(csv_file, sep="\t").drop_duplicates()
-        if data['Num Detections'].count() == 0:
-            print(f"The file {csv_file} only contains NaNs!")
-        
-        # There is one region (the full slice) with Name=='Root' and Class==NaN.
+    def read_results_data(self, csv_file) -> pd.DataFrame:
+        data = self.read_csv_file(csv_file)
+        self.check_columns(data, ["Num Detections", "Class"], csv_file)
+
+        if data["Num Detections"].count() == 0:
+            # The following file only contains NaNs
+            raise EmptyResultsError(animal=self.animal, file=csv_file)
+
+        # There may be one region/row with Name == "Root" and Class == NaN indicating the whole slice.
         # We remove it. As we want the distinction between hemispheres
-        data['Class'] = data['Class'].fillna('wholebrain')
-        data = data.set_index('Class')
-        data = data.drop('wholebrain', axis=0)
- 
+        match (data["Class"].isnull()).sum():
+            case 0:
+                data = data.set_index("Class")
+            case 1:
+                data["Class"] = data["Class"].fillna("wholebrain")
+                data = data.set_index("Class")
+                data = data.drop('wholebrain', axis=0)
+            case _:
+                raise InvalidResultsError(animal=self.animal, file=csv_file)
+
+        self.check_hemispheres(data, csv_file)
         return data
+
+    def read_csv_file(self, csv_file) -> pd.DataFrame:
+        try:
+            return pd.read_csv(csv_file, sep="\t").drop_duplicates()
+        except Exception as e:
+            if os.stat(csv_file).st_size == 0:
+                raise EmptyResultsError(animal=self.animal, file=csv_file)
+            else:
+                raise InvalidResultsError(animal=self.animal, file=csv_file)
+
+    def check_columns(self, data, columns, csv_file) -> bool:
+        for column in columns:
+            if column not in data.columns:
+                raise MissingResultsColumnError(animal=self.animal, file=csv_file, column=column)
+        return True
+
+    def check_hemispheres(self, data, csv_file) -> bool:
+        if (data.index.str.startswith("Left: ", na=False) |
+            data.index.str.startswith("Right: ", na=False)).sum() != 0:
+            InvalidRegionsHemisphereError(csv_file)
+        return True
     
     def exclude_regions(self, excluded_regions, AllenBrain) -> None:
         '''
@@ -61,7 +119,7 @@ class BrainSlice:
 
         for reg_hemi in excluded_regions:
             if ": " not in reg_hemi:
-                raise SyntaxError("region_to_exclude of "+self.name+" file is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'")
+                raise InvalidExcludedRegionsHemisphereError(animal=self.animal, file=f"{self.name}_regions_to_exclude.txt")
             hemi = reg_hemi.split(': ')[0]
             reg = reg_hemi.split(': ')[1]
 

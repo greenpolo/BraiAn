@@ -50,7 +50,8 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
 
 def plot_groups(normalization: str, AllenBrain, *groups: list[AnimalGroup],
                 selected_regions=None, use_acronyms=True,
-                colors=plotly.colors.DEFAULT_PLOTLY_COLORS):
+                colors=plotly.colors.DEFAULT_PLOTLY_COLORS,
+                width=900, height=5000):
     assert len(groups) > 0, "You selected zero AnimalGroups to plot."
     title = groups[0].get_plot_title(normalization)
     fig = go.Figure()
@@ -69,7 +70,7 @@ def plot_groups(normalization: str, AllenBrain, *groups: list[AnimalGroup],
         xaxis=dict(
             title = f'{groups[0].marker} density (relative to brain)'
         ),
-        width=900, height=5000,
+        width=width, height=height,
         hovermode="x unified",
         yaxis_range = [-1,len(selected_regions)+1]
     )
