@@ -7,10 +7,26 @@ from .brain_slice import BrainSlice, merge_slice_hemispheres,\
                         BrainSliceFileError, \
                         ExcludedRegionsNotFoundError, \
                         EmptyResultsError, \
+                        NanResultsError, \
                         InvalidResultsError, \
                         MissingResultsColumnError, \
                         InvalidRegionsHemisphereError, \
                         InvalidExcludedRegionsHemisphereError
+
+global MODE_ExcludedRegionsNotFoundError
+global MODE_EmptyResultsError
+global MODE_NanResultsError
+global MODE_InvalidResultsError
+global MODE_MissingResultsColumnError
+global MODE_InvalidRegionsHemisphereError
+global MODE_InvalidExcludedRegionsHemisphereError
+MODE_ExcludedRegionsNotFoundError = "print"
+MODE_EmptyResultsError = "silent"
+MODE_NanResultsError = "print"
+MODE_InvalidResultsError = "print"
+MODE_MissingResultsColumnError = "print"
+MODE_InvalidRegionsHemisphereError = "print"
+MODE_InvalidExcludedRegionsHemisphereError = "print"
 
 class EmptyBrainError(Exception): pass
 
@@ -32,23 +48,8 @@ class SlicedBrain:
                                     regions_to_exclude_file,
                                     self.name, image,
                                     area_key, tracer_key, self.marker, area_units=area_units)
-            except ExcludedRegionsNotFoundError as e:
-                mode = "print"
-                self.handle_brainslice_error(e, mode, results_file, regions_to_exclude_file)
-            except EmptyResultsError as e:
-                mode = "print"
-                self.handle_brainslice_error(e, mode, results_file, regions_to_exclude_file)
-            except InvalidResultsError as e:
-                mode = "print"
-                self.handle_brainslice_error(e, mode, results_file, regions_to_exclude_file)
-            except MissingResultsColumnError as e:
-                mode = "print"
-                self.handle_brainslice_error(e, mode, results_file, regions_to_exclude_file)
-            except InvalidRegionsHemisphereError as e:
-                mode = "print"
-                self.handle_brainslice_error(e, mode, results_file, regions_to_exclude_file)
-            except InvalidExcludedRegionsHemisphereError as e:
-                mode = "print"
+            except BrainSliceFileError as e:
+                mode = self.get_default_error_mode(e)
                 self.handle_brainslice_error(e, mode, results_file, regions_to_exclude_file)
             else:
                 self.slices.append(slice)
@@ -72,17 +73,44 @@ class SlicedBrain:
     def handle_brainslice_error(self, exception, mode, results_file, regions_to_exclude_file):
         assert issubclass(type(exception), BrainSliceFileError), ""
         match mode:
-            case "error":
-                raise exception
-            case "print":
-                print(exception)
             case "delete":
                 print(exception, "\nRemoving the corresponding result and regions_to_exclude files.")
                 os.remove(results_file)
                 if type(exception) != ExcludedRegionsNotFoundError:
                     os.remove(regions_to_exclude_file)
+            case "error":
+                raise exception
+            case "print":
+                print(exception)
+            case "silent":
+                pass
             case _:
-                raise ValueError("Invalid 'mode' parameter. Supported BrainSliceFileError handling modes: 'error', 'print', 'delete'.")
+                raise ValueError(f"Invalid mode='{mode}' parameter. Supported BrainSliceFileError handling modes: 'delete', 'error', 'print', 'silent'.")
+    
+    def get_default_error_mode(self, exception):
+        e_name = type(exception).__name__
+        mode_var = f"MODE_{e_name}"
+        if mode_var in globals():
+            return globals()[mode_var]
+
+        match type(exception):
+            case ExcludedRegionsNotFoundError.__class__:
+                return "print"
+            case EmptyResultsError.__class__:
+                return "print"
+            case NanResultsError.__class__:
+                return "print"
+            case InvalidResultsError.__class__:
+                return "print"
+            case MissingResultsColumnError.__class__:
+                return "print"
+            case InvalidRegionsHemisphereError.__class__:
+                return "print"
+            case InvalidExcludedRegionsHemisphereError.__class__:
+                return "print"
+            case _:
+                ValueError(f"Undercognized exception: {type(exception)}")
+
     
 def merge_sliced_hemispheres(sliced_brain) -> SlicedBrain:
     brain = copy.copy(sliced_brain)

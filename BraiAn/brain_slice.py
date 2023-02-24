@@ -3,6 +3,11 @@ import pandas as pd
 from .brain_hierarchy import AllenBrainHierarchy
 import copy
 
+global MODE_PathAnnotationObjectError
+global MODE_ExcludedRegionNotRecognisedError
+MODE_PathAnnotationObjectError = "print"
+MODE_ExcludedRegionNotRecognisedError = "print"
+
 class BrainSliceFileError(Exception):
     def __init__(self, animal=None, file=None, *args: object) -> None:
         self.animal_name = animal
@@ -14,6 +19,9 @@ class ExcludedRegionsNotFoundError(BrainSliceFileError):
 class EmptyResultsError(BrainSliceFileError):
     def __str__(self):
         return f"Animal '{self.animal_name}' - empty file: {self.file_path}"
+class NanResultsError(BrainSliceFileError):
+    def __str__(self):
+        return f"Animal '{self.animal_name}' - NaN-filled file: {self.file_path}"
 class InvalidResultsError(BrainSliceFileError):
     def __str__(self):
         return f"Animal '{self.animal_name}' - could not read results file: {self.file_path}"
@@ -38,8 +46,8 @@ class BrainSlice:
         self.name = name
         self.marker = marker_key
         
-        excluded_regions = self.read_regions_to_exclude(excluded_regions_file)
         data = self.read_results_data(csv_file)
+        excluded_regions = self.read_regions_to_exclude(excluded_regions_file)
         self.check_columns(data, [area_key, tracer_key], csv_file)
         self.data = pd.DataFrame(data, columns=[area_key, tracer_key])
         self.data.rename(columns={area_key: "area", tracer_key: marker_key}, inplace=True)
@@ -61,15 +69,18 @@ class BrainSlice:
                 excluded_regions = file.readlines()
         except FileNotFoundError:
             raise ExcludedRegionsNotFoundError(animal=self.animal, file=file_path)
-        return [line.strip() for line in excluded_regions]
+        to_exclude = [line.strip() for line in excluded_regions]
+        # return [region for region in to_exclude if region == ""] # if we want to allow having empty lines in _regions_to_exclude.txt
+        return to_exclude
     
     def read_results_data(self, csv_file) -> pd.DataFrame:
         data = self.read_csv_file(csv_file)
-        self.check_columns(data, ["Num Detections", "Class"], csv_file)
+        self.check_columns(data, ["Name", "Class", "Num Detections",], csv_file)
 
         if data["Num Detections"].count() == 0:
-            # The following file only contains NaNs
-            raise EmptyResultsError(animal=self.animal, file=csv_file)
+            raise NanResultsError(animal=self.animal, file=csv_file)
+
+        data = self.clean_rows(data, csv_file)
 
         # There may be one region/row with Name == "Root" and Class == NaN indicating the whole slice.
         # We remove it. As we want the distinction between hemispheres
@@ -94,6 +105,21 @@ class BrainSlice:
                 raise EmptyResultsError(animal=self.animal, file=csv_file)
             else:
                 raise InvalidResultsError(animal=self.animal, file=csv_file)
+    
+    def clean_rows(self, data, csv_file):
+        if (data["Name"] == "Exclude").any():
+            # some rows have the Name==Exclude because the cell counting script was run AFTER having done the exclusions
+            data = data.loc[data["Name"] != "PathAnnotationObject"]
+        if (data["Name"] == "PathAnnotationObject").any() and \
+            not (data["Name"] == "PathAnnotationObject").all():
+            global MODE_PathAnnotationObjectError
+            if MODE_PathAnnotationObjectError != "silent":
+                print(f"WARNING: there are rows with column 'Name'=='PathAnnotationObject' in animal '{self.animal}', file: {csv_file}\n\
+\tPlease, check on QuPath that you selected the right Class for every exclusion.")
+            data = data.loc[data["Name"] != "PathAnnotationObject"]
+        if len(data) == 0:
+            raise EmptyResultsError(animal=self.animal, file=csv_file)
+        return data
 
     def check_columns(self, data, columns, csv_file) -> bool:
         for column in columns:
@@ -119,7 +145,11 @@ class BrainSlice:
 
         for reg_hemi in excluded_regions:
             if ": " not in reg_hemi:
-                raise InvalidExcludedRegionsHemisphereError(animal=self.animal, file=f"{self.name}_regions_to_exclude.txt")
+                if MODE_ExcludedRegionNotRecognisedError != "silent":
+                    print(f"WARNING: Class '{reg_hemi}' is not recognised as a brain region. It was skipped from the regions_to_exclude in animal '{self.animal}', file: {self.name}_regions_to_exclude.txt")
+                    continue
+                elif MODE_ExcludedRegionNotRecognisedError == "error":
+                    raise InvalidExcludedRegionsHemisphereError(animal=self.animal, file=f"{self.name}_regions_to_exclude.txt")
             hemi = reg_hemi.split(": ")[0]
             reg = reg_hemi.split(": ")[1]
 
