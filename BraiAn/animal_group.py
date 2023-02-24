@@ -47,13 +47,13 @@ class AnimalGroup:
     def normalize_animal(self, animal_brain, tracer) -> AnimalBrain:
         '''
         Do normalization of the cell counts for one tracer.
-        The tracer can be any column name of brain_df, e.g. 'CFos'.
-        The output will be a dataframe with three columns: 'Density', 'Percentage' and 'RelativeDensity'.
+        The tracer can be any column name of brain_df, e.g. "CFos".
+        The output will be a dataframe with three columns: "Density", "Percentage" and "RelativeDensity".
         Each row is one of the original brain regions
         '''
             
         # Init dataframe
-        columns = ['Density','Percentage','RelativeDensity']
+        columns = ["Density","Percentage","RelativeDensity"]
         norm_cell_counts = pd.DataFrame(np.nan, index=animal_brain.data.index, columns=columns)
 
         # Get the the brainwide area and cell counts (corresponding to the root)
@@ -61,9 +61,9 @@ class AnimalGroup:
         brainwide_cell_counts = animal_brain.data[tracer]["root"]
             
         # Do the normalization for each column seperately.
-        norm_cell_counts['Density'] = animal_brain.data[tracer] / animal_brain.data["area"]
-        norm_cell_counts['Percentage'] = animal_brain.data[tracer] / brainwide_cell_counts 
-        norm_cell_counts['RelativeDensity'] = (animal_brain.data[tracer] / animal_brain.data["area"]) / (brainwide_cell_counts / brainwide_area)
+        norm_cell_counts["Density"] = animal_brain.data[tracer] / animal_brain.data["area"]
+        norm_cell_counts["Percentage"] = animal_brain.data[tracer] / brainwide_cell_counts 
+        norm_cell_counts["RelativeDensity"] = (animal_brain.data[tracer] / animal_brain.data["area"]) / (brainwide_cell_counts / brainwide_area)
 
         return norm_cell_counts
     
@@ -116,7 +116,7 @@ class AnimalGroup:
     @staticmethod
     def from_csv(group_name, root_dir, file_name):
         # read CSV
-        df = pd.read_csv(os.path.join(root_dir, file_name), sep='\t', header=[0, 1], index_col=[0,1])
+        df = pd.read_csv(os.path.join(root_dir, file_name), sep="\t", header=[0, 1], index_col=[0,1])
         # retrieve marker name
         markers = list({cols[0] for cols in df.columns})
         assert len(markers) == 1, "The CSVs are expected to have data for one marker only."

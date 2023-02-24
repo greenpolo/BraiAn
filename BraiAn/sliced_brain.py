@@ -19,7 +19,7 @@ class SlicedBrain:
                 area_key: str, tracer_key: str, marker_key, area_units="µm2") -> None:
         self.name = name
         self.marker = marker_key
-        excluded_regions_dir = os.path.join(animal_dir, 'regions_to_exclude')
+        excluded_regions_dir = os.path.join(animal_dir, "regions_to_exclude")
         csv_slices_dir = os.path.join(animal_dir, "results")
         images = self.get_image_names_in_folder(csv_slices_dir)
         self.slices = []

@@ -63,12 +63,12 @@ def plot_groups(normalization: str, AllenBrain, *groups: list[AnimalGroup],
     fig.update_layout(
         title = title,
         yaxis = dict(
-            tickmode = 'array',
+            tickmode = "array",
             tickvals = np.arange(0,len(selected_regions)),
             ticktext = ticklabels
         ),
         xaxis=dict(
-            title = f'{groups[0].marker} density (relative to brain)'
+            title = f"{groups[0].marker} density (relative to brain)"
         ),
         width=width, height=height,
         hovermode="x unified",
@@ -83,7 +83,7 @@ def plot_cv_above_threshold(brains_CV, brains_name, marker, cv_threshold=1) -> g
         above_threshold_filter = cv > cv_threshold
         # Scatterplot (animals)
         fig.add_trace(go.Scatter(
-                            mode = 'markers',
+                            mode = "markers",
                             y = cv[above_threshold_filter],
                             x = [i]*above_threshold_filter.sum(),
                             text = cv.index[above_threshold_filter],
@@ -91,7 +91,7 @@ def plot_cv_above_threshold(brains_CV, brains_name, marker, cv_threshold=1) -> g
                             marker=dict(
                                 size=7,
                                 line=dict(
-                                    color='rgb(0,0,0)',
+                                    color="rgb(0,0,0)",
                                     width=1
                                 )
                             ),
@@ -103,7 +103,7 @@ def plot_cv_above_threshold(brains_CV, brains_name, marker, cv_threshold=1) -> g
         title = f"Coefficient of variaton of {marker} across brain slices > {cv_threshold}",
         
         xaxis = dict(
-            tickmode = 'array',
+            tickmode = "array",
             tickvals = np.arange(0,len(brains_name)),
             ticktext = brains_name
         ),

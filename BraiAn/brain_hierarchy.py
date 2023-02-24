@@ -19,7 +19,7 @@ from .visit_dict import *
 
 class AllenBrainHierarchy:
     def __init__(self, path_to_allen_json, blacklisted_acronyms=[]):
-        with open(path_to_allen_json, 'r') as file:
+        with open(path_to_allen_json, "r") as file:
             allen_data = json.load(file)
         
         self.dict = allen_data["msg"][0]
@@ -37,7 +37,7 @@ class AllenBrainHierarchy:
         attr = "acronym"
         def set_blacklisted(node, is_blacklisted):
             node["blacklisted"] = is_blacklisted
-        # First label every region as 'not blacklisted'
+        # First label every region as "not blacklisted"
         visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
         # Then find every region to-be-blacklisted, and blacklist all its tree
         for blacklisted_acronym in blacklisted_acronyms:
@@ -114,8 +114,8 @@ class AllenBrainHierarchy:
         Regions with no subregions have no entries in the dictionary.
 
         Example:
-        subregions['ACA'] = ['ACAv', 'ACAd'] # (dorsal and ventral part)
-        subregions['ACAv'] = ['ACAv5', 'ACAv2/3', 'ACAv6a', 'ACAv1', 'ACAv6b'] # all layers in ventral part
+        subregions["ACA"] = ["ACAv", "ACAd"] # (dorsal and ventral part)
+        subregions["ACAv"] = ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"] # all layers in ventral part
         '''
         subregions = dict()
         def add_subregions(node, depth):
@@ -198,7 +198,7 @@ class AllenBrainHierarchy:
         G.add_edges_from(edges.items())
         
         # Add attributes to the regions
-        attribute_columns = ['acronym', 'region_name', 'color_hex_triplet', 'depth']
+        attribute_columns = ["acronym", "region_name", "color_hex_triplet", "depth"]
         attrs = self.to_nx_attributes(attribute_columns)
         nx.set_node_attributes(G, attrs)
         #for col_name in attribute_columns:
@@ -213,17 +213,17 @@ class AllenBrainHierarchy:
         '''
         
         G = self.get_nx_graph()
-        if not(hasattr(self, 'pos')):
-            print('Calculating node positions...')
-            self.nx_node_pos = graphviz_layout(G, prog='dot')
+        if not(hasattr(self, "pos")):
+            print("Calculating node positions...")
+            self.nx_node_pos = graphviz_layout(G, prog="dot")
             self.nx_node_pos = {int(n):p for n,p in self.nx_node_pos.items()}
-            nx.set_node_attributes(G, self.nx_node_pos, name='pos')
+            nx.set_node_attributes(G, self.nx_node_pos, name="pos")
 
         edge_x = []
         edge_y = []
         for edge in G.edges():
-            x0, y0 = G.nodes[edge[0]]['pos']
-            x1, y1 = G.nodes[edge[1]]['pos']
+            x0, y0 = G.nodes[edge[0]]["pos"]
+            x1, y1 = G.nodes[edge[1]]["pos"]
             edge_x.append(x0)
             edge_x.append(x1)
             edge_x.append(None)
@@ -233,21 +233,21 @@ class AllenBrainHierarchy:
 
         edge_trace = go.Scatter(
             x=edge_x, y=edge_y,
-            line=dict(width=0.5, color='#888'),
-            hoverinfo='none',
-            mode='lines')
+            line=dict(width=0.5, color="#888"),
+            hoverinfo="none",
+            mode="lines")
 
         node_x = []
         node_y = []
         for node in G.nodes():
-            x, y = G.nodes[node]['pos']
+            x, y = G.nodes[node]["pos"]
             node_x.append(x)
             node_y.append(y)
 
         node_trace = go.Scatter(
             x=node_x, y=node_y,
-            mode='markers',
-            hoverinfo='text',
+            mode="markers",
+            hoverinfo="text",
             marker=dict(
                 color=[],
                 size=5,
@@ -257,21 +257,21 @@ class AllenBrainHierarchy:
         node_text = []
         for node_id in G.nodes():
             # Number of connections as color
-            node_colors.append('#'+G.nodes()[node_id]['color_hex_triplet'])
+            node_colors.append("#"+G.nodes()[node_id]["color_hex_triplet"])
             # Region name as text to show
-            node_text.append(G.nodes()[node_id]['region_name'] + ' (' +
-                             G.nodes()[node_id]['acronym'] + '), ' + 
-                             'level = ' + str(G.nodes()[node_id]['depth'])) 
+            node_text.append(G.nodes()[node_id]["region_name"] + " (" +
+                             G.nodes()[node_id]["acronym"] + "), " + 
+                             "level = " + str(G.nodes()[node_id]["depth"])) 
 
         node_trace.marker.color = node_colors
         node_trace.text = node_text
 
         fig = go.Figure(data=[edge_trace, node_trace],
                  layout=go.Layout(
-                    title='Hierarchy of brain regions',
+                    title="Hierarchy of brain regions",
                     titlefont_size=16,
                     showlegend=False,
-                    hovermode='closest',
+                    hovermode="closest",
                     margin=dict(b=20,l=5,r=5,t=40),
                     xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
                     yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))

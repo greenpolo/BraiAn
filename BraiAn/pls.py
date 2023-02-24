@@ -37,18 +37,18 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
         group_2_animals = group_2.get_animals()
         animal_list = list(group_1_animals.union(group_2_animals))
         animal_list.sort()
-        data = pd.DataFrame(index=regions+['group'], columns=animal_list)
+        data = pd.DataFrame(index=regions+["group"], columns=animal_list)
 
         for animal in group_1_animals:
             data.loc[regions,animal] = group_1.select(regions, animal)[normalization]
-            data.loc['group',animal] = True
+            data.loc["group",animal] = True
 
         for animal in group_2_animals:
             data.loc[regions,animal] = group_2.select(regions, animal)[normalization]
-            data.loc['group',animal] = False
+            data.loc["group",animal] = False
 
-        self.X = data.loc[regions].T.dropna(axis='columns').astype('float64', copy=False)
-        self.y = data.loc['group'].T.astype('bool', copy=False)
+        self.X = data.loc[regions].T.dropna(axis="columns").astype("float64", copy=False)
+        self.y = data.loc["group"].T.astype("bool", copy=False)
         self.u, self.s, self.v = self.partial_least_squares_correlation(self.X,self.y)
         
         self.Lx = self.X @ self.v
@@ -57,33 +57,33 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
     def partial_least_squares_correlation(self,X,y):
     
         Y = pd.get_dummies(y)
-#        print ('\n X:')
+#        print ("\n X:")
 #        print (X)
-#        print('\n y:')
+#        print("\n y:")
 #        print (y)
-#        print ('\n gtdummies Y:')
+#        print ("\n gtdummies Y:")
 #        print(Y)
         num_animals,num_groups = Y.shape
-#        print('\n num_animals:')
+#        print("\n num_animals:")
 #        print(num_animals)
-#        print('\n num_groups:')
+#        print("\n num_groups:")
 #        print(num_groups)
 
         # Compute M = diag{1.T * Y}.inv * Y.T * X (the average for each group)
-        M = np.linalg.inv(np.diag(np.ones(num_animals).dot(Y))).dot( Y.T.dot(X) ).astype('float')
-#        print('\n M:')
+        M = np.linalg.inv(np.diag(np.ones(num_animals).dot(Y))).dot( Y.T.dot(X) ).astype("float")
+#        print("\n M:")
 #        print(M)
         # Mean-center M to get R
         R = M - np.ones((num_groups,1)).dot( np.ones((1,num_groups)).dot(M) ) / num_groups
-#        print('\n other matrix to subtract to m:')
+#        print("\n other matrix to subtract to m:")
 #        print(num_animals)
-#        print('\n R:')
+#        print("\n R:")
 #        print(R)
         # SVD
         u, s, vh = np.linalg.svd(R, full_matrices=False)
-#        print('\n u:')
+#        print("\n u:")
 #        print(u)
-#        print('\n s:')
+#        print("\n s:")
 #        print(s)
         return u,s,vh.T
     
@@ -95,8 +95,8 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
         data = pd.concat([self.X,self.y],axis=1)
         for i in range(0,num_bootstrap):
             data_sampled = data.sample(n=data.shape[0], replace=True)
-            X_sampled = data_sampled.drop('group',axis=1)
-            y_sampled = data_sampled['group']
+            X_sampled = data_sampled.drop("group",axis=1)
+            y_sampled = data_sampled["group"]
             u_bootstrap[:,:,i],s,v_bootstrap[:,:,i] = self.partial_least_squares_correlation(X_sampled,y_sampled)
 
         v_salience = self.v / v_bootstrap.std(axis=2)
@@ -115,18 +115,18 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
             random_index = np.arange(self.X.shape[0])
             np.random.shuffle(random_index)
             
-            X_perm = pd.DataFrame( self.X.to_numpy().astype('float') )
-            y_perm = pd.Series( self.y.to_numpy()[random_index].astype('float') )
-#            print ('y_perm after i='+ str(i)+': \n')
+            X_perm = pd.DataFrame( self.X.to_numpy().astype("float") )
+            y_perm = pd.Series( self.y.to_numpy()[random_index].astype("float") )
+#            print ("y_perm after i="+ str(i)+": \n")
 #            print (y_perm)
-#            print ('\n x_perm after i='+ str(i)+': \n')
+#            print ("\n x_perm after i="+ str(i)+": \n")
 #            print (X_perm)
             
             if np.array_equal(y_perm.to_numpy(), self.y.to_numpy()):
-#                print ('in continue lop after after i='+ str(i)+': \n')
+#                print ("in continue lop after after i="+ str(i)+": \n")
                 continue
 
-#            print('\n for i=' + str(i))
+#            print("\n for i=" + str(i))
             u_random, singular_values[count,:], vh_random = self.partial_least_squares_correlation(X_perm,y_perm)
             count += 1
             
@@ -137,11 +137,11 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
                              fig_width=300, fig_height=500):
 
         to_plot = self.v_salience_scores[(self.v_salience_scores[0]>threshold) | (self.v_salience_scores[0]<-threshold)]
-        fig = px.bar(to_plot.reset_index(), x=0, y='index')
+        fig = px.bar(to_plot.reset_index(), x=0, y="index")
         fig.update_layout(
             width=fig_width, height=fig_height,
             xaxis=dict(
-                title = 'Salience score'
+                title = "Salience score"
             ),
         )
         #salient_regions = list(to_plot.index.values)

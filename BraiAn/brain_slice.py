@@ -42,9 +42,9 @@ class BrainSlice:
         data = self.read_results_data(csv_file)
         self.check_columns(data, [area_key, tracer_key], csv_file)
         self.data = pd.DataFrame(data, columns=[area_key, tracer_key])
-        self.data.rename(columns={area_key: 'area', tracer_key: marker_key}, inplace=True)
+        self.data.rename(columns={area_key: "area", tracer_key: marker_key}, inplace=True)
         #@assert (df.area > 0).all()
-        self.data = self.data[self.data['area'] > 0]
+        self.data = self.data[self.data["area"] > 0]
                     
         # Take care of regions to be excluded
         self.exclude_regions(excluded_regions, AllenBrain)
@@ -79,7 +79,7 @@ class BrainSlice:
             case 1:
                 data["Class"] = data["Class"].fillna("wholebrain")
                 data = data.set_index("Class")
-                data = data.drop('wholebrain', axis=0)
+                data = data.drop("wholebrain", axis=0)
             case _:
                 raise InvalidResultsError(animal=self.animal, file=csv_file)
 
@@ -120,14 +120,14 @@ class BrainSlice:
         for reg_hemi in excluded_regions:
             if ": " not in reg_hemi:
                 raise InvalidExcludedRegionsHemisphereError(animal=self.animal, file=f"{self.name}_regions_to_exclude.txt")
-            hemi = reg_hemi.split(': ')[0]
-            reg = reg_hemi.split(': ')[1]
+            hemi = reg_hemi.split(": ")[0]
+            reg = reg_hemi.split(": ")[1]
 
             # Step 1: subtract counting results of the regions to be excluded
             # from their parent regions.
             regions_above = AllenBrain.get_regions_above(reg)
             for region in regions_above:
-                row = hemi+': '+region
+                row = hemi+": "+region
                 # Subtract the counting results from the parent region.
                 # Use fill_value=0 to prevent "3-NaN=NaN".
                 if row in self.data.index and reg_hemi in self.data.index:
@@ -137,7 +137,7 @@ class BrainSlice:
             # together with their daughter regions.
             subregions = AllenBrain.list_all_subregions(reg)
             for subreg in subregions:
-                row = hemi+': '+subreg
+                row = hemi+": "+subreg
                 if row in self.data.index:
                     self.data = self.data.drop(row)
     
@@ -156,10 +156,10 @@ def find_region_abbreviation(region_class):
     '''
     This function finds the region abbreviation
     by splitting the class value in the table.
-    Example: 'Left: AVA' becomes 'AVA'.
+    Example: "Left: AVA" becomes "AVA".
     '''
     try: # try to split the class
-        region_abb = region_class.split(': ')[1]
+        region_abb = region_class.split(": ")[1]
     except: # if splitting gives an error, don't split
         region_abb = str(region_class)
         
