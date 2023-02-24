@@ -124,7 +124,7 @@ class AllenBrainHierarchy:
         visit_bfs(self.dict, "children", add_subregions)
         return subregions
     
-    def list_all_subregions(self, region_acronym):
+    def list_all_subregions(self, region_acronym, mode="breadth"):
         '''
         This function lists all subregions of 'region_acronym' at all hierarchical levels.
         
@@ -138,11 +138,19 @@ class AllenBrainHierarchy:
             subregions (list)
             List of all subregions at all hierarchical levels, including 'region_acronym'.
         '''
+        match mode:
+            case "breadth":
+                visit_alg = visit_bfs
+            case "depth":
+                visit_alg = visit_dfs
+            case _:
+                raise ValueError("Unsupported mode '{mode}'.")
+
         attr = "acronym"
         region = find_subtree(self.dict, attr, region_acronym, "children")
         if not region:
             raise ValueError(f"Can't find a region with '{attr}'='{region_acronym}' in Allen's Brain")
-        subregions = get_all_nodes(region, "children")
+        subregions = get_all_nodes(region, "children", visit=visit_alg)
         return [subregion[attr] for subregion in subregions]
     
     def get_regions_above(self, region_acronym):

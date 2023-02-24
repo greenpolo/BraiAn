@@ -34,6 +34,19 @@ def visit_bfs(node, children_key, fun):
             to_visit.extend(child[children_key])
         depth += 1
 
+# Breadth-first visit
+def visit_dfs(node, children_key, fun):
+    to_visit = [node]
+    depth = 0
+    while len(to_visit) != 0:
+        level_size = len(to_visit)
+        while level_size != 0:
+            level_size -= 1
+            to_visit, child = pop_stack(to_visit)
+            fun(child, depth)
+            to_visit.extend(reversed(child[children_key]))
+        depth += 1
+
 def add_boolean_attribute(tree, children_key, attr_name, is_true, visit=visit_bfs):
     def select(node, depth):
         node[attr_name] = is_true(node, depth)

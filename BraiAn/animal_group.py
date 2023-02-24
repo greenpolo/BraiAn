@@ -41,7 +41,7 @@ class AnimalGroup:
         all_animals = pd.concat({brain.name: self.normalize_animal(brain, self.marker) for brain in animals})
         all_animals = pd.concat({self.marker: all_animals}, axis=1)
         all_animals = all_animals.reorder_levels([1,0], axis=0)
-        ordered_indices = product(AllenBrain.full_name.keys(), [animal.name for animal in animals])
+        ordered_indices = product(AllenBrain.list_all_subregions("root", mode="depth"), [animal.name for animal in animals])
         return all_animals.reindex(ordered_indices, fill_value=np.nan)
     
     def normalize_animal(self, animal_brain, tracer) -> AnimalBrain:
@@ -74,16 +74,16 @@ class AnimalGroup:
         return {index[1] for index in self.data.index}
     
     def get_all_regions(self):
-        return self.data.index.get_level_values(0).to_list()
+        return self.data.index.get_level_values(0)
     
     def get_regions(self):
-        return set(self.get_all_regions())
+        return list(self.get_all_regions().unique())
     
     def is_comparable(self, other) -> bool:
         if type(other) != AnimalGroup:
             return False
         return self.marker == other.marker and \
-                self.get_regions() == other.get_regions()
+                set(self.get_regions()) == set(other.get_regions())
     
     def select(self, selected_regions: list[str], animal=None) -> pd.DataFrame:
         if animal is None:
