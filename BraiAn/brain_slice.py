@@ -6,6 +6,7 @@ import copy
 global MODE_PathAnnotationObjectError
 global MODE_ExcludedRegionNotRecognisedError
 MODE_PathAnnotationObjectError = "print"
+MODE_RegionsWithNoCountError = "silent"
 MODE_ExcludedRegionNotRecognisedError = "print"
 
 class BrainSliceFileError(Exception):
@@ -26,12 +27,19 @@ class InvalidResultsError(BrainSliceFileError):
     def __str__(self):
         return f"Animal '{self.animal_name}' - could not read results file: {self.file_path}"
 class MissingResultsColumnError(BrainSliceFileError):
-    def __init__(self, column, *args: object) -> None:
+    def __init__(self, column, **kargs: object) -> None:
         self.column = column
-        super().__init__(*args)
+        super().__init__(**kargs)
     def __str__(self):
         return f"Animal '{self.animal_name}' - column '{self.column}' is missing in file: {self.file_path}"
-class InvalidRegionsHemisphereError(BrainSliceFileError):
+class RegionsWithNoCountError(BrainSliceFileError):
+    def __init__(self, tracer, regions, **kargs: object) -> None:
+        self.tracer = tracer
+        self.regions = regions
+        super().__init__(**kargs)
+    def __str__(self) -> str:
+        return f"Animal '{self.animal_name}' - there are {len(self.regions)} region(s) with no count of tracer '{self.tracer}' in file: {self.file_path}"
+class InvalidRegionsHemisphereError(BrainSliceFileError): 
     def __str__(self):
         return f"Animal '{self.animal_name}' - results file {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
 class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
@@ -53,6 +61,7 @@ class BrainSlice:
         self.data.rename(columns={area_key: "area", tracer_key: marker_key}, inplace=True)
         #@assert (df.area > 0).all()
         self.data = self.data[self.data["area"] > 0]
+        self.check_zero_rows(csv_file)
                     
         # Take care of regions to be excluded
         self.exclude_regions(excluded_regions, AllenBrain)
@@ -128,10 +137,23 @@ class BrainSlice:
         return True
 
     def check_hemispheres(self, data, csv_file) -> bool:
-        if (data.index.str.startswith("Left: ", na=False) |
-            data.index.str.startswith("Right: ", na=False)).sum() != 0:
-            InvalidRegionsHemisphereError(csv_file)
+        if (~data.index.str.startswith("Left: ", na=False) &
+            ~data.index.str.startswith("Right: ", na=False)).sum() != 0:
+            raise InvalidRegionsHemisphereError(csv_file)
         return True
+    
+    def check_zero_rows(self, csv_file) -> bool:
+        zero_rows = self.data[self.marker] == 0
+        if sum(zero_rows) > 0:
+            err = RegionsWithNoCountError(animal=self.animal, file=csv_file,
+                        tracer=self.marker, regions=self.data.index[zero_rows].to_list())
+            if MODE_RegionsWithNoCountError == "error":
+                raise err
+            elif MODE_RegionsWithNoCountError == "print":
+                print(err)
+            return False
+        return True
+
     
     def exclude_regions(self, excluded_regions, AllenBrain) -> None:
         '''

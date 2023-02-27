@@ -186,6 +186,9 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
             tickvals = np.arange(len(brains_name)),
             ticktext = brains_name
         ),
+        yaxis = dict(
+            title = f"{sliced_brains_groups[0][0].marker}/mm²"
+        ),
 #        hovermode="x unified",
         width=width, height=height
     )
@@ -196,7 +199,7 @@ def plot_permutation(experiment, permutation, n) -> go.Figure:
             go.Histogram(x=permutation[:,0], nbinsx=10, name=f"Sampling distribution<br>under H0 ({n} permutations)")
         ])
     fig.add_vline(x=experiment, line_width=2, line_color="red", annotation_text="Experiment")
-    fig.update_layout(        
+    fig.update_layout(       
             xaxis = dict(
                 title="First singular value"
             ),
