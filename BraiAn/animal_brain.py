@@ -55,7 +55,10 @@ def filter_selected_regions(animal_brain, AllenBrain) -> AnimalBrain:
     brain = copy.copy(animal_brain)
     selected_allen_regions = AllenBrain.get_selected_regions()
     selectable_regions = set(animal_brain.data.index).intersection(set(selected_allen_regions))
-    brain.data = animal_brain.data[list(selectable_regions)]
+    if type(brain.data) == pd.Series:
+        brain.data = animal_brain.data[list(selectable_regions)]
+    else: # type == pd.DataFrame
+        brain.data = animal_brain.data.loc[list(selectable_regions), :]
     return brain
 
 def merge_hemispheres(animal_brain) -> AnimalBrain:

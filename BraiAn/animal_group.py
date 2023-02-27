@@ -44,10 +44,10 @@ class AnimalGroup:
         ordered_indices = product(AllenBrain.list_all_subregions("root", mode="depth"), [animal.name for animal in animals])
         return all_animals.reindex(ordered_indices, fill_value=np.nan)
     
-    def normalize_animal(self, animal_brain, tracer) -> AnimalBrain:
+    def normalize_animal(self, animal_brain, marker) -> AnimalBrain:
         '''
-        Do normalization of the cell counts for one tracer.
-        The tracer can be any column name of brain_df, e.g. "CFos".
+        Do normalization of the cell counts for one marker.
+        The marker can be any column name of brain_df, e.g. "CFos".
         The output will be a dataframe with three columns: "Density", "Percentage" and "RelativeDensity".
         Each row is one of the original brain regions
         '''
@@ -58,12 +58,12 @@ class AnimalGroup:
 
         # Get the the brainwide area and cell counts (corresponding to the root)
         brainwide_area = animal_brain.data["area"]["root"]
-        brainwide_cell_counts = animal_brain.data[tracer]["root"]
+        brainwide_cell_counts = animal_brain.data[marker]["root"]
             
         # Do the normalization for each column seperately.
-        norm_cell_counts["Density"] = animal_brain.data[tracer] / animal_brain.data["area"]
-        norm_cell_counts["Percentage"] = animal_brain.data[tracer] / brainwide_cell_counts 
-        norm_cell_counts["RelativeDensity"] = (animal_brain.data[tracer] / animal_brain.data["area"]) / (brainwide_cell_counts / brainwide_area)
+        norm_cell_counts["Density"] = animal_brain.data[marker] / animal_brain.data["area"]
+        norm_cell_counts["Percentage"] = animal_brain.data[marker] / brainwide_cell_counts 
+        norm_cell_counts["RelativeDensity"] = (animal_brain.data[marker] / animal_brain.data["area"]) / (brainwide_cell_counts / brainwide_area)
 
         return norm_cell_counts
     
