@@ -72,9 +72,16 @@ class AllenBrainHierarchy:
         if "selected" in self.dict:
             del_attribute(self.dict, "children", "selected")
 
-    def get_selected_regions(self):
+    def get_selected_regions(self, mode="depth"):
         assert "selected" in self.dict, "No area is selected."
-        areas = get_where(self.dict, "children", lambda n,d: n["selected"] and not n["blacklisted"])
+        match mode:
+            case "breadth":
+                visit_alg = visit_bfs
+            case "depth":
+                visit_alg = visit_dfs
+            case _:
+                raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
+        areas = get_where(self.dict, "children", lambda n,d: n["selected"] and not n["blacklisted"], visit_alg)
         return [area["acronym"] for area in areas]
     
     def get_sibiling_areas(self, acronym=None, id=None) -> list:
@@ -144,7 +151,7 @@ class AllenBrainHierarchy:
             case "depth":
                 visit_alg = visit_dfs
             case _:
-                raise ValueError("Unsupported mode '{mode}'.")
+                raise ValueError(f"Unsupported mode '{mode}'. Available modes are 'breadth' and 'depth'.")
 
         attr = "acronym"
         region = find_subtree(self.dict, attr, region_acronym, "children")
