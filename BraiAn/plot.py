@@ -1,4 +1,5 @@
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from plotly.colors import DEFAULT_PLOTLY_COLORS
 import pandas as pd
 import numpy as np
@@ -81,10 +82,12 @@ def plot_groups(normalization: str, AllenBrain, *groups: list[AnimalGroup],
     return fig
 
 def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1, width=700, height=500) -> go.Figure:
-    fig = go.Figure()
+    # fig = go.Figure()
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
     brains_name = [brain.name for group in sliced_brains_groups for brain in group]
     group_lengths = [len(group) for group in sliced_brains_groups]
     n_brains_before_group = np.cumsum(group_lengths)
+    n_areas_above_thr = []
     for i, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[i-1] if i > 0 else 0
         group_cvar_brains = [AnimalBrain(sliced_brain, mode="cvar", hemisphere_distinction=False) for sliced_brain in group_slices]
@@ -92,6 +95,7 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1, w
 
         for j, cvars in enumerate(group_cvar_brains):
             above_threshold_filter = cvars > cv_threshold
+            n_areas_above_thr.append(sum(above_threshold_filter))
             # Scatterplot (animals)
             fig.add_trace(
                 go.Scatter(
@@ -108,9 +112,25 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1, w
                             width=1
                         )
                     ),
-                    showlegend=False
+                    name="Regions' coefficient<br>of variation",
+                    legendgroup="regions-cv",
+                    showlegend=(i+j)==0
                 )
             )
+
+    fig.add_trace(
+        go.Bar(
+            # x=list(range(len(n_areas_above_thr))),
+            y=n_areas_above_thr,
+            marker_color="lightsalmon",
+            opacity=0.3,
+            name=f"animals' N areas<br>above threshold",
+            
+        ),
+        secondary_y=True,
+    )
+    # reoder the data: barplot below!
+    fig.data = (fig.data[-1], *fig.data[:-1])
 
     fig.update_layout(
         title = f"Coefficient of variaton of {sliced_brains_groups[0][0].marker} across brain slices > {cv_threshold}",
