@@ -1,5 +1,8 @@
 **/__pycache__/
+**/.ipynb_checkpoints/
 data/
 plots/
 **/*.csv
 R_analysis/
+.vscode/
+.DS_Store

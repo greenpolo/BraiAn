@@ -70,7 +70,8 @@ def plot_groups(normalization: str, AllenBrain, *groups: list[AnimalGroup],
             ticktext = ticklabels
         ),
         xaxis=dict(
-            title = f"{groups[0].marker} density (relative to brain)"
+            title = f"{groups[0].marker} density (relative to brain)",
+            side = "top"
         ),
         width=width, height=height,
         hovermode="x unified",
@@ -79,7 +80,7 @@ def plot_groups(normalization: str, AllenBrain, *groups: list[AnimalGroup],
 
     return fig
 
-def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1) -> go.Figure:
+def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1, width=700, height=500) -> go.Figure:
     fig = go.Figure()
     brains_name = [brain.name for group in sliced_brains_groups for brain in group]
     group_lengths = [len(group) for group in sliced_brains_groups]
@@ -122,7 +123,7 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1) -
         yaxis=dict(
             title = "Brain regions' CV"
         ),
-        width=700, height=500
+        width=width, height=height
     )
     return fig
 

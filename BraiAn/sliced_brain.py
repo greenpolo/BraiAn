@@ -21,7 +21,7 @@ global MODE_MissingResultsColumnError
 global MODE_InvalidRegionsHemisphereError
 global MODE_InvalidExcludedRegionsHemisphereError
 MODE_ExcludedRegionsNotFoundError = "print"
-MODE_EmptyResultsError = "silent"
+MODE_EmptyResultsError = "print"
 MODE_NanResultsError = "print"
 MODE_InvalidResultsError = "print"
 MODE_MissingResultsColumnError = "print"

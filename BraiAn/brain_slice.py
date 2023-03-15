@@ -118,14 +118,14 @@ class BrainSlice:
     def clean_rows(self, data, csv_file):
         if (data["Name"] == "Exclude").any():
             # some rows have the Name==Exclude because the cell counting script was run AFTER having done the exclusions
-            data = data.loc[data["Name"] != "PathAnnotationObject"]
+            data = data.loc[data["Name"] != "Exclude"]
         if (data["Name"] == "PathAnnotationObject").any() and \
             not (data["Name"] == "PathAnnotationObject").all():
             global MODE_PathAnnotationObjectError
             if MODE_PathAnnotationObjectError != "silent":
                 print(f"WARNING: there are rows with column 'Name'=='PathAnnotationObject' in animal '{self.animal}', file: {csv_file}\n\
 \tPlease, check on QuPath that you selected the right Class for every exclusion.")
-            data = data.loc[data["Name"] != "PathAnnotationObject"]
+        data = data.loc[data["Name"] != "PathAnnotationObject"]
         if len(data) == 0:
             raise EmptyResultsError(animal=self.animal, file=csv_file)
         return data
