@@ -14,8 +14,8 @@ from .brain_hierarchy import AllenBrainHierarchy
 def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
                         AllenBrain: AllenBrainHierarchy, selected_regions: list[str],
                         color: str, y_offset, use_acronyms=True) -> None:
-    avg = group.group_by_region(col=normalization).mean(numeric_only=True)
-    sem = group.group_by_region(col=normalization).sem(numeric_only=True)
+    avg = group.group_by_region(method=normalization).mean(numeric_only=True)
+    sem = group.group_by_region(method=normalization).sem(numeric_only=True)
     y_axis, ticklabels = pd.factorize(group.data.loc[selected_regions].index.get_level_values(0))
     if not use_acronyms:
         ticklabels = [AllenBrain.full_name[acronym] for acronym in ticklabels]
@@ -32,11 +32,15 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
                 )
     )
     # Scatterplot (animals)
+    norm_values = group.select(selected_regions)[normalization]
+    animal_names = norm_values.index.get_level_values(1)
     fig.add_trace(go.Scatter(
                         mode = "markers",
                         y = y_axis + y_offset,
-                        x = group.select(selected_regions)[normalization],
+                        x = norm_values,
                         name = f"{group.name} animals",
+                        customdata = np.stack((animal_names,), axis=-1),
+                        hovertemplate = "Animal: %{customdata[0]}<br>"+normalization+": %{x:.2f}",
                         opacity=0.5,
                         marker=dict(
                             #color="rgb(0,255,0)",
@@ -75,7 +79,8 @@ def plot_groups(normalization: str, AllenBrain, *groups: list[AnimalGroup],
             side = "top"
         ),
         width=width, height=height,
-        hovermode="x unified",
+        hovermode="closest",
+        # hovermode="x unified",
         yaxis_range = [-1,len(selected_regions)+1]
     )
 

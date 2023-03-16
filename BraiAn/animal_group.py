@@ -88,15 +88,16 @@ class AnimalGroup:
     def select(self, selected_regions: list[str], animal=None) -> pd.DataFrame:
         if animal is None:
             animal = list(self.get_animals())
-        return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)[self.marker]
+        # return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)[self.marker]
+        return self.data.loc(axis=0)[selected_regions, animal][self.marker]
     
-    def group_by_region(self, col=None):
-        if col is None:
+    def group_by_region(self, method=None):
+        if method is None:
             # pd.DataFrame
             data = self.data      
         else:
             # pd.Series
-            data = self.data[self.marker, col]
+            data = self.data[self.marker, method]
         return data.groupby(self.get_all_regions())
     
     def get_plot_title(self, normalization):

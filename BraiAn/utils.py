@@ -17,7 +17,7 @@ def regions_to_plot(pls=None, groups: list=None, normalization: str=None, low_th
         return pls.X.columns.to_list()
     elif groups is not None and normalization is not None \
         and low_threshold is not None and top_threshold is not None:
-        groups_means = [group.group_by_region(col=normalization).mean(numeric_only=True) for group in groups]
+        groups_means = [group.group_by_region(method=normalization).mean(numeric_only=True) for group in groups]
         mean_sum = sum(groups_means)
         return mean_sum[(mean_sum > low_threshold) & (mean_sum < top_threshold) & (mean_sum.notnull())].sort_values().index.to_list()
     raise ValueError("You must specify either the 'pls' or ('groups', 'normalization', 'low_threshold') parameters.")
