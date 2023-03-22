@@ -17,6 +17,21 @@ import copy
 from operator import xor
 from .visit_dict import *
 
+MAJOR_DIVISIONS = [
+    "Isocortex",
+    "OLF",
+    "HPF",
+    "CTXsp",
+    "STR",
+    "PAL",
+    "TH",
+    "HY",
+    "MB",
+    "P",
+    "MY",
+    "CB"
+]
+
 class AllenBrainHierarchy:
     def __init__(self, path_to_allen_json, blacklisted_acronyms=[]):
         with open(path_to_allen_json, "r") as file:
@@ -29,6 +44,7 @@ class AllenBrainHierarchy:
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
 
         self.add_depth_to_regions()
+        self.mark_major_divisions()
         self.parent_region = self.get_all_parent_areas()
         self.direct_subregions = self.get_all_subregions()
         self.full_name = self.get_full_names()
@@ -45,6 +61,9 @@ class AllenBrainHierarchy:
             if not blacklisted_region:
                 raise ValueError(f"Can't find a region with '{attr}'='{blacklisted_region}' to blacklist in Allen's Brain")
             visit_bfs(blacklisted_region, "children", lambda n,d: set_blacklisted(n, True))
+    
+    def mark_major_divisions(self):
+        add_boolean_attribute(self.dict, "children", "major_division", lambda node,d: node["acronym"] in MAJOR_DIVISIONS)
 
     def add_depth_to_regions(self):
         def add_depth(node, depth):
@@ -182,12 +201,24 @@ class AllenBrainHierarchy:
             region_acronym = parent
         return path
 
+    def get_areas_major_division(self, *acronyms) -> dict:
+        regions_md = {}
+        for region_acronym in acronyms:
+            regions_above = self.get_regions_above(region_acronym)
+            above_md = [r for r in regions_above if r in MAJOR_DIVISIONS]
+            regions_md[region_acronym] = above_md[0] if above_md else None
+        return regions_md
+
     def get_full_names(self):
         '''
         returns a dictionary that translates acronym of a region in its full name.
         '''
         all_nodes = get_all_nodes(self.dict, "children")
         return {area["acronym"]: area["name"] for area in all_nodes}
+    
+    def get_region_colours(self):
+        all_areas = get_all_nodes(self.dict, "children")
+        return {area["acronym"]: "#"+area["color_hex_triplet"] for area in all_areas}
 
     
     def to_nx_attributes(self, attributes):

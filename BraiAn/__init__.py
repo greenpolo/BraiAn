@@ -1,4 +1,4 @@
-from .brain_hierarchy import AllenBrainHierarchy
+from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 from .pls import PLS
 from .brain_slice import BrainSlice, merge_slice_hemispheres
 from .sliced_brain import SlicedBrain, merge_sliced_hemispheres
