@@ -241,3 +241,34 @@ def plot_permutation(experiment, permutation, n) -> go.Figure:
             )
         )
     return fig
+
+def plot_cross_correlation(r, p, filename=None, aspect_ratio=3/2, cell_height=18):
+    cell_width = cell_height*aspect_ratio
+    plt_height = cell_height*len(r)
+    plt_width = cell_width*len(r)
+
+    stars = get_stars(p)
+
+    fig = go.Figure(data=go.Heatmap(
+                        x=r.index,
+                        y=r.columns,
+                        z=r,
+                        text=stars.values,
+                        zmin=-1, zmax=1, colorscale="RdBu_r",
+                        customdata=np.stack((p,), axis=-1),
+                        hovertemplate="%{x} - %{y}<br>r: %{z}<br>p: %{customdata[0]}<extra></extra>",
+                        texttemplate="%{text}",
+                        #textfont={"size":20}
+    ))
+    fig.update_layout(width=plt_width, height=plt_height)
+    if filename != None:
+        fig.write_image(filename)
+    return fig
+
+def get_stars(p):
+    stars = pd.DataFrame(index=p.index, columns=p.columns)
+    stars[(~p.isna()) & (p <= 0.05)  & (p > 0.01)] = "*"
+    stars[(~p.isna()) & (p <= 0.01)  & (p > 0.001)] = "**"
+    stars[(~p.isna()) & (p <= 0.001)] = "***"
+    stars[(~p.isna()) & (p > 0.05)] = " "
+    return stars

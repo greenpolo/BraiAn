@@ -51,7 +51,7 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
               hovermode='closest',
               paper_bgcolor=paper_bgcolor,
               plot_bgcolor='rgba(0,0,0,0)',
-              annotations=extract_annotations(kwargs, pos=-0.07, step=-0.2)
+              annotations=extract_annotations(kwargs, pos=-0.07, step=-0.02)
               )
 
     nodes = draw_nodes(G, circle_layout, colours)
@@ -64,7 +64,10 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
 def draw_nodes(G, circle_layout, colours):
     node_colour = [colours[v["label"]] if v.degree() > 0 else '#CCCCCC' for v in G.vs]
     line_colour = ['#FFFFFF' if v.degree() > 0 else 'rgb(150,150,150)' for v in G.vs]
-    region_labels = [f"Region: <b>{v['label']}</b><br>Major Division: {v['major_division']}" for v in G.vs]
+    region_labels = [f"Region: <b>{v['label']}</b><br>"+\
+                    f"Major Division: {v['major_division']}<br>"+\
+                    f"Degree: {v.degree()}"
+                    for v in G.vs]
 
     nodes = go.Scatter(x=[coord[0] for coord in circle_layout.coords],
            y=[coord[1] for coord in circle_layout.coords],
@@ -84,8 +87,8 @@ def draw_edges(G, circle_layout, r_cutoff):
     lines = [] # the list of dicts defining   edge  Plotly attributes
     edge_info = [] # the list of points on edges where  the information is placed
     
-    Dist=[0, dist([1,0], 2*[np.sqrt(2)/2]), np.sqrt(2), dist([1,0],  [-np.sqrt(2)/2, np.sqrt(2)/2]), 2.0]
-    params=[1.2, 1.5, 1.8, 2.1]
+    Dist = [0, dist([1,0], 2*[np.sqrt(2)/2]), np.sqrt(2), dist([1,0],  [-np.sqrt(2)/2, np.sqrt(2)/2]), 2.0]
+    params = [1.2, 1.5, 1.8, 2.1]
     edges_widths = get_edges_widths(G.es["weight"], r_cutoff) #The width is proportional to Pearson's r value
     # edge_colours = ["red", "orange", "green", "blue"]
     edge_colours = ['#d4daff','#84a9dd', '#5588c8', '#6d8acf']
@@ -259,14 +262,13 @@ axis = dict(showline=False, # hide axis line, grid, ticklabels and  title
           title=''
           )
 
-def extract_annotations(dict, pos=-0.07, step=-0.2):
+def extract_annotations(dict, pos=-0.07, step=-0.02):
     annotations = []
     for key in dict:
         if not key.startswith("annotation"):
             continue
         annotations.append(make_annotation(dict[key], pos))
         pos += step
-    print(len(annotations))
     return annotations
 
 def make_annotation(anno_text, y_coord):

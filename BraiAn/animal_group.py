@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from itertools import product
+from scipy.stats import pearsonr
 
 from .brain_hierarchy import AllenBrainHierarchy
 from .animal_brain import AnimalBrain, merge_hemispheres
@@ -70,6 +71,18 @@ class AnimalGroup:
     def get_normalization_methods(self):
         return self.data.columns.get_level_values(1).to_list()
     
+    def get_normalized_data(self, normalization: str, regions: list[str]=None):
+        assert normalization in self.get_normalization_methods(), f"Invalid normalization method '{normalization}'"
+        if not regions:
+            # we have to reindex the columns (brain regions) because of this bug:
+            # https://github.com/pandas-dev/pandas/issues/15105
+            regions_index = self.data.index.get_level_values(0).unique()
+            return self.data[self.marker, normalization].unstack(level=0).reindex(regions_index, axis=1)
+        else:
+            # if selecting a subset of regions first, the ording is retained
+            return self.select(regions)[normalization].unstack(level=0)
+
+    
     def get_animals(self):
         return {index[1] for index in self.data.index}
     
@@ -99,6 +112,15 @@ class AnimalGroup:
             # pd.Series
             data = self.data[self.marker, method]
         return data.groupby(self.get_all_regions())
+    
+    def cross_correlation(self, normalization: str, regions: list[str]=None, min_animals=2) -> pd.DataFrame:
+        assert not min_animals or (min_animals >= 2), "Invalid minimum number of animals needed for cross correlation. It must be >= 2."
+        normalized_data = self.get_normalized_data(normalization, regions)
+        if not min_animals:
+            min_animals = len(normalized_data)
+        r = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[0], min_periods=min_animals)
+        p = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[1], min_periods=min_animals)
+        return r, p
     
     def get_plot_title(self, normalization):
         match normalization:

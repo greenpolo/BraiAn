@@ -47,7 +47,7 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
             data.loc[regions,animal] = group_2.select(regions, animal).reset_index(level=1, drop=True)[normalization]
             data.loc["group",animal] = False
 
-        self.X = data.loc[regions].T.dropna(axis="columns").astype("float64", copy=False)
+        self.X = data.loc[regions].T.dropna(axis="columns", how="any").astype("float64", copy=False)
         self.y = data.loc["group"].T.astype("bool", copy=False)
         self.u, self.s, self.v = self.partial_least_squares_correlation(self.X,self.y)
         
@@ -80,7 +80,7 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
 #        print("\n R:")
 #        print(R)
         # SVD
-        u, s, vh = np.linalg.svd(R, full_matrices=False)
+        u, s, vh = np.linalg.svd(R, full_matrices=False) # self.X, retrieved from AnimalGroup, must have no NaN [dropna(how='any')]. If it does the PLS cannot be computed in the other regions as well
 #        print("\n u:")
 #        print(u)
 #        print("\n s:")
@@ -133,10 +133,14 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
         self.singular_values = singular_values[:count,:]
         return self.s,self.singular_values
     
+    def above_threshold(self, threshold):
+        return self.v_salience_scores[(self.v_salience_scores[0] > threshold) | (self.v_salience_scores[0] < -threshold)]
+
+    
     def plot_salience_scores(self, threshold, output_path, file_title,
                              fig_width=300, fig_height=500):
 
-        to_plot = self.v_salience_scores[(self.v_salience_scores[0]>threshold) | (self.v_salience_scores[0]<-threshold)]
+        to_plot = self.above_threshold(threshold)
         fig = px.bar(to_plot.reset_index(), x=0, y="index")
         fig.update_layout(
             width=fig_width, height=fig_height,
