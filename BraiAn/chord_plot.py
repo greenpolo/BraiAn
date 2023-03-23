@@ -12,8 +12,10 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
                     title="",
                     size=1500,
                     no_background=True,
+                    colorscale_edges=True,
                     **kwargs):
     above_threshold = (p.abs() <= p_cutoff) & (r.abs() >= r_cutoff)
+#    above_threshold = (p.abs() <= p_cutoff) & (r <= -r_cutoff)
     A = r.copy(deep=True)
     A[~above_threshold] = 0
     regions_MD = AllenBrain.get_areas_major_division(*A.index)
@@ -55,7 +57,7 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
               )
 
     nodes = draw_nodes(G, circle_layout, colours)
-    lines, edge_info = draw_edges(G, circle_layout, r_cutoff)
+    lines, edge_info = draw_edges(G, circle_layout, r_cutoff, colorscale_edges)
     ideograms = draw_ideograms(layout, active_MD, n_MD, colours, a=ideograms_a)
 
     fig = go.Figure(data=ideograms+lines+[nodes]+edge_info, layout=layout)
@@ -83,15 +85,15 @@ def draw_nodes(G, circle_layout, colours):
            )
     return nodes
 
-def draw_edges(G, circle_layout, r_cutoff):
+def draw_edges(G, circle_layout, r_cutoff, use_colorscale):
     lines = [] # the list of dicts defining   edge  Plotly attributes
     edge_info = [] # the list of points on edges where  the information is placed
     
     Dist = [0, dist([1,0], 2*[np.sqrt(2)/2]), np.sqrt(2), dist([1,0],  [-np.sqrt(2)/2, np.sqrt(2)/2]), 2.0]
     params = [1.2, 1.5, 1.8, 2.1]
     edges_widths = get_edges_widths(G.es["weight"], r_cutoff) #The width is proportional to Pearson's r value
-    # edge_colours = ["red", "orange", "green", "blue"]
-    edge_colours = ['#d4daff','#84a9dd', '#5588c8', '#6d8acf']
+    if use_colorscale:
+        edge_colours=[get_color("RdBu_r", (c+1)/2) for c in G.es['weight']]
 
     for j, e in enumerate(G.es):
         A=np.array(circle_layout[e.source])
@@ -99,14 +101,14 @@ def draw_edges(G, circle_layout, r_cutoff):
         d=dist(A, B)
         K=get_idx_interv(d, Dist)
         b=[A, A/params[K], B/params[K], B]
-        color=edge_colours[K]
+#        colour=edge_colours[K]
         pts=BezierCv(b, nr=5)
         text=f"<b>{e.source_vertex['label']} - {e.target_vertex['label']}</b><br>r: {e['weight']}"
         mark=deCasteljau(b,0.9)
         edge_info.append(go.Scatter(x=[mark[0]],
                                 y=[mark[1]],
                                 mode='markers',
-                                marker=dict( size=0.5,  color=edge_colours),
+                                marker=dict(size=0.5, color=edge_colours),
                                 text=text,
                                 hoverinfo='text'
                                 )
@@ -114,10 +116,11 @@ def draw_edges(G, circle_layout, r_cutoff):
         lines.append(go.Scatter(x=pts[:,0],
                             y=pts[:,1],
                             mode='lines',
-                            line=dict(color=color,
-                                    shape='spline',
-                                    width=edges_widths[j]
-                                    ),
+                            line=dict(
+                                shape='spline',
+                                width=edges_widths[j],
+                                color=edge_colours[j] if use_colorscale else "#5588c8",
+                            ),
                             hoverinfo='none'
                         )
                     )
@@ -196,6 +199,61 @@ def BezierCv(b, nr=5):
 
 def get_edges_widths(r_values, r_cutoff, max=5):
     return (np.abs(np.array(r_values))-r_cutoff)/(1-r_cutoff)*max
+
+def get_color(colorscale_name, loc):
+    from _plotly_utils.basevalidators import ColorscaleValidator
+    # first parameter: Name of the property being validated
+    # second parameter: a string, doesn't really matter in our use case
+    cv = ColorscaleValidator("colorscale", "")
+    # colorscale will be a list of lists: [[loc1, "rgb1"], [loc2, "rgb2"], ...] 
+    colorscale = cv.validate_coerce(colorscale_name)
+    
+    if hasattr(loc, "__iter__"):
+        return [get_continuous_color(colorscale, x) for x in loc]
+    return get_continuous_color(colorscale, loc)
+
+import plotly.colors
+
+def get_continuous_color(colorscale, intermed):
+    """
+    Plotly continuous colorscales assign colors to the range [0, 1]. This function computes the intermediate
+    color for any value in that range.
+
+    Plotly doesn't make the colorscales directly accessible in a common format.
+    Some are ready to use:
+    
+        colorscale = plotly.colors.PLOTLY_SCALES["Greens"]
+
+    Others are just swatches that need to be constructed into a colorscale:
+
+        viridis_colors, scale = plotly.colors.convert_colors_to_same_type(plotly.colors.sequential.Viridis)
+        colorscale = plotly.colors.make_colorscale(viridis_colors, scale=scale)
+
+    :param colorscale: A plotly continuous colorscale defined with RGB string colors.
+    :param intermed: value in the range [0, 1]
+    :return: color in rgb string format
+    :rtype: str
+    """
+    if len(colorscale) < 1:
+        raise ValueError("colorscale must have at least one color")
+
+    if intermed <= 0 or len(colorscale) == 1:
+        return colorscale[0][1]
+    if intermed >= 1:
+        return colorscale[-1][1]
+
+    for cutoff, color in colorscale:
+        if intermed > cutoff:
+            low_cutoff, low_color = cutoff, color
+        else:
+            high_cutoff, high_color = cutoff, color
+            break
+
+    # noinspection PyUnboundLocalVariable
+    return plotly.colors.find_intermediate_color(
+        lowcolor=low_color, highcolor=high_color,
+        intermed=((intermed - low_cutoff) / (high_cutoff - low_cutoff)),
+        colortype="rgb")
 
 #################
 # IDEOGRAMS UTILS
