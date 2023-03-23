@@ -242,7 +242,7 @@ def plot_permutation(experiment, permutation, n) -> go.Figure:
         )
     return fig
 
-def plot_cross_correlation(r, p, filename=None, aspect_ratio=3/2, cell_height=18):
+def plot_cross_correlation(r, p, aspect_ratio=3/2, cell_height=18):
     cell_width = cell_height*aspect_ratio
     plt_height = cell_height*len(r)
     plt_width = cell_width*len(r)
@@ -260,9 +260,7 @@ def plot_cross_correlation(r, p, filename=None, aspect_ratio=3/2, cell_height=18
                         texttemplate="%{text}",
                         #textfont={"size":20}
     ))
-    fig.update_layout(width=plt_width, height=plt_height)
-    if filename != None:
-        fig.write_image(filename)
+    fig.update_layout(width=plt_width, height=plt_height)       
     return fig
 
 def get_stars(p):
