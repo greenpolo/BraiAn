@@ -13,6 +13,8 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
                     no_background=True,
                     regions_size=15,
                     regions_font_size=10,
+                    max_edge_width=5,
+                    use_weighted_edge_widths=True,
                     colorscale_edges=True,
                     ideograms_a=50,
                     **kwargs):
@@ -63,7 +65,7 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
               )
 
     nodes = draw_nodes(layout, G, circle_layout, regions_size, regions_font_size, colours, AllenBrain)
-    lines, edge_info = draw_edges(G, circle_layout, r_cutoff, colorscale_edges)
+    lines, edge_info = draw_edges(G, circle_layout, r_cutoff, max_edge_width, use_weighted_edge_widths, colorscale_edges)
     ideograms = draw_ideograms(layout, active_MD, n_MD, AllenBrain, colours, a=ideograms_a)
 
     fig = go.Figure(data=ideograms+lines+[nodes]+edge_info, layout=layout)
@@ -121,13 +123,14 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
 
     return nodes
 
-def draw_edges(G, circle_layout, r_cutoff, use_colorscale):
+def draw_edges(G, circle_layout, r_cutoff, max_width, use_weighted_widths, use_colorscale):
     lines = [] # the list of dicts defining   edge  Plotly attributes
     edge_info = [] # the list of points on edges where  the information is placed
     
     Dist = [0, dist([1,0], 2*[np.sqrt(2)/2]), np.sqrt(2), dist([1,0],  [-np.sqrt(2)/2, np.sqrt(2)/2]), 2.0]
     params = [1.2, 1.5, 1.8, 2.1]
-    edges_widths = get_edges_widths(G.es["r-value"], r_cutoff) #The width is proportional to Pearson's r value
+    if use_weighted_widths:
+        edges_widths = get_edges_widths(G.es["r-value"], r_cutoff, max=max_width) #The width is proportional to Pearson's r value
     if use_colorscale:
         edge_colours=[get_color("RdBu_r", (c+1)/2) for c in G.es['r-value']]
 
@@ -156,7 +159,7 @@ def draw_edges(G, circle_layout, r_cutoff, use_colorscale):
                             mode='lines',
                             line=dict(
                                 shape='spline',
-                                width=edges_widths[j],
+                                width=edges_widths[j] if use_weighted_widths else max_width,
                                 color=edge_colours[j] if use_colorscale else "#5588c8",
                             ),
                             hoverinfo='none'
