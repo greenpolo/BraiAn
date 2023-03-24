@@ -15,9 +15,8 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
                     colorscale_edges=True,
                     **kwargs):
     above_threshold = (p.abs() <= p_cutoff) & (r.abs() >= r_cutoff)
-#    above_threshold = (p.abs() <= p_cutoff) & (r <= -r_cutoff)
     A = r.copy(deep=True)
-    A[~above_threshold] = 0
+    A[~above_threshold] = 0 # zero in weighted matrix[i,j] corresponds to NO edge between i and j
     regions_MD = AllenBrain.get_areas_major_division(*A.index)
 
     # sort vertices based on major divisions
@@ -27,9 +26,13 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
     n_MD = [sum(r1 == r2  for r2 in regions_MD.values()) for r1 in active_MD]
 
     A = A.iloc[regions_i].iloc[:,regions_i]
-    G = ig.Graph.Weighted_Adjacency(A.values, mode="lower") # mode="undirected")
+    G = ig.Graph.Weighted_Adjacency(A.values, mode="lower", attr="r-value") # mode="undirected")
     G.vs["label"] = list(A.index)
+    for e in G.es:
+        assert e["r-value"] == A.loc[e.source_vertex['label'], e.target_vertex['label']], "igraph did not maintain vertices order!"
     G.vs["major_division"] = [regions_MD[v["label"]] for v in G.vs]
+    for e in G.es:
+        e["p-value"] = p.loc[e.source_vertex['label'], e.target_vertex['label']]
     circle_layout = G.layout_circle()
     colours = AllenBrain.get_region_colours()
 
@@ -71,18 +74,25 @@ def draw_nodes(G, circle_layout, colours):
                     f"Degree: {v.degree()}"
                     for v in G.vs]
 
-    nodes = go.Scatter(x=[coord[0] for coord in circle_layout.coords],
-           y=[coord[1] for coord in circle_layout.coords],
-           mode='markers',
-           name='',
-           marker=dict(symbol='circle',
-                         size=15,
-                         color=node_colour,
-                         line=dict(color=line_colour, width=0.5)
-                         ),
-           text=region_labels,
-           hoverinfo='text',
-           )
+    nodes = go.Scatter(
+        x=[coord[0] for coord in circle_layout.coords],
+        y=[coord[1] for coord in circle_layout.coords],
+        mode='markers+text',
+        text=G.vs['label'],
+        textposition="bottom center",
+        name='',
+        marker=dict(symbol='circle',
+                    size=15,
+                    color=node_colour,
+                    line=dict(color=line_colour, width=0.5)),
+        customdata = np.stack((G.vs['label'], G.vs['major_division'], G.vs.degree()), axis=-1),
+        hovertemplate=
+            "<b>%{customdata[0]}</b><br><br>" +
+            "Major Division: %{customdata[1]}<br>" +
+            "Degree: %{customdata[2]}" +
+            "<extra></extra>"
+#        hoverinfo='text',
+        )
     return nodes
 
 def draw_edges(G, circle_layout, r_cutoff, use_colorscale):
@@ -91,9 +101,9 @@ def draw_edges(G, circle_layout, r_cutoff, use_colorscale):
     
     Dist = [0, dist([1,0], 2*[np.sqrt(2)/2]), np.sqrt(2), dist([1,0],  [-np.sqrt(2)/2, np.sqrt(2)/2]), 2.0]
     params = [1.2, 1.5, 1.8, 2.1]
-    edges_widths = get_edges_widths(G.es["weight"], r_cutoff) #The width is proportional to Pearson's r value
+    edges_widths = get_edges_widths(G.es["r-value"], r_cutoff) #The width is proportional to Pearson's r value
     if use_colorscale:
-        edge_colours=[get_color("RdBu_r", (c+1)/2) for c in G.es['weight']]
+        edge_colours=[get_color("RdBu_r", (c+1)/2) for c in G.es['r-value']]
 
     for j, e in enumerate(G.es):
         A=np.array(circle_layout[e.source])
@@ -101,14 +111,16 @@ def draw_edges(G, circle_layout, r_cutoff, use_colorscale):
         d=dist(A, B)
         K=get_idx_interv(d, Dist)
         b=[A, A/params[K], B/params[K], B]
-#        colour=edge_colours[K]
         pts=BezierCv(b, nr=5)
-        text=f"<b>{e.source_vertex['label']} - {e.target_vertex['label']}</b><br>r: {e['weight']}"
-        mark=deCasteljau(b,0.9)
-        edge_info.append(go.Scatter(x=[mark[0]],
-                                y=[mark[1]],
+        text="<br>".join((f"<b>{e.source_vertex['label']} - {e.target_vertex['label']}</b>",
+                        f"r: {e['r-value']:.5f}",
+                        f"p: {e['p-value']:.10f}"))
+        mark1=deCasteljau(b,0.9)
+        mark2=deCasteljau(list(reversed(b)),0.9)
+        edge_info.append(go.Scatter(x=[mark1[0], mark2[0]],
+                                y=[mark1[1], mark2[1]],
                                 mode='markers',
-                                marker=dict(size=0.5, color=edge_colours),
+                                marker=dict(size=0.5, color=edge_colours[j] if use_colorscale else "#5588c8"),
                                 text=text,
                                 hoverinfo='text'
                                 )
