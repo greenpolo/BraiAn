@@ -17,6 +17,7 @@ class AnimalGroup:
         if marker is not None and data is not None:
             self.marker = marker
             self.data = data
+            self.n = len(self.get_animals())
             return
         elif not animals or not AllenBrain:
             raise ValueError("You must specify the AnimalBrain list and the AllenBrainHierarchy.")
@@ -27,6 +28,7 @@ class AnimalGroup:
         if not hemisphere_distinction:
             animals = [merge_hemispheres(animal_brain) for animal_brain in animals]
         self.data = self.normalize_animals(animals, AllenBrain)
+        self.n = len(self.get_animals())
         
     
     def normalize_animals(self, animals, AllenBrain) -> pd.DataFrame:
