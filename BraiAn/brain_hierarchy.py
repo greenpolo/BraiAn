@@ -77,6 +77,9 @@ class AllenBrainHierarchy:
 
     def select_at_structural_level(self, level):
         add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["st_level"] == level)
+    
+    def select_regions(self, acronyms):
+        add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["acronym"] in acronyms)
 
     # Meant for selecting Summary Structures.
     # Summary Structures is a list of non-overlapping, finer divisions, independent of their exact depth in the tree
