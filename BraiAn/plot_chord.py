@@ -30,8 +30,9 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
     n_MD = [sum(r1 == r2  for r2 in regions_MD.values()) for r1 in active_MD]
 
     A = A.iloc[regions_i].iloc[:,regions_i]
-    G = ig.Graph.Weighted_Adjacency(A.values, mode="lower", attr="r-value")
+    G = ig.Graph.Weighted_Adjacency(A.values, mode="lower", attr="r-value", loops=False)
     G.vs["label"] = list(A.index)
+    G.vs["is_undefined"] = r.isna().all().values
     for e in G.es:
         assert e["r-value"] == A.loc[e.source_vertex['label'], e.target_vertex['label']], "igraph did not maintain vertices order!"
     G.vs["major_division"] = [regions_MD[v["label"]] for v in G.vs]
@@ -72,8 +73,20 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
     return fig
 
 def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBrain):
-    node_colour = [colours[v["label"]] if v.degree() > 0 else '#CCCCCC' for v in G.vs]
-    line_colour = ['#FFFFFF' if v.degree() > 0 else 'rgb(150,150,150)' for v in G.vs]
+    nodes_colour = []
+    outlines_colour = []
+    for v in G.vs:
+        if v.degree() > 0:
+            outline_colour = '#FFFFFF'
+            node_colour = colours[v["label"]]
+        elif v["is_undefined"]:
+            outline_colour = 'rgb(140,140,140)'
+            node_colour = '#A0A0A0'
+        else:
+            outline_colour = 'rgb(150,150,150)'
+            node_colour = '#CCCCCC'
+        nodes_colour.append(node_colour)
+        outlines_colour.append(outline_colour)
 
     nodes = go.Scatter(
         x=[coord[0] for coord in circle_layout.coords],
@@ -82,8 +95,8 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
         name='',
         marker=dict(symbol='circle',
                     size=node_size,
-                    color=node_colour,
-                    line=dict(color=line_colour, width=0.5)),
+                    color=nodes_colour,
+                    line=dict(color=outlines_colour, width=0.5)),
         customdata = np.stack((
                         G.vs['label'],
                         [AllenBrain.full_name[acronym] for acronym in G.vs['label']],
@@ -102,7 +115,9 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
     for v in G.vs:
         x = circle_layout[v.index][0]
         y = circle_layout[v.index][1]
-        angle = (180/PI*np.arctan(x/y)+90) if y != 0 else 0
+        angle = 180/PI*np.arctan(x/y)-90 if y != 0 else 0
+        xanchor = "right" if x < 0 else "left"
+        yanchor = "bottom" if y < 0 else "top"
         if abs(angle) > 90:
             angle = ((angle+90)%180)-90
         textdist = 20
@@ -112,6 +127,8 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
                 text=v["label"],
                 xshift=x*textdist,
                 yshift=y*textdist,
+                xref="x",
+                yref="y",
                 xanchor="center",
                 yanchor="middle",
                 textangle=angle,
@@ -363,23 +380,34 @@ axis = dict(showline=False, # hide axis line, grid, ticklabels and  title
           title=''
           )
 
-def extract_annotations(dict, pos=-0.07, step=-0.02):
+def extract_annotations(kwargs, pos=-0.07, step=-0.02):
     annotations = []
-    for key in dict:
-        if not key.startswith("annotation"):
-            continue
-        annotations.append(make_annotation(dict[key], pos))
-        pos += step
+    for key in kwargs:
+        if key.startswith("annotation"):
+            bottom_annotation = make_annotation(kwargs[key], pos)
+            annotations.append(bottom_annotation)
+            pos += step
+        elif key == "subtitle":
+            subtitle = dict(showarrow=False,
+                    text=kwargs[key],
+                    xref='paper',
+                    yref='paper',
+                    x=0,
+                    y=0,
+                    xanchor='left',
+                    yanchor='top',
+                    font=dict(size=15))
+            annotations.append(subtitle)
     return annotations
 
-def make_annotation(anno_text, y_coord):
+def make_annotation(anno_text, y_coord, x_coord=0, font_size=12):
     return dict(showarrow=False,
-                      text=anno_text,
-                      xref='paper',
-                      yref='paper',
-                      x=0,
-                      y=y_coord,
-                      xanchor='left',
-                      yanchor='bottom',
-                      font=dict(size=12)
-                     )
+                text=anno_text,
+                xref='paper',
+                yref='paper',
+                x=x_coord,
+                y=y_coord,
+                xanchor='left',
+                yanchor='bottom',
+                font=dict(size=font_size)
+            )
