@@ -8,11 +8,13 @@ from .brain_hierarchy import MAJOR_DIVISIONS, AllenBrainHierarchy
 
 def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
                     AllenBrain: AllenBrainHierarchy,
-                    ideograms_a=50,
                     title="",
                     size=1500,
                     no_background=True,
+                    regions_size=15,
+                    regions_font_size=10,
                     colorscale_edges=True,
+                    ideograms_a=50,
                     **kwargs):
     above_threshold = (p.abs() <= p_cutoff) & (r.abs() >= r_cutoff)
     A = r.copy(deep=True)
@@ -26,7 +28,7 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
     n_MD = [sum(r1 == r2  for r2 in regions_MD.values()) for r1 in active_MD]
 
     A = A.iloc[regions_i].iloc[:,regions_i]
-    G = ig.Graph.Weighted_Adjacency(A.values, mode="lower", attr="r-value") # mode="undirected")
+    G = ig.Graph.Weighted_Adjacency(A.values, mode="lower", attr="r-value")
     G.vs["label"] = list(A.index)
     for e in G.es:
         assert e["r-value"] == A.loc[e.source_vertex['label'], e.target_vertex['label']], "igraph did not maintain vertices order!"
@@ -34,6 +36,7 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
     for e in G.es:
         e["p-value"] = p.loc[e.source_vertex['label'], e.target_vertex['label']]
     circle_layout = G.layout_circle()
+    circle_layout.rotate(180/len(circle_layout)) # rotate by half of a unit to sync with ideograms' rotation
     colours = AllenBrain.get_region_colours()
 
     paper_bgcolor = 'rgba(0,0,0,0)' if no_background else 'rgba(255,255,255,255)'
@@ -59,40 +62,63 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
               annotations=extract_annotations(kwargs, pos=-0.07, step=-0.02)
               )
 
-    nodes = draw_nodes(G, circle_layout, colours)
+    nodes = draw_nodes(layout, G, circle_layout, regions_size, regions_font_size, colours, AllenBrain)
     lines, edge_info = draw_edges(G, circle_layout, r_cutoff, colorscale_edges)
-    ideograms = draw_ideograms(layout, active_MD, n_MD, colours, a=ideograms_a)
+    ideograms = draw_ideograms(layout, active_MD, n_MD, AllenBrain, colours, a=ideograms_a)
 
     fig = go.Figure(data=ideograms+lines+[nodes]+edge_info, layout=layout)
     return fig
 
-def draw_nodes(G, circle_layout, colours):
+def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBrain):
     node_colour = [colours[v["label"]] if v.degree() > 0 else '#CCCCCC' for v in G.vs]
     line_colour = ['#FFFFFF' if v.degree() > 0 else 'rgb(150,150,150)' for v in G.vs]
-    region_labels = [f"Region: <b>{v['label']}</b><br>"+\
-                    f"Major Division: {v['major_division']}<br>"+\
-                    f"Degree: {v.degree()}"
-                    for v in G.vs]
 
     nodes = go.Scatter(
         x=[coord[0] for coord in circle_layout.coords],
         y=[coord[1] for coord in circle_layout.coords],
-        mode='markers+text',
-        text=G.vs['label'],
-        textposition="bottom center",
+        mode='markers',
         name='',
         marker=dict(symbol='circle',
-                    size=15,
+                    size=node_size,
                     color=node_colour,
                     line=dict(color=line_colour, width=0.5)),
-        customdata = np.stack((G.vs['label'], G.vs['major_division'], G.vs.degree()), axis=-1),
+        customdata = np.stack((
+                        G.vs['label'],
+                        [AllenBrain.full_name[acronym] for acronym in G.vs['label']],
+                        G.vs['major_division'],
+                        [AllenBrain.full_name[acronym] for acronym in G.vs['major_division']],
+                        G.vs.degree()),
+                    axis=-1),
         hovertemplate=
-            "<b>%{customdata[0]}</b><br><br>" +
-            "Major Division: %{customdata[1]}<br>" +
-            "Degree: %{customdata[2]}" +
+            "Region: <b>%{customdata[0]}</b><br>" +
+            "<i>%{customdata[1]}</i><br>" +
+            "Major Division: %{customdata[2]} (%{customdata[3]})<br>" +
+            "Degree: %{customdata[4]}" +
             "<extra></extra>"
-#        hoverinfo='text',
         )
+    nodes_annotations = []
+    for v in G.vs:
+        x = circle_layout[v.index][0]
+        y = circle_layout[v.index][1]
+        angle = (180/PI*np.arctan(x/y)+90) if y != 0 else 0
+        if abs(angle) > 90:
+            angle = ((angle+90)%180)-90
+        textdist = 20
+        ann = dict(
+                x=x,
+                y=y,
+                text=v["label"],
+                xshift=x*textdist,
+                yshift=y*textdist,
+                xanchor="center",
+                yanchor="middle",
+                textangle=angle,
+                font_size=font_size,
+                showarrow=False
+            )
+        nodes_annotations.append(ann)
+    layout["annotations"] = (*layout["annotations"], *nodes_annotations)
+
     return nodes
 
 def draw_edges(G, circle_layout, r_cutoff, use_colorscale):
@@ -139,19 +165,19 @@ def draw_edges(G, circle_layout, r_cutoff, use_colorscale):
     return lines, edge_info
 
 # TODO: change names
-def draw_ideograms(layout, active_MD, n_MD,
-                    colours,outline_colour='rgb(150,150,150)',
+def draw_ideograms(layout, active_MD, n_MD, AllenBrain,
+                    colours, outline_colour='rgb(150,150,150)',
                     a=50):
     assert len(active_MD) == len(n_MD), "The number of subregions per major division must be the same as the number of passed major divisions"
     ideograms=[]
 
     n_nodes = sum(n_MD)
     ideogram_length=2*PI*np.asarray(n_MD)/n_nodes
-    ideo_ends = get_ideogram_ends(ideogram_length)-PI/n_nodes
+    ideo_ends = get_ideogram_ends(ideogram_length)
     ideo_colours = [colours[r_acronym] for r_acronym in active_MD]
 
     for k in range(len(ideo_ends)):
-        z= make_ideogram_arc(1.1, ideo_ends[k], a=a)
+        z= make_ideogram_arc(1.2, ideo_ends[k], a=a)
         zi=make_ideogram_arc(1.0, ideo_ends[k], a=a)
         m=len(z)
         n=len(zi)
@@ -159,7 +185,9 @@ def draw_ideograms(layout, active_MD, n_MD,
                                 y=z.imag,
                                 mode='lines',
                                 line=dict(color=ideo_colours[k], shape='spline', width=0.25),
-                                text=f"{active_MD[k]}<br>{n_MD[k]:d}",
+                                text=f"<b>{active_MD[k]}</b><br>"+
+                                        f"<i>{AllenBrain.full_name[active_MD[k]]}</i><br>"
+                                        f"N displayed regions: {n_MD[k]:d}",
                                 hoverinfo='text'
                                 )
                         )
@@ -269,7 +297,7 @@ def get_continuous_color(colorscale, intermed):
 
 #################
 # IDEOGRAMS UTILS
-PI=np.pi
+PI = np.pi
 
 def moduloAB(x, a, b): #maps a real number onto the unit circle identified with 
                        #the interval [a,b), b-a=2*PI
