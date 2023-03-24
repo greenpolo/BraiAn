@@ -5,6 +5,8 @@ import igraph as ig
 
 from .brain_hierarchy import MAJOR_DIVISIONS, AllenBrainHierarchy
 
+RING_REGIONS = ['root', *MAJOR_DIVISIONS]
+
 
 def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
                     AllenBrain: AllenBrainHierarchy,
@@ -22,11 +24,12 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
     A = r.copy(deep=True)
     A[~above_threshold] = 0 # zero in weighted matrix[i,j] corresponds to NO edge between i and j
     regions_MD = AllenBrain.get_areas_major_division(*A.index)
+    regions_MD = {k: v if v is not None else "root" for (k,v) in regions_MD.items()}
 
     # sort vertices based on major divisions
-    regions_i = sorted(range(len(A)), key=lambda i: MAJOR_DIVISIONS.index(list(regions_MD.values())[i]))
+    regions_i = sorted(range(len(A)), key=lambda i: RING_REGIONS.index(list(regions_MD.values())[i]))
 
-    active_MD = sorted(list(set(regions_MD.values())), key=MAJOR_DIVISIONS.index)
+    active_MD = sorted(list(set(regions_MD.values())), key=RING_REGIONS.index)
     n_MD = [sum(r1 == r2  for r2 in regions_MD.values()) for r1 in active_MD]
 
     A = A.iloc[regions_i].iloc[:,regions_i]
@@ -143,6 +146,8 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
 def draw_edges(G, circle_layout, r_cutoff, max_width, use_weighted_widths, use_colorscale):
     lines = [] # the list of dicts defining   edge  Plotly attributes
     edge_info = [] # the list of points on edges where  the information is placed
+    if len(G.es) == 0:
+        return lines, edge_info
     
     Dist = [0, dist([1,0], 2*[np.sqrt(2)/2]), np.sqrt(2), dist([1,0],  [-np.sqrt(2)/2, np.sqrt(2)/2]), 2.0]
     params = [1.2, 1.5, 1.8, 2.1]

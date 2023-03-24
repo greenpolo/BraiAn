@@ -242,10 +242,10 @@ def plot_permutation(experiment, permutation, n) -> go.Figure:
         )
     return fig
 
-def plot_cross_correlation(r, p, aspect_ratio=3/2, cell_height=18):
+def plot_cross_correlation(r, p, aspect_ratio=3/2, cell_height=18, min_plot_height=500):
     cell_width = cell_height*aspect_ratio
-    plt_height = cell_height*len(r)
-    plt_width = cell_width*len(r)
+    plt_height = max(cell_height*len(r), min_plot_height)
+    plt_width = max(cell_width*len(r), min_plot_height*aspect_ratio)
 
     stars = get_stars(p)
 

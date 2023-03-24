@@ -204,6 +204,9 @@ class AllenBrainHierarchy:
     def get_areas_major_division(self, *acronyms) -> dict:
         regions_md = {}
         for region_acronym in acronyms:
+            if region_acronym in MAJOR_DIVISIONS:
+                regions_md[region_acronym] = region_acronym
+                continue
             regions_above = self.get_regions_above(region_acronym)
             above_md = [r for r in regions_above if r in MAJOR_DIVISIONS]
             regions_md[region_acronym] = above_md[0] if above_md else None
