@@ -69,10 +69,10 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
               )
 
     nodes = draw_nodes(layout, G, circle_layout, regions_size, regions_font_size, colours, AllenBrain)
-    lines, edge_info = draw_edges(G, circle_layout, r_cutoff, max_edge_width, use_weighted_edge_widths, colorscale_edges)
+    lines, edge_info, colorbar = draw_edges(layout, G, circle_layout, r_cutoff, max_edge_width, use_weighted_edge_widths, colorscale_edges)
     ideograms = draw_ideograms(layout, active_MD, n_MD, AllenBrain, colours, a=ideograms_a)
 
-    fig = go.Figure(data=ideograms+lines+[nodes]+edge_info, layout=layout)
+    fig = go.Figure(data=ideograms+lines+[nodes]+edge_info+colorbar, layout=layout)
     return fig
 
 def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBrain):
@@ -143,7 +143,7 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
 
     return nodes
 
-def draw_edges(G, circle_layout, r_cutoff, max_width, use_weighted_widths, use_colorscale):
+def draw_edges(layout, G, circle_layout, r_cutoff, max_width, use_weighted_widths, use_colorscale):
     lines = [] # the list of dicts defining   edge  Plotly attributes
     edge_info = [] # the list of points on edges where  the information is placed
     if len(G.es) == 0:
@@ -187,7 +187,20 @@ def draw_edges(G, circle_layout, r_cutoff, max_width, use_weighted_widths, use_c
                             hoverinfo='none'
                         )
                     )
-    return lines, edge_info
+    if use_colorscale:
+        colorbar_trace = go.Scatter(x=[None],
+                y=[None],
+                mode="markers",
+                marker=dict(
+                    colorscale="RdBu_r", 
+                    showscale=True,
+                    cmin=-1,
+                    cmax=1,
+                    colorbar=dict(title="Pearson's <i>r</i>", len=0.5, thickness=15), 
+                ),
+                hoverinfo='none'
+                )
+    return lines, edge_info, [colorbar_trace if use_colorscale else None]
 
 # TODO: change names
 def draw_ideograms(layout, active_MD, n_MD, AllenBrain,
