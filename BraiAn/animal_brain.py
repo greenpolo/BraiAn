@@ -16,7 +16,14 @@ def coefficient_variation(x) -> np.float64:
         return 0
 
 class AnimalBrain:
-    def __init__(self, sliced_brain, mode="sum", hemisphere_distinction=True) -> None:
+    def __init__(self, sliced_brain, mode="sum", hemisphere_distinction=True,
+                name=None, data: pd.DataFrame=None) -> None:
+        if name and data is not None:
+            self.name = name
+            self.marker = data.columns[-1]
+            self.mode = mode
+            self.data = data
+            return
         if not hemisphere_distinction:
             sliced_brain = merge_sliced_hemispheres(sliced_brain)
         if mode == "sum":
@@ -50,19 +57,27 @@ class AnimalBrain:
         output_path = os.path.join(output_path, f"{self.name}_{self.mode}.csv")
         self.data.to_csv(output_path, sep="\t", mode="w")
         print(f"AnimalBrain {self.name} reduced with mode='{self.mode}' saved to {output_path}")
+    
+    @staticmethod
+    def from_csv(animal_name, root_dir, mode):
+        # read CSV
+        df = pd.read_csv(os.path.join(root_dir, f"{animal_name}_{mode}.csv"), sep="\t", header=0, index_col=0)
+        return AnimalBrain(None, mode=mode, name=animal_name, data=df)
 
-def filter_selected_regions(animal_brain, AllenBrain) -> AnimalBrain:
-    brain = copy.copy(animal_brain)
-    selected_allen_regions = AllenBrain.get_selected_regions()
-    selectable_regions = set(animal_brain.data.index).intersection(set(selected_allen_regions))
-    if type(brain.data) == pd.Series:
-        brain.data = animal_brain.data[list(selectable_regions)]
-    else: # type == pd.DataFrame
-        brain.data = animal_brain.data.loc[list(selectable_regions), :]
-    return brain
+    @staticmethod
+    def filter_selected_regions(animal_brain, AllenBrain): # -> AnimalBrain:
+        brain = copy.copy(animal_brain)
+        selected_allen_regions = AllenBrain.get_selected_regions()
+        selectable_regions = set(animal_brain.data.index).intersection(set(selected_allen_regions))
+        if type(brain.data) == pd.Series:
+            brain.data = animal_brain.data[list(selectable_regions)]
+        else: # type == pd.DataFrame
+            brain.data = animal_brain.data.loc[list(selectable_regions), :]
+        return brain
 
-def merge_hemispheres(animal_brain) -> AnimalBrain:
-    brain = copy.copy(animal_brain)
-    corresponding_region = [find_region_abbreviation(region) for region in animal_brain.data.index]
-    brain.data = animal_brain.data.groupby(corresponding_region, axis=0).sum(min_count=1)
-    return brain
+    @staticmethod
+    def merge_hemispheres(animal_brain): # -> AnimalBrain:
+        brain = copy.copy(animal_brain)
+        corresponding_region = [find_region_abbreviation(region) for region in animal_brain.data.index]
+        brain.data = animal_brain.data.groupby(corresponding_region, axis=0).sum(min_count=1)
+        return brain

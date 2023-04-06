@@ -7,7 +7,7 @@ import numpy as np
 from .utils import nrange
 from .pls import PLS
 from .sliced_brain import merge_sliced_hemispheres
-from .animal_brain import AnimalBrain, filter_selected_regions
+from .animal_brain import AnimalBrain
 from .animal_group import AnimalGroup
 from .brain_hierarchy import AllenBrainHierarchy
 
@@ -96,7 +96,7 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1, w
     for i, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[i-1] if i > 0 else 0
         group_cvar_brains = [AnimalBrain(sliced_brain, mode="cvar", hemisphere_distinction=False) for sliced_brain in group_slices]
-        group_cvar_brains = [filter_selected_regions(brain, AllenBrain).data for brain in group_cvar_brains]
+        group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, AllenBrain).data for brain in group_cvar_brains]
 
         for j, cvars in enumerate(group_cvar_brains):
             above_threshold_filter = cvars > cv_threshold

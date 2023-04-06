@@ -5,7 +5,7 @@ from itertools import product
 from scipy.stats import pearsonr
 
 from .brain_hierarchy import AllenBrainHierarchy
-from .animal_brain import AnimalBrain, merge_hemispheres
+from .animal_brain import AnimalBrain
 from .utils import save_csv
 
 class AnimalGroup:
@@ -26,7 +26,7 @@ class AnimalGroup:
         self.marker = animals[0].marker
         assert all([brain.marker == self.marker for brain in animals]), "All AnimalBrain composing the group must use the same marker."
         if not hemisphere_distinction:
-            animals = [merge_hemispheres(animal_brain) for animal_brain in animals]
+            animals = [AnimalBrain.merge_hemispheres(animal_brain) for animal_brain in animals]
         self.data = self.normalize_animals(animals, AllenBrain)
         self.n = len(self.get_animals())
         
