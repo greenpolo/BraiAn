@@ -279,6 +279,28 @@ def plot_permutation(experiment, permutation, n) -> go.Figure:
         )
     return fig
 
+def plot_salient_regions(salient_regions: pd.DataFrame,
+                            title=None, width=300, height=500):
+    fig = go.Figure([
+        go.Bar(
+            x=salient_regions["salience_score"],
+            orientation='h',
+        )
+    ])
+    fig.update_layout(
+        title=title,
+        width=width, height=height,
+        xaxis=dict(
+            title = "Salience score"
+        ),
+        yaxis = dict(
+            tickmode = "array",
+            tickvals = np.arange(0,len(salient_regions)),
+            ticktext = salient_regions["acronym"]
+        ),
+    )
+    return fig
+
 def plot_cross_correlation(r, p, title="", aspect_ratio=3/2, cell_height=18, min_plot_height=500):
     cell_width = cell_height*aspect_ratio
     plt_height = max(cell_height*len(r), min_plot_height)

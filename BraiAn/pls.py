@@ -135,25 +135,3 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
     
     def above_threshold(self, threshold):
         return self.v_salience_scores[(self.v_salience_scores[0] > threshold) | (self.v_salience_scores[0] < -threshold)]
-
-    
-    def plot_salience_scores(self, threshold, output_path, file_title,
-                             fig_width=300, fig_height=500):
-
-        to_plot = self.above_threshold(threshold)
-        fig = px.bar(to_plot.reset_index(), x=0, y="index")
-        fig.update_layout(
-            width=fig_width, height=fig_height,
-            xaxis=dict(
-                title = "Salience score"
-            ),
-        )
-        #salient_regions = list(to_plot.index.values)
-        fig.show()
-
-        # Save figure as PNG
-        if not(os.path.exists(output_path)):
-            os.mkdir(output_path)
-        output_file = os.path.join(output_path, file_title)
-        fig.write_image(output_file)
-        return fig, to_plot
