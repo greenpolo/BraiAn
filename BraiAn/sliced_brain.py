@@ -38,7 +38,7 @@ class SlicedBrain:
         excluded_regions_dir = os.path.join(animal_dir, "regions_to_exclude")
         csv_slices_dir = os.path.join(animal_dir, "results")
         images = self.get_image_names_in_folder(csv_slices_dir)
-        self.slices = []
+        self.slices: list[BrainSlice] = []
         for image in images:
             results_file = os.path.join(csv_slices_dir, f"{image}_regions.txt")
             regions_to_exclude_file = os.path.join(excluded_regions_dir, f"{image}_regions_to_exclude.txt")
@@ -55,6 +55,9 @@ class SlicedBrain:
                 self.slices.append(slice)
         if len(self.slices) == 0:
             raise EmptyBrainError(self.name)
+    
+    def get_marker_dtype(self):
+        return self.slices[0].data[self.marker].dtype
     
     def get_image_names_in_folder(self, path) -> list[str]:
         all_files = os.listdir(path)

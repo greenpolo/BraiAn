@@ -3,9 +3,16 @@ import numpy as np
 import pandas as pd
 import copy
 
-from .sliced_brain import merge_sliced_hemispheres
+from .sliced_brain import merge_sliced_hemispheres, SlicedBrain
 from .brain_slice import find_region_abbreviation
 
+def min_count(fun, min):
+    def nan_if_less(xs):
+        if len(xs) >= min:
+            return fun(xs)
+        else:
+            return np.NaN
+    return nan_if_less
 
 # https://en.wikipedia.org/wiki/Coefficient_of_variation
 def coefficient_variation(x) -> np.float64:
@@ -17,7 +24,7 @@ def coefficient_variation(x) -> np.float64:
 
 class AnimalBrain:
     def __init__(self, sliced_brain, mode="sum", hemisphere_distinction=True,
-                name=None, data: pd.DataFrame=None) -> None:
+                name=None, min_slices=0, data: pd.DataFrame=None) -> None:
         if name and data is not None:
             self.name = name
             self.marker = data.columns[-1]
@@ -26,31 +33,37 @@ class AnimalBrain:
             return
         if not hemisphere_distinction:
             sliced_brain = merge_sliced_hemispheres(sliced_brain)
-        if mode == "sum":
-            self.data = self.sum_slices(sliced_brain)
-        else:
+        if mode == "sum": # data is a pd.DataFrame
+            self.data = self.sum_slices(sliced_brain, min_slices)
+        else: # data is a pd.Series
             sliced_brain.add_density()
-            self.data = self.reduce_brain_densities(sliced_brain, mode)
+            self.data = self.reduce_brain_densities(sliced_brain, mode, min_slices)
         self.name = sliced_brain.name
         self.marker = sliced_brain.marker
         self.mode = mode
     
-    def sum_slices(self, sliced_brain) -> pd.DataFrame:
+    def sum_slices(self, sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
         all_slices = sliced_brain.concat_slices()
-        return all_slices.groupby(all_slices.index, axis=0).sum()
+        return all_slices.groupby(all_slices.index, axis=0)\
+                            .sum(min_count=min_slices)\
+                            .dropna(axis=0, how="all")\
+                            .astype({sliced_brain.marker: sliced_brain.get_marker_dtype()}) # dropna() changes type to float64
 
-    def reduce_brain_densities(self, sliced_brain, mode) -> pd.Series:
+    def reduce_brain_densities(self, sliced_brain: SlicedBrain, mode: str, min_slices: int) -> pd.Series:
         match mode:
             case "mean" | "avg":
-                reduction_fun = np.mean
+                reduction_fun = min_count(np.mean, min_slices)
             case "std":
-                reduction_fun = np.std
+                reduction_fun = min_count(np.std, min_slices)
             case "variation" | "cvar":
-                reduction_fun = coefficient_variation
+                reduction_fun = min_count(coefficient_variation, min_slices)
             case _:
                 raise NameError("Invalid mode selected.")
         all_slices = sliced_brain.concat_slices()[f"{sliced_brain.marker}_density"]
-        return all_slices.groupby(all_slices.index, axis=0).apply(reduction_fun)
+        return all_slices.groupby(all_slices.index, axis=0)\
+                            .apply(reduction_fun)\
+                            .dropna()\
+                            .astype(sliced_brain.get_marker_dtype()) # dropna() changes type to float64
 
     def write_all_brains(self, output_path: str) -> None:
         os.makedirs(output_path, exist_ok=True)
