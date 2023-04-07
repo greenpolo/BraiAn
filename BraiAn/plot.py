@@ -9,16 +9,18 @@ from .pls import PLS
 from .sliced_brain import merge_sliced_hemispheres
 from .animal_brain import AnimalBrain
 from .animal_group import AnimalGroup
-from .brain_hierarchy import AllenBrainHierarchy
+from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 
 def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
                         AllenBrain: AllenBrainHierarchy, selected_regions: list[str],
                         color: str, y_offset, use_acronyms=True) -> None:
     avg = group.group_by_region(method=normalization).mean(numeric_only=True)
     sem = group.group_by_region(method=normalization).sem(numeric_only=True)
-    y_axis, ticklabels = pd.factorize(group.data.loc[selected_regions].index.get_level_values(0))
+    y_axis, acronyms = pd.factorize(group.data.loc[selected_regions].index.get_level_values(0))
     if not use_acronyms:
-        ticklabels = [AllenBrain.full_name[acronym] for acronym in ticklabels]
+        ticklabels = [f"{AllenBrain.full_name[acronym]}" for acronym in acronyms]
+    else:
+        ticklabels = [f"{acronym}" for acronym in acronyms]
     
     # Barplot (group)
     fig.add_trace(go.Bar(
@@ -55,16 +57,50 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
     )
     return ticklabels
 
-def plot_groups(normalization: str, AllenBrain, *groups: list[AnimalGroup],
-                selected_regions=None, use_acronyms=True,
+UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
+
+def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
+                selected_regions: list[str], use_acronyms=True,
                 colors=DEFAULT_PLOTLY_COLORS,
-                width=900, height=5000):
+                width=900, height=5000,
+                bargap=0.3, bargroupgap=0.0):
     assert len(groups) > 0, "You selected zero AnimalGroups to plot."
     title = groups[0].get_plot_title(normalization)
     fig = go.Figure()
-    y_offsets = nrange(-0.2, +0.2, len(groups))
+
+    n_groups = len(groups)
+    region_axis_width = (1-bargap)/2
+    group_bar_width = (1-bargap)/n_groups
+    max_bar_offset = region_axis_width - group_bar_width/2
+    y_offsets = nrange(-max_bar_offset, max_bar_offset, n_groups)
     for group, y_offset, color in zip(groups, y_offsets, colors):
         ticklabels = plot_animal_group(fig, group, normalization, AllenBrain, selected_regions, color, y_offset, use_acronyms=use_acronyms)
+    
+    # Plot major divisions
+    major_divisions = AllenBrain.get_areas_major_division(*selected_regions).items()
+    major_divisions = {k: v if v is not None else "root" for (k,v) in major_divisions}
+    active_major_divisions = sorted(list(set(major_divisions.values())), key=UPPER_REGIONS.index)
+    n_major_divisions = [(r1, sum(r1 == r2  for r2 in major_divisions.values())) for r1 in active_major_divisions]
+    regions_colours = AllenBrain.get_region_colours()
+    y_start = -0.5
+    dist = 0.1
+    for major_division, n in n_major_divisions:
+        print
+        fig.add_shape(
+            type="rect",
+            x0=-0.05, x1=0.05, y0=y_start+(dist/2), y1=y_start+n-(dist/2),
+            xref="paper",
+            line=dict(width=0),
+            fillcolor=regions_colours[major_division],
+            layer="below",
+            name=major_division,
+            label=dict(
+                text=AllenBrain.full_name[major_division],
+                textangle=90,
+                # font=dict(size=20)
+            )
+        )
+        y_start += n
 
     # Update layout
     fig.update_layout(
@@ -72,12 +108,13 @@ def plot_groups(normalization: str, AllenBrain, *groups: list[AnimalGroup],
         yaxis = dict(
             tickmode = "array",
             tickvals = np.arange(0,len(selected_regions)),
-            ticktext = ticklabels
+            ticktext = [label+"          " for label in ticklabels]
         ),
         xaxis=dict(
             title = f"{groups[0].marker} density (relative to brain)",
             side = "top"
         ),
+        bargap=bargap,bargroupgap=bargroupgap,
         width=width, height=height,
         hovermode="closest",
         # hovermode="x unified",
