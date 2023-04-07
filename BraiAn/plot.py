@@ -83,12 +83,13 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
     n_major_divisions = [(r1, sum(r1 == r2  for r2 in major_divisions.values())) for r1 in active_major_divisions]
     regions_colours = AllenBrain.get_region_colours()
     y_start = -0.5
+    major_division_height = 0.05
     dist = 0.1
     for major_division, n in n_major_divisions:
         print
         fig.add_shape(
             type="rect",
-            x0=-0.05, x1=0.05, y0=y_start+(dist/2), y1=y_start+n-(dist/2),
+            x0=-major_division_height/2, x1=major_division_height/2, y0=y_start+(dist/2), y1=y_start+n-(dist/2),
             xref="paper",
             line=dict(width=0),
             fillcolor=regions_colours[major_division],

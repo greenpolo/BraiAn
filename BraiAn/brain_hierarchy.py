@@ -86,9 +86,9 @@ class AllenBrainHierarchy:
     # i.e., they're brain regions that are often used in the literature.
     # They can be retrieved from Table S2 of the following paper:
     # https://www.sciencedirect.com/science/article/pii/S0092867420304025
-    def select_from_csv(self, file):
+    def select_from_csv(self, file, key="id"):
         regions = pd.read_csv(file, sep="\t", index_col=0)
-        add_boolean_attribute(self.dict, "children", "selected", lambda n,d: n["id"] in regions["id"].values)
+        add_boolean_attribute(self.dict, "children", "selected", lambda n,d: n[key] in regions[key].values)
     
     def unselect_all(self):
         if "selected" in self.dict:
