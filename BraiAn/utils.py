@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 
-def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False, sep="\t") -> None:
+def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False, sep="\t", decimal=".") -> None:
     os.makedirs(output_path, exist_ok=True)
     file_path = os.path.join(output_path, file_name)
     if os.path.exists(file_path):
@@ -10,7 +10,7 @@ def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False,
             raise FileExistsError(f"The file {file_name} already exists in {output_path}!")
         else:
             print(f"WARNING: The file {file_name} already exists in {output_path}. Overwriting previous CSV!")
-    df.to_csv(file_path, sep=sep, mode="w")
+    df.to_csv(file_path, sep=sep, decimal=decimal, mode="w")
 
 def regions_to_plot(pls=None, salience_threshold=None,
                     groups: list=None, normalization: str=None, low_threshold: float=0.0, top_threshold=np.inf) -> list[str]:

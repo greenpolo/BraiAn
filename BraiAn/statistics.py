@@ -3,8 +3,10 @@ from .brain_hierarchy import AllenBrainHierarchy
 from .animal_group import AnimalGroup
 
 def as_prism_data(normalization, group1: AnimalGroup, group2: AnimalGroup, AllenBrain: AllenBrainHierarchy):
+    if not group1.is_comparable(group2):
+        raise ImportError("Group 1 and Group 2 are not comparable! Please check that both groups are counting the same marker")
     groups = [group.name for group in (group1, group2) for _ in group.get_animals()]
-    animals = [animal for group in (group1, group2) for animal in group.get_animals()]
+    animals = [animal for group in (group1, group2) for animal in sorted(list(group.get_animals()))]
     df = pd.DataFrame(columns=pd.MultiIndex.from_arrays([groups, animals]))
     for group in (group1, group2):
         for animal in group.data.index.unique(1):
