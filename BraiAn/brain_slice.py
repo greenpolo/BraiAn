@@ -66,7 +66,7 @@ class BrainSlice:
         # Take care of regions to be excluded
         self.exclude_regions(excluded_regions, AllenBrain)
         match area_units:
-            case "µm2":
+            case "µm2" | "um2":
                 self._area_µm2_to_mm2_()
             case "mm2":
                 pass

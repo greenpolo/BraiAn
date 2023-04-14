@@ -41,13 +41,21 @@ class AnimalGroup:
 
         NOTE: The brain regions are sorted by Breadth-First in the AllenBrain hierarchy
         '''
-        all_animals = pd.concat({brain.name: self.normalize_animal(brain, self.marker) for brain in animals})
-        all_animals = pd.concat({self.marker: all_animals}, axis=1)
+        all_animals = pd.concat({
+                                    brain.name: pd.concat(
+                                        (
+                                            brain.data["area"],
+                                            AnimalGroup.normalize_animal(brain, self.marker)
+                                        ),
+                                        axis=1)
+                                    for brain in animals
+                                }, join="outer")
         all_animals = all_animals.reorder_levels([1,0], axis=0)
         ordered_indices = product(AllenBrain.list_all_subregions("root", mode="depth"), [animal.name for animal in animals])
         return all_animals.reindex(ordered_indices, fill_value=np.nan)
     
-    def normalize_animal(self, animal_brain, marker) -> AnimalBrain:
+    @staticmethod
+    def normalize_animal(animal_brain, marker) -> AnimalBrain:
         '''
         Do normalization of the cell counts for one marker.
         The marker can be any column name of brain_df, e.g. "CFos".
@@ -71,7 +79,7 @@ class AnimalGroup:
         return norm_cell_counts
     
     def get_normalization_methods(self):
-        return self.data.columns.get_level_values(1).to_list()
+        return [col for col in self.data.columns if col != "area"]
     
     def get_normalized_data(self, normalization: str, regions: list[str]=None):
         assert normalization in self.get_normalization_methods(), f"Invalid normalization method '{normalization}'"
@@ -79,7 +87,7 @@ class AnimalGroup:
             # we have to reindex the columns (brain regions) because of this bug:
             # https://github.com/pandas-dev/pandas/issues/15105
             regions_index = self.data.index.get_level_values(0).unique()
-            return self.data[self.marker, normalization].unstack(level=0).reindex(regions_index, axis=1)
+            return self.data[normalization].unstack(level=0).reindex(regions_index, axis=1)
         else:
             # if selecting a subset of regions first, the ording is retained
             return self.select(regions)[normalization].unstack(level=0)
@@ -103,8 +111,8 @@ class AnimalGroup:
     def select(self, selected_regions: list[str], animal=None) -> pd.DataFrame:
         if animal is None:
             animal = list(self.get_animals())
-        # return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)[self.marker]
-        return self.data.loc(axis=0)[selected_regions, animal][self.marker]
+        # return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)
+        return self.data.loc(axis=0)[selected_regions, animal]
     
     def group_by_region(self, method=None):
         if method is None:
@@ -112,7 +120,7 @@ class AnimalGroup:
             data = self.data      
         else:
             # pd.Series
-            data = self.data[self.marker, method]
+            data = self.data[method]
         return data.groupby(self.get_all_regions())
     
     def cross_correlation(self, normalization: str, regions: list[str]=None, min_animals=2) -> pd.DataFrame:
@@ -136,7 +144,9 @@ class AnimalGroup:
                 raise ValueError(f"Normalization methods available are: {', '.join(self.get_normalization_methods())}")
     
     def to_csv(self, output_path, file_name, overwrite=False) -> None:
-        save_csv(self.data, output_path, file_name, overwrite=overwrite)
+        saved_data = self.data.copy()
+        saved_data.columns = pd.MultiIndex.from_product([[self.marker], self.data.columns])
+        save_csv(saved_data, output_path, file_name, overwrite=overwrite)
     
     @staticmethod
     def from_csv(group_name, root_dir, file_name):
@@ -146,4 +156,4 @@ class AnimalGroup:
         markers = list({cols[0] for cols in df.columns})
         assert len(markers) == 1, "The CSVs are expected to have data for one marker only."
         marker = markers[0]
-        return AnimalGroup(group_name, marker=marker, data=df)
+        return AnimalGroup(group_name, marker=marker, data=df.xs(marker, axis=1, drop_level=True))

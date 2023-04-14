@@ -10,7 +10,7 @@ def as_prism_data(normalization, group1: AnimalGroup, group2: AnimalGroup, Allen
     df = pd.DataFrame(columns=pd.MultiIndex.from_arrays([groups, animals]))
     for group in (group1, group2):
         for animal in group.data.index.unique(1):
-            df[group.name, animal] = group.data.xs(animal, axis=0, level=1, drop_level=True)[group.marker, normalization]
+            df[group.name, animal] = group.data.xs(animal, axis=0, level=1, drop_level=True)[normalization]
     major_divisions = AllenBrain.get_areas_major_division(*df.index)
     df["major_divisions"] = [major_divisions[region] for region in df.index]
     df.set_index("major_divisions", append=True, inplace=True)
