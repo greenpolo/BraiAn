@@ -114,6 +114,18 @@ class AnimalGroup:
         # return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)
         return self.data.loc(axis=0)[selected_regions, animal]
     
+    def remove_smaller_subregions(self, area_threshold, selected_regions: list[str], AllenBrain: AllenBrainHierarchy) -> None:
+        for animal in self.get_animals():
+            self.remove_smaller_subregions_in_animal(area_threshold, animal, selected_regions, AllenBrain)
+
+    def remove_smaller_subregions_in_animal(self, area_threshold, animal,
+                                            selected_regions: list[str],
+                                            AllenBrain: AllenBrainHierarchy) -> None:
+        animal_areas = self.select(selected_regions, animal=animal)["area"]
+        small_regions = [smaller_region for small_region    in animal_areas.index[animal_areas <= area_threshold].get_level_values(0)
+                                        for smaller_region  in AllenBrain.list_all_subregions(small_region)]
+        self.data.loc(axis=0)[small_regions, animal] = np.nan
+    
     def group_by_region(self, method=None):
         if method is None:
             # pd.DataFrame
@@ -131,6 +143,15 @@ class AnimalGroup:
         r = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[0], min_periods=min_animals)
         p = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[1], min_periods=min_animals)
         return r, p
+    
+    def get_units(self, normalization):
+        match normalization:
+            case "Density":
+                return f"#{self.marker}/mm²"
+            case "Percentage" | "RelativeDensity":
+                return "" # both are percentages between 0 and 1
+            case _:
+                raise ValueError(f"Normalization methods available are: {', '.join(self.get_normalization_methods())}")
     
     def get_plot_title(self, normalization):
         match normalization:

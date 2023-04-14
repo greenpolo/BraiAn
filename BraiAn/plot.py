@@ -34,15 +34,15 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
                 )
     )
     # Scatterplot (animals)
-    norm_values = group.select(selected_regions)[normalization]
-    animal_names = norm_values.index.get_level_values(1)
+    regions_data = group.select(selected_regions)
+    animal_names = regions_data.index.get_level_values(1)
     fig.add_trace(go.Scatter(
                         mode = "markers",
                         y = y_axis + y_offset,
-                        x = norm_values,
+                        x = regions_data[normalization],
                         name = f"{group.name} animals",
-                        customdata = np.stack((animal_names,), axis=-1),
-                        hovertemplate = "Animal: %{customdata[0]}<br>"+normalization+": %{x:.2f}",
+                        customdata = np.stack((animal_names, regions_data["area"]), axis=-1),
+                        hovertemplate = "Animal: %{customdata[0]}<br>Area: %{customdata[1]} mm²<br>"+normalization+": %{x:.2f} "+group.get_units(normalization),
                         opacity=0.5,
                         marker=dict(
                             #color="rgb(0,255,0)",
