@@ -62,8 +62,7 @@ class AnimalBrain:
         all_slices = sliced_brain.concat_slices()[f"{sliced_brain.marker}_density"]
         return all_slices.groupby(all_slices.index, axis=0)\
                             .apply(reduction_fun)\
-                            .dropna()\
-                            .astype(sliced_brain.get_marker_dtype()) # dropna() changes type to float64
+                            .dropna() # we want to keep float64 as the dtype, since the result of the 'mode' function a float as well
 
     def write_all_brains(self, output_path: str) -> None:
         os.makedirs(output_path, exist_ok=True)
