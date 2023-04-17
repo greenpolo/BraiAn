@@ -61,9 +61,8 @@ UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
 
 def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
                 selected_regions: list[str], plot_title="", use_acronyms=True,
-                colors=DEFAULT_PLOTLY_COLORS,
-                width=900, height=5000,
-                bargap=0.3, bargroupgap=0.0):
+                colors=DEFAULT_PLOTLY_COLORS, width=900,
+                barheight=30, bargap=0.3, bargroupgap=0.0):
     assert len(groups) > 0, "You selected zero AnimalGroups to plot."
     fig = go.Figure()
 
@@ -115,10 +114,10 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
             side = "top"
         ),
         bargap=bargap,bargroupgap=bargroupgap,
-        width=width, height=height,
+        width=width, height=(barheight*n_groups+(barheight*n_groups)*bargap)*(len(selected_regions)+1),# height,
         hovermode="closest",
         # hovermode="x unified",
-        yaxis_range = [-1,len(selected_regions)+1]
+        yaxis_range = [-1,len(selected_regions)]
     )
 
     return fig
