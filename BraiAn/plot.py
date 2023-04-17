@@ -60,12 +60,11 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
 UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
 
 def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
-                selected_regions: list[str], use_acronyms=True,
+                selected_regions: list[str], plot_title="", use_acronyms=True,
                 colors=DEFAULT_PLOTLY_COLORS,
                 width=900, height=5000,
                 bargap=0.3, bargroupgap=0.0):
     assert len(groups) > 0, "You selected zero AnimalGroups to plot."
-    title = groups[0].get_plot_title(normalization)
     fig = go.Figure()
 
     n_groups = len(groups)
@@ -105,14 +104,14 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
 
     # Update layout
     fig.update_layout(
-        title = title,
+        title = plot_title,
         yaxis = dict(
             tickmode = "array",
             tickvals = np.arange(0,len(selected_regions)),
             ticktext = [label+"          " for label in ticklabels]
         ),
         xaxis=dict(
-            title = f"{groups[0].marker} density (relative to brain)",
+            title = groups[0].get_plot_title(normalization),
             side = "top"
         ),
         bargap=bargap,bargroupgap=bargroupgap,
