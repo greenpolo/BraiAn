@@ -81,13 +81,13 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
     n_major_divisions = [(r1, sum(r1 == r2  for r2 in major_divisions.values())) for r1 in active_major_divisions]
     regions_colours = AllenBrain.get_region_colours()
     y_start = -0.5
-    major_division_height = 0.05
+    major_division_height = 0.03
     dist = 0.1
     for major_division, n in n_major_divisions:
         print
         fig.add_shape(
             type="rect",
-            x0=-major_division_height/2, x1=major_division_height/2, y0=y_start+(dist/2), y1=y_start+n-(dist/2),
+            x0=-major_division_height-0.008, x1=0-0.008, y0=y_start+(dist/2), y1=y_start+n-(dist/2),
             xref="paper",
             line=dict(width=0),
             fillcolor=regions_colours[major_division],
@@ -105,13 +105,14 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
     fig.update_layout(
         title = plot_title,
         yaxis = dict(
-            tickmode = "array",
-            tickvals = np.arange(0,len(selected_regions)),
-            ticktext = [label+"          " for label in ticklabels]
+            tickmode="array",
+            tickvals=np.arange(0,len(selected_regions)),
+            ticktext=[label+"          " for label in ticklabels]
         ),
         xaxis=dict(
-            title = groups[0].get_plot_title(normalization),
-            side = "top"
+            title=groups[0].get_plot_title(normalization),
+            rangemode="tozero",
+            side="top"
         ),
         bargap=bargap,bargroupgap=bargroupgap,
         width=width, height=(barheight*n_groups+(barheight*n_groups)*bargap)*(len(selected_regions)+1),# height,
