@@ -300,25 +300,49 @@ def plot_permutation(experiment, permutation, n) -> go.Figure:
         )
     return fig
 
-def plot_salient_regions(salient_regions: pd.DataFrame,
-                            title=None, width=300, height=500):
+def plot_salient_regions(salient_regions: pd.DataFrame, AllenBrain: AllenBrainHierarchy,
+                            title=None, title_size=20,
+                            axis_size=15, use_acronyms=True, use_acronyms_in_mjd=True,
+                            mjd_opacity=0.5, width=300,
+                            barheight=30, bargap=0.3, bargroupgap=0.0):#, height=500):
+    active_mjd = tuple(AllenBrain.get_areas_major_division(*salient_regions["acronym"].values).values())
+    allen_colours = AllenBrain.get_region_colours()
     fig = go.Figure([
         go.Bar(
             x=salient_regions["salience_score"],
-            orientation='h',
+            y=[
+                [mjd.upper() if use_acronyms_in_mjd else AllenBrain.full_name[mjd].upper() for mjd in active_mjd],
+                salient_regions["acronym"].values if use_acronyms else [AllenBrain.full_name[r] for r in salient_regions["acronym"]]
+            ],
+            marker_color=[allen_colours[r] for r in salient_regions["acronym"]],
+            orientation="h"
         )
     ])
+    y0 = -0.5
+    for mjd in UPPER_REGIONS:
+        n = active_mjd.count(mjd)
+        if n == 0:
+            continue
+        fig.add_hrect(y0=y0, y1=y0+n, fillcolor=allen_colours[mjd], line_width=0, opacity=mjd_opacity)
+        y0 += n
+
     fig.update_layout(
-        title=title,
-        width=width, height=height,
+        title=dict(
+            text=title,
+            font=dict(size=title_size)
+        ),
+        width=width, height=barheight*(len(active_mjd)+1), # height,
+        bargap=bargap,
+        bargroupgap=bargroupgap,
         xaxis=dict(
-            title = "Salience score"
+            title = "Salience score",
+            tickfont=dict(size=axis_size)
         ),
-        yaxis = dict(
-            tickmode = "array",
-            tickvals = np.arange(0,len(salient_regions)),
-            ticktext = salient_regions["acronym"]
+        yaxis=dict(
+            dtick=1,
+            tickfont=dict(size=axis_size)
         ),
+        template="simple_white"
     )
     return fig
 
