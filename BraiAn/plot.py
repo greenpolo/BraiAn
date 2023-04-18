@@ -115,7 +115,7 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
             side="top"
         ),
         bargap=bargap,bargroupgap=bargroupgap,
-        width=width, height=(barheight*n_groups+(barheight*n_groups)*bargap)*(len(selected_regions)+1),# height,
+        width=width, height=(barheight*n_groups+(barheight*n_groups)*bargap)*(len(selected_regions)+1), # height,
         hovermode="closest",
         # hovermode="x unified",
         yaxis_range = [-1,len(selected_regions)]
