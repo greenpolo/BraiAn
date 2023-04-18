@@ -6,5 +6,5 @@ from .animal_brain import AnimalBrain
 from .animal_group import AnimalGroup
 from .statistics import as_prism_data
 from .utils import save_csv, regions_to_plot
-from .plot import plot_groups, plot_cv_above_threshold, plot_region_density, plot_permutation, plot_cross_correlation, plot_salient_regions
+from .plot import plot_groups, plot_pie, plot_cv_above_threshold, plot_region_density, plot_permutation, plot_cross_correlation, plot_salient_regions
 from .plot_chord import draw_chord_plot

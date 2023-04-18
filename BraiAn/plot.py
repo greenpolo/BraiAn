@@ -63,6 +63,7 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
                 selected_regions: list[str], plot_title="", use_acronyms=True,
                 colors=DEFAULT_PLOTLY_COLORS, width=900,
                 barheight=30, bargap=0.3, bargroupgap=0.0):
+    # assumes that selected_regions are sorted in depth-first order of the Allen Brain's ontology
     assert len(groups) > 0, "You selected zero AnimalGroups to plot."
     fig = go.Figure()
 
@@ -75,22 +76,21 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
         ticklabels = plot_animal_group(fig, group, normalization, AllenBrain, selected_regions, color, y_offset, use_acronyms=use_acronyms)
     
     # Plot major divisions
-    major_divisions = AllenBrain.get_areas_major_division(*selected_regions).items()
-    major_divisions = {k: v if v is not None else "root" for (k,v) in major_divisions}
-    active_major_divisions = sorted(list(set(major_divisions.values())), key=UPPER_REGIONS.index)
-    n_major_divisions = [(r1, sum(r1 == r2  for r2 in major_divisions.values())) for r1 in active_major_divisions]
-    regions_colours = AllenBrain.get_region_colours()
+    active_mjd = tuple(AllenBrain.get_areas_major_division(*selected_regions).values())
+    allen_colours = AllenBrain.get_region_colours()
     y_start = -0.5
     major_division_height = 0.03
     dist = 0.1
-    for major_division, n in n_major_divisions:
-        print
+    for major_division in UPPER_REGIONS:
+        n = active_mjd.count(major_division)
+        if n == 0:
+            continue
         fig.add_shape(
             type="rect",
             x0=-major_division_height-0.008, x1=0-0.008, y0=y_start+(dist/2), y1=y_start+n-(dist/2),
             xref="paper",
             line=dict(width=0),
-            fillcolor=regions_colours[major_division],
+            fillcolor=allen_colours[major_division],
             layer="below",
             name=major_division,
             label=dict(
@@ -121,6 +121,27 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
         yaxis_range = [-1,len(selected_regions)]
     )
 
+    return fig
+
+def plot_pie(selected_regions: list[str], AllenBrain: AllenBrainHierarchy,
+                use_acronyms=True, hole=0.3, line_width=2, text_size=12):
+    active_mjd = tuple(AllenBrain.get_areas_major_division(*selected_regions).values())
+    mjd_occurrences = [(mjd, active_mjd.count(mjd)) for mjd in UPPER_REGIONS]
+    allen_colours = AllenBrain.get_region_colours()
+    fig = go.Figure(
+                    go.Pie(
+                        labels=[mjd if use_acronyms else AllenBrain.full_name[mjd] for mjd,n in mjd_occurrences if n != 0],
+                        values=[n for mjd,n in mjd_occurrences if n != 0],
+                        marker=dict(
+                            colors=[allen_colours[mjd] for mjd,n in mjd_occurrences if n != 0],
+                            line=dict(color="#000000", width=line_width)
+                        ),
+                        sort=False,
+                        textfont=dict(size=text_size),
+                        hole=hole,
+                        textposition="outside", textinfo="percent+label",
+                        showlegend=False
+                    ))
     return fig
 
 def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1, width=700, height=500) -> go.Figure:
