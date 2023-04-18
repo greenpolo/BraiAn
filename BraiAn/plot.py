@@ -342,6 +342,8 @@ def plot_salient_regions(salient_regions: pd.DataFrame, AllenBrain: AllenBrainHi
             dtick=1,
             tickfont=dict(size=axis_size)
         ),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         template="simple_white"
     )
     return fig
