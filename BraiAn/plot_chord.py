@@ -144,11 +144,25 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
     return nodes
 
 def draw_edges(layout, G, circle_layout, r_cutoff, max_width, use_weighted_widths, use_colorscale):
+    if use_colorscale:
+        colorbar_trace = go.Scatter(x=[None],
+                y=[None],
+                mode="markers",
+                marker=dict(
+                    colorscale="RdBu_r", 
+                    showscale=True,
+                    cmin=-1,
+                    cmax=1,
+                    colorbar=dict(title="Pearson's <i>r</i>", len=0.5, thickness=15), 
+                ),
+                hoverinfo='none'
+                )
+
     lines = [] # the list of dicts defining   edge  Plotly attributes
     edge_info = [] # the list of points on edges where  the information is placed
     if len(G.es) == 0:
-        return lines, edge_info
-    
+        return lines, edge_info, [colorbar_trace if use_colorscale else None]
+
     Dist = [0, dist([1,0], 2*[np.sqrt(2)/2]), np.sqrt(2), dist([1,0],  [-np.sqrt(2)/2, np.sqrt(2)/2]), 2.0]
     params = [1.2, 1.5, 1.8, 2.1]
     if use_weighted_widths:
@@ -187,19 +201,6 @@ def draw_edges(layout, G, circle_layout, r_cutoff, max_width, use_weighted_width
                             hoverinfo='none'
                         )
                     )
-    if use_colorscale:
-        colorbar_trace = go.Scatter(x=[None],
-                y=[None],
-                mode="markers",
-                marker=dict(
-                    colorscale="RdBu_r", 
-                    showscale=True,
-                    cmin=-1,
-                    cmax=1,
-                    colorbar=dict(title="Pearson's <i>r</i>", len=0.5, thickness=15), 
-                ),
-                hoverinfo='none'
-                )
     return lines, edge_info, [colorbar_trace if use_colorscale else None]
 
 # TODO: change names
