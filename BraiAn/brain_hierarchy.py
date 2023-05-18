@@ -32,6 +32,8 @@ MAJOR_DIVISIONS = [
     "CB"
 ]
 
+UPPER_REGIONS = ["root", *MAJOR_DIVISIONS]
+
 class AllenBrainHierarchy:
     def __init__(self, path_to_allen_json, blacklisted_acronyms=[]):
         with open(path_to_allen_json, "r") as file:

@@ -3,12 +3,10 @@ import pandas as pd
 import numpy as np
 import igraph as ig
 
-from .brain_hierarchy import MAJOR_DIVISIONS, AllenBrainHierarchy
+from .brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
+from .connectome.functional import FunctionalConnectome
 
-RING_REGIONS = ['root', *MAJOR_DIVISIONS]
-
-
-def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
+def draw_chord_plot(connectome: FunctionalConnectome,
                     AllenBrain: AllenBrainHierarchy,
                     title="",
                     size=1500,
@@ -18,29 +16,12 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
                     max_edge_width=5,
                     use_weighted_edge_widths=True,
                     colorscale_edges=True,
-                    ideograms_a=50,
+                    colorscale="RdBu_r",
+                    colorscale_min="cutoff",
+                    ideograms_arc_index=50,
                     **kwargs):
-    above_threshold = (p.abs() <= p_cutoff) & (r.abs() >= r_cutoff)
-    A = r.copy(deep=True)
-    A[~above_threshold] = 0 # zero in weighted matrix[i,j] corresponds to NO edge between i and j
-    regions_MD = AllenBrain.get_areas_major_division(*A.index)
-    regions_MD = {k: v if v is not None else "root" for (k,v) in regions_MD.items()}
+    G = connectome.G
 
-    # sort vertices based on major divisions
-    regions_i = sorted(range(len(A)), key=lambda i: RING_REGIONS.index(list(regions_MD.values())[i]))
-
-    active_MD = sorted(list(set(regions_MD.values())), key=RING_REGIONS.index)
-    n_MD = [sum(r1 == r2  for r2 in regions_MD.values()) for r1 in active_MD]
-
-    A = A.iloc[regions_i].iloc[:,regions_i]
-    G = ig.Graph.Weighted_Adjacency(A.values, mode="lower", attr="r-value", loops=False)
-    G.vs["label"] = list(A.index)
-    G.vs["is_undefined"] = r.isna().all().values
-    for e in G.es:
-        assert e["r-value"] == A.loc[e.source_vertex['label'], e.target_vertex['label']], "igraph did not maintain vertices order!"
-    G.vs["major_division"] = [regions_MD[v["label"]] for v in G.vs]
-    for e in G.es:
-        e["p-value"] = p.loc[e.source_vertex['label'], e.target_vertex['label']]
     circle_layout = G.layout_circle()
     circle_layout.rotate(180/len(circle_layout)) # rotate by half of a unit to sync with ideograms' rotation
     colours = AllenBrain.get_region_colours()
@@ -62,15 +43,17 @@ def draw_chord_plot(r: pd.DataFrame, p: pd.DataFrame, r_cutoff, p_cutoff,
                             b=185,
                             t=100,
                           ),
-              hovermode='closest',
+              hovermode="closest",
               paper_bgcolor=paper_bgcolor,
               plot_bgcolor='rgba(0,0,0,0)',
               annotations=extract_annotations(kwargs, pos=-0.07, step=-0.02)
               )
 
     nodes = draw_nodes(layout, G, circle_layout, regions_size, regions_font_size, colours, AllenBrain)
-    lines, edge_info, colorbar = draw_edges(layout, G, circle_layout, r_cutoff, max_edge_width, use_weighted_edge_widths, colorscale_edges)
-    ideograms = draw_ideograms(layout, active_MD, n_MD, AllenBrain, colours, a=ideograms_a)
+    lines, edge_info, colorbar = draw_edges(layout, G, circle_layout, connectome.r_cutoff, max_edge_width, use_weighted_edge_widths,
+                                            use_colorscale=colorscale_edges, colorscale=colorscale,
+                                            colorscale_min=connectome.r_cutoff if colorscale_min == "cutoff" else colorscale_min)
+    ideograms = draw_ideograms(layout, G.vs["upper_region"], AllenBrain, colours, a=ideograms_arc_index)
 
     fig = go.Figure(data=ideograms+lines+[nodes]+edge_info+colorbar, layout=layout)
     return fig
@@ -94,17 +77,17 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
     nodes = go.Scatter(
         x=[coord[0] for coord in circle_layout.coords],
         y=[coord[1] for coord in circle_layout.coords],
-        mode='markers',
-        name='',
-        marker=dict(symbol='circle',
+        mode="markers",
+        name="",
+        marker=dict(symbol="circle",
                     size=node_size,
                     color=nodes_colour,
                     line=dict(color=outlines_colour, width=0.5)),
         customdata = np.stack((
-                        G.vs['label'],
-                        [AllenBrain.full_name[acronym] for acronym in G.vs['label']],
-                        G.vs['major_division'],
-                        [AllenBrain.full_name[acronym] for acronym in G.vs['major_division']],
+                        G.vs["label"],
+                        [AllenBrain.full_name[acronym] for acronym in G.vs["label"]],
+                        G.vs["upper_region"],
+                        [AllenBrain.full_name[acronym] for acronym in G.vs["upper_region"]],
                         G.vs.degree()),
                     axis=-1),
         hovertemplate=
@@ -143,15 +126,16 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
 
     return nodes
 
-def draw_edges(layout, G, circle_layout, r_cutoff, max_width, use_weighted_widths, use_colorscale):
+def draw_edges(layout, G: ig.Graph, circle_layout, r_cutoff, max_width, use_weighted_widths,
+               solid_color="#5588c8", use_colorscale=True, colorscale="RdBu_r", colorscale_min=0):
     if use_colorscale:
         colorbar_trace = go.Scatter(x=[None],
                 y=[None],
                 mode="markers",
                 marker=dict(
-                    colorscale="RdBu_r", 
+                    colorscale=colorscale, 
                     showscale=True,
-                    cmin=-1,
+                    cmin=colorscale_min,
                     cmax=1,
                     colorbar=dict(title="Pearson's <i>r</i>", len=0.5, thickness=15), 
                 ),
@@ -165,12 +149,14 @@ def draw_edges(layout, G, circle_layout, r_cutoff, max_width, use_weighted_width
 
     Dist = [0, dist([1,0], 2*[np.sqrt(2)/2]), np.sqrt(2), dist([1,0],  [-np.sqrt(2)/2, np.sqrt(2)/2]), 2.0]
     params = [1.2, 1.5, 1.8, 2.1]
+    sorted_es = sorted(G.es, key=lambda e: e["weight"] if G.is_weighted() else e["r-value"])
+    sorted_rvalues = [e["weight"] if G.is_weighted() else e["r-value"] for e in sorted_es]
     if use_weighted_widths:
-        edges_widths = get_edges_widths(G.es["r-value"], r_cutoff, max=max_width) #The width is proportional to Pearson's r value
+        edges_widths = get_edges_widths(sorted_rvalues, r_cutoff, max=max_width) #The width is proportional to Pearson's r value
     if use_colorscale:
-        edge_colours=[get_color("RdBu_r", (c+1)/2) for c in G.es['r-value']]
+        edge_colours=[get_color(colorscale, c, min_loc=colorscale_min, max_loc=1) for c in sorted_rvalues]
 
-    for j, e in enumerate(G.es):
+    for j, e in enumerate(sorted_es):
         A=np.array(circle_layout[e.source])
         B=np.array(circle_layout[e.target])
         d=dist(A, B)
@@ -178,42 +164,42 @@ def draw_edges(layout, G, circle_layout, r_cutoff, max_width, use_weighted_width
         b=[A, A/params[K], B/params[K], B]
         pts=BezierCv(b, nr=5)
         text="<br>".join((f"<b>{e.source_vertex['label']} - {e.target_vertex['label']}</b>",
-                        f"r: {e['r-value']:.5f}",
+                        f"r: {e['weight'] if G.is_weighted() else e['r-value']:.5f}",
                         f"p: {e['p-value']:.10f}"))
         mark1=deCasteljau(b,0.9)
         mark2=deCasteljau(list(reversed(b)),0.9)
         edge_info.append(go.Scatter(x=[mark1[0], mark2[0]],
                                 y=[mark1[1], mark2[1]],
-                                mode='markers',
-                                marker=dict(size=0.5, color=edge_colours[j] if use_colorscale else "#5588c8"),
+                                mode="markers",
+                                marker=dict(size=0.5, color=edge_colours[j] if use_colorscale else solid_color),
                                 text=text,
-                                hoverinfo='text'
+                                hoverinfo="text"
                                 )
                         )
         lines.append(go.Scatter(x=pts[:,0],
                             y=pts[:,1],
-                            mode='lines',
+                            mode="lines",
                             line=dict(
-                                shape='spline',
+                                shape="spline",
                                 width=edges_widths[j] if use_weighted_widths else max_width,
-                                color=edge_colours[j] if use_colorscale else "#5588c8",
+                                color=edge_colours[j] if use_colorscale else solid_color,
                             ),
-                            hoverinfo='none'
+                            hoverinfo="none"
                         )
                     )
     return lines, edge_info, [colorbar_trace if use_colorscale else None]
 
-# TODO: change names
-def draw_ideograms(layout, active_MD, n_MD, AllenBrain,
+def draw_ideograms(layout, all_upper_regions, AllenBrain,
                     colours, outline_colour='rgb(150,150,150)',
                     a=50):
-    assert len(active_MD) == len(n_MD), "The number of subregions per major division must be the same as the number of passed major divisions"
+    upper_regions = sorted(list(set(all_upper_regions)), key=UPPER_REGIONS.index)
+    n_regions_in_upper = np.asarray([sum(r1 == r2  for r2 in all_upper_regions) for r1 in upper_regions])
     ideograms=[]
 
-    n_nodes = sum(n_MD)
-    ideogram_length=2*PI*np.asarray(n_MD)/n_nodes
+    n_nodes = n_regions_in_upper.sum()
+    ideogram_length=2*PI*n_regions_in_upper/n_nodes
     ideo_ends = get_ideogram_ends(ideogram_length)
-    ideo_colours = [colours[r_acronym] for r_acronym in active_MD]
+    ideo_colours = [colours[r_acronym] for r_acronym in upper_regions]
 
     for k in range(len(ideo_ends)):
         z= make_ideogram_arc(1.2, ideo_ends[k], a=a)
@@ -224,9 +210,9 @@ def draw_ideograms(layout, active_MD, n_MD, AllenBrain,
                                 y=z.imag,
                                 mode='lines',
                                 line=dict(color=ideo_colours[k], shape='spline', width=0.25),
-                                text=f"<b>{active_MD[k]}</b><br>"+
-                                        f"<i>{AllenBrain.full_name[active_MD[k]]}</i><br>"
-                                        f"N displayed regions: {n_MD[k]:d}",
+                                text=f"<b>{upper_regions[k]}</b><br>"+
+                                        f"<i>{AllenBrain.full_name[upper_regions[k]]}</i><br>"
+                                        f"N displayed regions: {n_regions_in_upper[k]:d}",
                                 hoverinfo='text'
                                 )
                         )
@@ -279,7 +265,11 @@ def BezierCv(b, nr=5):
 def get_edges_widths(r_values, r_cutoff, max=5):
     return (np.abs(np.array(r_values))-r_cutoff)/(1-r_cutoff)*max
 
-def get_color(colorscale_name, loc):
+def get_color(colorscale_name, loc, min_loc=0, max_loc=1):
+    if not(min_loc < loc < max_loc):
+        raise ValueError(f"'min_loc' ({min_loc}) < 'loc' ({loc}) < 'max_loc' ({max_loc}) inequality is not respected.")
+    if min != 0 or max != 1:
+        loc = (loc-min_loc) / (max_loc-min_loc)
     from _plotly_utils.basevalidators import ColorscaleValidator
     # first parameter: Name of the property being validated
     # second parameter: a string, doesn't really matter in our use case

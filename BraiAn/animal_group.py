@@ -2,7 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 from itertools import product
-from scipy.stats import pearsonr
 
 from .brain_hierarchy import AllenBrainHierarchy
 from .animal_brain import AnimalBrain
@@ -134,15 +133,6 @@ class AnimalGroup:
             # pd.Series
             data = self.data[method]
         return data.groupby(self.get_all_regions())
-    
-    def cross_correlation(self, normalization: str, regions: list[str]=None, min_animals=2) -> pd.DataFrame:
-        assert not min_animals or (min_animals >= 2), "Invalid minimum number of animals needed for cross correlation. It must be >= 2."
-        normalized_data = self.get_normalized_data(normalization, regions)
-        if not min_animals:
-            min_animals = len(normalized_data)
-        r = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[0], min_periods=min_animals)
-        p = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[1], min_periods=min_animals)
-        return r, p
     
     def get_units(self, normalization):
         match normalization:

@@ -357,38 +357,3 @@ def plot_salient_regions(salient_regions: pd.DataFrame, AllenBrain: AllenBrainHi
         template="simple_white"
     )
     return fig
-
-def plot_cross_correlation(r, p, title="", aspect_ratio=3/2, cell_height=18, min_plot_height=500, star_size=15):
-    cell_width = cell_height*aspect_ratio
-    plt_height = max(cell_height*len(r), min_plot_height)
-    plt_width = max(cell_width*len(r), min_plot_height*aspect_ratio)
-
-    stars = get_stars(p)
-
-    fig = go.Figure(layout=dict(title=title),
-                    data=go.Heatmap(
-                        x=r.index,
-                        y=r.columns,
-                        z=r,
-                        text=stars.values,
-                        zmin=-1, zmax=1, colorscale="RdBu_r",
-                        customdata=np.stack((p,), axis=-1),
-                        hovertemplate="%{x} - %{y}<br>r: %{z}<br>p: %{customdata[0]}<extra></extra>",
-                        texttemplate="%{text}",
-                        textfont=dict(size=star_size)
-    ))
-    fig.update_layout(
-        width=plt_width, height=plt_height,
-        template="simple_white",
-        plot_bgcolor="rgb(150,150,150)",
-        paper_bgcolor="rgba(0,0,0,0)"
-    )
-    return fig
-
-def get_stars(p):
-    stars = pd.DataFrame(index=p.index, columns=p.columns)
-    stars[(~p.isna()) & (p <= 0.05)  & (p > 0.01)] = "*"
-    stars[(~p.isna()) & (p <= 0.01)  & (p > 0.001)] = "**"
-    stars[(~p.isna()) & (p <= 0.001)] = "***"
-    stars[(p.isna()) | (p > 0.05)] = " "
-    return stars
