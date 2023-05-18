@@ -317,7 +317,14 @@ def get_continuous_color(colorscale, intermed):
         else:
             high_cutoff, high_color = cutoff, color
             break
-
+    
+    if low_color.startswith("rgb"):
+        pass
+    elif low_color.startswith("#"):
+        low_color = plotly.colors.label_rgb(plotly.colors.hex_to_rgb(low_color))
+        high_color = plotly.colors.label_rgb(plotly.colors.hex_to_rgb(high_color))
+    else:
+        raise ValueError(f"Can't recognise the colortype of '{low_color}'")
     # noinspection PyUnboundLocalVariable
     return plotly.colors.find_intermediate_color(
         lowcolor=low_color, highcolor=high_color,
