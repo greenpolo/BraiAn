@@ -139,7 +139,7 @@ class BrainSlice:
     def check_hemispheres(self, data, csv_file) -> bool:
         if (~data.index.str.startswith("Left: ", na=False) &
             ~data.index.str.startswith("Right: ", na=False)).sum() != 0:
-            raise InvalidRegionsHemisphereError(csv_file)
+            raise InvalidRegionsHemisphereError(animal=self.animal, file=csv_file)
         return True
     
     def check_zero_rows(self, csv_file) -> bool:
