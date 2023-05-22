@@ -20,14 +20,18 @@ class FunctionalConnectome:
             # remove nodes/regions with no connections
             A = A.loc[above_threshold.any(axis=0), above_threshold.any(axis=0)]
         if weighted:
-            self.G: ig.Graph = ig.Graph.Weighted_Adjacency(A.values, mode="lower", loops=False)
+            self.G: ig.Graph = ig.Graph.Weighted_Adjacency(A, mode="lower", loops=False)
         else:
             self.G: ig.Graph = ig.Graph.Adjacency(above_threshold, mode="lower", loops=False)
-        self.G.vs["label"] = list(A.index)
-        self.G.vs["is_undefined"] = cc.r.isna().all().values
-        for e in self.G.es:
-            e["p-value"] = cc.p.loc[e.source_vertex["label"], e.target_vertex["label"]]
-            if not weighted:
-                e["r-value"] = cc.r.loc[e.source_vertex["label"], e.target_vertex["label"]]
+        self.__add_vertices_attributes(cc)
+        self.__add_edges_attributes(cc)
 
-        self.G.vs["upper_region"] = [cc.upper_regions[v["label"]] for v in self.G.vs]
+    def __add_vertices_attributes(self, cc: CrossCorrelation):
+        self.G.vs["is_undefined"] = cc.r.isna().all().values
+        self.G.vs["upper_region"] = [cc.upper_regions[v["name"]] for v in self.G.vs]
+    
+    def __add_edges_attributes(self, cc: CrossCorrelation):
+        for e in self.G.es:
+            e["p-value"] = cc.p.loc[e.source_vertex["name"], e.target_vertex["name"]]
+            if not self.G.is_weighted():
+                e["r-value"] = cc.r.loc[e.source_vertex["name"], e.target_vertex["name"]]

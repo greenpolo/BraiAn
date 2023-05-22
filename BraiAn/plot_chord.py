@@ -64,7 +64,7 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
     for v in G.vs:
         if v.degree() > 0:
             outline_colour = '#FFFFFF'
-            node_colour = colours[v["label"]]
+            node_colour = colours[v["name"]]
         elif v["is_undefined"]:
             outline_colour = 'rgb(140,140,140)'
             node_colour = '#A0A0A0'
@@ -84,8 +84,8 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
                     color=nodes_colour,
                     line=dict(color=outlines_colour, width=0.5)),
         customdata = np.stack((
-                        G.vs["label"],
-                        [AllenBrain.full_name[acronym] for acronym in G.vs["label"]],
+                        G.vs["name"],
+                        [AllenBrain.full_name[acronym] for acronym in G.vs["name"]],
                         G.vs["upper_region"],
                         [AllenBrain.full_name[acronym] for acronym in G.vs["upper_region"]],
                         G.vs.degree()),
@@ -110,7 +110,7 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
         ann = dict(
                 x=x,
                 y=y,
-                text=v["label"],
+                text=v["name"],
                 xshift=x*textdist,
                 yshift=y*textdist,
                 xref="x",
@@ -163,7 +163,7 @@ def draw_edges(layout, G: ig.Graph, circle_layout, r_cutoff, max_width, use_weig
         K=get_idx_interv(d, Dist)
         b=[A, A/params[K], B/params[K], B]
         pts=BezierCv(b, nr=5)
-        text="<br>".join((f"<b>{e.source_vertex['label']} - {e.target_vertex['label']}</b>",
+        text="<br>".join((f"<b>{e.source_vertex['name']} - {e.target_vertex['name']}</b>",
                         f"r: {e['weight'] if G.is_weighted() else e['r-value']:.5f}",
                         f"p: {e['p-value']:.10f}"))
         mark1=deCasteljau(b,0.9)
