@@ -53,7 +53,7 @@ class BrainSlice:
         self.animal = animal
         self.name = name
         self.marker = marker_key
-        
+
         data = self.read_results_data(csv_file)
         excluded_regions = self.read_regions_to_exclude(excluded_regions_file)
         self.check_columns(data, [area_key, tracer_key], csv_file)
@@ -62,9 +62,12 @@ class BrainSlice:
         #@assert (df.area > 0).all()
         self.data = self.data[self.data["area"] > 0]
         self.check_zero_rows(csv_file)
-                    
+
         # Take care of regions to be excluded
-        self.exclude_regions(excluded_regions, AllenBrain)
+        try:
+            self.exclude_regions(excluded_regions, AllenBrain)
+        except Exception:
+            raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
         match area_units:
             case "µm2" | "um2":
                 self._area_µm2_to_mm2_()

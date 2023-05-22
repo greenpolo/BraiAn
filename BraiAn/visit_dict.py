@@ -21,6 +21,15 @@ def find_subtree(node, key, value, children_key):
         to_visit.extend(child[children_key])
     return None
 
+def add_child(node, child, children_key):
+    node[children_key].append(child)
+    return None
+
+def remove_child(node, child, children_key):
+    node[children_key].remove(child)
+    return None
+
+
 # Breadth-first visit
 def visit_bfs(node, children_key, fun):
     to_visit = [node]

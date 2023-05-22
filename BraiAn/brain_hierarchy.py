@@ -34,12 +34,18 @@ MAJOR_DIVISIONS = [
 
 UPPER_REGIONS = ["root", *MAJOR_DIVISIONS]
 
+RE_TOT_ID = 181*100
+RE_TOT_ACRONYM = "REtot"
+
 class AllenBrainHierarchy:
-    def __init__(self, path_to_allen_json, blacklisted_acronyms=[]):
+    def __init__(self, path_to_allen_json, blacklisted_acronyms=[], use_literature_reuniens=False):
         with open(path_to_allen_json, "r") as file:
             allen_data = json.load(file)
         
         self.dict = allen_data["msg"][0]
+        if use_literature_reuniens:
+            self.__use_literature_reuniens()
+        self.use_literature_reuniens = use_literature_reuniens
         if blacklisted_acronyms:
             self.blacklist_regions(blacklisted_acronyms)
             # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
@@ -50,6 +56,37 @@ class AllenBrainHierarchy:
         self.parent_region = self.get_all_parent_areas()
         self.direct_subregions = self.get_all_subregions()
         self.full_name = self.get_full_names()
+    
+    def __use_literature_reuniens(self):
+        dor_pm = find_subtree(self.dict, "acronym", "DORpm", "children")
+        # med = find_subtree(dor_pm, "acronym", "MED", "children")
+        mtn = find_subtree(dor_pm, "acronym", "MTN", "children")
+        ilm = find_subtree(dor_pm, "acronym", "ILM", "children")
+        
+        # pr = find_subtree(med, "acronym", "PR", "children")
+        re = find_subtree(mtn, "acronym", "RE", "children")
+        xi = find_subtree(mtn, "acronym", "Xi", "children")
+        rh = find_subtree(ilm, "acronym", "RH", "children")
+        # 'graph_order' is not set/updated. At the moment is not used, so it's not a problem
+        re_tot = {
+            "id": RE_TOT_ID,
+            "atlas_id": 212*100,
+            "ontology_id": 2,
+            "acronym": RE_TOT_ACRONYM,
+            "name": "Nucleus reuniens (literature)",
+            "color_hex_triplet": "FF909F",
+            # "graph_order":
+            "st_level": 7,
+            "hemisphere_id": 3,
+            "parent_structure_id": 856,
+            # "children": [pr, re, xi, rh]
+            "children": [re, xi, rh]
+        }
+        add_child(dor_pm, re_tot, "children")
+        # remove_child(med, pr, "children")
+        remove_child(mtn, re, "children")
+        remove_child(mtn, xi, "children")
+        remove_child(ilm, rh, "children")
     
     def blacklist_regions(self, blacklisted_acronyms):
         attr = "acronym"
@@ -88,8 +125,12 @@ class AllenBrainHierarchy:
     # i.e., they're brain regions that are often used in the literature.
     # They can be retrieved from Table S2 of the following paper:
     # https://www.sciencedirect.com/science/article/pii/S0092867420304025
-    def select_from_csv(self, file, key="id"):
+    def select_from_csv(self, file, key="id", include_nre_tot=False):
         regions = pd.read_csv(file, sep="\t", index_col=0)
+        if include_nre_tot:
+            # regions = regions[~regions["acronym"].isin(("PR", "RE", "Xi", "RH"))]
+            regions = regions[~regions["acronym"].isin(("RE", "Xi", "RH"))]
+            regions = pd.concat((regions, pd.DataFrame(pd.Series(dict(id=RE_TOT_ID, acronym=RE_TOT_ACRONYM))).T), ignore_index=True)
         add_boolean_attribute(self.dict, "children", "selected", lambda n,d: n[key] in regions[key].values)
     
     def unselect_all(self):

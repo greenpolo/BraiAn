@@ -24,7 +24,8 @@ def coefficient_variation(x) -> np.float64:
 
 class AnimalBrain:
     def __init__(self, sliced_brain, mode="sum", hemisphere_distinction=True,
-                name=None, min_slices=0, data: pd.DataFrame=None) -> None:
+                name=None, min_slices=0, data: pd.DataFrame=None,
+                use_literature_reuniens=False) -> None:
         if name and data is not None:
             self.name = name
             self.marker = data.columns[-1]
@@ -38,9 +39,32 @@ class AnimalBrain:
         else: # data is a pd.Series
             sliced_brain.add_density()
             self.data = self.reduce_brain_densities(sliced_brain, mode, min_slices)
+        if use_literature_reuniens:
+            self.__add_literature_reuniens(sliced_brain.name, hemisphere_distinction)
         self.name = sliced_brain.name
         self.marker = sliced_brain.marker
         self.mode = mode
+    
+    def __add_literature_reuniens(self, animal, hemisphere_distinction):
+        # subregions_ = ("PR", "RE", "Xi", "RH")
+        subregions_ = ("RE", "Xi", "RH")
+        if not hemisphere_distinction:
+            subregions = self.data.index.intersection(subregions_)
+            if len(subregions) == len(subregions_):
+                self.data.loc[f"REtot"] = self.data.loc[subregions].sum()
+                self.data.drop(subregions, inplace=True)
+            else:
+                print(f"WARNING: Animal '{animal}' - could not find data for computing the 'REtot' region. Missing {', '.join(set(subregions_) - set(subregions))}.")
+            return
+        # if hemisphere_distinction:
+        for hem in ("Left", "Right"):
+            hem_subregions_ = [f"{hem}: {subregion}" for subregion in subregions_]
+            hem_subregions = self.data.index.intersection(hem_subregions_)
+            if len(hem_subregions) == len(subregions_):
+                self.data.loc[f"{hem}: REtot"] = self.data.loc[hem_subregions].sum()
+                self.data.drop(hem_subregions, inplace=True)
+            else:
+                print(f"WARNING: Animal '{animal}' - could not find data for computing the 'REtot' region. Missing {', '.join(set(hem_subregions_) - set(hem_subregions))}.")
     
     def sum_slices(self, sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
         all_slices = sliced_brain.concat_slices()
