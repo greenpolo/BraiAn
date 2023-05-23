@@ -20,6 +20,8 @@ pydot = "^1.4.2"
 ipython = "^8.13.2"
 ipykernel = "^6.23.0"
 nbformat = "^5.8.0"
+jupyter-client = "<8"
+pyzmq = "<25"
 
 [build-system]
 requires = ["poetry-core"]
