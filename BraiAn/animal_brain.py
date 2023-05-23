@@ -52,7 +52,7 @@ class AnimalBrain:
             subregions = self.data.index.intersection(subregions_)
             if len(subregions) == len(subregions_):
                 self.data.loc[f"REtot"] = self.data.loc[subregions].sum()
-                self.data.drop(subregions, inplace=True)
+                # self.data.drop(subregions, inplace=True)
             else:
                 print(f"WARNING: Animal '{animal}' - could not find data for computing the 'REtot' region. Missing {', '.join(set(subregions_) - set(subregions))}.")
             return
@@ -62,7 +62,7 @@ class AnimalBrain:
             hem_subregions = self.data.index.intersection(hem_subregions_)
             if len(hem_subregions) == len(subregions_):
                 self.data.loc[f"{hem}: REtot"] = self.data.loc[hem_subregions].sum()
-                self.data.drop(hem_subregions, inplace=True)
+                # self.data.drop(hem_subregions, inplace=True)
             else:
                 print(f"WARNING: Animal '{animal}' - could not find data for computing the 'REtot' region. Missing {', '.join(set(hem_subregions_) - set(hem_subregions))}.")
     
