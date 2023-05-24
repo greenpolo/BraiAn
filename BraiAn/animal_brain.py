@@ -61,7 +61,15 @@ class AnimalBrain:
             hem_subregions_ = [f"{hem}: {subregion}" for subregion in subregions_]
             hem_subregions = self.data.index.intersection(hem_subregions_)
             if len(hem_subregions) == len(subregions_):
-                self.data.loc[f"{hem}: REtot"] = self.data.loc[hem_subregions].sum()
+                # sum with int and float columns get casted to all-float.
+                # a possible fix is to add a 'string' place-holder column, sum and then remove it
+                # see:
+                # https://github.com/pandas-dev/pandas/issues/26219#issuecomment-905882647
+                re_tot_data = self.data.loc[hem_subregions]
+                re_tot_data["place_holder"] = ""
+                re_tot_data = re_tot_data.sum()
+                re_tot_data.drop(labels="place_holder", inplace=True)
+                self.data.loc[f"{hem}: REtot"] = re_tot_data
                 # self.data.drop(hem_subregions, inplace=True)
             else:
                 print(f"WARNING: Animal '{animal}' - could not find data for computing the 'REtot' region. Missing {', '.join(set(hem_subregions_) - set(hem_subregions))}.")
