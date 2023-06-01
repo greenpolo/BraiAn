@@ -7,7 +7,9 @@ from .animal_group import AnimalGroup
 from .statistics import as_prism_data
 from .utils import save_csv, regions_to_plot
 from .plot import plot_groups, plot_pie, plot_cv_above_threshold, plot_region_density, plot_permutation, plot_salient_regions
-from .plot_chord import draw_chord_plot
 
+from .connectome.connectome_adjacency import ConnectomeAdjacency
 from .connectome.cross_correlation import CrossCorrelation
 from .connectome.functional import FunctionalConnectome
+from .connectome.plot import draw_network_plot
+from .connectome.plot_chord import draw_chord_plot

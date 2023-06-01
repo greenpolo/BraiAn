@@ -3,6 +3,7 @@
 data/
 plots/
 **/*.csv
+**/*.html
 R_analysis/
 .vscode/
 .DS_Store
