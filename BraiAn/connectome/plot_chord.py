@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 import igraph as ig
 
-from .brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
-from .connectome.functional import FunctionalConnectome
+from ..brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
+from .functional import FunctionalConnectome
 
 def draw_chord_plot(connectome: FunctionalConnectome,
                     AllenBrain: AllenBrainHierarchy,
@@ -18,6 +18,7 @@ def draw_chord_plot(connectome: FunctionalConnectome,
                     colorscale_edges=True,
                     colorscale="RdBu_r",
                     colorscale_min="cutoff",
+                    colorscale_max=1,
                     ideograms_arc_index=50,
                     **kwargs):
     G = connectome.G
@@ -52,7 +53,8 @@ def draw_chord_plot(connectome: FunctionalConnectome,
     nodes = draw_nodes(layout, G, circle_layout, regions_size, regions_font_size, colours, AllenBrain)
     lines, edge_info, colorbar = draw_edges(layout, G, circle_layout, connectome.r_cutoff, max_edge_width, use_weighted_edge_widths,
                                             use_colorscale=colorscale_edges, colorscale=colorscale,
-                                            colorscale_min=connectome.r_cutoff if colorscale_min == "cutoff" else colorscale_min)
+                                            colorscale_min=connectome.r_cutoff if colorscale_min == "cutoff" else colorscale_min,
+                                            colorscale_max=colorscale_max)
     ideograms = draw_ideograms(layout, G.vs["upper_region"], AllenBrain, colours, a=ideograms_arc_index)
 
     fig = go.Figure(data=ideograms+lines+[nodes]+edge_info+colorbar, layout=layout)
@@ -127,7 +129,8 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
     return nodes
 
 def draw_edges(layout, G: ig.Graph, circle_layout, r_cutoff, max_width, use_weighted_widths,
-               solid_color="#5588c8", use_colorscale=True, colorscale="RdBu_r", colorscale_min=0):
+               solid_color="#5588c8", use_colorscale=True, colorscale="RdBu_r",
+               colorscale_min=0, colorscale_max=1):
     if use_colorscale:
         colorbar_trace = go.Scatter(x=[None],
                 y=[None],
@@ -136,14 +139,14 @@ def draw_edges(layout, G: ig.Graph, circle_layout, r_cutoff, max_width, use_weig
                     colorscale=colorscale, 
                     showscale=True,
                     cmin=colorscale_min,
-                    cmax=1,
+                    cmax=colorscale_max,
                     colorbar=dict(title="Pearson's <i>r</i>", len=0.5, thickness=15), 
                 ),
                 hoverinfo='none'
                 )
 
-    lines = [] # the list of dicts defining   edge  Plotly attributes
-    edge_info = [] # the list of points on edges where  the information is placed
+    lines = [] # the list of dicts defining edge Plotly attributes
+    edge_info = [] # the list of points on edges where the information is placed
     if len(G.es) == 0:
         return lines, edge_info, [colorbar_trace if use_colorscale else None]
 
@@ -154,7 +157,9 @@ def draw_edges(layout, G: ig.Graph, circle_layout, r_cutoff, max_width, use_weig
     if use_weighted_widths:
         edges_widths = get_edges_widths(sorted_rvalues, r_cutoff, max=max_width) #The width is proportional to Pearson's r value
     if use_colorscale:
-        edge_colours=[get_color(colorscale, c, min_loc=colorscale_min, max_loc=1) for c in sorted_rvalues]
+        edge_colours = [get_color(colorscale, min(max(c, colorscale_min), colorscale_max), 
+                                  min_loc=colorscale_min, max_loc=colorscale_max)
+                        for c in sorted_rvalues]
 
     for j, e in enumerate(sorted_es):
         A=np.array(circle_layout[e.source])
@@ -166,8 +171,8 @@ def draw_edges(layout, G: ig.Graph, circle_layout, r_cutoff, max_width, use_weig
         text="<br>".join((f"<b>{e.source_vertex['name']} - {e.target_vertex['name']}</b>",
                         f"r: {e['weight'] if G.is_weighted() else e['r-value']:.5f}",
                         f"p: {e['p-value']:.10f}"))
-        mark1=deCasteljau(b,0.9)
-        mark2=deCasteljau(list(reversed(b)),0.9)
+        mark1=deCasteljau(b, 0.9)
+        mark2=deCasteljau(list(reversed(b)), 0.9)
         edge_info.append(go.Scatter(x=[mark1[0], mark2[0]],
                                 y=[mark1[1], mark2[1]],
                                 mode="markers",
@@ -252,21 +257,21 @@ class InvalidInputError(Exception):
 def deCasteljau(b,t):
     N=len(b)
     if(N<2):
-        raise InvalidInputError("The  control polygon must have at least two points")
+        raise InvalidInputError("The control polygon must have at least two points")
     a=np.copy(b) #shallow copy of the list of control points 
     for r in range(1,N):
         a[:N-r,:]=(1-t)*a[:N-r,:]+t*a[1:N-r+1,:]
     return a[0,:]
 
 def BezierCv(b, nr=5):
-    t=np.linspace(0, 1, nr)
-    return np.array([deCasteljau(b, t[k]) for k in range(nr)])
+    ts = np.linspace(0, 1, nr)
+    return np.array([deCasteljau(b, t) for t in ts])
 
 def get_edges_widths(r_values, r_cutoff, max=5):
     return (np.abs(np.array(r_values))-r_cutoff)/(1-r_cutoff)*max
 
 def get_color(colorscale_name, loc, min_loc=0, max_loc=1):
-    if not(min_loc < loc < max_loc):
+    if not(min_loc <= loc <= max_loc):
         raise ValueError(f"'min_loc' ({min_loc}) < 'loc' ({loc}) < 'max_loc' ({max_loc}) inequality is not respected.")
     if min != 0 or max != 1:
         loc = (loc-min_loc) / (max_loc-min_loc)
