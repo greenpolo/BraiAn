@@ -26,19 +26,66 @@ def draw_network_plot(connectome: FunctionalConnectome,
               ))
     return fig
 
+def nodes_hover_info(G: ig.Graph, AllenBrain: AllenBrainHierarchy, title_dict: dict={}):
+    customdata = []
+    hovertemplates = []
+    i = 0
+    # Add vertices' attributes
+    for attr in G.vs.attributes():
+        match attr:
+            case "name":
+                customdata.extend((
+                     G.vs["name"],
+                     [AllenBrain.full_name[acronym] for acronym in G.vs["name"]]
+                ))
+                hovertemplates.extend((
+                    f"Region: <b>%{{customdata[{i}]}}</b>",
+                    f"<i>%{{customdata[{i+1}]}}</i>"
+                ))
+                i += 2
+            case "upper_region":
+                customdata.extend((
+                     G.vs["upper_region"],
+                     [AllenBrain.full_name[acronym] for acronym in G.vs["upper_region"]]
+                ))
+                hovertemplates.append(f"Major Division: %{{customdata[{i}]}} (%{{customdata[{i+1}]}})")
+                i += 2
+            case _:
+                customdata.append(G.vs[attr])
+                attr_title = title_dict[attr] if attr in title_dict else attr
+                hovertemplates.append(f"{attr_title}: %{{customdata[{i}]}}")
+                i += 1
+    # Add additional information
+    # fun is expected to be a function that takes a VertexSeq and spits a value for each vertex.
+    for attr_title, fun in title_dict.items():
+        if attr_title in G.vs.attributes():
+            continue
+        customdata.append(fun(G.vs))
+        hovertemplates.append(f"{attr_title}: %{{customdata[{i}]}}")
+        i += 1
+
+    hovertemplate = "<br>".join(hovertemplates)
+    hovertemplate += "<extra></extra>"
+    # customdata=np.hstack((old_customdata.customdata, np.expand_dims(<new_data>, 1))), # update customdata
+    return np.stack(customdata, axis=-1), hovertemplate
+
 def draw_nodes(G, layout, node_size, AllenBrain):
     colours = AllenBrain.get_region_colours()
     nodes_colour = []
     outlines_colour = []
+    if "cluster" in G.vs.attributes():
+        get_color = lambda v: DEFAULT_PLOTLY_COLORS[v["cluster"] % len(DEFAULT_PLOTLY_COLORS)]
+    else:
+        get_color = lambda v: colours[v["name"]]
     for v in G.vs:
         if v.degree() > 0:
             # node_colour = DEFAULT_PLOTLY_COLORS[v["cluster"]] if "cluster" in v.attribute_names() else colours[v["name"]]
             # outline_colour = node_colour # '#FFFFFF'
             # outline_colour = colours[v["name"]] # '#FFFFFF'
-            outline_colour= DEFAULT_PLOTLY_COLORS[v["cluster"] % len(DEFAULT_PLOTLY_COLORS)]
+            outline_colour = get_color(v)
             node_colour = colours[v["name"]]
             # node_colour = participations[v.index]
-        elif v["is_undefined"]:
+        elif "is_undefined" in v.attributes() and v["is_undefined"]:
             outline_colour = 'rgb(140,140,140)'
             node_colour = '#A0A0A0'
         else:
@@ -47,6 +94,7 @@ def draw_nodes(G, layout, node_size, AllenBrain):
         nodes_colour.append(node_colour)
         outlines_colour.append(outline_colour)
 
+    customdata, hovertemplate = nodes_hover_info(G, AllenBrain, title_dict={"Degree": ig.VertexSeq.degree})
     nodes_trace = go.Scatter(
         x=[coord[0] for coord in layout.coords],
         y=[coord[1] for coord in layout.coords],
@@ -56,19 +104,8 @@ def draw_nodes(G, layout, node_size, AllenBrain):
                     size=node_size,
                     color=nodes_colour,
                     line=dict(color=outlines_colour, width=6)), #0.5)),
-        customdata = np.stack((
-                        G.vs["name"],
-                        [AllenBrain.full_name[acronym] for acronym in G.vs["name"]],
-                        G.vs["upper_region"],
-                        [AllenBrain.full_name[acronym] for acronym in G.vs["upper_region"]],
-                        G.vs.degree()),
-                    axis=-1),
-        hovertemplate=
-            "Region: <b>%{customdata[0]}</b><br>" +
-            "<i>%{customdata[1]}</i><br>" +
-            "Major Division: %{customdata[2]} (%{customdata[3]})<br>" +
-            "Degree: %{customdata[4]}" +
-            "<extra></extra>",
+        customdata=customdata,
+        hovertemplate=hovertemplate,
         showlegend=False
     )
 
@@ -83,7 +120,7 @@ def add_participation_coefficient(nodes_trace, connectome):
     nodes_trace.hovertemplate = nodes_trace.hovertemplate + "<br>Participation coefficient: %{customdata[5]}"
     return
 
-def draw_edges(G, layout, width):
+def draw_edges(G: ig.Graph, layout: ig.Layout, width: int):
     edge_x = []
     edge_y = []
     for e in G.es:
@@ -100,8 +137,16 @@ def draw_edges(G, layout, width):
         x=edge_x, y=edge_y,
         line=dict(width=width, color="#888"),
         hoverinfo="none",
-        mode="lines",
+        mode="lines+markers" if G.is_directed() else "lines",
         showlegend=False)
+    
+    if G.is_directed():
+        edges_trace.marker = dict(
+                symbol="arrow",
+                size=10,
+                angleref="previous",
+                standoff=8,
+            )
     
     return edges_trace
 

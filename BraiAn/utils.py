@@ -1,6 +1,14 @@
 import os
 import numpy as np
 import pandas as pd
+import requests
+
+def cache(filepath, url):
+    if os.path.exists(filepath):
+        return
+    resp = requests.get(url)
+    with open(filepath, "wb") as f:
+        f.write(resp.content)
 
 def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False, sep="\t", decimal=".") -> None:
     os.makedirs(output_path, exist_ok=True)

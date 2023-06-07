@@ -17,11 +17,13 @@ class CrossCorrelation:
         if not min_animals:
             # if None, all animals must have the region
             min_animals = self.n
-        r = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[0], min_periods=min_animals)
+        r = normalized_data.corr(method='pearson', min_periods=min_animals)
+        # much slower
+        # r = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[0], min_periods=min_animals)
         p = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[1], min_periods=min_animals)
         rp_name_space = " - " if name else ""
-        self.r = ConnectomeAdjacency(r, AllenBrain, name+rp_name_space+"p-value")
-        self.p = ConnectomeAdjacency(p, AllenBrain, name+rp_name_space+"Pearson coefficient")
+        self.r = ConnectomeAdjacency(r, AllenBrain, name+rp_name_space+"Pearson coefficient")
+        self.p = ConnectomeAdjacency(p, AllenBrain, name+rp_name_space+"p-value")
         self.name = name
 
     def remove_insufficient_regions(self):
@@ -47,8 +49,8 @@ class CrossCorrelation:
         # old_hovertemplate = "%{x} - %{y}<br>r: %{z}<br>p: %{customdata[0]}<extra></extra>"
         fig.update_traces(
                 selector=dict(type="heatmap"),
-                text=get_stars(self.p.A).values,
-                customdata=np.hstack((old_customdata.customdata, np.expand_dims(self.p.A, 1))), #np.stack((self.p.A,), axis=-1),
+                text=get_stars(self.p.data).values,
+                customdata=np.hstack((old_customdata.customdata, np.expand_dims(self.p.data, 1))), #np.stack((self.p.data,), axis=-1),
                 hovertemplate="%{x} - %{y}<br>r: %{customdata[0]}<br>p: %{customdata[1]}<extra></extra>",
                 texttemplate="%{text}",
                 textfont=dict(size=star_size)

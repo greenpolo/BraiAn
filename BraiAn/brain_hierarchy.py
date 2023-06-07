@@ -146,7 +146,10 @@ class AllenBrainHierarchy:
                 visit_alg = visit_dfs
             case _:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
-        areas = get_where(self.dict, "children", lambda n,d: n["selected"] and not n["blacklisted"], visit_alg)
+        areas = get_where(self.dict,
+                            "children",
+                            lambda n,d: n["selected"] and ("blacklisted" not in n or not n["blacklisted"]),
+                            visit_alg)
         return [area["acronym"] for area in areas]
     
     def get_sibiling_areas(self, acronym=None, id=None) -> list:
