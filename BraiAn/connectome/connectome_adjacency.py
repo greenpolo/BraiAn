@@ -62,16 +62,12 @@ class ConnectomeAdjacency:
         plt_width = max(cell_width*len(self.data), min_plot_height*aspect_ratio)
         if log:
             colors = self.__data_log10.values.copy()
-            colorbar = dict(
-                            title="log₁₀",
-                        )
+            colorbar=dict(title="log₁₀", len=0.5, thickness=15)
             customdata = np.stack((self.data.values,), axis=-1)
             hovertemplate = "%{x} - %{y}<br>weigth: %{customdata[0]}<br>log10(weight): %{z}<extra></extra>"
         else:
             colors = self.data.values.copy()
-            colorbar = dict(
-                            title=""
-                        )
+            colorbar=dict(title="", len=0.5, thickness=15)
             customdata = None
             hovertemplate = "%{x} - %{y}<br>weigth: %{z}<extra></extra>"
         if color_min is None:

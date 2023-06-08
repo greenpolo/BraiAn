@@ -4,9 +4,10 @@ import numpy as np
 import igraph as ig
 
 from ..brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
-from .functional import FunctionalConnectome
+from .connectome import Connectome
+from .plot import no_axis, draw_nodes
 
-def draw_chord_plot(connectome: FunctionalConnectome,
+def draw_chord_plot(connectome: Connectome,
                     AllenBrain: AllenBrainHierarchy,
                     title="",
                     size=1500,
@@ -15,7 +16,7 @@ def draw_chord_plot(connectome: FunctionalConnectome,
                     regions_font_size=10,
                     max_edge_width=5,
                     use_weighted_edge_widths=True,
-                    colorscale_edges=True,
+                    edges_color="#5588c8",
                     colorscale="RdBu_r",
                     colorscale_min="cutoff",
                     colorscale_max=1,
@@ -25,7 +26,7 @@ def draw_chord_plot(connectome: FunctionalConnectome,
 
     circle_layout = G.layout_circle()
     circle_layout.rotate(180/len(circle_layout)) # rotate by half of a unit to sync with ideograms' rotation
-    colours = AllenBrain.get_region_colours()
+    colors = AllenBrain.get_region_colors()
 
     paper_bgcolor = 'rgba(0,0,0,0)' if no_background else 'rgba(255,255,255,255)'
 
@@ -36,8 +37,8 @@ def draw_chord_plot(connectome: FunctionalConnectome,
               autosize=False,
               width=size,
               height=size,
-              xaxis=dict(axis),
-              yaxis=dict(axis,
+              xaxis=dict(no_axis),
+              yaxis=dict(no_axis,
                         scaleanchor="x", scaleratio=1),
               margin=dict(l=40,
                             r=40,
@@ -50,62 +51,27 @@ def draw_chord_plot(connectome: FunctionalConnectome,
               annotations=extract_annotations(kwargs, pos=-0.07, step=-0.02)
               )
 
-    nodes = draw_nodes(layout, G, circle_layout, regions_size, regions_font_size, colours, AllenBrain)
-    lines, edge_info, colorbar = draw_edges(layout, G, circle_layout, connectome.r_cutoff, max_edge_width, use_weighted_edge_widths,
-                                            use_colorscale=colorscale_edges, colorscale=colorscale,
-                                            colorscale_min=connectome.r_cutoff if colorscale_min == "cutoff" else colorscale_min,
-                                            colorscale_max=colorscale_max)
-    ideograms = draw_ideograms(layout, G.vs["upper_region"], AllenBrain, colours, a=ideograms_arc_index)
+    nodes = draw_nodes(G, circle_layout, regions_size, AllenBrain)
+    add_regions_acronyms(layout, G, circle_layout, regions_font_size)
+    colorscale_min = connectome.r_cutoff if colorscale_min == "cutoff" else colorscale_min
+    lines, edge_info = draw_edges(connectome, circle_layout, max_edge_width, use_weighted_edge_widths,
+                                  solid_color=edges_color, colorscale=colorscale,
+                                  colorscale_min=colorscale_min, colorscale_max=colorscale_max)
+    colorbar = add_colorbar(connectome, colorscale=colorscale,
+                            cmin=colorscale_min, cmax=colorscale_max)
+    ideograms = draw_ideograms(layout, G.vs["upper_region"], AllenBrain, colors, a=ideograms_arc_index)
 
-    fig = go.Figure(data=ideograms+lines+[nodes]+edge_info+colorbar, layout=layout)
+    fig = go.Figure(data=ideograms+lines+[nodes]+edge_info+[colorbar], layout=layout)
     return fig
 
-def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBrain):
-    nodes_colour = []
-    outlines_colour = []
-    for v in G.vs:
-        if v.degree() > 0:
-            outline_colour = '#FFFFFF'
-            node_colour = colours[v["name"]]
-        elif v["is_undefined"]:
-            outline_colour = 'rgb(140,140,140)'
-            node_colour = '#A0A0A0'
-        else:
-            outline_colour = 'rgb(150,150,150)'
-            node_colour = '#CCCCCC'
-        nodes_colour.append(node_colour)
-        outlines_colour.append(outline_colour)
-
-    nodes = go.Scatter(
-        x=[coord[0] for coord in circle_layout.coords],
-        y=[coord[1] for coord in circle_layout.coords],
-        mode="markers",
-        name="",
-        marker=dict(symbol="circle",
-                    size=node_size,
-                    color=nodes_colour,
-                    line=dict(color=outlines_colour, width=0.5)),
-        customdata = np.stack((
-                        G.vs["name"],
-                        [AllenBrain.full_name[acronym] for acronym in G.vs["name"]],
-                        G.vs["upper_region"],
-                        [AllenBrain.full_name[acronym] for acronym in G.vs["upper_region"]],
-                        G.vs.degree()),
-                    axis=-1),
-        hovertemplate=
-            "Region: <b>%{customdata[0]}</b><br>" +
-            "<i>%{customdata[1]}</i><br>" +
-            "Major Division: %{customdata[2]} (%{customdata[3]})<br>" +
-            "Degree: %{customdata[4]}" +
-            "<extra></extra>"
-        )
+def add_regions_acronyms(layout, G, circle_layout, font_size):
     nodes_annotations = []
     for v in G.vs:
         x = circle_layout[v.index][0]
         y = circle_layout[v.index][1]
         angle = 180/PI*np.arctan(x/y)-90 if y != 0 else 0
-        xanchor = "right" if x < 0 else "left"
-        yanchor = "bottom" if y < 0 else "top"
+        # xanchor = "right" if x < 0 else "left"
+        # yanchor = "bottom" if y < 0 else "top"
         if abs(angle) > 90:
             angle = ((angle+90)%180)-90
         textdist = 20
@@ -125,42 +91,30 @@ def draw_nodes(layout, G, circle_layout, node_size, font_size, colours, AllenBra
             )
         nodes_annotations.append(ann)
     layout["annotations"] = (*layout["annotations"], *nodes_annotations)
+    return
 
-    return nodes
-
-def draw_edges(layout, G: ig.Graph, circle_layout, r_cutoff, max_width, use_weighted_widths,
-               solid_color="#5588c8", use_colorscale=True, colorscale="RdBu_r",
+def draw_edges(connectome: Connectome, circle_layout: ig.Layout,
+               max_width: float, use_weighted_widths: bool,
+               solid_color: str, colorscale="RdBu_r",
                colorscale_min=0, colorscale_max=1):
-    if use_colorscale:
-        colorbar_trace = go.Scatter(x=[None],
-                y=[None],
-                mode="markers",
-                marker=dict(
-                    colorscale=colorscale, 
-                    showscale=True,
-                    cmin=colorscale_min,
-                    cmax=colorscale_max,
-                    colorbar=dict(title="Pearson's <i>r</i>", len=0.5, thickness=15), 
-                ),
-                hoverinfo='none'
-                )
+    G: ig.Graph = connectome.G
 
     lines = [] # the list of dicts defining edge Plotly attributes
     edge_info = [] # the list of points on edges where the information is placed
     if len(G.es) == 0:
-        return lines, edge_info, [colorbar_trace if use_colorscale else None]
+        return lines, edge_info
 
     Dist = [0, dist([1,0], 2*[np.sqrt(2)/2]), np.sqrt(2), dist([1,0],  [-np.sqrt(2)/2, np.sqrt(2)/2]), 2.0]
     params = [1.2, 1.5, 1.8, 2.1]
-    sorted_es = sorted(G.es, key=lambda e: e["weight"] if G.is_weighted() else e["r-value"])
-    sorted_rvalues = [e["weight"] if G.is_weighted() else e["r-value"] for e in sorted_es]
+    sorted_es = sorted(G.es, key=lambda e: e["weight"]) if G.is_weighted() else G.es
     if use_weighted_widths:
-        edges_widths = get_edges_widths(sorted_rvalues, r_cutoff, max=max_width) #The width is proportional to Pearson's r value
-    if use_colorscale:
-        edge_colours = [get_color(colorscale, min(max(c, colorscale_min), colorscale_max), 
-                                  min_loc=colorscale_min, max_loc=colorscale_max)
-                        for c in sorted_rvalues]
-
+        edges_widths = get_edges_widths([e["weight"] for e in sorted_es], max=max_width) #The width is proportional to the weight
+    if G.is_weighted():
+        edge_colors = [get_color(colorscale, min(max(e["weight"], colorscale_min), colorscale_max), 
+                                   min_loc=colorscale_min, max_loc=colorscale_max)
+                        for e in sorted_es]
+    else:
+        edge_colors = (solid_color,) * G.ecount()
     for j, e in enumerate(sorted_es):
         A=np.array(circle_layout[e.source])
         B=np.array(circle_layout[e.target])
@@ -168,15 +122,14 @@ def draw_edges(layout, G: ig.Graph, circle_layout, r_cutoff, max_width, use_weig
         K=get_idx_interv(d, Dist)
         b=[A, A/params[K], B/params[K], B]
         pts=BezierCv(b, nr=5)
-        text="<br>".join((f"<b>{e.source_vertex['name']} - {e.target_vertex['name']}</b>",
-                        f"r: {e['weight'] if G.is_weighted() else e['r-value']:.5f}",
-                        f"p: {e['p-value']:.10f}"))
+        text=edge_hovertext(e, connectome.weight_str)
         mark1=deCasteljau(b, 0.9)
         mark2=deCasteljau(list(reversed(b)), 0.9)
+
         edge_info.append(go.Scatter(x=[mark1[0], mark2[0]],
                                 y=[mark1[1], mark2[1]],
                                 mode="markers",
-                                marker=dict(size=0.5, color=edge_colours[j] if use_colorscale else solid_color),
+                                marker=dict(size=0.5),
                                 text=text,
                                 hoverinfo="text"
                                 )
@@ -187,15 +140,31 @@ def draw_edges(layout, G: ig.Graph, circle_layout, r_cutoff, max_width, use_weig
                             line=dict(
                                 shape="spline",
                                 width=edges_widths[j] if use_weighted_widths else max_width,
-                                color=edge_colours[j] if use_colorscale else solid_color,
+                                color=edge_colors[j],
                             ),
                             hoverinfo="none"
                         )
                     )
-    return lines, edge_info, [colorbar_trace if use_colorscale else None]
+    return lines, edge_info
+
+def add_colorbar(connectome: Connectome,
+                 colorscale: str,
+                 cmin: float, cmax: float):
+    return go.Scatter(x=[None],
+                y=[None],
+                mode="markers",
+                marker=dict(
+                    colorscale=colorscale, 
+                    showscale=True,
+                    cmin=cmin,
+                    cmax=cmax,
+                    colorbar=dict(title=connectome.weight_str, len=0.5, thickness=15), 
+                ),
+                hoverinfo="none"
+                )
 
 def draw_ideograms(layout, all_upper_regions, AllenBrain,
-                    colours, outline_colour='rgb(150,150,150)',
+                    colors, outline_color='rgb(150,150,150)',
                     a=50):
     upper_regions = sorted(list(set(all_upper_regions)), key=UPPER_REGIONS.index)
     n_regions_in_upper = np.asarray([sum(r1 == r2  for r2 in all_upper_regions) for r1 in upper_regions])
@@ -204,7 +173,7 @@ def draw_ideograms(layout, all_upper_regions, AllenBrain,
     n_nodes = n_regions_in_upper.sum()
     ideogram_length=2*PI*n_regions_in_upper/n_nodes
     ideo_ends = get_ideogram_ends(ideogram_length)
-    ideo_colours = [colours[r_acronym] for r_acronym in upper_regions]
+    ideo_colors = [colors[r_acronym] for r_acronym in upper_regions]
 
     for k in range(len(ideo_ends)):
         z= make_ideogram_arc(1.2, ideo_ends[k], a=a)
@@ -214,7 +183,7 @@ def draw_ideograms(layout, all_upper_regions, AllenBrain,
         ideograms.append(go.Scatter(x=z.real,
                                 y=z.imag,
                                 mode='lines',
-                                line=dict(color=ideo_colours[k], shape='spline', width=0.25),
+                                line=dict(color=ideo_colors[k], shape='spline', width=0.25),
                                 text=f"<b>{upper_regions[k]}</b><br>"+
                                         f"<i>{AllenBrain.full_name[upper_regions[k]]}</i><br>"
                                         f"N displayed regions: {n_regions_in_upper[k]:d}",
@@ -233,7 +202,7 @@ def draw_ideograms(layout, all_upper_regions, AllenBrain,
             path+=str(Zi.real[s])+', '+str(Zi.imag[s])+' L '
         path+=str(z.real[0])+' ,'+str(z.imag[0])
 
-        layout.shapes = [*layout.shapes, make_ideo_shape(path, outline_colour, ideo_colours[k])]
+        layout.shapes = [*layout.shapes, make_ideo_shape(path, outline_color, ideo_colors[k])]
 
     return ideograms
     
@@ -241,6 +210,17 @@ def draw_ideograms(layout, all_upper_regions, AllenBrain,
 
 #############
 # CHORD UTILS
+
+def edge_hovertext(e: ig.Edge, weight_str):
+    hovertexts = [f"<b>{e.source_vertex['name']} - {e.target_vertex['name']}</b>"]
+    for attr in e.attributes():
+        match attr:
+            case "weight":
+                attr_hovertext = f"{weight_str}: {e[attr]}"
+            case _:
+                attr_hovertext = f"{attr}: {e[attr]}"
+        hovertexts.append(attr_hovertext)
+    return "<br>".join(hovertexts)
 
 def dist(A,B):
     return np.linalg.norm(np.array(A)-np.array(B))
@@ -267,8 +247,11 @@ def BezierCv(b, nr=5):
     ts = np.linspace(0, 1, nr)
     return np.array([deCasteljau(b, t) for t in ts])
 
-def get_edges_widths(r_values, r_cutoff, max=5):
-    return (np.abs(np.array(r_values))-r_cutoff)/(1-r_cutoff)*max
+def get_edges_widths(weights, max=5):
+    weights = np.abs(np.array(weights))
+    w_range = weights.max() - weights.min()
+    min_weight = weights.min() - (w_range * 0.05) # lower the widths' lowerbound by 5% so the smaller weighted edges are not invisible
+    return (weights-min_weight)/(1-min_weight)*max
 
 def get_color(colorscale_name, loc, min_loc=0, max_loc=1):
     if not(min_loc <= loc <= max_loc):
@@ -393,13 +376,6 @@ def make_ideo_shape(path, line_color, fill_color):
 
 ############
 # PLOT UTILS
-
-axis = dict(showline=False, # hide axis line, grid, ticklabels and  title
-          zeroline=False,
-          showgrid=False,
-          showticklabels=False,
-          title=''
-          )
 
 def extract_annotations(kwargs, pos=-0.07, step=-0.02):
     annotations = []

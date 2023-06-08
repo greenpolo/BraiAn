@@ -82,7 +82,7 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
     
     # Plot major divisions
     active_mjd = tuple(AllenBrain.get_areas_major_division(*selected_regions).values())
-    allen_colours = AllenBrain.get_region_colours()
+    allen_colours = AllenBrain.get_region_colors()
     y_start = -0.5
     major_division_height = 0.03
     dist = 0.1
@@ -137,7 +137,7 @@ def plot_pie(selected_regions: list[str], AllenBrain: AllenBrainHierarchy,
                 use_acronyms=True, hole=0.3, line_width=2, text_size=12):
     active_mjd = tuple(AllenBrain.get_areas_major_division(*selected_regions).values())
     mjd_occurrences = [(mjd, active_mjd.count(mjd)) for mjd in UPPER_REGIONS]
-    allen_colours = AllenBrain.get_region_colours()
+    allen_colours = AllenBrain.get_region_colors()
     fig = go.Figure(
                     go.Pie(
                         labels=[mjd if use_acronyms else AllenBrain.full_name[mjd] for mjd,n in mjd_occurrences if n != 0],
@@ -316,7 +316,7 @@ def plot_salient_regions(salient_regions: pd.DataFrame, AllenBrain: AllenBrainHi
                             mjd_opacity=0.5, width=300,
                             barheight=30, bargap=0.3, bargroupgap=0.0):#, height=500):
     active_mjd = tuple(AllenBrain.get_areas_major_division(*salient_regions["acronym"].values).values())
-    allen_colours = AllenBrain.get_region_colours()
+    allen_colours = AllenBrain.get_region_colors()
     fig = go.Figure([
         go.Bar(
             x=salient_regions["salience_score"],

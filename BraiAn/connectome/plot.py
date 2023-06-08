@@ -3,17 +3,20 @@ import numpy as np
 import plotly.graph_objects as go
 
 from plotly.colors import DEFAULT_PLOTLY_COLORS
-from .functional import FunctionalConnectome
-from .utils_bu import participation_coefficient
+from .connectome import Connectome
 from ..brain_hierarchy import AllenBrainHierarchy
 
-def draw_network_plot(connectome: FunctionalConnectome,
+def draw_network_plot(connectome: Connectome,
                       layout_fun: ig.Layout, AllenBrain: AllenBrainHierarchy,
+                      use_centrality=False, centrality_metric=None, colorscale="Plasma",
                       **kwargs):
     graph_layout = layout_fun(connectome.G)
-    nodes_trace = draw_nodes(connectome.G, graph_layout, 15, AllenBrain)
-    if connectome.vc is not None:
-        add_participation_coefficient(nodes_trace, connectome)
+    nodes_trace = draw_nodes(connectome.G, graph_layout, 15, AllenBrain, outline_size=6,
+                             use_centrality=use_centrality, centrality_metric=centrality_metric)
+    if use_centrality and centrality_metric in connectome.G.vs.attributes():
+        nodes_trace.marker.colorscale = colorscale
+        nodes_trace.marker.showscale = True
+        nodes_trace.marker.colorbar=dict(title=centrality_metric, len=0.5, thickness=15)
     edges_trace = draw_edges(connectome.G, graph_layout, 2)
     fig = go.Figure([edges_trace, nodes_trace],
                     layout=dict(
@@ -69,56 +72,46 @@ def nodes_hover_info(G: ig.Graph, AllenBrain: AllenBrainHierarchy, title_dict: d
     # customdata=np.hstack((old_customdata.customdata, np.expand_dims(<new_data>, 1))), # update customdata
     return np.stack(customdata, axis=-1), hovertemplate
 
-def draw_nodes(G, layout, node_size, AllenBrain):
-    colours = AllenBrain.get_region_colours()
-    nodes_colour = []
-    outlines_colour = []
+def draw_nodes(G: ig.Graph, graph_layout: ig.Layout, node_size: int, AllenBrain: AllenBrainHierarchy,
+               outline_size=0.5, use_centrality=False, centrality_metric: str=None):
+    colors = AllenBrain.get_region_colors()
+    nodes_color = []
+    outlines_color = []
     if "cluster" in G.vs.attributes():
-        get_color = lambda v: DEFAULT_PLOTLY_COLORS[v["cluster"] % len(DEFAULT_PLOTLY_COLORS)]
+        get_outline_color = lambda v: DEFAULT_PLOTLY_COLORS[v["cluster"] % len(DEFAULT_PLOTLY_COLORS)]
     else:
-        get_color = lambda v: colours[v["name"]]
+        get_outline_color = lambda v: colors[v["name"]]
+    if use_centrality and (centrality_metric is None or centrality_metric not in G.vs.attributes()):
+        raise ValueError("If you want to plot the centrality, you must also specify a nodes' attribute in 'centrality_metric'")
     for v in G.vs:
         if v.degree() > 0:
-            # node_colour = DEFAULT_PLOTLY_COLORS[v["cluster"]] if "cluster" in v.attribute_names() else colours[v["name"]]
-            # outline_colour = node_colour # '#FFFFFF'
-            # outline_colour = colours[v["name"]] # '#FFFFFF'
-            outline_colour = get_color(v)
-            node_colour = colours[v["name"]]
-            # node_colour = participations[v.index]
+            outline_color = get_outline_color(v)
+            node_color = v[centrality_metric] if use_centrality else colors[v["name"]]
         elif "is_undefined" in v.attributes() and v["is_undefined"]:
-            outline_colour = 'rgb(140,140,140)'
-            node_colour = '#A0A0A0'
+            outline_color = 'rgb(140,140,140)'
+            node_color = '#A0A0A0'
         else:
-            outline_colour = 'rgb(150,150,150)'
-            node_colour = '#CCCCCC'
-        nodes_colour.append(node_colour)
-        outlines_colour.append(outline_colour)
+            outline_color = 'rgb(150,150,150)'
+            node_color = '#CCCCCC'
+        nodes_color.append(node_color)
+        outlines_color.append(outline_color)
 
     customdata, hovertemplate = nodes_hover_info(G, AllenBrain, title_dict={"Degree": ig.VertexSeq.degree})
     nodes_trace = go.Scatter(
-        x=[coord[0] for coord in layout.coords],
-        y=[coord[1] for coord in layout.coords],
+        x=[coord[0] for coord in graph_layout.coords],
+        y=[coord[1] for coord in graph_layout.coords],
         mode="markers",
         name="",
         marker=dict(symbol="circle",
                     size=node_size,
-                    color=nodes_colour,
-                    line=dict(color=outlines_colour, width=6)), #0.5)),
+                    color=nodes_color,
+                    line=dict(color=outlines_color, width=outline_size)),
         customdata=customdata,
         hovertemplate=hovertemplate,
         showlegend=False
     )
 
     return nodes_trace
-
-def add_participation_coefficient(nodes_trace, connectome):
-    participations = participation_coefficient(connectome.G, connectome.vc)
-    nodes_trace.marker.color = list(participations)
-    nodes_trace.marker.colorscale="Plasma"
-    nodes_trace.marker.showscale = True
-    nodes_trace.customdata = np.hstack((nodes_trace.customdata, np.expand_dims(participations, 1)))
-    nodes_trace.hovertemplate = nodes_trace.hovertemplate + "<br>Participation coefficient: %{customdata[5]}"
-    return
 
 def draw_edges(G: ig.Graph, layout: ig.Layout, width: int):
     edge_x = []

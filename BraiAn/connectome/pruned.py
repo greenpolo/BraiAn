@@ -18,7 +18,8 @@ class PrunedConnectomics(Connectome):
                          isolated_vertices=isolated_vertices,
                          weighted=weighted,
                          directed=True,
-                         name=f"{cc.name} - Pruned")
+                         name=f"{cc.name} - Pruned",
+                         weight_str="Pearson r")
         self.__add_vertices_attributes(cc.r)
         # self.__add_edges_attribute("r-value", cc.r)
         self.__add_edges_attribute("p-value", cc.p)

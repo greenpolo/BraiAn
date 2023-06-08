@@ -20,7 +20,7 @@ class StructuralConnectome(Connectome):
         self.mask = self.A.data >= 10**log10_cutoff
         A = self.A.data.copy()
         A[~self.mask] = np.nan
-        super().__init__(A.fillna(0), isolated_vertices=True, weighted=True, directed=True, name=name)
+        super().__init__(A.fillna(0), isolated_vertices=True, weighted=True, directed=True, name=name, weight_str="Normalized connection density")
         self.__add_vertices_attributes(self.A)
 
     def __read_adjacency_matrix(self, normalized_connection_density_file: str,

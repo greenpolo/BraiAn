@@ -2,12 +2,16 @@ import igraph as ig
 import numpy as np
 import pandas as pd
 
+from .utils_bu import participation_coefficient
+
 class Connectome:
     def __init__(self, A: pd.DataFrame,
                  isolated_vertices=True,
-                 weighted=False, directed=False, name="",
+                 weighted=False, directed=False,
+                 name="", weight_str="",
                  graph: ig.Graph=None) -> None:
         self.name = name
+        self.weight_str = weight_str
         if graph is not None:
             self.G = graph
             self.is_weighted = graph.is_weighted()
@@ -40,6 +44,12 @@ class Connectome:
             for node in cluster:
                 self.G.vs[node]["cluster"] = i
         return
+    
+    def participation_coefficient(self):
+        if self.is_directed or self.is_weighted:
+            raise NotImplementedError("This centrality metric is not yet implemented for this type of connectomic.")
+        self.G.vs["Participation coefficient"] = participation_coefficient(self.G, self.vc)
+        return
 
     def region_subgraph(self, region: str, isolated_vertices=True):
         try:
@@ -48,4 +58,5 @@ class Connectome:
             # happens if connectome is created with isolated_vertices=False
             raise NameError(f"'{region}' has no correlation links with other regions!")
         G = self.G.subgraph_edges(v.incident(), delete_vertices=not isolated_vertices)
-        return Connectome(None, None, None, None, name=self.name, graph=G)
+        return Connectome(None, None, None, None,
+                          name=self.name, weight_str=self.weight_str, graph=G)

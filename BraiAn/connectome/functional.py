@@ -28,7 +28,7 @@ class FunctionalConnectome(Connectome):
             A[~above_threshold] = 0
         else:
             A = above_threshold
-        super().__init__(A, weighted=weighted, directed=False, name=cc.name, **kwargs)
+        super().__init__(A, weighted=weighted, directed=False, name=cc.name, weight_str="Pearson r", **kwargs)
         self.__add_vertices_attributes(cc.r)
         self.__add_edges_attributes(cc)
 

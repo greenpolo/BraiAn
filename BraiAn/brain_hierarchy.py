@@ -268,7 +268,7 @@ class AllenBrainHierarchy:
         all_nodes = get_all_nodes(self.dict, "children")
         return {area["acronym"]: area["name"] for area in all_nodes}
     
-    def get_region_colours(self):
+    def get_region_colors(self):
         all_areas = get_all_nodes(self.dict, "children")
         return {area["acronym"]: "#"+area["color_hex_triplet"] for area in all_areas}
 
