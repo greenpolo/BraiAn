@@ -46,11 +46,15 @@ class CrossCorrelation:
     def plot(self, star_size=15, **kwargs):
         fig = self.r.plot(**kwargs)
         old_customdata = fig.data[0].customdata
+        if old_customdata is None:
+            customdata = np.stack((self.p.data,), axis=-1)
+        else:
+            customdata = np.hstack((old_customdata.customdata, np.expand_dims(self.p.data, 1)))
         # old_hovertemplate = "%{x} - %{y}<br>r: %{z}<br>p: %{customdata[0]}<extra></extra>"
         fig.update_traces(
                 selector=dict(type="heatmap"),
                 text=get_stars(self.p.data).values,
-                customdata=np.hstack((old_customdata.customdata, np.expand_dims(self.p.data, 1))), #np.stack((self.p.data,), axis=-1),
+                customdata=customdata,
                 hovertemplate="%{x} - %{y}<br>r: %{customdata[0]}<br>p: %{customdata[1]}<extra></extra>",
                 texttemplate="%{text}",
                 textfont=dict(size=star_size)

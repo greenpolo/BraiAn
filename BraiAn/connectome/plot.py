@@ -9,18 +9,26 @@ from ..brain_hierarchy import AllenBrainHierarchy
 def draw_network_plot(connectome: Connectome,
                       layout_fun: ig.Layout, AllenBrain: AllenBrainHierarchy,
                       use_centrality=False, centrality_metric=None, colorscale="Plasma",
+                      use_clustering=False, isolated_regions=False,
+                      width=None, height=1000,
                       **kwargs):
-    graph_layout = layout_fun(connectome.G)
-    nodes_trace = draw_nodes(connectome.G, graph_layout, 15, AllenBrain, outline_size=6,
-                             use_centrality=use_centrality, centrality_metric=centrality_metric)
-    if use_centrality and centrality_metric in connectome.G.vs.attributes():
+    if not isolated_regions:
+        connected_vs = connectome.G.vs.select(_degree_gt=1)
+        G = connectome.G.induced_subgraph(connected_vs)
+    else:
+        G = connectome.G
+    graph_layout = layout_fun(G)
+    nodes_trace = draw_nodes(G, graph_layout, 15, AllenBrain, outline_size=6,
+                             use_centrality=use_centrality, centrality_metric=centrality_metric,
+                             use_clustering=use_clustering)
+    if use_centrality and centrality_metric in G.vs.attributes():
         nodes_trace.marker.colorscale = colorscale
         nodes_trace.marker.showscale = True
         nodes_trace.marker.colorbar=dict(title=centrality_metric, len=0.5, thickness=15)
-    edges_trace = draw_edges(connectome.G, graph_layout, 2)
+    edges_trace = draw_edges(G, graph_layout, 2)
     fig = go.Figure([edges_trace, nodes_trace],
                     layout=dict(
-                        width=1000, height=1000,
+                        width=width, height=height,
                         xaxis=no_axis,
                         yaxis=no_axis,
                         paper_bgcolor='rgba(255,255,255,255)',
@@ -54,9 +62,12 @@ def nodes_hover_info(G: ig.Graph, AllenBrain: AllenBrainHierarchy, title_dict: d
                 hovertemplates.append(f"Major Division: %{{customdata[{i}]}} (%{{customdata[{i+1}]}})")
                 i += 2
             case _:
-                customdata.append(G.vs[attr])
-                attr_title = title_dict[attr] if attr in title_dict else attr
-                hovertemplates.append(f"{attr_title}: %{{customdata[{i}]}}")
+                if attr in title_dict:
+                    fun = title_dict[attr]
+                    customdata.append(fun(G.vs))
+                else:
+                    customdata.append(G.vs[attr])
+                hovertemplates.append(f"{attr}: %{{customdata[{i}]}}")
                 i += 1
     # Add additional information
     # fun is expected to be a function that takes a VertexSeq and spits a value for each vertex.
@@ -73,11 +84,14 @@ def nodes_hover_info(G: ig.Graph, AllenBrain: AllenBrainHierarchy, title_dict: d
     return np.stack(customdata, axis=-1), hovertemplate
 
 def draw_nodes(G: ig.Graph, graph_layout: ig.Layout, node_size: int, AllenBrain: AllenBrainHierarchy,
-               outline_size=0.5, use_centrality=False, centrality_metric: str=None):
+               outline_size=0.5, use_centrality=False, centrality_metric: str=None,
+               use_clustering=False):
     colors = AllenBrain.get_region_colors()
     nodes_color = []
     outlines_color = []
-    if "cluster" in G.vs.attributes():
+    if use_clustering:
+        if "cluster" not in G.vs.attributes():
+            raise ValueError("No clustering is made on the provided connectome")
         get_outline_color = lambda v: DEFAULT_PLOTLY_COLORS[v["cluster"] % len(DEFAULT_PLOTLY_COLORS)]
     else:
         get_outline_color = lambda v: colors[v["name"]]

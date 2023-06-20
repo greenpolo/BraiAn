@@ -45,8 +45,8 @@ class Connectome:
                 self.G.vs[node]["cluster"] = i
         return
     
-    def participation_coefficient(self):
-        if self.is_directed or self.is_weighted:
+    def participation_coefficient(self, weights=None):
+        if self.is_directed or (self.is_weighted and weights):
             raise NotImplementedError("This centrality metric is not yet implemented for this type of connectomic.")
         self.G.vs["Participation coefficient"] = participation_coefficient(self.G, self.vc)
         return

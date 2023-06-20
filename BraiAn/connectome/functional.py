@@ -8,20 +8,19 @@ from .cross_correlation import CrossCorrelation
 class FunctionalConnectome(Connectome):
     def __init__(self, cc: CrossCorrelation,
                  p_cutoff: float, r_cutoff: float,
-                 negatives=False, weighted=False, n=None,
-                 graph=None, 
+                 negatives=False, weighted=False,
+                 name=None,
                  **kwargs) -> None:
-        self.n = cc.n if cc is not None else n
-        if graph is not None:
-            self.r_cutoff = r_cutoff
-            return super().__init__(None, None, None, None, graph=graph, **kwargs)
+        self.name = cc.name if name == None else name
+        self.n = cc.n
+        self.p_cutoff = p_cutoff
+        self.r_cutoff = r_cutoff
 
         if negatives:
-            above_threshold = (cc.p.data <= p_cutoff) & (cc.r.data.abs() >= r_cutoff)
+            above_threshold = (cc.p.data <= self.p_cutoff) & (cc.r.data.abs() >= self.r_cutoff)
         else:
-            above_threshold = (cc.p.data <= p_cutoff) & (cc.r.data >= r_cutoff)
+            above_threshold = (cc.p.data <= self.p_cutoff) & (cc.r.data >= self.r_cutoff)
 
-        self.r_cutoff = r_cutoff
         if weighted:
             A = cc.r.data.copy(deep=True)
             # zero in weighted matrix[i,j] corresponds to NO edge between i and j

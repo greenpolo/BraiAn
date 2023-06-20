@@ -12,6 +12,7 @@ def draw_chord_plot(connectome: Connectome,
                     title="",
                     size=1500,
                     no_background=True,
+                    isolated_regions=True,
                     regions_size=15,
                     regions_font_size=10,
                     max_edge_width=5,
@@ -22,7 +23,11 @@ def draw_chord_plot(connectome: Connectome,
                     colorscale_max=1,
                     ideograms_arc_index=50,
                     **kwargs):
-    G = connectome.G
+    if not isolated_regions:
+        connected_vs = connectome.G.vs.select(_degree_gt=1)
+        G = connectome.G.induced_subgraph(connected_vs)
+    else:
+        G = connectome.G
 
     circle_layout = G.layout_circle()
     circle_layout.rotate(180/len(circle_layout)) # rotate by half of a unit to sync with ideograms' rotation
@@ -54,7 +59,7 @@ def draw_chord_plot(connectome: Connectome,
     nodes = draw_nodes(G, circle_layout, regions_size, AllenBrain)
     add_regions_acronyms(layout, G, circle_layout, regions_font_size)
     colorscale_min = connectome.r_cutoff if colorscale_min == "cutoff" else colorscale_min
-    lines, edge_info = draw_edges(connectome, circle_layout, max_edge_width, use_weighted_edge_widths,
+    lines, edge_info = draw_edges(G, connectome.weight_str, circle_layout, max_edge_width, use_weighted_edge_widths,
                                   solid_color=edges_color, colorscale=colorscale,
                                   colorscale_min=colorscale_min, colorscale_max=colorscale_max)
     colorbar = add_colorbar(connectome, colorscale=colorscale,
@@ -93,12 +98,10 @@ def add_regions_acronyms(layout, G, circle_layout, font_size):
     layout["annotations"] = (*layout["annotations"], *nodes_annotations)
     return
 
-def draw_edges(connectome: Connectome, circle_layout: ig.Layout,
+def draw_edges(G: ig.Graph, weight_str: str, circle_layout: ig.Layout,
                max_width: float, use_weighted_widths: bool,
                solid_color: str, colorscale="RdBu_r",
                colorscale_min=0, colorscale_max=1):
-    G: ig.Graph = connectome.G
-
     lines = [] # the list of dicts defining edge Plotly attributes
     edge_info = [] # the list of points on edges where the information is placed
     if len(G.es) == 0:
@@ -122,7 +125,7 @@ def draw_edges(connectome: Connectome, circle_layout: ig.Layout,
         K=get_idx_interv(d, Dist)
         b=[A, A/params[K], B/params[K], B]
         pts=BezierCv(b, nr=5)
-        text=edge_hovertext(e, connectome.weight_str)
+        text=edge_hovertext(e, weight_str)
         mark1=deCasteljau(b, 0.9)
         mark2=deCasteljau(list(reversed(b)), 0.9)
 

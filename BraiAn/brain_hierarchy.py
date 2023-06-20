@@ -7,14 +7,16 @@ Created on Fri Mar  4 16:04:28 2022
 @author: carlocastoldi
 """
 
-import pandas as pd
+import copy
 import json
 import networkx as nx
-from networkx.drawing.nx_pydot import graphviz_layout
+import pandas as pd
 import plotly.graph_objects as go
+import requests
 
-import copy
+from bs4 import BeautifulSoup
 from operator import xor
+from networkx.drawing.nx_pydot import graphviz_layout
 from .visit_dict import *
 
 MAJOR_DIVISIONS = [
@@ -37,8 +39,14 @@ UPPER_REGIONS = ["root", *MAJOR_DIVISIONS]
 RE_TOT_ID = 181*100
 RE_TOT_ACRONYM = "REtot"
 
+def set_blacklisted(node, is_blacklisted):
+    node["blacklisted"] = is_blacklisted
+
+def is_blacklisted(node):
+    return "blacklisted" in node and node["blacklisted"]
+
 class AllenBrainHierarchy:
-    def __init__(self, path_to_allen_json, blacklisted_acronyms=[], use_literature_reuniens=False):
+    def __init__(self, path_to_allen_json, blacklisted_acronyms=[], use_literature_reuniens=False, version=None):
         with open(path_to_allen_json, "r") as file:
             allen_data = json.load(file)
         
@@ -46,10 +54,15 @@ class AllenBrainHierarchy:
         if use_literature_reuniens:
             self.__use_literature_reuniens()
         self.use_literature_reuniens = use_literature_reuniens
+        # First label every region as "not blacklisted"
+        visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
         if blacklisted_acronyms:
-            self.blacklist_regions(blacklisted_acronyms)
+            self.blacklist_regions(blacklisted_acronyms, key="acronym")
             # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
+        if version is not None:
+            unannoted_regions = self.__get_unannoted_regions(version)
+            self.blacklist_regions(unannoted_regions, key="acronym")
 
         self.add_depth_to_regions()
         self.mark_major_divisions()
@@ -88,17 +101,30 @@ class AllenBrainHierarchy:
         remove_child(mtn, xi, "children")
         remove_child(ilm, rh, "children")
     
-    def blacklist_regions(self, blacklisted_acronyms):
-        attr = "acronym"
-        def set_blacklisted(node, is_blacklisted):
-            node["blacklisted"] = is_blacklisted
-        # First label every region as "not blacklisted"
-        visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
-        # Then find every region to-be-blacklisted, and blacklist all its tree
-        for blacklisted_acronym in blacklisted_acronyms:
-            blacklisted_region = find_subtree(self.dict, attr, blacklisted_acronym, "children")
+    def __get_unannoted_regions(self, version):
+        match version:
+            case "2015" | "CCFv1" | "ccfv1" | "v1" | 1:
+                annotation_version = "ccf_2015"
+            case "2016" | "CCFv2" | "ccfv2" | "v2" | 2:
+                annotation_version = "ccf_2016"
+            case "2017" | "CCFv3" | "ccfv3" | "v3" | 3:
+                annotation_version = "ccf_2017"
+            case "2022" | "CCFv4" | "ccfv4" | "v4" | 4:
+                annotation_version = "ccf_2022"
+            case _:
+                raise ValueError(f"Unrecognised '{version}' version")
+        url = f"http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/{annotation_version}/structure_meshes/"
+        soup = BeautifulSoup(requests.get(url).content, "html.parser")
+        regions_w_annotation = [int(link["href"][:-len(".obj")]) for link in soup.select('a[href*=".obj"]')]
+        regions_wo_annotation = get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dfs)
+        return [region["acronym"] for region in regions_wo_annotation]
+    
+    def blacklist_regions(self, blacklisted_regions, key="acronym"):
+        # find every region to-be-blacklisted, and blacklist all its tree
+        for region_value in blacklisted_regions:
+            blacklisted_region = find_subtree(self.dict, key, region_value, "children")
             if not blacklisted_region:
-                raise ValueError(f"Can't find a region with '{attr}'='{blacklisted_region}' to blacklist in Allen's Brain")
+                raise ValueError(f"Can't find a region with '{key}'='{blacklisted_region}' to blacklist in Allen's Brain")
             visit_bfs(blacklisted_region, "children", lambda n,d: set_blacklisted(n, True))
     
     def mark_major_divisions(self):
@@ -137,7 +163,29 @@ class AllenBrainHierarchy:
         if "selected" in self.dict:
             del_attribute(self.dict, "children", "selected")
 
-    def get_selected_regions(self, mode="depth"):
+    def ids_to_acronym(self, ids, mode="depth"):
+        match mode:
+            case "breadth":
+                visit_alg = visit_bfs
+            case "depth":
+                visit_alg = visit_dfs
+            case _:
+                raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
+        areas = get_where(self.dict, "children", lambda n,d: n["id"] in ids, visit_alg)
+        return [area["acronym"] for area in areas]
+    
+    def acronym_to_ids(self, acronyms, mode="depth"):
+        match mode:
+            case "breadth":
+                visit_alg = visit_bfs
+            case "depth":
+                visit_alg = visit_dfs
+            case _:
+                raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
+        areas = get_where(self.dict, "children", lambda n,d: n["acronym"] in acronyms, visit_alg)
+        return [area["id"] for area in areas]
+
+    def get_selected_regions(self, key="acronym", mode="depth"):
         assert "selected" in self.dict, "No area is selected."
         match mode:
             case "breadth":
@@ -148,9 +196,9 @@ class AllenBrainHierarchy:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
         areas = get_where(self.dict,
                             "children",
-                            lambda n,d: n["selected"] and ("blacklisted" not in n or not n["blacklisted"]),
+                            lambda n,d: n["selected"] and not is_blacklisted(n),
                             visit_alg)
-        return [area["acronym"] for area in areas]
+        return [area[key] for area in areas]
     
     def get_sibiling_areas(self, acronym=None, id=None) -> list:
         assert xor(acronym is not None, id is not None), "You must specify one of 'acronym' and 'id' parameters"

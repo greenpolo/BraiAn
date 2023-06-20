@@ -35,3 +35,7 @@ def regions_to_plot(pls=None, salience_threshold=None,
 def nrange(bottom, top, n):
     step = (abs(bottom)+abs(top))/(n-1)
     return np.arange(bottom, top+step, step)
+
+def get_indices_where(where):
+    rows = where.index[where.any(axis=1)]
+    return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]

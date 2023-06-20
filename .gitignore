@@ -7,3 +7,5 @@ plots/
 R_analysis/
 .vscode/
 .DS_Store
+**/*.png
+**/*.svg
