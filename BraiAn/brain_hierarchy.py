@@ -102,6 +102,7 @@ class AllenBrainHierarchy:
         remove_child(ilm, rh, "children")
     
     def __get_unannoted_regions(self, version):
+        # alternative implementation: use annotation's nrrd file - https://help.brain-map.org/display/mousebrain/API#API-DownloadAtlas3-DReferenceModels
         match version:
             case "2015" | "CCFv1" | "ccfv1" | "v1" | 1:
                 annotation_version = "ccf_2015"
