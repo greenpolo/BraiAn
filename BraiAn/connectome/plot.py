@@ -13,7 +13,7 @@ def draw_network_plot(connectome: Connectome,
                       width=None, height=1000,
                       **kwargs):
     if not isolated_regions:
-        connected_vs = connectome.G.vs.select(_degree_gt=1)
+        connected_vs = connectome.G.vs.select(_degree_ge=1)
         G = connectome.G.induced_subgraph(connected_vs)
     else:
         G = connectome.G

@@ -8,12 +8,24 @@ import numpy as np
 
 class PrunedConnectomics(Connectome):
     def __init__(self, sc: StructuralConnectome, cc: CrossCorrelation,
-                 r_cutoff: float, p_cutoff: float,
-                 isolated_vertices=False, weighted=True) -> None:
+                 p_cutoff: float, r_cutoff: float,
+                 negatives=False, weighted=True,
+                 isolated_vertices=False) -> None:
         self.p_cutoff = p_cutoff
         self.r_cutoff = r_cutoff
-        self.fc_mask = (cc.p.data <= self.p_cutoff) & (cc.r.data >= self.r_cutoff)
+        if negatives:
+            self.fc_mask = (cc.p.data <= self.p_cutoff) & (cc.r.data.abs() >= self.r_cutoff)
+        else:
+            self.fc_mask = (cc.p.data <= self.p_cutoff) & (cc.r.data >= self.r_cutoff)
         mask = sc.mask & self.fc_mask
+        # If make_comparable() or remove_insufficient_regions() were called on cc,
+        # the functional connectome wouldn't be compatible with the structural connectome.
+        # Hence, we have to select the same regions
+        try:
+            mask = mask.loc[cc.r.data.columns, cc.r.data.index]
+        except KeyError as e:
+            missing_region = str(e).split("'")[1]
+            raise ValueError(f"The region '{missing_region}' is present in the CrossCorrelation but absent in the StructuralConnectome!")
         if weighted:
             r_masked = cc.r.mask(mask)
             self.A = r_masked.data.fillna(0, inplace=False)

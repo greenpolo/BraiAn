@@ -13,15 +13,15 @@ class StructuralConnectome(Connectome):
     def __init__(self, normalized_connection_density_file: str,
                  regions: list[str], AllenBrain: AllenBrainHierarchy,
                  mode="max", name="Allen's ST - normalized density",
-                 isolated_vertices=True,
-                 log10_cutoff=-5) -> None:
+                 log10_cutoff=-5, weighted=True,
+                 isolated_vertices=True) -> None:
         # NOTE: no check is done whether 'regions' is a good cut or not of Allen's ontology
         self.A = self.__read_adjacency_matrix(normalized_connection_density_file, regions, AllenBrain, mode, name)
         self.log10_cutoff = log10_cutoff
         self.mask = self.A.data >= 10**log10_cutoff
         A = self.A.data.copy()
         A[~self.mask] = np.nan
-        super().__init__(A.fillna(0), isolated_vertices=isolated_vertices, weighted=True, directed=True, name=name, weight_str="Normalized connection density")
+        super().__init__(A.fillna(0), isolated_vertices=isolated_vertices, weighted=weighted, directed=True, name=name, weight_str="Normalized connection density")
         self.__add_vertices_attributes(self.A)
 
     def __read_adjacency_matrix(self, normalized_connection_density_file: str,

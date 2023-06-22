@@ -22,7 +22,7 @@ class FunctionalConnectome(Connectome):
             above_threshold = (cc.p.data <= self.p_cutoff) & (cc.r.data >= self.r_cutoff)
 
         if weighted:
-            A = cc.r.data.copy(deep=True)
+            A = cc.r.data.copy(deep=True) #.abs()
             # zero in weighted matrix[i,j] corresponds to NO edge between i and j
             A[~above_threshold] = 0
         else:
