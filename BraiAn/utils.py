@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import requests
+import sys
 
 def cache(filepath, url):
     if os.path.exists(filepath):
@@ -39,3 +40,26 @@ def nrange(bottom, top, n):
 def get_indices_where(where):
     rows = where.index[where.any(axis=1)]
     return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]
+
+def remote_dirs(experiment_dir_name: str,
+                is_collaboration_project: bool,
+                collaboration_dir_name: str) -> tuple[str,str]:
+    match sys.platform:
+        case "darwin":
+            mnt_point = "/Volumes/Ricerca/"
+            
+        case "linux":
+            mnt_point = "/run/user/1000/gvfs/smb-share:server=ich.techosp.it,share=ricerca/"
+        case "win32":
+            mnt_point = "\\\\ich.techosp.it\\Ricerca\\"
+        case _:
+            raise Exception(f"Can't find the 'Ricerca' folder in the server for '{sys.platform}' operative system. Please report the developer (Carlo)!")
+    if not os.path.isdir(mnt_point):
+        raise Exception(f"Could not read '{mnt_point}'. Please be sure you are connected to the server.")
+    if is_collaboration_project:
+        data_root  =  os.path.join(mnt_point, "Lab Matteoli", "Silva", "collaborations", collaboration_dir_name, "data", experiment_dir_name)
+        plots_root = os.path.join(mnt_point, "Lab Matteoli", "Silva", "collaborations", collaboration_dir_name, "results", experiment_dir_name, "plots")
+    else:
+        data_root  =  os.path.join(mnt_point, "Lab Matteoli", "Silva", "projects", "data", experiment_dir_name)
+        plots_root = os.path.join(mnt_point, "Lab Matteoli", "Silva", "projects", "results", experiment_dir_name, "plots")
+    return data_root, plots_root

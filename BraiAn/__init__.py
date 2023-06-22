@@ -5,7 +5,7 @@ from .sliced_brain import SlicedBrain, merge_sliced_hemispheres
 from .animal_brain import AnimalBrain
 from .animal_group import AnimalGroup
 from .statistics import as_prism_data
-from .utils import cache, save_csv, regions_to_plot
+from .utils import cache, save_csv, regions_to_plot, remote_dirs
 from .plot import plot_groups, plot_pie, plot_cv_above_threshold, plot_region_density, plot_permutation, plot_salient_regions
 
 from .connectome.connectome_adjacency import ConnectomeAdjacency
