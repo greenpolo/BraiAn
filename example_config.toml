@@ -32,6 +32,7 @@ normalization = "Density"       # call get_normalization_methods() on a AnimalGr
 
 [connectome]
 regions-to-plot = "summary structures"      # look into the script for more options
+grouped-regions = ["Isocortex", "MY"]       # the following regions are used instead of the corresponding child regions selected with 'regions-to-plot'
 min-area = 0.1                              # threshold below which a region of an animal is excluded
 min-animals = 4                             # minimum number of animals to use for the cross-correlation of a region
                                             # 'max' means that ALL the animals must have the region, otherwise the correlation is NaN

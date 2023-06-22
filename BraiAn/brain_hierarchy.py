@@ -160,6 +160,15 @@ class AllenBrainHierarchy:
             regions = pd.concat((regions, pd.DataFrame(pd.Series(dict(id=RE_TOT_ID, acronym=RE_TOT_ACRONYM))).T), ignore_index=True)
         add_boolean_attribute(self.dict, "children", "selected", lambda n,d: n[key] in regions[key].values)
     
+    def add_to_selection(self, acronyms):
+        add_boolean_attribute(self.dict, "children", "selected",
+                              lambda node,d: ("selected" in node and node["selected"]) or node["acronym"] in acronyms)
+
+    def get_selected_regions(self, key="acronym"):
+        assert "selected" in self.dict, "No area is selected."
+        regions = non_overlapping_where(self.dict, "children", lambda n,d: n["selected"] and not is_blacklisted(n))
+        return [region[key] for region in regions]
+    
     def unselect_all(self):
         if "selected" in self.dict:
             del_attribute(self.dict, "children", "selected")
@@ -185,21 +194,6 @@ class AllenBrainHierarchy:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
         areas = get_where(self.dict, "children", lambda n,d: n["acronym"] in acronyms, visit_alg)
         return [area["id"] for area in areas]
-
-    def get_selected_regions(self, key="acronym", mode="depth"):
-        assert "selected" in self.dict, "No area is selected."
-        match mode:
-            case "breadth":
-                visit_alg = visit_bfs
-            case "depth":
-                visit_alg = visit_dfs
-            case _:
-                raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
-        areas = get_where(self.dict,
-                            "children",
-                            lambda n,d: n["selected"] and not is_blacklisted(n),
-                            visit_alg)
-        return [area[key] for area in areas]
     
     def get_sibiling_areas(self, acronym=None, id=None) -> list:
         assert xor(acronym is not None, id is not None), "You must specify one of 'acronym' and 'id' parameters"
