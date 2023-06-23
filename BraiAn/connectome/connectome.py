@@ -1,8 +1,10 @@
 import igraph as ig
 import numpy as np
 import pandas as pd
+from typing import Self
 
 from .utils_bu import participation_coefficient
+from ..brain_hierarchy import AllenBrainHierarchy
 
 class Connectome:
     def __init__(self, A: pd.DataFrame,
@@ -60,3 +62,34 @@ class Connectome:
         G = self.G.subgraph_edges(v.incident(), delete_vertices=not isolated_vertices)
         return Connectome(None, None, None, None,
                           name=self.name, weight_str=self.weight_str, graph=G)
+    
+    def collapse_region(self, atlas: AllenBrainHierarchy, region_acronym: str) -> Self:
+        # returns a Connectome with all subrregions of region_acronym collapsed in one single node
+        # NOTE: if connectome is weighted, the weights won't be retained
+        all_subregions = atlas.list_all_subregions(region_acronym) # region_acronym included
+        v_collapsed = []
+        v_mapping = np.full(self.G.vcount(), 0)
+        for v in self.G.vs:
+            if v["name"] in all_subregions:
+                v_mapping[v.index] = 0
+                v_collapsed.append(v["name"])
+            else:
+                v_mapping[v.index] = (v.index+1)-len(v_collapsed)
+        if len(v_collapsed) == 1:
+            return Connectome(None, None, None, None, graph=self.G, name=self.name, weight_str=self.weight_str)
+        G = self.G.copy()
+        def contract_names(names: list[str]):
+            if len(names) == 1:
+                return names[0]
+            return region_acronym
+
+        def contract_upper_regions(upper_regions: list[str]):
+            if all(region == upper_regions[0] for region in upper_regions):
+                return upper_regions[0]
+            return "root"
+
+        G.vs[0]["collapsed"] = "+".join(v_collapsed)
+        G.contract_vertices(v_mapping, dict(name=contract_names, upper_region=contract_upper_regions, collapsed="last"))
+        G = G.simplify(multiple=True, loops=True, combine_edges=None) # loses all attirbutes (weight, p-value, normalized connection density)
+        collapsed = Connectome(None, None, None, None, graph=G, name=f"{self.name} & Collapsed", weight_str=self.weight_str)
+        return collapsed
