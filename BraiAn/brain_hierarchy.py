@@ -166,7 +166,7 @@ class AllenBrainHierarchy:
 
     def get_selected_regions(self, key="acronym"):
         assert "selected" in self.dict, "No area is selected."
-        regions = non_overlapping_where(self.dict, "children", lambda n,d: n["selected"] and not is_blacklisted(n))
+        regions = non_overlapping_where(self.dict, "children", lambda n,d: n["selected"] and not is_blacklisted(n), mode="dfs")
         return [region[key] for region in regions]
     
     def unselect_all(self):

@@ -43,7 +43,7 @@ def visit_bfs(node, children_key, fun):
             to_visit.extend(child[children_key])
         depth += 1
 
-# Breadth-first visit
+# Depth-first visit
 def visit_dfs(node, children_key, fun):
     to_visit = [node]
     depth = 0
@@ -56,8 +56,9 @@ def visit_dfs(node, children_key, fun):
             to_visit.extend(reversed(child[children_key]))
         depth += 1
 
-# a modified BFS
-def non_overlapping_where(node, children_key, filter_fun) -> list[dict]:
+# a modified DFS
+def non_overlapping_where(node, children_key, filter_fun, mode="bfs") -> list[dict]:
+    assert mode in ("bfs", "dfs"), "Invalid mode!"
     cut = []
     to_visit = [node]
     depth = 0
@@ -65,11 +66,11 @@ def non_overlapping_where(node, children_key, filter_fun) -> list[dict]:
         level_size = len(to_visit)
         while level_size != 0:
             level_size -= 1
-            to_visit, child = pop_queue(to_visit)
+            to_visit, child = pop_stack(to_visit) if mode == "dfs" else pop_queue(to_visit)
             if filter_fun(child, depth):
                 cut.append(child)
             else:
-                to_visit.extend(child[children_key])
+                to_visit.extend(reversed(child[children_key])) if mode == "dfs" else to_visit.extend(child[children_key])
         depth += 1
     return cut
 
