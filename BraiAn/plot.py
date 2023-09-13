@@ -267,7 +267,7 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
             )
     fig.add_trace(
         go.Bar(
-            y=[brain.data.loc[region_name, "CFos"] / brain.data.loc[region_name, "area"] for brain in summed_brains],
+            y=[brain.data.loc[region_name, brain.marker] / brain.data.loc[region_name, "area"] for brain in summed_brains],
             marker_color=colors,
             name=f"animal's {summed_brains[0].marker} density"
         )
