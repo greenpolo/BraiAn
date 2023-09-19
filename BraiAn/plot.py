@@ -6,7 +6,7 @@ import numpy as np
 
 from .utils import nrange
 from .pls import PLS
-from .sliced_brain import merge_sliced_hemispheres
+from .sliced_brain import merge_sliced_hemispheres, SlicedBrain
 from .animal_brain import AnimalBrain
 from .animal_group import AnimalGroup
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
@@ -14,6 +14,8 @@ from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
                         AllenBrain: AllenBrainHierarchy, selected_regions: list[str],
                         animal_size: int, color: str, y_offset, use_acronyms=True) -> None:
+    if len(group.markers) > 1:
+        raise ValueError("Plotting of AnimalGroups with multiple markers isn't implemented yet")
     avg = group.group_by_region(method=normalization).mean(numeric_only=True)
     sem = group.group_by_region(method=normalization).sem(numeric_only=True)
     y_axis, acronyms = pd.factorize(group.data.loc[selected_regions].index.get_level_values(0))
@@ -154,11 +156,11 @@ def plot_pie(selected_regions: list[str], AllenBrain: AllenBrainHierarchy,
                     ))
     return fig
 
-def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1, width=700, height=500) -> go.Figure:
+def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups: list[SlicedBrain], cv_threshold=1, width=700, height=500) -> go.Figure:
     # fig = go.Figure()
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    brains_name = [brain.name for group in sliced_brains_groups for brain in group]
-    group_lengths = [len(group) for group in sliced_brains_groups]
+    brains_name = [f"{brain.name} ({marker})" for group in sliced_brains_groups for brain in group for marker in brain.markers]
+    group_lengths = [len(group)*len(group[0].markers) for group in sliced_brains_groups] # assumes all animals of a group have the same markers
     n_brains_before_group = np.cumsum(group_lengths)
     n_areas_above_thr = []
     for i, group_slices in enumerate(sliced_brains_groups):
@@ -168,28 +170,30 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1, w
 
         for j, cvars in enumerate(group_cvar_brains):
             above_threshold_filter = cvars > cv_threshold
-            n_areas_above_thr.append(sum(above_threshold_filter))
+            n_areas_above_thr.extend(above_threshold_filter.sum(axis=0)) # adds, for all markers, the number of regions above threshold
             # Scatterplot (animals)
-            fig.add_trace(
-                go.Scatter(
-                    mode = "markers",
-                    y = cvars[above_threshold_filter],
-                    x = [n_brains_before+j]*above_threshold_filter.sum(),
-                    text = cvars.index[above_threshold_filter],
-                    opacity=0.7,
-                    marker=dict(
-                        size=7,
-                        color=DEFAULT_PLOTLY_COLORS[i],
-                        line=dict(
-                            color="rgb(0,0,0)",
-                            width=1
-                        )
-                    ),
-                    name="Regions' coefficient<br>of variation",
-                    legendgroup="regions-cv",
-                    showlegend=(i+j)==0
+            for m, marker_cvar in enumerate(cvars.columns):
+                marker_cvar_filter = above_threshold_filter[marker_cvar]
+                fig.add_trace(
+                    go.Scatter(
+                        mode = "markers",
+                        y = cvars[marker_cvar][marker_cvar_filter],
+                        x = [n_brains_before+j+m]*marker_cvar_filter.sum(),
+                        text = cvars.index[marker_cvar_filter],
+                        opacity=0.7,
+                        marker=dict(
+                            size=7,
+                            color=DEFAULT_PLOTLY_COLORS[i],
+                            line=dict(
+                                color="rgb(0,0,0)",
+                                width=1
+                            )
+                        ),
+                        name="Regions' coefficient<br>of variation",
+                        legendgroup="regions-cv",
+                        showlegend=(i+j)==0
+                    )
                 )
-            )
 
     fig.add_trace(
         go.Bar(
@@ -206,7 +210,7 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups, cv_threshold=1, w
     fig.data = (fig.data[-1], *fig.data[:-1])
 
     fig.update_layout(
-        title = f"Coefficient of variaton of {sliced_brains_groups[0][0].marker} across brain slices > {cv_threshold}",
+        title = f"Coefficient of variaton of markers across brain slices > {cv_threshold}",
         
         xaxis = dict(
             tickmode = "array",
@@ -225,63 +229,64 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
     colors = []
 
     fig = go.Figure()
-    brains_name = [brain.name for group in sliced_brains_groups for brain in group]
-    group_lengths = [len(group) for group in sliced_brains_groups]
+    brains_name = [f"{brain.name} ({marker})" for group in sliced_brains_groups for brain in group for marker in brain.markers]
+    group_lengths = [len(group)*len(group[0].markers) for group in sliced_brains_groups] # assumes all animals of a group have the same markers
     n_brains_before_group = np.cumsum(group_lengths)
     for i, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[i-1] if i > 0 else np.int64(0)
         group_summed_brains = [AnimalBrain(sliced_brain, hemisphere_distinction=False) for sliced_brain in group_slices]
         summed_brains.extend(group_summed_brains)
-        colors.extend([DEFAULT_PLOTLY_COLORS[i]]*len(group_slices))
+        colors.extend([DEFAULT_PLOTLY_COLORS[i]]*len(group_slices)*len(group_slices[0].markers))
         for j, sliced_brain in enumerate(group_slices):
-            n_brain = n_brains_before+j
             sliced_brain = merge_sliced_hemispheres(sliced_brain)
-            slices_density = []
-            for slice in sliced_brain.slices:
-                try:
-                    density = slice.data.loc[region_name, slice.marker] / slice.data.loc[region_name, "area"]
-                    # density = slice.data.loc[region_name, slice.marker]
-                except KeyError as e:
-                    print(f"WARNING: Could not find the '{region_name}' region for image '{slice.name}' of {slice.animal}")
-                    continue
-                slices_density.append(density)
-            fig.add_trace(
-                go.Scatter(
-                    mode = "markers",
-                    y = slices_density,
-                    x = [n_brain] * len(slices_density),
-                    text = [slice.name for slice in sliced_brain.slices],
-                    name = f"image's {sliced_brain.marker} density",
-                    opacity=0.7,
-                    marker=dict(
-                        size=7,
-                        color=DEFAULT_PLOTLY_COLORS[i],
-                        line=dict(
-                            color="rgb(0,0,0)",
-                            width=1
-                        )
-                    ),
-                    legendgroup="slices-roots",
-                    showlegend=bool(n_brain==0),
+            for m, marker in enumerate(sliced_brain.markers):
+                n_brain = n_brains_before+j+m
+                slices_density = []
+                for slice in sliced_brain.slices:
+                    try:
+                        density = slice.data.loc[region_name, marker] / slice.data.loc[region_name, "area"]
+                        # density = slice.data.loc[region_name, marker]
+                    except KeyError as e:
+                        print(f"WARNING: Could not find the data for marker '{marker}' in '{region_name}' region for image '{slice.name}' of {slice.animal}")
+                        continue
+                    slices_density.append(density)
+                fig.add_trace(
+                    go.Scatter(
+                        mode = "markers",
+                        y = slices_density,
+                        x = [n_brain] * len(slices_density),
+                        text = [f"{slice.name} ({marker})" for slice in sliced_brain.slices],
+                        name = f"image's markers density",
+                        opacity=0.7,
+                        marker=dict(
+                            size=7,
+                            color=DEFAULT_PLOTLY_COLORS[i],
+                            line=dict(
+                                color="rgb(0,0,0)",
+                                width=1
+                            )
+                        ),
+                        legendgroup="slices-roots",
+                        showlegend=bool(n_brain==0),
+                    )
                 )
-            )
     fig.add_trace(
         go.Bar(
-            y=[brain.data.loc[region_name, brain.marker] / brain.data.loc[region_name, "area"] for brain in summed_brains],
+            y=[brain.data.loc[region_name, marker] / brain.data.loc[region_name, "area"] for brain in summed_brains for marker in brain.markers],
             marker_color=colors,
-            name=f"animal's {summed_brains[0].marker} density"
+            name=f"animal's markers density"
         )
     )
 
     fig.update_layout(
-        title = f"{sliced_brains_groups[0][0].marker} density in '{region_name}'",
+        title = f"Markers' density in '{region_name}'",
         xaxis = dict(
             tickmode = "array",
             tickvals = np.arange(len(brains_name)),
             ticktext = brains_name
         ),
         yaxis = dict(
-            title = f"{sliced_brains_groups[0][0].marker}/mm²"
+            title = f"marker/mm²"
         ),
 #        hovermode="x unified",
         width=width, height=height

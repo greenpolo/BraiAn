@@ -10,11 +10,11 @@ from .utils import save_csv
 class AnimalGroup:
     def __init__(self, name: str, \
                 animals: list[AnimalBrain]=None, AllenBrain: AllenBrainHierarchy=None, \
-                marker: str=None, data:pd.DataFrame=None, \
+                markers=None, data:pd.DataFrame=None, \
                 hemisphere_distinction=False) -> None:
         self.name = name
-        if marker is not None and data is not None:
-            self.marker = marker
+        if markers is not None and data is not None:
+            self.markers = [markers] if isinstance(markers, str) else markers
             self.data = data
             self.n = len(self.get_animals())
             return
@@ -22,8 +22,8 @@ class AnimalGroup:
             raise ValueError("You must specify the AnimalBrain list and the AllenBrainHierarchy.")
         assert all([brain.mode == "sum" for brain in animals]), "Can't normalize AnimalBrains whose slices' cell count were not summed."
         assert len(animals) > 0, "Inside the group there must be at least one animal."
-        self.marker = animals[0].marker
-        assert all([brain.marker == self.marker for brain in animals]), "All AnimalBrain composing the group must use the same marker."
+        self.markers = animals[0].markers
+        assert all([marker in self.markers for brain in animals for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
         if not hemisphere_distinction:
             animals = [AnimalBrain.merge_hemispheres(animal_brain) for animal_brain in animals]
         self.data = self.normalize_animals(animals, AllenBrain)
@@ -40,15 +40,13 @@ class AnimalGroup:
 
         NOTE: The brain regions are sorted by Breadth-First in the AllenBrain hierarchy
         '''
-        all_animals = pd.concat({
-                                    brain.name: pd.concat(
-                                        (
-                                            brain.data["area"],
-                                            AnimalGroup.normalize_animal(brain, self.marker)
-                                        ),
-                                        axis=1)
-                                    for brain in animals
-                                }, join="outer")
+        all_animals = dict()
+        for brain in animals:
+            all_columns = [AnimalGroup.normalize_animal(brain, marker) for marker in brain.markers]
+            area_col = brain.data["area"].to_frame()
+            area_col.columns = pd.MultiIndex.from_tuples([("area", "area")])
+            all_animals[brain.name] = pd.concat([area_col]+all_columns, axis=1)
+        all_animals = pd.concat(all_animals, join="outer") # dict to pd.DataFrame
         all_animals = all_animals.reorder_levels([1,0], axis=0)
         ordered_indices = product(AllenBrain.list_all_subregions("root", mode="depth"), [animal.name for animal in animals])
         return all_animals.reindex(ordered_indices, fill_value=np.nan)
@@ -75,21 +73,26 @@ class AnimalGroup:
         norm_cell_counts["Percentage"] = animal_brain.data[marker] / brainwide_cell_counts 
         norm_cell_counts["RelativeDensity"] = (animal_brain.data[marker] / animal_brain.data["area"]) / (brainwide_cell_counts / brainwide_area)
 
+        norm_cell_counts.columns = pd.MultiIndex.from_product([[marker], norm_cell_counts.columns])
         return norm_cell_counts
     
     def get_normalization_methods(self):
-        return [col for col in self.data.columns if col != "area"]
+        return list(self.data[self.markers[0]].columns)
     
-    def get_normalized_data(self, normalization: str, regions: list[str]=None):
+    def get_normalized_data(self, normalization: str, regions: list[str]=None, marker=None):
         assert normalization in self.get_normalization_methods(), f"Invalid normalization method '{normalization}'"
+        if len(self.markers) == 1:
+            marker = self.markers[0]
+        else:
+            assert marker in self.markers, f"Could not get normalized data for marker '{marker}'!"
         if not regions:
             # we have to reindex the columns (brain regions) because of this bug:
             # https://github.com/pandas-dev/pandas/issues/15105
             regions_index = self.data.index.get_level_values(0).unique()
-            return self.data[normalization].unstack(level=0).reindex(regions_index, axis=1)
+            return self.data[marker][normalization].unstack(level=0).reindex(regions_index, axis=1)
         else:
             # if selecting a subset of regions first, the ording is retained
-            return self.select(regions)[normalization].unstack(level=0)
+            return self.select(regions)[marker][normalization].unstack(level=0)
 
     
     def get_animals(self):
@@ -104,14 +107,18 @@ class AnimalGroup:
     def is_comparable(self, other) -> bool:
         if type(other) != AnimalGroup:
             return False
-        return self.marker == other.marker and \
+        return set(self.markers) == set(other.markers) and \
                 set(self.get_regions()) == set(other.get_regions())
     
     def select(self, selected_regions: list[str], animal=None) -> pd.DataFrame:
         if animal is None:
             animal = list(self.get_animals())
         # return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)
-        return self.data.loc(axis=0)[selected_regions, animal]
+        selected = self.data.loc(axis=0)[selected_regions, animal]
+        if len(self.markers) == 0:
+            selected[self.markers[0]]
+        else:
+            selected
     
     def remove_smaller_subregions(self, area_threshold, selected_regions: list[str], AllenBrain: AllenBrainHierarchy) -> None:
         for animal in self.get_animals():
@@ -120,51 +127,61 @@ class AnimalGroup:
     def remove_smaller_subregions_in_animal(self, area_threshold, animal,
                                             selected_regions: list[str],
                                             AllenBrain: AllenBrainHierarchy) -> None:
-        animal_areas = self.select(selected_regions, animal=animal)["area"]
+        animal_areas = self.select(selected_regions, animal=animal)["area"]["area"]
         small_regions = [smaller_region for small_region    in animal_areas.index[animal_areas <= area_threshold].get_level_values(0)
                                         for smaller_region  in AllenBrain.list_all_subregions(small_region)]
         self.data.loc(axis=0)[small_regions, animal] = np.nan
     
     def group_by_region(self, method=None):
-        if method is None:
+        if method is None or len(self.markers) != 1:
             # pd.DataFrame
-            data = self.data      
+            data = self.data
         else:
             # pd.Series
-            data = self.data[method]
+            data = self.data[self.markers[0]][method]
         return data.groupby(self.get_all_regions())
     
-    def get_units(self, normalization):
+    def get_units(self, normalization, marker=None):
+        if len(self.markers) == 0:
+            marker = self.markers[0]
+        else:
+            assert marker in self.markers, f"Could not get units for marker '{marker}'!"
         match normalization:
             case "Density":
-                return f"#{self.marker}/mm²"
+                return f"#{marker}/mm²"
             case "Percentage" | "RelativeDensity":
                 return "" # both are percentages between 0 and 1
             case _:
                 raise ValueError(f"Normalization methods available are: {', '.join(self.get_normalization_methods())}")
     
-    def get_plot_title(self, normalization):
+    def get_plot_title(self, normalization, marker=None):
+        if len(self.markers) == 0:
+            marker = self.markers[0]
+        else:
+            assert marker in self.markers, f"Could not get the plot title for marker '{marker}'!"
         match normalization:
             case "Density":
-                return f"[#{self.marker} / area]"
+                return f"[#{marker} / area]"
             case "Percentage":
-                return f"[#{self.marker} / brain]"
+                return f"[#{marker} / brain]"
             case "RelativeDensity":
-                return f"[#{self.marker} / area] / [{self.marker} (brain) / area (brain)]"
+                return f"[#{marker} / area] / [{marker} (brain) / area (brain)]"
             case _:
                 raise ValueError(f"Normalization methods available are: {', '.join(self.get_normalization_methods())}")
     
     def to_csv(self, output_path, file_name, overwrite=False) -> None:
-        saved_data = self.data.copy()
-        saved_data.columns = pd.MultiIndex.from_product([[self.marker], self.data.columns])
-        save_csv(saved_data, output_path, file_name, overwrite=overwrite)
+        save_csv(self.data, output_path, file_name, overwrite=overwrite)
     
     @staticmethod
     def from_csv(group_name, root_dir, file_name):
         # read CSV
         df = pd.read_csv(os.path.join(root_dir, file_name), sep="\t", header=[0, 1], index_col=[0,1])
+        # old CSVs
+        if len(df.columns.get_level_values(0).unique()) == 1 and "area" in df.columns.get_level_values(1):
+            df.columns = pd.MultiIndex.from_tuples([
+                (marker, col) if col != "area" else ("area", "area")
+                for (marker, col) in df.columns.to_list()
+            ])
         # retrieve marker name
-        markers = list({cols[0] for cols in df.columns})
-        assert len(markers) == 1, "The CSVs are expected to have data for one marker only."
-        marker = markers[0]
-        return AnimalGroup(group_name, marker=marker, data=df.xs(marker, axis=1, drop_level=True))
+        markers = [col for col in df.columns.get_level_values(0).unique() if col != "area"]
+        return AnimalGroup(group_name, markers=markers, data=df)

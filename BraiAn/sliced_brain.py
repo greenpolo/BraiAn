@@ -5,6 +5,7 @@ import copy
 from .brain_hierarchy import AllenBrainHierarchy
 from .brain_slice import BrainSlice, merge_slice_hemispheres,\
                         BrainSliceFileError, \
+                        ExcludedAllRegionsError, \
                         ExcludedRegionsNotFoundError, \
                         EmptyResultsError, \
                         NanResultsError, \
@@ -13,6 +14,7 @@ from .brain_slice import BrainSlice, merge_slice_hemispheres,\
                         InvalidRegionsHemisphereError, \
                         InvalidExcludedRegionsHemisphereError
 
+global MODE_ExcludedAllRegionsError
 global MODE_ExcludedRegionsNotFoundError
 global MODE_EmptyResultsError
 global MODE_NanResultsError
@@ -20,6 +22,7 @@ global MODE_InvalidResultsError
 global MODE_MissingResultsColumnError
 global MODE_InvalidRegionsHemisphereError
 global MODE_InvalidExcludedRegionsHemisphereError
+MODE_ExcludedAllRegionsError = "print"
 MODE_ExcludedRegionsNotFoundError = "print"
 MODE_EmptyResultsError = "print"
 MODE_NanResultsError = "print"
@@ -32,9 +35,9 @@ class EmptyBrainError(Exception): pass
 
 class SlicedBrain:
     def __init__(self, name: str, animal_dir: str, AllenBrain: AllenBrainHierarchy,
-                area_key: str, tracer_key: str, marker_key, area_units="µm2") -> None:
+                area_key: str, tracers_key, markers_key, area_units="µm2") -> None:
         self.name = name
-        self.marker = marker_key
+        self.markers = [markers_key] if isinstance(markers_key, str) else markers_key
         excluded_regions_dir = os.path.join(animal_dir, "regions_to_exclude")
         csv_slices_dir = os.path.join(animal_dir, "results")
         images = self.get_image_names_in_folder(csv_slices_dir)
@@ -47,7 +50,7 @@ class SlicedBrain:
                                     results_file,
                                     regions_to_exclude_file,
                                     self.name, image,
-                                    area_key, tracer_key, self.marker, area_units=area_units)
+                                    area_key, tracers_key, self.markers, area_units=area_units)
             except BrainSliceFileError as e:
                 mode = self.get_default_error_mode(e)
                 self.handle_brainslice_error(e, mode, results_file, regions_to_exclude_file)
@@ -56,8 +59,14 @@ class SlicedBrain:
         if len(self.slices) == 0:
             raise EmptyBrainError(self.name)
     
-    def get_marker_dtype(self):
-        return self.slices[0].data[self.marker].dtype
+    def set_name(self, name):
+        for slice in self.slices:
+            slice.name = name
+        self.name = name
+    
+    def get_marker_dtype(self, marker):
+        assert marker in self.markers, f"Missing marker ('{marker}')!"
+        return self.slices[0].data[marker].dtype
     
     def get_image_names_in_folder(self, path) -> list[str]:
         all_files = os.listdir(path)
@@ -68,7 +77,7 @@ class SlicedBrain:
     
     def add_density(self) -> None:
         for brain_slice in self.slices:
-            brain_slice.add_density()
+            brain_slice.add_density(self.markers)
     
     def concat_slices(self) -> pd.DataFrame:
         return pd.concat([slice.data for slice in self.slices])
@@ -97,6 +106,8 @@ class SlicedBrain:
             return globals()[mode_var]
 
         match type(exception):
+            case ExcludedAllRegionsError.__class__:
+                return "print"
             case ExcludedRegionsNotFoundError.__class__:
                 return "print"
             case EmptyResultsError.__class__:

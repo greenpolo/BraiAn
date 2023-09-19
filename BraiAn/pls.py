@@ -26,6 +26,8 @@ class PLS:
     '''
     
     def __init__(self, group_1: AnimalGroup, group_2: AnimalGroup, regions: list[str], normalization: str) -> None:
+        if len(group_1.markers) > 1 or len(group_2.markers) > 1:
+            raise ValueError("PLS of AnimalGroups with multiple markers isn't implemented yet")
         assert group_1.is_comparable(group_2), "Group 1 and Group 2 are not comparable!\n\
 Please check that you're reading two groups that normalized on the same brain regions and on the same marker."
         assert normalization in group_1.get_normalization_methods(), f"normalization method '{normalization}' not found.\n\

@@ -17,6 +17,9 @@ class BrainSliceFileError(Exception):
 class ExcludedRegionsNotFoundError(BrainSliceFileError):
     def __str__(self):
         return f"Animal '{self.animal_name}' - could not read the expected regions_to_exclude: {self.file_path}"
+class ExcludedAllRegionsError(BrainSliceFileError):
+    def __str__(self):
+        return f"Animal '{self.animal_name}' - the corresponding regions_to_exclude excludes everything: {self.file_path}"
 class EmptyResultsError(BrainSliceFileError):
     def __str__(self):
         return f"Animal '{self.animal_name}' - empty file: {self.file_path}"
@@ -49,25 +52,31 @@ class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
 
 class BrainSlice:
     def __init__(self, AllenBrain: AllenBrainHierarchy, csv_file: str, excluded_regions_file: str,
-                    animal:str, name: str, area_key: str, tracer_key: str, marker_key, area_units="µm2") -> None:
+                    animal:str, name: str, area_key: str, tracers_key, markers_key, area_units="µm2") -> None:
         self.animal = animal
         self.name = name
-        self.marker = marker_key
+        if isinstance(tracers_key, str):
+            tracers_key = [tracers_key]
+        if isinstance(markers_key, str):
+            markers_key = [markers_key]
+        assert len(tracers_key) == len(markers_key), f"The number of tracers ({len(tracers_key)}) differs from the number of markers ({len(markers_key)})"
 
         data = self.read_results_data(csv_file)
         excluded_regions = self.read_regions_to_exclude(excluded_regions_file)
-        self.check_columns(data, [area_key, tracer_key], csv_file)
-        self.data = pd.DataFrame(data, columns=[area_key, tracer_key])
-        self.data.rename(columns={area_key: "area", tracer_key: marker_key}, inplace=True)
+        self.check_columns(data, [area_key, *tracers_key], csv_file)
+        self.data = pd.DataFrame(data, columns=[area_key, *tracers_key])
+        self.data.rename(columns={area_key: "area"} | dict(zip(tracers_key, markers_key)), inplace=True)
         #@assert (df.area > 0).all()
         self.data = self.data[self.data["area"] > 0]
-        self.check_zero_rows(csv_file)
+        self.check_zero_rows(csv_file, markers_key)
 
         # Take care of regions to be excluded
         try:
             self.exclude_regions(excluded_regions, AllenBrain)
         except Exception:
             raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
+        if len(self.data) == 0:
+            raise ExcludedAllRegionsError(animal=self.animal, file=excluded_regions_file)
         match area_units:
             case "µm2" | "um2":
                 self._area_µm2_to_mm2_()
@@ -145,16 +154,17 @@ class BrainSlice:
             raise InvalidRegionsHemisphereError(animal=self.animal, file=csv_file)
         return True
     
-    def check_zero_rows(self, csv_file) -> bool:
-        zero_rows = self.data[self.marker] == 0
-        if sum(zero_rows) > 0:
-            err = RegionsWithNoCountError(animal=self.animal, file=csv_file,
-                        tracer=self.marker, regions=self.data.index[zero_rows].to_list())
-            if MODE_RegionsWithNoCountError == "error":
-                raise err
-            elif MODE_RegionsWithNoCountError == "print":
-                print(err)
-            return False
+    def check_zero_rows(self, csv_file, markers) -> bool:
+        for marker in markers:
+            zero_rows = self.data[marker] == 0
+            if sum(zero_rows) > 0:
+                err = RegionsWithNoCountError(animal=self.animal, file=csv_file,
+                            tracer=marker, regions=self.data.index[zero_rows].to_list())
+                if MODE_RegionsWithNoCountError == "error":
+                    raise err
+                elif MODE_RegionsWithNoCountError == "print":
+                    print(err)
+                return False
         return True
 
     
@@ -199,12 +209,13 @@ class BrainSlice:
     def _area_µm2_to_mm2_(self) -> None:
         self.data.area = self.data.area * 1e-06
 
-    def add_density(self) -> None:
+    def add_density(self, markers) -> None:
         '''
         Adds a 'density' column to the BrainSlice
         '''
-        if f"{self.marker}_density" not in self.data.columns:
-            self.data[f"{self.marker}_density"] = self.data[self.marker] / self.data["area"]
+        for marker in markers:
+            if f"{marker}_density" not in self.data.columns:
+                self.data[f"{marker}_density"] = self.data[marker] / self.data["area"]
 
 
 def find_region_abbreviation(region_class):

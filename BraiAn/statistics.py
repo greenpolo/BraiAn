@@ -3,6 +3,8 @@ from .brain_hierarchy import AllenBrainHierarchy
 from .animal_group import AnimalGroup
 
 def as_prism_data(normalization, group1: AnimalGroup, group2: AnimalGroup, AllenBrain: AllenBrainHierarchy):
+    if len(group1.markers) > 1 or len(group2.markers) > 1:
+        raise ValueError("Exporting AnimalGroups with multiple markers as Prism data isn't implemented yet")
     if not group1.is_comparable(group2):
         raise ImportError("Group 1 and Group 2 are not comparable! Please check that both groups are counting the same marker")
     groups = [group.name for group in (group1, group2) for _ in group.get_animals()]
