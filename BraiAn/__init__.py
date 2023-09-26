@@ -7,8 +7,6 @@ from .animal_group import AnimalGroup
 from .statistics import as_prism_data
 from .utils import cache, save_csv, regions_to_plot, remote_dirs
 from .plot import plot_groups, plot_pie, plot_cv_above_threshold, plot_region_density, plot_permutation, plot_salient_regions
-from .cutting_atlas_fix import Plane    # this should fix a known bug (https://github.com/brainglobe/bg-heatmaps/issues/11)
-                                        # of bg-heatmaps that makes python crash when intersecting a rectangle (vedo.Plane) with a mesh
 
 from .connectome.connectome_adjacency import ConnectomeAdjacency
 from .connectome.cross_correlation import CrossCorrelation

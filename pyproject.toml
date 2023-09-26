@@ -17,7 +17,7 @@ networkx = "^3.1"           # used to plot Allen's onthology
 pydot = "^1.4.2"            # used to plot Allen's onthology
 kaleido = "0.2.1"           # used to export plotly images. "0.2.1.post1" version can't be installed
 beautifulsoup4 = "^4.12.2"  # used to blacklist regions from Allen's onthology that have no annotation
-bgheatmap = "^0.0.3"        # used to visualize brain heatmap for IEGs overlaps
+bgheatmap = {git = "ssh://git@github.com/carlocastoldi/bg-heatmaps.git", rev = "hemispheres-slicing"}        # used to visualize brain heatmap for IEGs overlaps
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.13.2"

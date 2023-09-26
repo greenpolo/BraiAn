@@ -119,14 +119,12 @@ dev = ["black", "coveralls", "gitpython", "nox", "pre-commit", "pytest", "pytest
 
 [[package]]
 name = "bgheatmap"
-version = "0.0.3"
+version = "0.0.2"
 description = "Brain regions heatmaps in brainrender"
 optional = false
 python-versions = ">=3.6"
-files = [
-    {file = "bgheatmap-0.0.3-py3-none-any.whl", hash = "sha256:8820230f63149c1b54f01110391bbe047f6cef8fecdf88935244606a6f8b0dbc"},
-    {file = "bgheatmap-0.0.3.tar.gz", hash = "sha256:4efcf692a4a269c28269ec12aca76553cbd3e2a30c4ca834c8837ebaa643ec1e"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 brainrender = "*"
@@ -134,6 +132,12 @@ matplotlib = "*"
 myterial = "*"
 numpy = "*"
 rich = "*"
+
+[package.source]
+type = "git"
+url = "ssh://git@github.com/carlocastoldi/bg-heatmaps.git"
+reference = "hemispheres-slicing"
+resolved_reference = "679777483f330c98a928f74a06ac2f6c9931444c"
 
 [[package]]
 name = "blosc2"
@@ -3000,4 +3004,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "67d9287a5ce47407b34cc90c89c76954ce0ba9641dc3adf843d810b400e4d726"
+content-hash = "114800f1f9a001f819a82acf4d081a6abedd213d3d12b8118e3c0743f33fa46b"
