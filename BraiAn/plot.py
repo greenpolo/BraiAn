@@ -178,7 +178,7 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups: list[SlicedBrain]
                     go.Scatter(
                         mode = "markers",
                         y = cvars[marker_cvar][marker_cvar_filter],
-                        x = [n_brains_before+j+m]*marker_cvar_filter.sum(),
+                        x = [n_brains_before+(len(group_slices[0].markers)*j)+m]*marker_cvar_filter.sum(),
                         text = cvars.index[marker_cvar_filter],
                         opacity=0.7,
                         marker=dict(
@@ -240,7 +240,7 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
         for j, sliced_brain in enumerate(group_slices):
             sliced_brain = merge_sliced_hemispheres(sliced_brain)
             for m, marker in enumerate(sliced_brain.markers):
-                n_brain = n_brains_before+j+m
+                n_brain = n_brains_before+(len(group_slices[0].markers)*j)+m
                 slices_density = []
                 for slice in sliced_brain.slices:
                     try:
