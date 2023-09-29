@@ -79,7 +79,7 @@ class AnimalBrain:
     
     def sum_slices(self, sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
         all_slices = sliced_brain.concat_slices()
-        return all_slices.groupby(all_slices.index, axis=0)\
+        return all_slices.groupby(all_slices.index)\
                             .sum(min_count=min_slices)\
                             .dropna(axis=0, how="all")\
                             .astype({m: sliced_brain.get_marker_dtype(m) for m in sliced_brain.markers}) # dropna() changes type to float64
@@ -96,7 +96,7 @@ class AnimalBrain:
                 raise NameError("Invalid mode selected.")
         # sliced_brain.add_density() must have been called previously!
         all_slices = sliced_brain.concat_slices()[[f"{m}_density" for m in sliced_brain.markers]]
-        return all_slices.groupby(all_slices.index, axis=0)\
+        return all_slices.groupby(all_slices.index)\
                             .apply(reduction_fun)\
                             .dropna(axis=0, how="all") # we want to keep float64 as the dtype, since the result of the 'mode' function is a float as well
 
@@ -127,5 +127,5 @@ class AnimalBrain:
     def merge_hemispheres(animal_brain): # -> AnimalBrain:
         brain = copy.copy(animal_brain)
         corresponding_region = [find_region_abbreviation(region) for region in animal_brain.data.index]
-        brain.data = animal_brain.data.groupby(corresponding_region, axis=0).sum(min_count=1)
+        brain.data = animal_brain.data.groupby(corresponding_region).sum(min_count=1)
         return brain

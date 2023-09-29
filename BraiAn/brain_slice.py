@@ -239,5 +239,5 @@ def merge_slice_hemispheres(brain_slice) -> BrainSlice:
     '''
     slice = copy.copy(brain_slice)
     corresponding_region = [find_region_abbreviation(region) for region in slice.data.index]
-    slice.data = slice.data.groupby(corresponding_region, axis=0).sum(min_count=1)
+    slice.data = slice.data.groupby(corresponding_region).sum(min_count=1)
     return slice

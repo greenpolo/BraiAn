@@ -103,6 +103,7 @@ class AllenBrainHierarchy:
     
     def __get_unannoted_regions(self, version):
         # alternative implementation: use annotation's nrrd file - https://help.brain-map.org/display/mousebrain/API#API-DownloadAtlas3-DReferenceModels
+        # this way is not totally precise, because some masks files are present even if they're empty
         match version:
             case "2015" | "CCFv1" | "ccfv1" | "v1" | 1:
                 annotation_version = "ccf_2015"
@@ -114,9 +115,12 @@ class AllenBrainHierarchy:
                 annotation_version = "ccf_2022"
             case _:
                 raise ValueError(f"Unrecognised '{version}' version")
-        url = f"http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/{annotation_version}/structure_meshes/"
+        url = f"http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/{annotation_version}/structure_masks/structure_masks_10"
         soup = BeautifulSoup(requests.get(url).content, "html.parser")
-        regions_w_annotation = [int(link["href"][:-len(".obj")]) for link in soup.select('a[href*=".obj"]')]
+        if annotation_version == "ccf_2022":
+            regions_w_annotation = [int(link["href"][:-len(".nii.gz")].split("_")[0]) for link in soup.select('a[href*=".nii.gz"]')]    
+        else:
+            regions_w_annotation = [int(link["href"][len("structure_"):-len(".nrrd")]) for link in soup.select('a[href*=".nrrd"]')]
         regions_wo_annotation = get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dfs)
         return [region["acronym"] for region in regions_wo_annotation]
     
@@ -145,7 +149,8 @@ class AllenBrainHierarchy:
         add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["st_level"] == level)
 
     def select_leaves(self):
-        add_boolean_attribute(self.dict, "children", "selected", lambda node, d: is_leaf(node, "children"))
+        add_boolean_attribute(self.dict, "children", "selected", lambda node, d: is_leaf(node, "children") or \
+                              all([is_blacklisted(child) for child in node["children"]])) # some regions (see CA1 in CCFv3) are have all subregions unannoted
     
     def select_regions(self, acronyms):
         add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["acronym"] in acronyms)

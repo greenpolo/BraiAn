@@ -16,8 +16,8 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
                         animal_size: int, color: str, y_offset, use_acronyms=True) -> None:
     if len(group.markers) > 1:
         raise ValueError("Plotting of AnimalGroups with multiple markers isn't implemented yet")
-    avg = group.group_by_region(method=normalization).mean(numeric_only=True)
-    sem = group.group_by_region(method=normalization).sem(numeric_only=True)
+    avg = group.group_by_region(marker=group.markers[0], method=normalization).mean(numeric_only=True)
+    sem = group.group_by_region(marker=group.markers[0], method=normalization).sem(numeric_only=True)
     y_axis, acronyms = pd.factorize(group.data.loc[selected_regions].index.get_level_values(0))
     full_names = [AllenBrain.full_name[acronym] for acronym in acronyms]
     if not use_acronyms:

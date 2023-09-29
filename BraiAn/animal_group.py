@@ -132,14 +132,16 @@ class AnimalGroup:
                                         for smaller_region  in AllenBrain.list_all_subregions(small_region)]
         self.data.loc(axis=0)[small_regions, animal] = np.nan
     
-    def group_by_region(self, method=None):
-        if method is None or len(self.markers) != 1:
-            # pd.DataFrame
+    def group_by_region(self, marker=None, method=None):
+        if marker is None:
             data = self.data
         else:
-            # pd.Series
-            data = self.data[self.markers[0]][method]
-        return data.groupby(self.get_all_regions())
+            data = self.data[marker]
+        if method is not None:
+            # if marker != None -> pd.Series
+            # if marker == None -> pd.DataFrame
+            data = data[method]
+        return data.groupby(level=0)
     
     def get_units(self, normalization, marker=None):
         if len(self.markers) == 0:
