@@ -105,7 +105,7 @@ class AnimalBrain:
                             .dropna(axis=0, how="all") # we want to keep float64 as the dtype, since the result of the 'mode' function is a float as well
         return redux
 
-    def overlap_markers(self, marker1: str, marker2: str) -> Self:
+    def overlap_markers(self, marker1: str, marker2: str, hemisphere_distinction=None) -> Self:
         if self.mode != "sum" and self.mode != "mean":
             raise ValueError("Cannot compute the overlapping of two markers if the AnimalBrain was not build by summing or averaging the detection of from all slices.")
         for m in (marker1, marker2):
@@ -115,14 +115,18 @@ class AnimalBrain:
             both = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
         except StopIteration as e:
             raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
+        if hemisphere_distinction:
+            brain = AnimalBrain.merge_hemispheres(self)
+        else:
+            brain = self
         overlaps = pd.concat({
-                        marker1: self.data[both] / self.data[marker1],
-                        marker2: self.data[both] / self.data[marker2]
+                        marker1: brain.data[both] / brain.data[marker1],
+                        marker2: brain.data[both] / brain.data[marker2]
                     }, axis=1)
         overlaps.columns.name = "%overlapping"
         # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
         overlaps = overlaps.clip(upper=1)
-        return AnimalBrain(None, name=self.name, data=overlaps)
+        return AnimalBrain(None, name=brain.name, data=overlaps)
 
     def __simple_mode_name(self, mode: str) -> str:
         match mode:
@@ -164,6 +168,7 @@ class AnimalBrain:
 
     @staticmethod
     def merge_hemispheres(animal_brain) -> Self:
+        # TODO: not everything can be marged! We need to check whether the aggregation method allows it!
         brain = copy.copy(animal_brain)
         corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in animal_brain.data.index]
         brain.data = animal_brain.data.groupby(corresponding_region).sum(min_count=1)
