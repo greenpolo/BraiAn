@@ -41,6 +41,8 @@ class AnimalBrain:
             sliced_brain = merge_sliced_hemispheres(sliced_brain)
         if mode == "sum":
             self.data = self.sum_slices(sliced_brain, min_slices)
+        elif mode == "overlap":
+            self.data = self.overlap_markers(sliced_brain)
         else:
             self.data = self.reduce_brain_densities(sliced_brain, mode, min_slices)
         if use_literature_reuniens:
@@ -102,6 +104,25 @@ class AnimalBrain:
                             .apply(reduction_fun)\
                             .dropna(axis=0, how="all") # we want to keep float64 as the dtype, since the result of the 'mode' function is a float as well
         return redux
+
+    def overlap_markers(self, marker1: str, marker2: str) -> Self:
+        if self.mode != "sum" and self.mode != "mean":
+            raise ValueError("Cannot compute the overlapping of two markers if the AnimalBrain was not build by summing or averaging the detection of from all slices.")
+        for m in (marker1, marker2):
+            if m not in self.markers:
+                raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
+        try:
+            both = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
+        except StopIteration as e:
+            raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
+        overlaps = pd.concat({
+                        marker1: self.data[both] / self.data[marker1],
+                        marker2: self.data[both] / self.data[marker2]
+                    }, axis=1)
+        overlaps.columns.name = "%overlapping"
+        # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
+        overlaps = overlaps.clip(upper=1)
+        return AnimalBrain(None, name=self.name, data=overlaps)
 
     def __simple_mode_name(self, mode: str) -> str:
         match mode:
