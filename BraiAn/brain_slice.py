@@ -1,7 +1,8 @@
+import copy
 import os
 import pandas as pd
+import re
 from .brain_hierarchy import AllenBrainHierarchy
-import copy
 
 global MODE_PathAnnotationObjectError
 global MODE_ExcludedRegionNotRecognisedError
@@ -84,6 +85,12 @@ class BrainSlice:
                 pass
             case _:
                 raise ValueError("A brain slice's area can only be expressed in µm² or mm²!")
+        self.markers_density = BrainSlice._get_marker_density(self.data, markers_key)
+    
+    @staticmethod
+    def _get_marker_density(df: pd.DataFrame, markers: list[str]) -> pd.DataFrame:
+        return df[markers].div(df["area"], axis=0)
+
     def read_regions_to_exclude(self, file_path) -> list[str]:
         try:
             with open(file_path, mode="r", encoding="utf-8") as file:
@@ -114,6 +121,7 @@ class BrainSlice:
                 data = data.drop("wholebrain", axis=0)
             case _:
                 raise InvalidResultsError(animal=self.animal, file=csv_file)
+        data.index.name = None
 
         self.check_hemispheres(data, csv_file)
         return data
@@ -209,35 +217,27 @@ class BrainSlice:
     def _area_µm2_to_mm2_(self) -> None:
         self.data.area = self.data.area * 1e-06
 
-    def add_density(self, markers) -> None:
-        '''
-        Adds a 'density' column to the BrainSlice
-        '''
-        for marker in markers:
-            if f"{marker}_density" not in self.data.columns:
-                self.data[f"{marker}_density"] = self.data[marker] / self.data["area"]
 
-
-def find_region_abbreviation(region_class):
+def extract_acronym(region_class):
     '''
-    This function finds the region abbreviation
-    by splitting the class value in the table.
+    This function extracts the region acronym from a QuPath's PathClass assigned by ABBA
     Example: "Left: AVA" becomes "AVA".
     '''
-    try: # try to split the class
-        region_abb = region_class.split(": ")[1]
-    except: # if splitting gives an error, don't split
-        region_abb = str(region_class)
-        
-    return region_abb
+    acronym = re.compile("[Left|Right]: (.+)").findall(region_class)
+    if len(acronym) == 0:
+        # the region's class didn't distinguish between left|right hemispheres 
+        return str(region_class)
+    return acronym[0]
 
-def merge_slice_hemispheres(brain_slice) -> BrainSlice:
+def merge_slice_hemispheres(brain_slice: BrainSlice) -> BrainSlice:
     '''
     Function takes as input a BrainSlice. Each row represents a left/right part of a region.
     
     The output is a dataframe with each column being the sum of the two hemispheres
     '''
     slice = copy.copy(brain_slice)
-    corresponding_region = [find_region_abbreviation(region) for region in slice.data.index]
+    corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in slice.data.index]
     slice.data = slice.data.groupby(corresponding_region).sum(min_count=1)
+    markers = [c for c in slice.data.columns if c != "area"]
+    slice.markers_density = BrainSlice._get_marker_density(slice.data, markers)
     return slice

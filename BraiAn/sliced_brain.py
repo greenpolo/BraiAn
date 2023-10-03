@@ -75,12 +75,8 @@ class SlicedBrain:
         images.sort()
         return images
     
-    def add_density(self) -> None:
-        for brain_slice in self.slices:
-            brain_slice.add_density(self.markers)
-    
-    def concat_slices(self) -> pd.DataFrame:
-        return pd.concat([slice.data for slice in self.slices])
+    def concat_slices(self, densities=False) -> pd.DataFrame:
+        return pd.concat([slice.data if not densities else slice.markers_density for slice in self.slices])
     
     def handle_brainslice_error(self, exception, mode, results_file, regions_to_exclude_file):
         assert issubclass(type(exception), BrainSliceFileError), ""
