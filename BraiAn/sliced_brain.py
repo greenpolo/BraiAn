@@ -1,6 +1,7 @@
+import copy
+import numpy as np
 import os
 import pandas as pd
-import copy
 
 from .brain_hierarchy import AllenBrainHierarchy
 from .brain_slice import BrainSlice, merge_slice_hemispheres,\
@@ -58,6 +59,9 @@ class SlicedBrain:
                 self.slices.append(slice)
         if len(self.slices) == 0:
             raise EmptyBrainError(self.name)
+        are_split = np.array([s.is_split for s in self.slices])
+        assert are_split.all() or ~are_split.any(), "Slices from the same animal should either be ALL split between right/left hemisphere or not."
+        self.is_split = are_split[0]
     
     def set_name(self, name):
         for slice in self.slices:
@@ -123,6 +127,9 @@ class SlicedBrain:
 
     
 def merge_sliced_hemispheres(sliced_brain) -> SlicedBrain:
+    if not sliced_brain.is_split:
+        return slice
     brain = copy.copy(sliced_brain)
     brain.slices = [merge_slice_hemispheres(brain_slice) for brain_slice in brain.slices]
+    brain.is_split = False
     return brain

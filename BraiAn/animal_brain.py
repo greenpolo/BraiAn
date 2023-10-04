@@ -5,8 +5,9 @@ import pandas as pd
 
 from typing import Self
 
+from .brain_hierarchy import AllenBrainHierarchy
+from .brain_slice import extract_acronym, is_split_left_right
 from .sliced_brain import merge_sliced_hemispheres, SlicedBrain
-from .brain_slice import extract_acronym
 
 def min_count(fun, min, **kwargs):
     def nan_if_less(xs):
@@ -36,13 +37,15 @@ class AnimalBrain:
             self.markers = data.columns[2:]
             self.mode = data.columns.name
             self.data = data
+            self.is_split = is_split_left_right(self.data.index)
             return
         if not hemisphere_distinction:
             sliced_brain = merge_sliced_hemispheres(sliced_brain)
         if mode == "sum":
             self.data = self.sum_slices(sliced_brain, min_slices)
-        elif mode == "overlap":
-            self.data = self.overlap_markers(sliced_brain)
+        elif mode == "overlap" or mode == "%overlapping":
+            raise NotImplementedError("Can't yet build an AnimalBrain of marker overlappings from a SlicedBrain")
+            # self.data = self.overlap_markers()
         else:
             self.data = self.reduce_brain_densities(sliced_brain, mode, min_slices)
         if use_literature_reuniens:
@@ -51,7 +54,8 @@ class AnimalBrain:
         self.markers = sliced_brain.markers
         self.mode = self.__simple_mode_name(mode)
         self.data.columns.name = self.mode
-    
+        self.is_split = sliced_brain.is_split
+
     def __add_literature_reuniens(self, animal, hemisphere_distinction):
         # subregions_ = ("PR", "RE", "Xi", "RH")
         subregions_ = ("RE", "Xi", "RH")
@@ -80,7 +84,7 @@ class AnimalBrain:
                 # self.data.drop(hem_subregions, inplace=True)
             else:
                 print(f"WARNING: Animal '{animal}' - could not find data for computing the 'REtot' region. Missing {', '.join(set(hem_subregions_) - set(hem_subregions))}.")
-    
+
     def sum_slices(self, sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
         all_slices = sliced_brain.concat_slices()
         redux = all_slices.groupby(all_slices.index)\
@@ -105,7 +109,7 @@ class AnimalBrain:
                             .dropna(axis=0, how="all") # we want to keep float64 as the dtype, since the result of the 'mode' function is a float as well
         return redux
 
-    def overlap_markers(self, marker1: str, marker2: str, hemisphere_distinction=None) -> Self:
+    def overlap_markers(self, marker1: str, marker2: str) -> Self:
         if self.mode != "sum" and self.mode != "mean":
             raise ValueError("Cannot compute the overlapping of two markers if the AnimalBrain was not build by summing or averaging the detection of from all slices.")
         for m in (marker1, marker2):
@@ -115,18 +119,14 @@ class AnimalBrain:
             both = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
         except StopIteration as e:
             raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-        if hemisphere_distinction:
-            brain = AnimalBrain.merge_hemispheres(self)
-        else:
-            brain = self
         overlaps = pd.concat({
-                        marker1: brain.data[both] / brain.data[marker1],
-                        marker2: brain.data[both] / brain.data[marker2]
+                        marker1: self.data[both] / self.data[marker1],
+                        marker2: self.data[both] / self.data[marker2]
                     }, axis=1)
         overlaps.columns.name = "%overlapping"
         # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
         overlaps = overlaps.clip(upper=1)
-        return AnimalBrain(None, name=brain.name, data=overlaps)
+        return AnimalBrain(None, name=self.name, data=overlaps)
 
     def __simple_mode_name(self, mode: str) -> str:
         match mode:
@@ -134,6 +134,8 @@ class AnimalBrain:
                 return "mean"
             case "variation":
                 return "cvar"
+            case "overlap":
+                return "%overlapping"
             case _:
                 return mode
 
@@ -142,7 +144,7 @@ class AnimalBrain:
         output_path = os.path.join(output_path, f"{self.name}_{self.mode}.csv")
         self.data.to_csv(output_path, sep="\t", mode="w", index_label=self.mode)
         print(f"AnimalBrain {self.name} reduced with mode='{self.mode}' saved to {output_path}")
-    
+
     @staticmethod
     def from_csv(animal_name, root_dir, mode):
         # read CSV
@@ -156,7 +158,9 @@ class AnimalBrain:
             return AnimalBrain(None, name=animal_name, data=df)
 
     @staticmethod
-    def filter_selected_regions(animal_brain, AllenBrain) -> Self:
+    def filter_selected_regions(animal_brain: Self, AllenBrain: AllenBrainHierarchy) -> Self:
+        if animal_brain.is_split:
+            raise NotImplementedError("AnimalBrain does not (yet) support filter selection when its hemispheres are split!")
         brain = copy.copy(animal_brain)
         selected_allen_regions = AllenBrain.get_selected_regions()
         selectable_regions = set(animal_brain.data.index).intersection(set(selected_allen_regions))
@@ -167,9 +171,13 @@ class AnimalBrain:
         return brain
 
     @staticmethod
-    def merge_hemispheres(animal_brain) -> Self:
-        # TODO: not everything can be marged! We need to check whether the aggregation method allows it!
+    def merge_hemispheres(animal_brain: Self) -> Self:
+        if animal_brain.mode not in ("sum",):
+            raise ValueError(f"Cannot properly merge '{animal_brain.mode}' data from left/right hemispheres into a single region!")
+        if not animal_brain.is_split:
+            return animal_brain
         brain = copy.copy(animal_brain)
         corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in animal_brain.data.index]
         brain.data = animal_brain.data.groupby(corresponding_region).sum(min_count=1)
+        brain.is_split = False
         return brain

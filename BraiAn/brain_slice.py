@@ -66,6 +66,9 @@ class BrainSlice:
         excluded_regions = self.read_regions_to_exclude(excluded_regions_file)
         self.check_columns(data, [area_key, *tracers_key], csv_file)
         self.data = pd.DataFrame(data, columns=[area_key, *tracers_key])
+        self.is_split = is_split_left_right(self.data.index)
+        if not self.is_split:
+            raise InvalidRegionsHemisphereError(animal=self.animal, file=csv_file)
         self.data.rename(columns={area_key: "area"} | dict(zip(tracers_key, markers_key)), inplace=True)
         #@assert (df.area > 0).all()
         self.data = self.data[self.data["area"] > 0]
@@ -122,8 +125,6 @@ class BrainSlice:
             case _:
                 raise InvalidResultsError(animal=self.animal, file=csv_file)
         data.index.name = None
-
-        self.check_hemispheres(data, csv_file)
         return data
 
     def read_csv_file(self, csv_file) -> pd.DataFrame:
@@ -154,12 +155,6 @@ class BrainSlice:
         for column in columns:
             if column not in data.columns:
                 raise MissingResultsColumnError(animal=self.animal, file=csv_file, column=column)
-        return True
-
-    def check_hemispheres(self, data, csv_file) -> bool:
-        if (~data.index.str.startswith("Left: ", na=False) &
-            ~data.index.str.startswith("Right: ", na=False)).sum() != 0:
-            raise InvalidRegionsHemisphereError(animal=self.animal, file=csv_file)
         return True
     
     def check_zero_rows(self, csv_file, markers) -> bool:
@@ -235,9 +230,16 @@ def merge_slice_hemispheres(brain_slice: BrainSlice) -> BrainSlice:
     
     The output is a dataframe with each column being the sum of the two hemispheres
     '''
+    if not brain_slice.is_split:
+        return brain_slice
     slice = copy.copy(brain_slice)
     corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in slice.data.index]
     slice.data = slice.data.groupby(corresponding_region).sum(min_count=1)
     markers = [c for c in slice.data.columns if c != "area"]
     slice.markers_density = BrainSlice._get_marker_density(slice.data, markers)
+    slice.is_split = False
     return slice
+
+def is_split_left_right(index: pd.Index):
+    return (index.str.startswith("Left: ", na=False) | \
+            index.str.startswith("Right: ", na=False)).all()
