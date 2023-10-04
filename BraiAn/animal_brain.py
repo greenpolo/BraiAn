@@ -34,8 +34,8 @@ class AnimalBrain:
                 use_literature_reuniens=False) -> None:
         if name and data is not None:
             self.name = name
-            self.markers = data.columns[2:]
             self.mode = data.columns.name
+            self.markers = data.columns[2:] if self.mode != "%overlapping" else list(data.columns)
             self.data = data
             self.is_split = is_split_left_right(self.data.index)
             return
@@ -44,7 +44,7 @@ class AnimalBrain:
         if mode == "sum":
             self.data = self.sum_slices(sliced_brain, min_slices)
         elif mode == "overlap" or mode == "%overlapping":
-            raise NotImplementedError("Can't yet build an AnimalBrain of marker overlappings from a SlicedBrain")
+            raise NotImplementedError("Can't yet build an AnimalBrain of marker overlappings from a SlicedBrain. Use AnimalBrain.overlap_markers() method.")
             # self.data = self.overlap_markers()
         else:
             self.data = self.reduce_brain_densities(sliced_brain, mode, min_slices)

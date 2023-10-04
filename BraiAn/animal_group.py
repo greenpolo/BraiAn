@@ -27,10 +27,10 @@ class AnimalGroup:
         if hemisphere_distinction:
             raise NotImplementedError("AnimalGroup does not (yet) support split hemispheres!")
         animals = [AnimalBrain.merge_hemispheres(animal_brain) for animal_brain in animals]
-        self.data = self.normalize_animals(animals, AllenBrain)
+        self.data = self.assemble_group(animals, AllenBrain)
         self.n = len(self.get_animals())
 
-    def normalize_animals(self, animals, AllenBrain) -> pd.DataFrame:
+    def assemble_group(self, animals, AllenBrain) -> pd.DataFrame:
         '''
         returns a DataFrame where, for each region and for each animal, gives:
         - the percentage
