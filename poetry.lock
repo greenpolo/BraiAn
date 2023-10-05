@@ -174,14 +174,12 @@ msgpack = "*"
 
 [[package]]
 name = "brainrender"
-version = "2.0.5.5"
+version = "2.0.5.6"
 description = "Visualisation and exploration of brain atlases and other anatomical data"
 optional = false
 python-versions = ">=3.6"
-files = [
-    {file = "brainrender-2.0.5.5-py3-none-any.whl", hash = "sha256:d7694fe82131150896bae1af32b67c93a84c8f0f3b72da8d632deaf12d266363"},
-    {file = "brainrender-2.0.5.5.tar.gz", hash = "sha256:95bf58bf17e3de9e2f3d4e3c8d72b5dca5ad0e6fa1ce995f44955645ddce1729"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 bg-atlasapi = ">=1.0.0"
@@ -205,6 +203,12 @@ lint = ["black", "flake8"]
 nb = ["jupyter", "k3d"]
 pyqt5 = ["PyQt5 (>=5.12.3)"]
 pyside2 = ["PySide2 (>=5.12.3)"]
+
+[package.source]
+type = "git"
+url = "ssh://git@github.com/carlocastoldi/brainrender.git"
+reference = "HEAD"
+resolved_reference = "b26e710bc529f0153071e9f2b224e951cd7966b2"
 
 [[package]]
 name = "bs4"
@@ -3004,4 +3008,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "114800f1f9a001f819a82acf4d081a6abedd213d3d12b8118e3c0743f33fa46b"
+content-hash = "17d30ac5e6373e8dde9d654f84ed17e447b78e52d8d58d699302c0ad1c6c2066"
