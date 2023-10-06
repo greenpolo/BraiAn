@@ -114,10 +114,10 @@ class AnimalGroup:
             animal = list(self.get_animals())
         # return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)
         selected = self.data.loc(axis=0)[selected_regions, animal]
-        if len(self.markers) == 0:
-            selected[self.markers[0]]
+        if len(self.markers) == 1:
+            return selected[self.markers[0]]
         else:
-            selected
+            return selected
 
     def remove_smaller_subregions(self, area_threshold, selected_regions: list[str], AllenBrain: AllenBrainHierarchy) -> None:
         for animal in self.get_animals():
@@ -143,7 +143,7 @@ class AnimalGroup:
         return data.groupby(level=0)
 
     def get_units(self, normalization, marker=None):
-        if len(self.markers) == 0:
+        if len(self.markers) == 1:
             marker = self.markers[0]
         else:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
@@ -156,7 +156,7 @@ class AnimalGroup:
                 raise ValueError(f"Normalization methods available are: {', '.join(self.get_normalization_methods())}")
 
     def get_plot_title(self, normalization, marker=None):
-        if len(self.markers) == 0:
+        if len(self.markers) == 1:
             marker = self.markers[0]
         else:
             assert marker in self.markers, f"Could not get the plot title for marker '{marker}'!"

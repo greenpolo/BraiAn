@@ -42,11 +42,11 @@ Available normalizations methods are: {group_2.get_normalization_methods()}"
         data = pd.DataFrame(index=regions+["group"], columns=animal_list)
 
         for animal in group_1_animals:
-            data.loc[regions,animal] = group_1.select(regions, animal).reset_index(level=1, drop=True)[normalization]
+            data.loc[regions,animal] = group_1.select(regions, animal).reset_index(level=1, drop=True)[group_1.markers[0]][normalization]
             data.loc["group",animal] = True
 
         for animal in group_2_animals:
-            data.loc[regions,animal] = group_2.select(regions, animal).reset_index(level=1, drop=True)[normalization]
+            data.loc[regions,animal] = group_2.select(regions, animal).reset_index(level=1, drop=True)[group_2.markers[0]][normalization]
             data.loc["group",animal] = False
 
         self.X = data.loc[regions].T.dropna(axis="columns", how="any").astype("float64", copy=False)

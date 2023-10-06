@@ -45,9 +45,9 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
     fig.add_trace(go.Scatter(
                         mode = "markers",
                         y = y_axis + y_offset,
-                        x = regions_data[normalization],
+                        x = regions_data[group.markers[0]][normalization],
                         name = f"{group.name} animals",
-                        customdata = np.stack((animal_regions, animal_names, regions_data["area"]), axis=-1),
+                        customdata = np.stack((animal_regions, animal_names, regions_data["area"]["area"]), axis=-1),
                         hovertemplate = normalization+": %{x:.2f} "+group.get_units(normalization)+"<br>Area: %{customdata[2]} mm²<br>Region: %{customdata[0]}<br>Animal: %{customdata[1]}",
                         opacity=0.5,
                         marker=dict(
