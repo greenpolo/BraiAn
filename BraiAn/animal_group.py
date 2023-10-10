@@ -133,13 +133,16 @@ class AnimalGroup:
 
     def group_by_region(self, marker=None, method=None):
         if marker is None:
-            data = self.data
+            if method is None:
+                data = self.data[self.markers]
+            else:
+                data = self.data.loc[:,(self.markers, method)]
         else:
             data = self.data[marker]
-        if method is not None:
-            # if marker != None -> pd.Series
-            # if marker == None -> pd.DataFrame
-            data = data[method]
+            if method is not None:
+                data = data[method]
+        # if method == None and marker == None -> pd.DataFrame
+        # else -> pd.Series
         return data.groupby(level=0)
 
     def get_units(self, normalization, marker=None):
