@@ -136,8 +136,8 @@ rich = "*"
 [package.source]
 type = "git"
 url = "ssh://git@github.com/carlocastoldi/bg-heatmaps.git"
-reference = "hemispheres-slicing"
-resolved_reference = "9bb54683cfae3afe7dbfe3abb91d748dcfa78474"
+reference = "scene2d"
+resolved_reference = "51a734dd74cc781eed5ac381adf3ef5583d23d49"
 
 [[package]]
 name = "blosc2"
@@ -2981,4 +2981,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "17d30ac5e6373e8dde9d654f84ed17e447b78e52d8d58d699302c0ad1c6c2066"
+content-hash = "e1089de6357e5892d639a97befdb239302e2b80776bf3e11313fd9d9c71c1864"
