@@ -9,8 +9,10 @@ import os
 import pandas as pd
 import re
 import vedo as vd
+from typing import Self
 
 from .deflector import deflect
+from .brain_hierarchy import AllenBrainHierarchy
 
 def extract_acronym(region_class):
     '''
@@ -26,6 +28,10 @@ def extract_acronym(region_class):
 def is_split_left_right(index: pd.Index):
     return (index.str.startswith("Left: ", na=False) | \
             index.str.startswith("Right: ", na=False)).all()
+
+def split_index(regions: list[str]) -> list[str]:
+    return [": ".join(t) for t in functools.product(regions, ("Left", "Right"))]
+
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True)):
     def __init__(self, data: pd.Series, name: str, metric: str, units: str,
                  brain_onthology=None, fill=False) -> None: # brain_onthology: AllenBrainHierarchy
@@ -36,7 +42,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True)):
         if brain_onthology is not None:
             all_regions = brain_onthology.list_all_subregions("root", mode="depth")
             if self.is_split:
-                all_regions = [": ".join(t) for t in functools.product(all_regions, ("Left", "Right"))]
+                all_regions = split_index(all_regions)
             if len(unknown_regions:=self.data.index[self.data.index.isin(all_regions)]) > 0:
                 raise ValueError(f"The following regions are unknown to the given brain onthology: '"+"', '".join(unknown_regions)+"'")
             # NOTE: since fill_value=np.nan -> converts dtype to float
@@ -46,7 +52,11 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True)):
             self.data = self.data.reindex(all_regions, copy=False, fill_value=np.nan)
         self.name = str(name)
         self.metric = str(metric)
-        self.units = str(units)
+        if units is not None:
+            self.units = str(units)
+        else:
+            self.units = ""
+            print(f"WARNING: BrainData(name={name}, metric={metric}) has no units")
 
     def min(self) -> float:
         return self.data[self.data != np.inf].min()
@@ -54,11 +64,23 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True)):
     def max(self) -> float:
         return self.data[self.data != np.inf].max()
 
-    def select_from_list(self, brain_regions: list[str]):
+    def select_from_list(self, brain_regions: list[str]) -> Self:
         if not (unknown_regions:=np.isin(brain_regions, self.data.index)).all():
             unknown_regions = np.array(brain_regions)[~unknown_regions]
             raise ValueError(f"Can't find some regions in this BrainData (name={self.name}, regions='"+"', '".join(unknown_regions)+"')!")
         data = self.data[self.data.index.isin(brain_regions)]
+        return BrainData(data, name=self.name, metric=self.metric, units=self.units)
+    
+    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy) -> Self:
+        selected_allen_regions = brain_onthology.get_selected_regions()
+        selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
+        return self.select_from_list(selectable_regions)
+    
+    def merge_hemispheres(self) -> Self:
+        if self.metric not in ("sum",):
+            raise ValueError(f"Cannot properly merge '{self.metric}' BrainData from left/right hemispheres into a single region!")
+        corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self.data.index]
+        data = self.data.groupby(corresponding_region).sum(min_count=1)
         return BrainData(data, name=self.name, metric=self.metric, units=self.units)
 
     def plot(self,

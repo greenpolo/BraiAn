@@ -8,6 +8,7 @@ from typing import Self
 from .brain_hierarchy import AllenBrainHierarchy
 from .brain_slice import extract_acronym, is_split_left_right
 from .sliced_brain import merge_sliced_hemispheres, SlicedBrain
+from .brain_data import BrainData
 
 def min_count(fun, min, **kwargs):
     def nan_if_less(xs):
@@ -30,28 +31,39 @@ def coefficient_variation(x) -> np.float64:
 
 class AnimalBrain:
     def __init__(self, sliced_brain, mode="sum", hemisphere_distinction=True,
-                name=None, min_slices=0, data: pd.DataFrame=None) -> None:
-        if name and data is not None:
-            self.name = name
-            self.mode = data.columns.name
-            self.markers = data.columns[2:] if self.mode != "%overlapping" else list(data.columns)
-            self.data = data
-            self.is_split = is_split_left_right(self.data.index)
+                min_slices=0, data: dict[BrainData]=None, areas: BrainData=None) -> None:
+        if data is not None:
+            first_data = tuple(data.values())[0]
+            self.name = first_data.name
+            self.mode = first_data.metric
+            self.is_split = first_data.is_split
+            assert all([m.name == self.name for m in data.values()]), "All BrainData must be from the same animal!"
+            assert all([m.metric == self.mode for m in data.values()]), "All BrainData must be of the same metric!"
+            assert all([m.is_split == self.is_split for m in data.values()]), "All BrainData must either have split hemispheres or not!"
+            self.markers = list(data.keys())
+            self.marker_data = data
+            self.areas = areas
             return
         if not hemisphere_distinction:
             sliced_brain = merge_sliced_hemispheres(sliced_brain)
-        if mode == "sum":
-            self.data = self.sum_slices(sliced_brain, min_slices)
-        elif mode == "overlap" or mode == "%overlapping":
-            raise NotImplementedError("Can't yet build an AnimalBrain of marker overlappings from a SlicedBrain. Use AnimalBrain.overlap_markers() method.")
-            # self.data = self.overlap_markers()
-        else:
-            self.data = self.reduce_brain_densities(sliced_brain, mode, min_slices)
+        
         self.name = sliced_brain.name
-        self.markers = sliced_brain.markers
+        self.markers = copy.copy(sliced_brain.markers)
         self.mode = self.__simple_mode_name(mode)
-        self.data.columns.name = self.mode
         self.is_split = sliced_brain.is_split
+        match mode:
+            case "sum":
+                redux = self.sum_slices(sliced_brain, min_slices)
+            case "overlap" | "%overlapping":
+                raise NotImplementedError("Can't yet build an AnimalBrain of marker overlappings from a SlicedBrain. Use AnimalBrain.overlap_markers() method.")
+            # self.data = self.overlap_markers()
+            case _:
+                redux = self.reduce_brain_densities(sliced_brain, self.mode, min_slices)
+        self.areas = BrainData(redux["area"], name=self.name, metric=self.mode, units="mm²")
+        self.marker_data = {
+            m: BrainData(redux[m], name=self.name, metric=self.mode, units=m)
+            for m in self.markers
+        }
 
     def sum_slices(self, sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
         all_slices = sliced_brain.concat_slices()
@@ -87,14 +99,13 @@ class AnimalBrain:
             both = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
         except StopIteration as e:
             raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-        overlaps = pd.concat({
-                        marker1: self.data[both] / self.data[marker1],
-                        marker2: self.data[both] / self.data[marker2]
-                    }, axis=1)
-        overlaps.columns.name = "%overlapping"
-        # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
-        overlaps = overlaps.clip(upper=1)
-        return AnimalBrain(None, name=self.name, data=overlaps)
+        overlaps = dict()
+        for m in (marker1, marker2):
+            m.metric = "%overlapping"
+            m.units = f"({marker1}+{marker2})/{m}"
+            # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
+            overlaps[marker1] = (self.marker_data[both] / self.marker_data[marker1]).clip(upper=1)
+        return AnimalBrain(None, data=overlaps)
 
     def __simple_mode_name(self, mode: str) -> str:
         match mode:
@@ -106,12 +117,29 @@ class AnimalBrain:
                 return "%overlapping"
             case _:
                 return mode
+    
+    def to_pandas(self):
+        data = pd.concat({"area": self.areas.data, **{m: m_data.data for m,m_data in self.marker_data.items()}}, axis=1)
+        data.columns.name = self.mode
+        return data
 
     def write_all_brains(self, output_path: str) -> None:
         os.makedirs(output_path, exist_ok=True)
         output_path = os.path.join(output_path, f"{self.name}_{self.mode}.csv")
-        self.data.to_csv(output_path, sep="\t", mode="w", index_label=self.mode)
+        data = self.to_pandas()
+        data.to_csv(output_path, sep="\t", mode="w", index_label=self.mode)
         print(f"AnimalBrain {self.name} reduced with mode='{self.mode}' saved to {output_path}")
+    
+    @staticmethod
+    def from_pandas(animal_name, df: pd.DataFrame):
+        mode = df.columns.name
+        if "area" in df.columns:
+            areas = BrainData(df["area"], animal_name, mode, None)
+            df = df.loc[:, df.columns != "area"]
+        else:
+            areas = None
+        marker_data = {marker: BrainData(data, animal_name, mode, None) for marker, data in df.items()}
+        return AnimalBrain(None, data=marker_data, areas=areas)
 
     @staticmethod
     def from_csv(animal_name, root_dir, mode):
@@ -120,32 +148,18 @@ class AnimalBrain:
         if df.index.name == "Class":
             # is old csv
             raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
-        else:
-            df.columns.name = df.index.name
-            df.index.name = None
-            return AnimalBrain(None, name=animal_name, data=df)
+        df.columns.name = df.index.name
+        df.index.name = None
+        return AnimalBrain.from_pandas(animal_name, df)
 
     @staticmethod
     def filter_selected_regions(animal_brain: Self, AllenBrain: AllenBrainHierarchy) -> Self:
-        if animal_brain.is_split:
-            raise NotImplementedError("AnimalBrain does not (yet) support filter selection when its hemispheres are split!")
         brain = copy.copy(animal_brain)
-        selected_allen_regions = AllenBrain.get_selected_regions()
-        selectable_regions = set(animal_brain.data.index).intersection(set(selected_allen_regions))
-        if type(brain.data) == pd.Series:
-            brain.data = animal_brain.data[list(selectable_regions)]
-        else: # type == pd.DataFrame
-            brain.data = animal_brain.data.loc[list(selectable_regions), :]
+        brain.marker_data = {m: m_data.select_from_onthology(AllenBrain) for m, m_data in brain.marker_data.items()}
         return brain
 
     @staticmethod
     def merge_hemispheres(animal_brain: Self) -> Self:
-        if animal_brain.mode not in ("sum",):
-            raise ValueError(f"Cannot properly merge '{animal_brain.mode}' data from left/right hemispheres into a single region!")
-        if not animal_brain.is_split:
-            return animal_brain
         brain = copy.copy(animal_brain)
-        corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in animal_brain.data.index]
-        brain.data = animal_brain.data.groupby(corresponding_region).sum(min_count=1)
-        brain.is_split = False
+        brain.marker_data = {m: m_data.merge_hemispheres() for m, m_data in brain.marker_data.items()}
         return brain
