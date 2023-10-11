@@ -30,8 +30,7 @@ def coefficient_variation(x) -> np.float64:
 
 class AnimalBrain:
     def __init__(self, sliced_brain, mode="sum", hemisphere_distinction=True,
-                name=None, min_slices=0, data: pd.DataFrame=None,
-                use_literature_reuniens=False) -> None:
+                name=None, min_slices=0, data: pd.DataFrame=None) -> None:
         if name and data is not None:
             self.name = name
             self.mode = data.columns.name
@@ -48,42 +47,11 @@ class AnimalBrain:
             # self.data = self.overlap_markers()
         else:
             self.data = self.reduce_brain_densities(sliced_brain, mode, min_slices)
-        if use_literature_reuniens:
-            self.__add_literature_reuniens(sliced_brain.name, hemisphere_distinction)
         self.name = sliced_brain.name
         self.markers = sliced_brain.markers
         self.mode = self.__simple_mode_name(mode)
         self.data.columns.name = self.mode
         self.is_split = sliced_brain.is_split
-
-    def __add_literature_reuniens(self, animal, hemisphere_distinction):
-        # subregions_ = ("PR", "RE", "Xi", "RH")
-        subregions_ = ("RE", "Xi", "RH")
-        if not hemisphere_distinction:
-            subregions = self.data.index.intersection(subregions_)
-            if len(subregions) == len(subregions_):
-                self.data.loc[f"REtot"] = self.data.loc[subregions].sum()
-                # self.data.drop(subregions, inplace=True)
-            else:
-                print(f"WARNING: Animal '{animal}' - could not find data for computing the 'REtot' region. Missing {', '.join(set(subregions_) - set(subregions))}.")
-            return
-        # if hemisphere_distinction:
-        for hem in ("Left", "Right"):
-            hem_subregions_ = [f"{hem}: {subregion}" for subregion in subregions_]
-            hem_subregions = self.data.index.intersection(hem_subregions_)
-            if len(hem_subregions) == len(subregions_):
-                # sum with int and float columns get casted to all-float.
-                # a possible fix is to add a 'string' place-holder column, sum and then remove it
-                # see:
-                # https://github.com/pandas-dev/pandas/issues/26219#issuecomment-905882647
-                re_tot_data = self.data.loc[hem_subregions]
-                re_tot_data["place_holder"] = ""
-                re_tot_data = re_tot_data.sum()
-                re_tot_data.drop(labels="place_holder", inplace=True)
-                self.data.loc[f"{hem}: REtot"] = re_tot_data
-                # self.data.drop(hem_subregions, inplace=True)
-            else:
-                print(f"WARNING: Animal '{animal}' - could not find data for computing the 'REtot' region. Missing {', '.join(set(hem_subregions_) - set(hem_subregions))}.")
 
     def sum_slices(self, sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
         all_slices = sliced_brain.concat_slices()

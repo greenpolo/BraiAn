@@ -46,14 +46,11 @@ def is_blacklisted(node):
     return "blacklisted" in node and node["blacklisted"]
 
 class AllenBrainHierarchy:
-    def __init__(self, path_to_allen_json, blacklisted_acronyms=[], use_literature_reuniens=False, version=None):
+    def __init__(self, path_to_allen_json, blacklisted_acronyms=[], version=None):
         with open(path_to_allen_json, "r") as file:
             allen_data = json.load(file)
         
         self.dict = allen_data["msg"][0]
-        if use_literature_reuniens:
-            self.__use_literature_reuniens()
-        self.use_literature_reuniens = use_literature_reuniens
         # First label every region as "not blacklisted"
         visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
         if blacklisted_acronyms:
@@ -69,38 +66,7 @@ class AllenBrainHierarchy:
         self.parent_region = self.get_all_parent_areas()
         self.direct_subregions = self.get_all_subregions()
         self.full_name = self.get_full_names()
-    
-    def __use_literature_reuniens(self):
-        dor_pm = find_subtree(self.dict, "acronym", "DORpm", "children")
-        # med = find_subtree(dor_pm, "acronym", "MED", "children")
-        mtn = find_subtree(dor_pm, "acronym", "MTN", "children")
-        ilm = find_subtree(dor_pm, "acronym", "ILM", "children")
-        
-        # pr = find_subtree(med, "acronym", "PR", "children")
-        re = find_subtree(mtn, "acronym", "RE", "children")
-        xi = find_subtree(mtn, "acronym", "Xi", "children")
-        rh = find_subtree(ilm, "acronym", "RH", "children")
-        # 'graph_order' is not set/updated. At the moment is not used, so it's not a problem
-        re_tot = {
-            "id": RE_TOT_ID,
-            "atlas_id": 212*100,
-            "ontology_id": 2,
-            "acronym": RE_TOT_ACRONYM,
-            "name": "Nucleus reuniens (literature)",
-            "color_hex_triplet": "FF909F",
-            # "graph_order":
-            "st_level": 7,
-            "hemisphere_id": 3,
-            "parent_structure_id": 856,
-            # "children": [pr, re, xi, rh]
-            "children": [re, xi, rh]
-        }
-        add_child(dor_pm, re_tot, "children")
-        # remove_child(med, pr, "children")
-        remove_child(mtn, re, "children")
-        remove_child(mtn, xi, "children")
-        remove_child(ilm, rh, "children")
-    
+
     def __get_unannoted_regions(self, version):
         # alternative implementation: use annotation's nrrd file - https://help.brain-map.org/display/mousebrain/API#API-DownloadAtlas3-DReferenceModels
         # this way is not totally precise, because some masks files are present even if they're empty
@@ -123,7 +89,7 @@ class AllenBrainHierarchy:
             regions_w_annotation = [int(link["href"][len("structure_"):-len(".nrrd")]) for link in soup.select('a[href*=".nrrd"]')]
         regions_wo_annotation = get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dfs)
         return [region["acronym"] for region in regions_wo_annotation]
-    
+
     def blacklist_regions(self, blacklisted_regions, key="acronym"):
         # find every region to-be-blacklisted, and blacklist all its tree
         for region_value in blacklisted_regions:
@@ -131,7 +97,7 @@ class AllenBrainHierarchy:
             if not blacklisted_region:
                 raise ValueError(f"Can't find a region with '{key}'='{blacklisted_region}' to blacklist in Allen's Brain")
             visit_bfs(blacklisted_region, "children", lambda n,d: set_blacklisted(n, True))
-    
+
     def mark_major_divisions(self):
         add_boolean_attribute(self.dict, "children", "major_division", lambda node,d: node["acronym"] in MAJOR_DIVISIONS)
 
@@ -151,7 +117,7 @@ class AllenBrainHierarchy:
     def select_leaves(self):
         add_boolean_attribute(self.dict, "children", "selected", lambda node, d: is_leaf(node, "children") or \
                               all([is_blacklisted(child) for child in node["children"]])) # some regions (see CA1 in CCFv3) are have all subregions unannoted
-    
+
     def select_regions(self, acronyms):
         add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["acronym"] in acronyms)
 
@@ -167,7 +133,7 @@ class AllenBrainHierarchy:
             regions = regions[~regions["acronym"].isin(("RE", "Xi", "RH"))]
             regions = pd.concat((regions, pd.DataFrame(pd.Series(dict(id=RE_TOT_ID, acronym=RE_TOT_ACRONYM))).T), ignore_index=True)
         add_boolean_attribute(self.dict, "children", "selected", lambda n,d: n[key] in regions[key].values)
-    
+
     def add_to_selection(self, acronyms):
         add_boolean_attribute(self.dict, "children", "selected",
                               lambda node,d: ("selected" in node and node["selected"]) or node["acronym"] in acronyms)
@@ -176,7 +142,7 @@ class AllenBrainHierarchy:
         assert "selected" in self.dict, "No area is selected."
         regions = non_overlapping_where(self.dict, "children", lambda n,d: n["selected"] and not is_blacklisted(n), mode="dfs")
         return [region[key] for region in regions]
-    
+
     def unselect_all(self):
         if "selected" in self.dict:
             del_attribute(self.dict, "children", "selected")
@@ -191,7 +157,7 @@ class AllenBrainHierarchy:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
         areas = get_where(self.dict, "children", lambda n,d: n["id"] in ids, visit_alg)
         return [area["acronym"] for area in areas]
-    
+
     def acronym_to_ids(self, acronyms, mode="depth"):
         match mode:
             case "breadth":
@@ -202,7 +168,7 @@ class AllenBrainHierarchy:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
         areas = get_where(self.dict, "children", lambda n,d: n["acronym"] in acronyms, visit_alg)
         return [area["id"] for area in areas]
-    
+
     def get_sibiling_areas(self, acronym=None, id=None) -> list:
         assert xor(acronym is not None, id is not None), "You must specify one of 'acronym' and 'id' parameters"
         key, value = ("acronym", acronym) if acronym is not None else ("id", id)
@@ -249,7 +215,7 @@ class AllenBrainHierarchy:
                 subregions[node[attr]] = [child[attr] for child in node["children"]]
         visit_bfs(self.dict, "children", add_subregions)
         return subregions
-    
+
     def list_all_subregions(self, region_acronym, mode="breadth"):
         '''
         This function lists all subregions of 'region_acronym' at all hierarchical levels.
@@ -278,7 +244,7 @@ class AllenBrainHierarchy:
             raise ValueError(f"Can't find a region with '{attr}'='{region_acronym}' in Allen's Brain")
         subregions = get_all_nodes(region, "children", visit=visit_alg)
         return [subregion[attr] for subregion in subregions]
-    
+
     def get_regions_above(self, region_acronym):
         '''
         This function lists all the regions for which 'region_acronym' is a subregion.
@@ -318,12 +284,11 @@ class AllenBrainHierarchy:
         '''
         all_nodes = get_all_nodes(self.dict, "children")
         return {area["acronym"]: area["name"] for area in all_nodes}
-    
+
     def get_region_colors(self):
         all_areas = get_all_nodes(self.dict, "children")
         return {area["acronym"]: "#"+area["color_hex_triplet"] for area in all_areas}
 
-    
     def to_nx_attributes(self, attributes):
         # due to a bug of networkx it's not possible to call an attribute 'name'.
         # However we have a 'name' attribute in Allen's JSON.
@@ -360,7 +325,7 @@ class AllenBrainHierarchy:
         G = networkx graph
         pos = node positions (as a dictionary)
         '''
-        
+
         G = self.get_nx_graph()
         if not(hasattr(self, "pos")):
             print("Calculating node positions...")

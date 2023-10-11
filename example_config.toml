@@ -20,7 +20,6 @@ dirs = ["45SM", "47SM", "53SM", "55SM", "85SM", "87SM", "93SM", "95SM"]
 [atlas]
 version = "CCFv3"               # ABBA currently uses CCFv3 from Allen Project
 excluded-branches = ["retina", "VS", "grv", "fiber tracts", "CB"]
-use-literature-reuniens = false # add a 'REtot' region, merging the following regions: 'RE', 'Xi', 'RH'
 
 [brains]
 area-column = "Area um^2"       # column in QuPath's result CSVs that specifies the area of the regions in µm²
