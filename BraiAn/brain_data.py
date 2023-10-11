@@ -1,4 +1,5 @@
 import bgheatmaps as bgh
+import copy
 import functools
 import math
 import matplotlib as mpl
@@ -6,13 +7,31 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import re
+import vedo as vd
 
-from brain_slice import extract_acronym, is_split_left_right
+from .deflector import deflect
 
-class BrainData:
+def extract_acronym(region_class):
+    '''
+    This function extracts the region acronym from a QuPath's PathClass assigned by ABBA
+    Example: "Left: AVA" becomes "AVA".
+    '''
+    acronym = re.compile("[Left|Right]: (.+)").findall(region_class)
+    if len(acronym) == 0:
+        # the region's class didn't distinguish between left|right hemispheres 
+        return str(region_class)
+    return acronym[0]
+
+def is_split_left_right(index: pd.Index):
+    return (index.str.startswith("Left: ", na=False) | \
+            index.str.startswith("Right: ", na=False)).all()
+class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True)):
     def __init__(self, data: pd.Series, name: str, metric: str, units: str,
                  brain_onthology=None, fill=False) -> None: # brain_onthology: AllenBrainHierarchy
         self.data = data.copy()
+#        if not hemisphere_distinction:
+#            self.data = merge_sliced_hemispheres(sliced_brain)
         self.is_split = is_split_left_right(self.data.index)
         if brain_onthology is not None:
             all_regions = brain_onthology.list_all_subregions("root", mode="depth")
