@@ -25,6 +25,15 @@ def extract_acronym(region_class):
         return str(region_class)
     return acronym[0]
 
+def get_hemisphere_name(hem: str):
+    match hem.lower():
+        case "left" | "l":
+            return "Left"
+        case "right" | "r":
+            return "Right"
+        case _:
+            raise ValueError(f"Unrecognised hemisphere '{hem}'!")
+
 def is_split_left_right(index: pd.Index):
     return (index.str.startswith("Left: ", na=False) | \
             index.str.startswith("Right: ", na=False)).all()
@@ -32,31 +41,51 @@ def is_split_left_right(index: pd.Index):
 def split_index(regions: list[str]) -> list[str]:
     return [": ".join(t) for t in functools.product(regions, ("Left", "Right"))]
 
-class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True)):
+class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
     def __init__(self, data: pd.Series, name: str, metric: str, units: str,
                  brain_onthology=None, fill=False) -> None: # brain_onthology: AllenBrainHierarchy
         self.data = data.copy()
-#        if not hemisphere_distinction:
-#            self.data = merge_sliced_hemispheres(sliced_brain)
         self.is_split = is_split_left_right(self.data.index)
-        if brain_onthology is not None:
-            all_regions = brain_onthology.list_all_subregions("root", mode="depth")
-            if self.is_split:
-                all_regions = split_index(all_regions)
-            if len(unknown_regions:=self.data.index[self.data.index.isin(all_regions)]) > 0:
-                raise ValueError(f"The following regions are unknown to the given brain onthology: '"+"', '".join(unknown_regions)+"'")
-            # NOTE: since fill_value=np.nan -> converts dtype to float
-            if not fill:
-                all_regions = np.array(all_regions)
-                all_regions = all_regions[all_regions.isin(self.data.index)]
-            self.data = self.data.reindex(all_regions, copy=False, fill_value=np.nan)
         self.name = str(name)
         self.metric = str(metric)
         if units is not None:
             self.units = str(units)
         else:
             self.units = ""
-            print(f"WARNING: BrainData(name={name}, metric={metric}) has no units")
+            print(f"WARNING: {self} has no units")
+        if brain_onthology is not None:
+            self.sort_by_onthology(brain_onthology, fill, inplace=True)
+    
+    def __str__(self) -> str:
+        return f"BrainData(name={self.name}, metric={self.metric})"
+    
+    def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy,
+                          fill=False, inplace=False) -> Self:
+        all_regions = brain_onthology.list_all_subregions("root", mode="depth")
+        if self.is_split:
+            all_regions = split_index(all_regions)
+        if len(unknown_regions:=self.data.index[self.data.index.isin(all_regions)]) > 0:
+            raise ValueError(f"The following regions are unknown to the given brain onthology: '"+"', '".join(unknown_regions)+"'")
+        if not fill:
+            all_regions = np.array(all_regions)
+            all_regions = all_regions[all_regions.isin(self.data.index)]
+        # NOTE: since fill_value=np.nan -> converts dtype to float
+        data = self.data.reindex(all_regions, copy=False, fill_value=np.nan)
+        if not inplace:
+            return BrainData(data, self.name, self.metric, self.units)
+        else:
+            self.data = data
+            return self
+    
+    def root(self, hemisphere=None) -> float:
+        acronym = "root"
+        if self.is_split:
+            if hemisphere is None:
+                raise ValueError(f"You have to specify the hemisphere of '{acronym}' you want!")
+            acronym = f"{get_hemisphere_name(hemisphere)}: {acronym}"
+        if acronym not in self.data:
+            raise ValueError(f"No data for '{acronym}' in {self}!")
+        return self.data[acronym]
 
     def min(self) -> float:
         return self.data[self.data != np.inf].min()
@@ -67,7 +96,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True)):
     def select_from_list(self, brain_regions: list[str]) -> Self:
         if not (unknown_regions:=np.isin(brain_regions, self.data.index)).all():
             unknown_regions = np.array(brain_regions)[~unknown_regions]
-            raise ValueError(f"Can't find some regions in this BrainData (name={self.name}, regions='"+"', '".join(unknown_regions)+"')!")
+            raise ValueError(f"Can't find some regions in {self}: '"+"', '".join(unknown_regions)+"'!")
         data = self.data[self.data.index.isin(brain_regions)]
         return BrainData(data, name=self.name, metric=self.metric, units=self.units)
     

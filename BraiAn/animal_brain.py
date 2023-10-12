@@ -31,17 +31,17 @@ def coefficient_variation(x) -> np.float64:
 
 class AnimalBrain:
     def __init__(self, sliced_brain, mode="sum", hemisphere_distinction=True,
-                min_slices=0, data: dict[BrainData]=None, areas: BrainData=None) -> None:
-        if data is not None:
-            first_data = tuple(data.values())[0]
+                min_slices=0, markers_data: dict[BrainData]=None, areas: BrainData=None) -> None:
+        if markers_data is not None:
+            first_data = tuple(markers_data.values())[0]
             self.name = first_data.name
             self.mode = first_data.metric
             self.is_split = first_data.is_split
-            assert all([m.name == self.name for m in data.values()]), "All BrainData must be from the same animal!"
-            assert all([m.metric == self.mode for m in data.values()]), "All BrainData must be of the same metric!"
-            assert all([m.is_split == self.is_split for m in data.values()]), "All BrainData must either have split hemispheres or not!"
-            self.markers = list(data.keys())
-            self.marker_data = data
+            assert all([m.name == self.name for m in markers_data.values()]), "All BrainData must be from the same animal!"
+            assert all([m.metric == self.mode for m in markers_data.values()]), "All BrainData must be of the same metric!"
+            assert all([m.is_split == self.is_split for m in markers_data.values()]), "All BrainData must either have split hemispheres or not!"
+            self.markers = list(markers_data.keys())
+            self.markers_data = markers_data
             self.areas = areas
             return
         if not hemisphere_distinction:
@@ -60,7 +60,7 @@ class AnimalBrain:
             case _:
                 redux = self.reduce_brain_densities(sliced_brain, self.mode, min_slices)
         self.areas = BrainData(redux["area"], name=self.name, metric=self.mode, units="mm²")
-        self.marker_data = {
+        self.markers_data = {
             m: BrainData(redux[m], name=self.name, metric=self.mode, units=m)
             for m in self.markers
         }
@@ -89,9 +89,47 @@ class AnimalBrain:
                             .dropna(axis=0, how="all") # we want to keep float64 as the dtype, since the result of the 'mode' function is a float as well
         return redux
 
+    def density(self) -> Self:
+        assert self.mode == "sum", "Cannot compute densities for AnimalBrains whose slices' cell count were not summed."
+        markers_data = dict()
+        for marker in self.markers:
+            data = self.markers_data[marker] / self.areas
+            data.units = f"{marker}/{self.areas.units}"
+            markers_data[marker] = data
+        return AnimalBrain(None, markers_data=markers_data)
+
+    def percentage(self, marker: str) -> BrainData:
+        assert self.mode == "sum", "Cannot compute percentages for AnimalBrains whose slices' cell count were not summed."
+        if self.is_split:
+            hems = ("L", "R")
+        else:
+            hems = (None,)
+        markers_data = dict()
+        for marker in self.markers:
+            brainwide_cell_counts = sum((self.markers_data[marker].root(hem) for hem in hems))
+            data = self.markers_data[marker] / brainwide_cell_counts
+            data.units = f"{marker}/{marker} in root"
+            markers_data[marker] = data
+        return AnimalBrain(None, markers_data=markers_data)
+    
+    def relative_density(self, marker: str) -> BrainData:
+        assert self.mode == "sum", "Cannot compute relative densities for AnimalBrains whose slices' cell count were not summed."
+        if self.is_split:
+            hems = ("L", "R")
+        else:
+            hems = (None,)
+        markers_data = dict()
+        for marker in self.markers:
+            brainwide_area = sum((self.areas.root(hem) for hem in hems))
+            brainwide_cell_counts = sum((self.markers_data[marker].root(hem) for hem in hems))
+            data = (self.markers_data[marker] / self.markers_data["area"]) / (brainwide_cell_counts / brainwide_area)
+            data.units = f"{marker} density/root {marker} density"
+            markers_data[marker] = data
+        return AnimalBrain(None, markers_data=markers_data)
+
     def overlap_markers(self, marker1: str, marker2: str) -> Self:
         if self.mode != "sum" and self.mode != "mean":
-            raise ValueError("Cannot compute the overlapping of two markers if the AnimalBrain was not build by summing or averaging the detection of from all slices.")
+            raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not summed or averaged.")
         for m in (marker1, marker2):
             if m not in self.markers:
                 raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
@@ -101,11 +139,11 @@ class AnimalBrain:
             raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
         overlaps = dict()
         for m in (marker1, marker2):
-            m.metric = "%overlapping"
-            m.units = f"({marker1}+{marker2})/{m}"
             # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
-            overlaps[marker1] = (self.marker_data[both] / self.marker_data[marker1]).clip(upper=1)
-        return AnimalBrain(None, data=overlaps)
+            overlaps[marker1] = (self.markers_data[both] / self.markers_data[marker1]).clip(upper=1)
+            overlaps[marker1].metric = "%overlapping"
+            overlaps[marker1].units = f"({marker1}+{marker2})/{m}"
+        return AnimalBrain(None, markers_data=overlaps)
 
     def __simple_mode_name(self, mode: str) -> str:
         match mode:
@@ -119,7 +157,7 @@ class AnimalBrain:
                 return mode
     
     def to_pandas(self):
-        data = pd.concat({"area": self.areas.data, **{m: m_data.data for m,m_data in self.marker_data.items()}}, axis=1)
+        data = pd.concat({"area": self.areas.data, **{m: m_data.data for m,m_data in self.markers_data.items()}}, axis=1)
         data.columns.name = self.mode
         return data
 
@@ -138,8 +176,8 @@ class AnimalBrain:
             df = df.loc[:, df.columns != "area"]
         else:
             areas = None
-        marker_data = {marker: BrainData(data, animal_name, mode, None) for marker, data in df.items()}
-        return AnimalBrain(None, data=marker_data, areas=areas)
+        markers_data = {marker: BrainData(data, animal_name, mode, None) for marker, data in df.items()}
+        return AnimalBrain(None, markers_data=markers_data, areas=areas)
 
     @staticmethod
     def from_csv(animal_name, root_dir, mode):
@@ -155,11 +193,11 @@ class AnimalBrain:
     @staticmethod
     def filter_selected_regions(animal_brain: Self, AllenBrain: AllenBrainHierarchy) -> Self:
         brain = copy.copy(animal_brain)
-        brain.marker_data = {m: m_data.select_from_onthology(AllenBrain) for m, m_data in brain.marker_data.items()}
+        brain.markers_data = {m: m_data.select_from_onthology(AllenBrain) for m, m_data in brain.markers_data.items()}
         return brain
 
     @staticmethod
     def merge_hemispheres(animal_brain: Self) -> Self:
         brain = copy.copy(animal_brain)
-        brain.marker_data = {m: m_data.merge_hemispheres() for m, m_data in brain.marker_data.items()}
+        brain.markers_data = {m: m_data.merge_hemispheres() for m, m_data in brain.markers_data.items()}
         return brain
