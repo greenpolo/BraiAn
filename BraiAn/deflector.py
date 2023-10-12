@@ -5,9 +5,9 @@ def keep_type(F, obj, attr: str): # a function decorator
     # it creates a copy of obj and set the attr to the new result
     attr_obj = obj.__dict__[attr]
     def wrapper(*args, inplace=False, **kwargs): # on wrapped function call
+        args = [arg if type(arg) != type(obj) else arg.__dict__[attr] for arg in args]
+        kwargs = {kw: arg if type(arg) != type(obj) else arg.__dict__[attr] for kw,arg in kwargs.items()}
         result = F(*args, **kwargs)
-        # print("result:", type(result))
-        # print(f"attr ('{attr}'):", type(attr_obj))
         if type(result) == type(attr_obj):
             if inplace:
                 obj.__setattr__(attr, result)
@@ -43,7 +43,7 @@ def deflect(on_attribute: str, arithmetics=True):
         def __new__(meta, classname, supers, classdict):
             classdict["__getattr__"] = deflect_call(on_attribute, "__getattr__")
             if arithmetics:
-                for op in ["__add__", "__sub__", "__mul__", "__div__", "__invert__", "__neg__", "__pos__"]:
+                for op in ["__add__", "__sub__", "__mul__", "__floordiv__", "__truediv__", "__invert__", "__neg__", "__pos__"]:
                     classdict[op] = deflect_call(on_attribute, op)
             return type.__new__(meta, classname, supers, classdict)
     return Deflector
@@ -70,3 +70,4 @@ if __name__ == "__main__":
     print(f"c_ is (c_.clip(max=3)):", c_ is (c_.clip(max=3)))
     print(f"c_ is (c_.clip(max=3, inplace=True)):", c_ is (c_.clip(max=3, inplace=True)))
     print("c_.num:", c_.num)
+    print("c / c_:", r:=(c / c_), r.num)
