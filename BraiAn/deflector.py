@@ -38,12 +38,22 @@ def deflect_call(target: str, op: str):
             raise TypeError(f"unsupported operand type(s) for {op}")
     return op_wrapper
 
-def deflect(on_attribute: str, arithmetics=True):
+def deflect(on_attribute: str,
+            arithmetics=True,
+            container=True):
     class Deflector(type):
         def __new__(meta, classname, supers, classdict):
             classdict["__getattr__"] = deflect_call(on_attribute, "__getattr__")
             if arithmetics:
-                for op in ["__add__", "__sub__", "__mul__", "__floordiv__", "__truediv__", "__invert__", "__neg__", "__pos__"]:
+                # from https://docs.python.org/3.3/reference/datamodel.html#emulating-numeric-types
+                for op in ["__add__", "__sub__", "__mul__", "__truediv__", "__floordiv__",
+                           "__mod__", "__divmod__", "__pow__", "__lshift__", "__rshift__", 
+                           "__and__", "__xor__", "__or__", "__neg__", "__pos__", "__abs__",
+                           "__invert__"]:
+                    classdict[op] = deflect_call(on_attribute, op)
+            if container:
+                # from https://docs.python.org/3.3/reference/datamodel.html#emulating-container-types
+                for op in ["__len__", "__getitem__", "__setitem__", "__delitem__", "__iter__", "__reversed__", "__contains__"]:
                     classdict[op] = deflect_call(on_attribute, op)
             return type.__new__(meta, classname, supers, classdict)
     return Deflector
