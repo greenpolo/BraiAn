@@ -19,6 +19,13 @@ def keep_type(F, obj, attr: str): # a function decorator
         return result
     return wrapper
 
+def find_in_object(obj, attr):
+    for clazz in type(obj).__mro__:
+        if attr not in clazz.__dict__:
+            continue
+        return clazz.__dict__[attr].__get__(obj)
+    raise TypeError(f"unsupported operand type(s) for {attr}")
+
 def deflect_call(target: str, op: str):
     # most of arithmetic operation are redirected __getattr__ 
     def op_wrapper(obj, *args, **kwargs):
@@ -26,16 +33,15 @@ def deflect_call(target: str, op: str):
             raise AttributeError(f"'{type(obj)}' object has no attribute '{target}'")
         target_obj = obj.__dict__[target]
         if op == "__getattr__":
-            # __getattr__ is called with one argument and expects to return a property or a function
             attr = args[0]
-            deflected_fun = type(target_obj).__dict__[attr].__get__(target_obj)
+            # __getattr__ is called with one argument and expects to return a property or a function
+            deflected_fun = find_in_object(target_obj, attr)
             return keep_type(deflected_fun, obj, target)
-        elif op in type(target_obj).__dict__:
-            # other functions expect a result!
-            deflected_fun = type(target_obj).__dict__[op].__get__(target_obj)
-            return keep_type(deflected_fun, obj, target)(*args, **kwargs)
         else:
-            raise TypeError(f"unsupported operand type(s) for {op}")
+            # other functions expect a result!
+            deflected_fun = find_in_object(target_obj, op)
+            return keep_type(deflected_fun, obj, target)(*args, **kwargs)
+            
     return op_wrapper
 
 def deflect(on_attribute: str,
@@ -58,13 +64,24 @@ def deflect(on_attribute: str,
             return type.__new__(meta, classname, supers, classdict)
     return Deflector
 
-class C(metaclass=deflect(on_attribute="num", arithmetics=True)):
-    def __init__(self, n):
-        self.num = n
-    def __repr__(self) -> str:
-        return f"C(num={type(self.num)})"
-
 if __name__ == "__main__":
+    class C(metaclass=deflect(on_attribute="num", arithmetics=True)):
+        def __init__(self, n):
+            self.num = n
+        def __repr__(self) -> str:
+            return f"C(num={type(self.num)})"
+    
+    class A_():
+        def ciao(self):
+            print("A_")
+    class A(A_):
+        pass
+    class B(object):
+        def ciao(self):
+            print("B")
+    class D(A, B):
+        pass
+
     import numpy as np
     c = C(np.array([1,2,3]))
     print(f"c.num: {c.num}")
@@ -81,3 +98,5 @@ if __name__ == "__main__":
     print(f"c_ is (c_.clip(max=3, inplace=True)):", c_ is (c_.clip(max=3, inplace=True)))
     print("c_.num:", c_.num)
     print("c / c_:", r:=(c / c_), r.num)
+    D().ciao()
+    C(D()).ciao()
