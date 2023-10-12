@@ -1,17 +1,21 @@
 import copy
 
-def keep_type(F, obj, attr): # a function decorator        
+def keep_type(F, obj, attr: str): # a function decorator        
     # if the result of the wrapped function is of the same type as attr,
     # it creates a copy of obj and set the attr to the new result
     attr_obj = obj.__dict__[attr]
-    def wrapper(*args, **kwargs): # on wrapped function call
+    def wrapper(*args, inplace=False, **kwargs): # on wrapped function call
         result = F(*args, **kwargs)
-        print("result:", type(result))
-        print(f"attr ('{attr}'):", type(attr_obj))
+        # print("result:", type(result))
+        # print(f"attr ('{attr}'):", type(attr_obj))
         if type(result) == type(attr_obj):
-            _obj = copy.copy(obj)
-            _obj.__setattr__(attr, result)
-            return _obj
+            if inplace:
+                obj.__setattr__(attr, result)
+                return obj
+            else:
+                _obj = copy.copy(obj)
+                _obj.__setattr__(attr, result)
+                return _obj
         return result
     return wrapper
 
@@ -60,3 +64,9 @@ if __name__ == "__main__":
     print(a, type(a))
     a = (c + 2.1)
     print(a, type(a), a.num)
+    c_ = C(np.array([1,2,3]))
+    print(f"c_ is (c_ + 1):", c is (c + 1))
+    print(f"c_ is (c_.__add__(1, inplace=True)):", c_ is (c_.__add__(1, inplace=True)))
+    print(f"c_ is (c_.clip(max=3)):", c_ is (c_.clip(max=3)))
+    print(f"c_ is (c_.clip(max=3, inplace=True)):", c_ is (c_.clip(max=3, inplace=True)))
+    print("c_.num:", c_.num)
