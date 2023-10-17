@@ -6,7 +6,6 @@ Created on Wed Mar  9 22:28:08 2022
 @author: lukasvandenheuvel
 """
 
-import os
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -25,29 +24,22 @@ class PLS:
     - Ly (pd dataframe): latent variables of Y, i.e. projection of Y on u.
     '''
     
-    def __init__(self, group_1: AnimalGroup, group_2: AnimalGroup, regions: list[str], normalization: str) -> None:
+    def __init__(self, group_1: AnimalGroup, group_2: AnimalGroup, regions: list[str]) -> None:
         if len(group_1.markers) > 1 or len(group_2.markers) > 1:
             raise ValueError("PLS of AnimalGroups with multiple markers isn't implemented yet")
         assert group_1.is_comparable(group_2), "Group 1 and Group 2 are not comparable!\n\
 Please check that you're reading two groups that normalized on the same brain regions and on the same marker."
-        assert normalization in group_1.get_normalization_methods(), f"normalization method '{normalization}' not found.\n\
-Available normalizations methods are: {group_1.get_normalization_methods()}"
-        assert normalization in group_2.get_normalization_methods(), f"normalization method '{normalization}' not found.\n\
-Available normalizations methods are: {group_2.get_normalization_methods()}"
         # Fill a data matrix
         group_1_animals = group_1.get_animals()
         group_2_animals = group_2.get_animals()
-        animal_list = list(group_1_animals.union(group_2_animals))
+        animal_list = list(set(group_1_animals).union(set(group_2_animals)))
         animal_list.sort()
         data = pd.DataFrame(index=regions+["group"], columns=animal_list)
 
-        for animal in group_1_animals:
-            data.loc[regions,animal] = group_1.select(regions, animal).reset_index(level=1, drop=True)[group_1.markers[0]][normalization]
-            data.loc["group",animal] = True
-
-        for animal in group_2_animals:
-            data.loc[regions,animal] = group_2.select(regions, animal).reset_index(level=1, drop=True)[group_2.markers[0]][normalization]
-            data.loc["group",animal] = False
+        data.loc[regions,group_1.get_animals()] = group_1.select(regions).to_pandas(group_1.markers[0])
+        data.loc["group",group_1.get_animals()] = True
+        data.loc[regions,group_2.get_animals()] = group_2.select(regions).to_pandas(group_2.markers[0])
+        data.loc["group",group_2.get_animals()] = False
 
         self.X = data.loc[regions].T.dropna(axis="columns", how="any").astype("float64", copy=False)
         self.y = data.loc["group"].T.astype("bool", copy=False)

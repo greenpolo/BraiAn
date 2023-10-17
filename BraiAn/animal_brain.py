@@ -130,6 +130,11 @@ class AnimalBrain:
             data.remove_region(*region, inplace=True, fillnan=True)
         self.areas.remove_region(*region, inplace=True, fillnan=True)
 
+    def remove_smaller_subregions(self, area_threshold, brain_onthology: AllenBrainHierarchy) -> None:
+        small_regions = {smaller_region for small_region in self.areas.data[self.areas.data <= area_threshold].index
+                                        for smaller_region in brain_onthology.list_all_subregions(small_region)}
+        self.remove_region(*small_regions)
+
     def get_regions(self):
         # assumes areas' and all markers' BrainData are synchronized
         return self.areas.get_regions()
@@ -180,21 +185,21 @@ class AnimalBrain:
         else:
             return self
 
-    def select_from_list(self, regions: list[str], fill=False, inplace=False) -> Self:
-        markers_data = {marker: m_data.select_from_list(regions, fill=fill, inplace=inplace) for marker, m_data in self.markers_data.items()}
-        areas = self.areas.select_from_list(regions, fill=fill, inplace=inplace)
+    def select_from_list(self, regions: list[str], fill_nan=False, inplace=False) -> Self:
+        markers_data = {marker: m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for marker, m_data in self.markers_data.items()}
+        areas = self.areas.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
             return AnimalBrain(None, markers_data=markers_data, areas=areas)
         else:
             return self
     
-    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy, fill=False, *args, **kwargs) -> Self:
+    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy, fill_nan=False, *args, **kwargs) -> Self:
         selected_allen_regions = brain_onthology.get_selected_regions()
-        if not fill:
+        if not fill_nan:
             selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
         else:
             selectable_regions = selected_allen_regions
-        return self.select_from_list(selectable_regions, fill=fill, *args, **kwargs)
+        return self.select_from_list(selectable_regions, fill_nan=fill_nan, *args, **kwargs)
 
     def get_units(self, marker=None):
         if len(self.markers) == 1:

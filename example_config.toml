@@ -23,10 +23,10 @@ excluded-branches = ["retina", "VS", "grv", "fiber tracts", "CB"]
 
 [brains]
 area-column = "Area um^2"       # column in QuPath's result CSVs that specifies the area of the regions in µm²
-tracer-column = "Num AF647"     # column in QuPath's result CSVs that specifies the number of detection
-marker = "CFos"                 # name of the marker QuPath counted
+tracer-columns = "Num AF647"    # columns in QuPath's result CSVs that specifies the number of detection (can be a string or a list)
+markers = "CFos"                # names of the marker QuPath counted (can be a string or a list)
 slices-aggregation-mode = "sum" # available options are: 'sum', 'mean'/'avg', 'std', 'variation'/'cvar'
-normalization = "Density"       # call get_normalization_methods() on a AnimalGroup object to know its available normalization methods
+normalization = "Density"
                                 # by default, options are: 'Density', 'Percentage', 'RelativeDensity'
 
 [connectome]

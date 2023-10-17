@@ -83,26 +83,9 @@ class AnimalGroup:
     def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy, fill=True, inplace=True) -> None:
         for brain in self.animals:
             brain.sort_by_onthology(brain_onthology, fill=fill, inplace=True)
-
-    def get_normalization_methods(self):
-        raise DeprecationWarning("This method is deprecated")
-
-    def get_normalized_data(self, normalization: str, regions: list[str]=None, marker=None):
-        raise DeprecationWarning("This method is deprecated")
-        # if len(self.markers) == 1:
-        #     marker = self.markers[0]
-        # assert marker in self.markers, f"Could not get normalized data for marker '{marker}'!"
-        # if not regions:
-        #     # we have to reindex the columns (brain regions) because of this bug:
-        #     # https://github.com/pandas-dev/pandas/issues/15105
-        #     regions_index = self.data.index.get_level_values(0).unique()
-        #     return self.data[marker][normalization].unstack(level=0).reindex(regions_index, axis=1)
-        # else:
-        #     # if selecting a subset of regions first, the ording is retained
-        #     return self.select(regions)[marker][normalization].unstack(level=0)
     
     def get_animals(self):
-        return {brain.name for brain in self.animals}
+        return [brain.name for brain in self.animals]
 
     def get_regions(self) -> list[str]:
         # NOTE: all animals of the group are expected to have the same regions!
@@ -124,41 +107,30 @@ class AnimalGroup:
             return self
 
     def is_comparable(self, other) -> bool:
-        if type(other) != AnimalGroup:
+        if not isinstance(other, AnimalGroup):
             return False
         return set(self.markers) == set(other.markers) and \
                 self.is_split == other.is_split and \
                 self.metric == other.metric # and \
                 # set(self.get_regions()) == set(other.get_regions())
     
-    def select(self, regions: list[str], fill=False, inplace=False, animal=None) -> Self:
-        if animal is not None:
-            raise DeprecationWarning("This method is deprecated")
-        animals = [brain.select_from_list(regions, fill=fill, inplace=inplace) for brain in animals]
+    def select(self, regions: list[str], fill_nan=False, inplace=False) -> Self:
+        animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for brain in self.animals]
         if not inplace:
             # self.metric == animals.metric -> no brain.analyse() is computed
             return AnimalGroup(self.name, animals, metric=self.metric, brain_onthology=None, fill_nan=False)
         else:
             self.animals = animals
-            self.mean = self._update_da_update_meanta()
+            self.mean = self._update_mean()
             return self
 
     def select_animal(self, animal_name: str):
         return next((brain for brain in self.animals if brain.name == animal_name))
 
-    def remove_smaller_subregions(self, area_threshold, selected_regions: list[str], AllenBrain: AllenBrainHierarchy) -> None:
-        raise DeprecationWarning("This method is deprecated")
-        # for animal in self.get_animals():
-        #     self.remove_smaller_subregions_in_animal(area_threshold, animal, selected_regions, AllenBrain)
-
-    def remove_smaller_subregions_in_animal(self, area_threshold, animal,
-                                            selected_regions: list[str],
-                                            AllenBrain: AllenBrainHierarchy) -> None:
-        raise DeprecationWarning("This method is deprecated")
-        # animal_areas = self.select(selected_regions, animal=animal)["area"]["area"]
-        # small_regions = [smaller_region for small_region    in animal_areas.index[animal_areas <= area_threshold].get_level_values(0)
-        #                                 for smaller_region  in AllenBrain.list_all_subregions(small_region)]
-        # self.data.loc(axis=0)[small_regions, animal] = np.nan
+    def remove_smaller_subregions(self, *args, **kwargs) -> None:
+        for brain in self.animals:
+            brain.remove_smaller_subregions(*args, **kwargs)
+        self.mean = self._update_mean()
 
     def get_units(self, marker=None):
         if len(self.markers) == 1:
@@ -193,7 +165,6 @@ class AnimalGroup:
 
     @staticmethod
     def from_csv(group_name, root_dir, file_name):
-        # raise DeprecationWarning("This method is deprecated")
         # # read CSV
         df = pd.read_csv(os.path.join(root_dir, file_name), sep="\t", header=0, index_col=[0,1])
         df.columns.name = df.index.names[0]

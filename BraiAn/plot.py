@@ -16,9 +16,12 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         animal_size: int, color: str, y_offset, use_acronyms=True) -> None:
     if len(group.markers) > 1:
         raise ValueError("Plotting of AnimalGroups with multiple markers isn't implemented yet")
-    avg = group.mean.data
-    sem = group.combine(pd.DataFrame.sem, numeric_only=True)
-    y_axis, acronyms = pd.factorize(group.data.loc[selected_regions].index.get_level_values(0))
+    avg = group.mean[group.markers[0]].data
+    sem = group.combine(pd.DataFrame.sem, numeric_only=True)[group.markers[0]].data
+    # selected_regions = np.asarray(group.get_regions())
+    # selected_regions = selected_regions[np.isin(selected_regions, regions)]
+    regions_data = group.select(selected_regions).to_pandas()
+    y_axis, acronyms = pd.factorize(regions_data.index.get_level_values(0))
     full_names = [AllenBrain.full_name[acronym] for acronym in acronyms]
     if not use_acronyms:
         ticklabels = full_names
@@ -39,7 +42,6 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                 )
     )
     # Scatterplot (animals)
-    regions_data = group.select(selected_regions).animals_data
     animal_regions = [AllenBrain.full_name[acronym] for acronym in regions_data.index.get_level_values(0)]
     animal_names = regions_data.index.get_level_values(1)
     fig.add_trace(go.Scatter(
@@ -47,7 +49,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         y = y_axis + y_offset,
                         x = regions_data[group.markers[0]],
                         name = f"{group.name} animals",
-                        customdata = np.stack((animal_regions, animal_names, regions_data["area"]["area"]), axis=-1),
+                        customdata = np.stack((animal_regions, animal_names, regions_data["area"]), axis=-1),
                         hovertemplate = enum_to_str(group.metric)+": %{x:.2f} "+group.get_units()+"<br>Area: %{customdata[2]} mm²<br>Region: %{customdata[0]}<br>Animal: %{customdata[1]}",
                         opacity=0.5,
                         marker=dict(
@@ -65,7 +67,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
 
 UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
 
-def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
+def plot_groups(AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
                 selected_regions: list[str], plot_title="", title_size=20,
                 axis_size=15, animal_size=5, use_acronyms=True,
                 colors=DEFAULT_PLOTLY_COLORS, width=900,
@@ -80,7 +82,7 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
     max_bar_offset = region_axis_width - group_bar_width/2
     y_offsets = nrange(-max_bar_offset, max_bar_offset, n_groups)
     for group, y_offset, color in zip(groups, y_offsets, colors):
-        ticklabels = plot_animal_group(fig, group, normalization, AllenBrain, selected_regions, animal_size, color, y_offset, use_acronyms=use_acronyms)
+        ticklabels = plot_animal_group(fig, group, AllenBrain, selected_regions, animal_size, color, y_offset, use_acronyms=use_acronyms)
     
     # Plot major divisions
     active_mjd = tuple(AllenBrain.get_areas_major_division(*selected_regions).values())

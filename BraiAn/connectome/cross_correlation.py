@@ -14,7 +14,7 @@ class CrossCorrelation:
         assert not min_animals or (min_animals >= 2), "Invalid minimum number of animals needed for cross correlation. It must be >= 2."
         if len(animal_group.markers) > 1:
             raise ValueError("Cross Correlation of AnimalGroups with multiple markers isn't implemented yet")
-        normalized_data = animal_group.get_normalized_data(normalization, regions)
+        normalized_data = animal_group.select(regions).to_pandas(animal_group.markers[0]).T
         self.n = len(normalized_data)
         if not min_animals:
             # if None, all animals must have the region

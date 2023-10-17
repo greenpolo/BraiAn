@@ -7,12 +7,7 @@ def as_prism_data(normalization, group1: AnimalGroup, group2: AnimalGroup, Allen
         raise ValueError("Exporting AnimalGroups with multiple markers as Prism data isn't implemented yet")
     if not group1.is_comparable(group2):
         raise ImportError("Group 1 and Group 2 are not comparable! Please check that both groups are counting the same marker")
-    groups = [group.name for group in (group1, group2) for _ in group.get_animals()]
-    animals = [animal for group in (group1, group2) for animal in sorted(list(group.get_animals()))]
-    df = pd.DataFrame(columns=pd.MultiIndex.from_arrays([groups, animals]))
-    for group in (group1, group2):
-        for animal in group.data.index.unique(1):
-            df[group.name, animal] = group.data.xs(animal, axis=0, level=1, drop_level=True)[group.markers[0]][normalization]
+    df = pd.concat({group1.name: group1.to_pandas(group1.markers[0]), group2.name: group2.to_pandas(group2.markers[0])}, axis=1)
     major_divisions = AllenBrain.get_areas_major_division(*df.index)
     df["major_divisions"] = [major_divisions[region] for region in df.index]
     df.set_index("major_divisions", append=True, inplace=True)
