@@ -7,17 +7,17 @@ import numpy as np
 from .utils import nrange
 from .pls import PLS
 from .sliced_brain import merge_sliced_hemispheres, SlicedBrain
-from .animal_brain import AnimalBrain
+from .animal_brain import AnimalBrain, enum_to_str
 from .animal_group import AnimalGroup
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 
-def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
+def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         AllenBrain: AllenBrainHierarchy, selected_regions: list[str],
                         animal_size: int, color: str, y_offset, use_acronyms=True) -> None:
     if len(group.markers) > 1:
         raise ValueError("Plotting of AnimalGroups with multiple markers isn't implemented yet")
-    avg = group.group_by_region(marker=group.markers[0], method=normalization).mean(numeric_only=True)
-    sem = group.group_by_region(marker=group.markers[0], method=normalization).sem(numeric_only=True)
+    avg = group.mean.data
+    sem = group.combine(pd.DataFrame.sem, numeric_only=True)
     y_axis, acronyms = pd.factorize(group.data.loc[selected_regions].index.get_level_values(0))
     full_names = [AllenBrain.full_name[acronym] for acronym in acronyms]
     if not use_acronyms:
@@ -30,7 +30,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
                         x = avg.loc[selected_regions],
                         name = f"{group.name} mean",
                         customdata = np.stack((full_names, sem.loc[selected_regions]), axis=-1),
-                        hovertemplate = normalization+" mean: %{x:2f}±%{customdata[1]:2f} "+group.get_units(normalization)+"<br>Region: %{customdata[0]}<br>Group: "+group.name,
+                        hovertemplate = enum_to_str(group.metric)+" mean: %{x:2f}±%{customdata[1]:2f} "+group.get_units()+"<br>Region: %{customdata[0]}<br>Group: "+group.name,
                         marker_color=color,
                         error_x = dict(
                             type="data",
@@ -39,16 +39,16 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup, normalization: str,
                 )
     )
     # Scatterplot (animals)
-    regions_data = group.select(selected_regions)
+    regions_data = group.select(selected_regions).animals_data
     animal_regions = [AllenBrain.full_name[acronym] for acronym in regions_data.index.get_level_values(0)]
     animal_names = regions_data.index.get_level_values(1)
     fig.add_trace(go.Scatter(
                         mode = "markers",
                         y = y_axis + y_offset,
-                        x = regions_data[group.markers[0]][normalization],
+                        x = regions_data[group.markers[0]],
                         name = f"{group.name} animals",
                         customdata = np.stack((animal_regions, animal_names, regions_data["area"]["area"]), axis=-1),
-                        hovertemplate = normalization+": %{x:.2f} "+group.get_units(normalization)+"<br>Area: %{customdata[2]} mm²<br>Region: %{customdata[0]}<br>Animal: %{customdata[1]}",
+                        hovertemplate = enum_to_str(group.metric)+": %{x:.2f} "+group.get_units()+"<br>Area: %{customdata[2]} mm²<br>Region: %{customdata[0]}<br>Animal: %{customdata[1]}",
                         opacity=0.5,
                         marker=dict(
                             #color="rgb(0,255,0)",
@@ -121,7 +121,7 @@ def plot_groups(normalization: str, AllenBrain: AllenBrainHierarchy, *groups: An
             tickfont=dict(size=axis_size)
         ),
         xaxis=dict(
-            title=groups[0].get_plot_title(normalization),
+            title=groups[0].get_plot_title(),
             tickfont=dict(size=axis_size),
             rangemode="tozero",
             side="top"
@@ -166,20 +166,19 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups: list[SlicedBrain]
     for i, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[i-1] if i > 0 else 0
         group_cvar_brains = [AnimalBrain(sliced_brain, mode="cvar", hemisphere_distinction=False) for sliced_brain in group_slices]
-        group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, AllenBrain).data for brain in group_cvar_brains]
+        group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, AllenBrain) for brain in group_cvar_brains]
 
         for j, cvars in enumerate(group_cvar_brains):
-            above_threshold_filter = cvars > cv_threshold
-            n_areas_above_thr.extend(above_threshold_filter.sum(axis=0)) # adds, for all markers, the number of regions above threshold
             # Scatterplot (animals)
-            for m, marker_cvar in enumerate(cvars.columns):
-                marker_cvar_filter = above_threshold_filter[marker_cvar]
+            for m, marker_cvar in enumerate(cvars.markers):
+                marker_cvar_filter = cvars[marker_cvar].data > cv_threshold
+                n_areas_above_thr.append(marker_cvar_filter.sum())
                 fig.add_trace(
                     go.Scatter(
                         mode = "markers",
-                        y = cvars[marker_cvar][marker_cvar_filter],
+                        y = cvars[marker_cvar].data[marker_cvar_filter],
                         x = [n_brains_before+(len(group_slices[0].markers)*j)+m]*marker_cvar_filter.sum(),
-                        text = cvars.index[marker_cvar_filter],
+                        text = cvars[marker_cvar].data.index[marker_cvar_filter],
                         opacity=0.7,
                         marker=dict(
                             size=7,
@@ -272,7 +271,7 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
                 )
     fig.add_trace(
         go.Bar(
-            y=[brain.data.loc[region_name, marker] / brain.data.loc[region_name, "area"] for brain in summed_brains for marker in brain.markers],
+            y=[brain[marker][region_name] / brain.areas[region_name] for brain in summed_brains for marker in brain.markers],
             marker_color=colors,
             name=f"animal's markers density"
         )

@@ -90,7 +90,9 @@ class SlicedBrain:
         return images
     
     def concat_slices(self, densities=False) -> pd.DataFrame:
-        return pd.concat([slice.data if not densities else slice.markers_density for slice in self.slices])
+        return pd.concat([slice.data if not densities else
+                          pd.concat((slice.data["area"], slice.markers_density), axis=1)
+                          for slice in self.slices])
     
     def handle_brainslice_error(self, exception, mode, results_file, regions_to_exclude_file):
         assert issubclass(type(exception), BrainSliceFileError), ""

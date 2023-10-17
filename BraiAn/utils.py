@@ -11,7 +11,7 @@ def cache(filepath, url):
     with open(filepath, "wb") as f:
         f.write(resp.content)
 
-def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False, sep="\t", decimal=".") -> None:
+def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False, sep="\t", decimal=".", **kwargs) -> None:
     os.makedirs(output_path, exist_ok=True)
     file_path = os.path.join(output_path, file_name)
     if os.path.exists(file_path):
@@ -19,16 +19,17 @@ def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False,
             raise FileExistsError(f"The file {file_name} already exists in {output_path}!")
         else:
             print(f"WARNING: The file {file_name} already exists in {output_path}. Overwriting previous CSV!")
-    df.to_csv(file_path, sep=sep, decimal=decimal, mode="w")
+    df.to_csv(file_path, sep=sep, decimal=decimal, mode="w", **kwargs)
 
 def regions_to_plot(pls=None, salience_threshold=None,
                     groups: list=None, normalization: str=None, low_threshold: float=0.0, top_threshold=np.inf) -> list[str]:
+    assert all((len(group.markers) == 1 for group in groups)), "Multiple markers not supported"
     if pls is not None and salience_threshold is not None:
         salience_scores = pls.above_threshold(salience_threshold)
         return list(salience_scores.index)
     elif groups is not None and normalization is not None \
         and low_threshold is not None and top_threshold is not None:
-        groups_means = [group.group_by_region(method=normalization).mean(numeric_only=True) for group in groups]
+        groups_means = [group.mean[group.markers[0]] for group in groups]
         mean_sum = sum(groups_means)
         return mean_sum[(mean_sum > low_threshold) & (mean_sum < top_threshold) & (mean_sum.notnull())].sort_values().index.to_list()
     raise ValueError("You must specify either the ('pls', 'salience_threshold') or ('groups', 'normalization', 'low_threshold') parameters.")

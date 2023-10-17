@@ -1,191 +1,201 @@
+import copy
 import os
 import numpy as np
 import pandas as pd
-from itertools import product
+from itertools import product, chain
+from functools import reduce
+from typing import Self
 
+from .brain_data import BrainData
 from .brain_hierarchy import AllenBrainHierarchy
-from .animal_brain import AnimalBrain
+from .animal_brain import AnimalBrain, BrainMetrics, str_to_enum, enum_to_str
 from .utils import save_csv
 
+def common_regions(animals: list[AnimalBrain]) -> list[str]:
+    all_regions = [set(brain.get_regions()) for brain in animals]
+    return list(reduce(set.__or__, all_regions))
+
+def have_same_regions(animals: list[AnimalBrain]) -> bool:
+    regions = animals[0].get_regions()
+    all_regions = [set(brain.get_regions()) for brain in animals]
+    return len(reduce(set.__and__, all_regions)) ==  len(regions)
+
 class AnimalGroup:
-    def __init__(self, name: str, \
-                animals: list[AnimalBrain]=None, AllenBrain: AllenBrainHierarchy=None, \
-                markers=None, data:pd.DataFrame=None, \
-                hemisphere_distinction=False) -> None:
+    def __init__(self, name: str, animals: list[AnimalBrain], metric: BrainMetrics, merge_hemispheres=False,
+                 brain_onthology: AllenBrainHierarchy=None, fill_nan=True, **kwargs) -> None:
         self.name = name
-        if markers is not None and data is not None:
-            self.markers = [markers] if isinstance(markers, str) else markers
-            self.data = data
-            self.n = len(self.get_animals())
-            return
-        elif not animals or not AllenBrain:
-            raise ValueError("You must specify the AnimalBrain list and the AllenBrainHierarchy.")
-        assert all([brain.mode == "sum" for brain in animals]), "Can't normalize AnimalBrains whose slices' cell count were not summed."
+        # if not animals or not brain_onthology:
+        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_onthology: AllenBrainHierarchy.")
         assert len(animals) > 0, "Inside the group there must be at least one animal."
-        self.markers = animals[0].markers
+        self.markers = np.asarray(animals[0].markers)
         assert all([marker in self.markers for brain in animals for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
-        if hemisphere_distinction:
-            raise NotImplementedError("AnimalGroup does not (yet) support split hemispheres!")
-        animals = [AnimalBrain.merge_hemispheres(animal_brain) for animal_brain in animals]
-        self.data = self.assemble_group(animals, AllenBrain)
-        self.n = len(self.get_animals())
+        self.metric = str_to_enum(metric) if type(metric) != BrainMetrics else metric
+        assert all([brain.mode == animals[0].mode for brain in animals]), "All AnimalBrains of a group must be hava been processed the same way."
+        self.n = len(animals)
+        self.is_split = animals[0].is_split
+        assert all(self.is_split == brain.is_split for brain in animals), "All AnimalBrains of a group must either have spit hemispheres or not."
+        if self.is_split and merge_hemispheres:
+            merge = AnimalBrain.merge_hemispheres
+        else:
+            merge = lambda brain: brain
+        if animals[0].mode != self.metric:
+            analyse = lambda brain: brain.analyse(self.metric, **kwargs)
+        else:
+            analyse = lambda brain: brain
+        if brain_onthology is not None:
+            sort = lambda brain: brain.sort_by_onthology(brain_onthology, fill=fill_nan, inplace=False)
+        elif fill_nan:
+            regions = common_regions(animals)
+            sort = lambda brain: brain.select_from_list(regions, fill=True, inplace=False)
+        elif have_same_regions(animals):
+            sort = lambda brain: brain
+        else:
+            # now BrainGroup.get_regions(), which returns the regions of the first animal, is correct
+            raise ValueError("Cannot set fill_nan=False and brain_onthology=None if all animals of the group don't have the same brain regions.")
+        self.animals: list[AnimalBrain] = [sort(analyse(merge(brain))) for brain in animals]
+        self.mean = self._update_mean()
+    
+    def __str__(self) -> str:
+        return f"AnimalGroup(metric={self.metric}, n={self.n})"
 
-    def assemble_group(self, animals, AllenBrain) -> pd.DataFrame:
-        '''
-        returns a DataFrame where, for each region and for each animal, gives:
-        - the percentage
-        - the density
-        - the relative density
-        If a brain region is not present in (one/any) animal, it fills every value with NaN
+    def _update_mean(self) -> dict:
+        return {marker: BrainData.mean(*[brain[marker] for brain in self.animals]) for marker in self.markers}
 
-        NOTE: The brain regions are sorted by Breadth-First in the AllenBrain hierarchy
-        '''
-        all_animals = dict()
-        for brain in animals:
-            all_columns = [AnimalGroup.normalize_animal(brain, marker) for marker in brain.markers]
-            area_col = brain.data["area"].to_frame()
-            area_col.columns = pd.MultiIndex.from_tuples([("area", "area")])
-            all_animals[brain.name] = pd.concat([area_col]+all_columns, axis=1)
-        all_animals = pd.concat(all_animals, join="outer") # dict to pd.DataFrame
-        all_animals = all_animals.reorder_levels([1,0], axis=0)
-        ordered_indices = product(AllenBrain.list_all_subregions("root", mode="depth"), [animal.name for animal in animals])
-        return all_animals.reindex(ordered_indices, fill_value=np.nan)
+    def combine(self, op, **kwargs):
+        return {marker: BrainData.merge(*[brain[marker] for brain in self.animals], op=op, **kwargs) for marker in self.markers}
 
-    @staticmethod
-    def normalize_animal(animal_brain, marker) -> AnimalBrain:
-        '''
-        Do normalization of the cell counts for one marker.
-        The marker can be any column name of brain_df, e.g. "CFos".
-        The output will be a dataframe with three columns: "Density", "Percentage" and "RelativeDensity".
-        Each row is one of the original brain regions
-        '''
-
-        # Init dataframe
-        columns = ["Density","Percentage","RelativeDensity"]
-        norm_cell_counts = pd.DataFrame(np.nan, index=animal_brain.data.index, columns=columns)
-
-        # Get the the brainwide area and cell counts (corresponding to the root)
-        brainwide_area = animal_brain.data["area"]["root"]
-        brainwide_cell_counts = animal_brain.data[marker]["root"]
-
-        # Do the normalization for each column seperately.
-        norm_cell_counts["Density"] = animal_brain.data[marker] / animal_brain.data["area"]
-        norm_cell_counts["Percentage"] = animal_brain.data[marker] / brainwide_cell_counts 
-        norm_cell_counts["RelativeDensity"] = (animal_brain.data[marker] / animal_brain.data["area"]) / (brainwide_cell_counts / brainwide_area)
-
-        norm_cell_counts.columns = pd.MultiIndex.from_product([[marker], norm_cell_counts.columns])
-        return norm_cell_counts
+    def to_pandas(self, marker=None):
+        if marker in self.markers:
+            df = pd.concat({brain.name: brain.markers_data[marker].data for brain in self.animals}, join="outer", axis=1)
+            df.columns.name = enum_to_str(self.metric)
+            return df
+        df = {"area": pd.concat({brain.name: brain.areas.data for brain in self.animals}, join="outer", axis=0)}
+        for marker in self.markers:
+            all_animals = pd.concat({brain.name: brain.markers_data[marker].data for brain in self.animals}, join="outer", axis=0)
+            df[marker] = all_animals
+        df = pd.concat(df, join="outer", axis=1)
+        df = df.reorder_levels([1,0], axis=0)
+        ordered_indices = product(self.get_regions(), [animal.name for animal in self.animals])
+        df = df.reindex(ordered_indices)
+        df.columns.name = enum_to_str(self.metric)
+        return df
+    
+    def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy, fill=True, inplace=True) -> None:
+        for brain in self.animals:
+            brain.sort_by_onthology(brain_onthology, fill=fill, inplace=True)
 
     def get_normalization_methods(self):
-        return list(self.data[self.markers[0]].columns)
+        raise DeprecationWarning("This method is deprecated")
 
     def get_normalized_data(self, normalization: str, regions: list[str]=None, marker=None):
-        assert normalization in self.get_normalization_methods(), f"Invalid normalization method '{normalization}'"
-        if len(self.markers) == 1:
-            marker = self.markers[0]
-        else:
-            assert marker in self.markers, f"Could not get normalized data for marker '{marker}'!"
-        if not regions:
-            # we have to reindex the columns (brain regions) because of this bug:
-            # https://github.com/pandas-dev/pandas/issues/15105
-            regions_index = self.data.index.get_level_values(0).unique()
-            return self.data[marker][normalization].unstack(level=0).reindex(regions_index, axis=1)
-        else:
-            # if selecting a subset of regions first, the ording is retained
-            return self.select(regions)[marker][normalization].unstack(level=0)
+        raise DeprecationWarning("This method is deprecated")
+        # if len(self.markers) == 1:
+        #     marker = self.markers[0]
+        # assert marker in self.markers, f"Could not get normalized data for marker '{marker}'!"
+        # if not regions:
+        #     # we have to reindex the columns (brain regions) because of this bug:
+        #     # https://github.com/pandas-dev/pandas/issues/15105
+        #     regions_index = self.data.index.get_level_values(0).unique()
+        #     return self.data[marker][normalization].unstack(level=0).reindex(regions_index, axis=1)
+        # else:
+        #     # if selecting a subset of regions first, the ording is retained
+        #     return self.select(regions)[marker][normalization].unstack(level=0)
     
     def get_animals(self):
-        return {index[1] for index in self.data.index}
+        return {brain.name for brain in self.animals}
 
-    def get_all_regions(self):
-        return self.data.index.get_level_values(0)
+    def get_regions(self) -> list[str]:
+        # NOTE: all animals of the group are expected to have the same regions!
+        # if not have_same_regions(animals):
+        #     # NOTE: if the animals of the AnimalGroup were not sorted by onthology, the order is not guaranteed to be significant
+        #     print(f"WARNING: animals of {self} don't have the same brain regions. "+\
+        #           "The order of the brain regions is not guaranteed to be significant. It's better to first call sort_by_onthology()")
+        #     return list(reduce(set.union, all_regions))
+        #     # return set(chain(*all_regions))
+        return self.animals[0].get_regions()
 
-    def get_regions(self):
-        return list(self.get_all_regions().unique())
+    def merge_hemispheres(self, inplace=False):
+        animals = [AnimalBrain.merge_hemispheres(brain) for brain in self.animals]
+        if not inplace:
+            return AnimalGroup(self.name, animals, metric=self.metric, brain_onthology=None, fill_nan=False)
+        else:
+            self.animals = animals
+            self.mean = self._update_mean()
+            return self
 
     def is_comparable(self, other) -> bool:
         if type(other) != AnimalGroup:
             return False
         return set(self.markers) == set(other.markers) and \
-                set(self.get_regions()) == set(other.get_regions())
-
-    def select(self, selected_regions: list[str], animal=None) -> pd.DataFrame:
-        if animal is None:
-            animal = list(self.get_animals())
-        # return self.data.loc(axis=0)[selected_regions, animal].reset_index(level=1, drop=True)
-        selected = self.data.loc(axis=0)[selected_regions, animal]
-        if len(self.markers) == 1:
-            return selected[self.markers[0]]
+                self.is_split == other.is_split and \
+                self.metric == other.metric # and \
+                # set(self.get_regions()) == set(other.get_regions())
+    
+    def select(self, regions: list[str], fill=False, inplace=False, animal=None) -> Self:
+        if animal is not None:
+            raise DeprecationWarning("This method is deprecated")
+        animals = [brain.select_from_list(regions, fill=fill, inplace=inplace) for brain in animals]
+        if not inplace:
+            # self.metric == animals.metric -> no brain.analyse() is computed
+            return AnimalGroup(self.name, animals, metric=self.metric, brain_onthology=None, fill_nan=False)
         else:
-            return selected
+            self.animals = animals
+            self.mean = self._update_da_update_meanta()
+            return self
+
+    def select_animal(self, animal_name: str):
+        return next((brain for brain in self.animals if brain.name == animal_name))
 
     def remove_smaller_subregions(self, area_threshold, selected_regions: list[str], AllenBrain: AllenBrainHierarchy) -> None:
-        for animal in self.get_animals():
-            self.remove_smaller_subregions_in_animal(area_threshold, animal, selected_regions, AllenBrain)
+        raise DeprecationWarning("This method is deprecated")
+        # for animal in self.get_animals():
+        #     self.remove_smaller_subregions_in_animal(area_threshold, animal, selected_regions, AllenBrain)
 
     def remove_smaller_subregions_in_animal(self, area_threshold, animal,
                                             selected_regions: list[str],
                                             AllenBrain: AllenBrainHierarchy) -> None:
-        animal_areas = self.select(selected_regions, animal=animal)["area"]["area"]
-        small_regions = [smaller_region for small_region    in animal_areas.index[animal_areas <= area_threshold].get_level_values(0)
-                                        for smaller_region  in AllenBrain.list_all_subregions(small_region)]
-        self.data.loc(axis=0)[small_regions, animal] = np.nan
+        raise DeprecationWarning("This method is deprecated")
+        # animal_areas = self.select(selected_regions, animal=animal)["area"]["area"]
+        # small_regions = [smaller_region for small_region    in animal_areas.index[animal_areas <= area_threshold].get_level_values(0)
+        #                                 for smaller_region  in AllenBrain.list_all_subregions(small_region)]
+        # self.data.loc(axis=0)[small_regions, animal] = np.nan
 
-    def group_by_region(self, marker=None, method=None):
-        if marker is None:
-            if method is None:
-                data = self.data[self.markers]
-            else:
-                data = self.data.loc[:,(self.markers, method)]
-        else:
-            data = self.data[marker]
-            if method is not None:
-                data = data[method]
-        # if method == None and marker == None -> pd.DataFrame
-        # else -> pd.Series
-        return data.groupby(level=0)
-
-    def get_units(self, normalization, marker=None):
+    def get_units(self, marker=None):
         if len(self.markers) == 1:
             marker = self.markers[0]
         else:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
-        match normalization:
-            case "Density":
-                return f"#{marker}/mm²"
-            case "Percentage" | "RelativeDensity":
-                return "" # both are percentages between 0 and 1
-            case _:
-                raise ValueError(f"Normalization methods available are: {', '.join(self.get_normalization_methods())}")
+        return self.animals[0].get_units(marker)
 
-    def get_plot_title(self, normalization, marker=None):
+    def get_plot_title(self, marker=None):
         if len(self.markers) == 1:
             marker = self.markers[0]
         else:
             assert marker in self.markers, f"Could not get the plot title for marker '{marker}'!"
-        match normalization:
-            case "Density":
+        match self.metric:
+            case BrainMetrics.DENSITY:
                 return f"[#{marker} / area]"
-            case "Percentage":
+            case BrainMetrics.PERCENTAGE:
                 return f"[#{marker} / brain]"
-            case "RelativeDensity":
+            case BrainMetrics.RELATIVE_DENSITY:
                 return f"[#{marker} / area] / [{marker} (brain) / area (brain)]"
             case _:
-                raise ValueError(f"Normalization methods available are: {', '.join(self.get_normalization_methods())}")
+                raise ValueError(f"Don't know the appropriate title for {self.metric}")
 
     def to_csv(self, output_path, file_name, overwrite=False) -> None:
-        save_csv(self.data, output_path, file_name, overwrite=overwrite)
+        df = self.to_pandas()
+        save_csv(df, output_path, file_name, overwrite=overwrite, index_label=(df.columns.name, None))
+
+    @staticmethod
+    def from_pandas(group_name, df: pd.DataFrame):
+        animals = [AnimalBrain.from_pandas(animal_name, df.xs(animal_name, level=1)) for animal_name in df.index.unique(1)]
+        return AnimalGroup(group_name, animals, df.columns.name, fill_nan=False)
 
     @staticmethod
     def from_csv(group_name, root_dir, file_name):
-        # read CSV
-        df = pd.read_csv(os.path.join(root_dir, file_name), sep="\t", header=[0, 1], index_col=[0,1])
-        # old CSVs
-        if len(df.columns.get_level_values(0).unique()) == 1 and "area" in df.columns.get_level_values(1):
-            df.columns = pd.MultiIndex.from_tuples([
-                (marker, col) if col != "area" else ("area", "area")
-                for (marker, col) in df.columns.to_list()
-            ])
-        # retrieve marker name
-        markers = [col for col in df.columns.get_level_values(0).unique() if col != "area"]
-        return AnimalGroup(group_name, markers=markers, data=df)
+        # raise DeprecationWarning("This method is deprecated")
+        # # read CSV
+        df = pd.read_csv(os.path.join(root_dir, file_name), sep="\t", header=0, index_col=[0,1])
+        df.columns.name = df.index.names[0]
+        df.index.names = (None, None)
+        return AnimalGroup.from_pandas(group_name, df)

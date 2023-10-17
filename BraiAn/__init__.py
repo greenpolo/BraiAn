@@ -2,7 +2,7 @@ from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS, UPPER_REGIONS
 from .pls import PLS
 from .brain_slice import BrainSlice, merge_slice_hemispheres
 from .sliced_brain import SlicedBrain, merge_sliced_hemispheres
-from .animal_brain import AnimalBrain
+from .animal_brain import AnimalBrain, BrainMetrics
 from .animal_group import AnimalGroup
 from .statistics import as_prism_data
 from .utils import cache, save_csv, regions_to_plot, remote_dirs

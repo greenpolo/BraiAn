@@ -1,6 +1,6 @@
 import bgheatmaps as bgh
 import copy
-import functools
+import itertools
 import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -39,9 +39,22 @@ def is_split_left_right(index: pd.Index):
             index.str.startswith("Right: ", na=False)).all()
 
 def split_index(regions: list[str]) -> list[str]:
-    return [": ".join(t) for t in functools.product(regions, ("Left", "Right"))]
+    return [": ".join(t) for t in itertools.product(("Left", "Right"), regions)]
 
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
+    @staticmethod
+    def merge(first: Self, second: Self, *others: Self, op=pd.DataFrame.mean, op_name=None, **kwargs) -> Self:
+        assert first.metric == second.metric and all([first.metric == other.metric for other in others]), "Mean must be done between BrainData of the same metric!"
+        assert first.units == second.units and all([first.units == other.units for other in others]), "Mean must be done between BrainData of the same units!"
+        if op_name is None:
+            op_name = op.__name__
+        data = op(pd.concat([first.data, second.data, *[other.data for other in others]], axis=1), axis=1, **kwargs)
+        return BrainData(data, f"{len(others)+2}{first.metric}-{op_name}", first.metric, first.units) 
+
+    @staticmethod
+    def mean(*args, **kwargs) -> Self:
+        return BrainData.merge(*args, op=pd.DataFrame.mean, **kwargs)
+
     def __init__(self, data: pd.Series, name: str, metric: str, units: str,
                  brain_onthology=None, fill=False) -> None: # brain_onthology: AllenBrainHierarchy
         self.data = data.copy()
@@ -64,11 +77,11 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         all_regions = brain_onthology.list_all_subregions("root", mode="depth")
         if self.is_split:
             all_regions = split_index(all_regions)
-        if len(unknown_regions:=self.data.index[self.data.index.isin(all_regions)]) > 0:
+        if len(unknown_regions:=self.data.index[~self.data.index.isin(all_regions)]) > 0:
             raise ValueError(f"The following regions are unknown to the given brain onthology: '"+"', '".join(unknown_regions)+"'")
         if not fill:
             all_regions = np.array(all_regions)
-            all_regions = all_regions[all_regions.isin(self.data.index)]
+            all_regions = all_regions[np.isin(all_regions, self.data.index)]
         # NOTE: since fill_value=np.nan -> converts dtype to float
         data = self.data.reindex(all_regions, copy=False, fill_value=np.nan)
         if not inplace:
@@ -93,17 +106,35 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def max(self) -> float:
         return self.data[self.data != np.inf].max()
 
-    def select_from_list(self, brain_regions: list[str]) -> Self:
+    def remove_region(self, *region: str, inplace=False, fillnan=False) -> Self:
+        data = self.data.copy() if not inplace else self.data
+        if fillnan:
+            data[list(region)] = np.nan
+        else:
+            data = data[data.index.isin(region)]
+        return self if inplace else BrainData(data, name=self.name, metric=self.metric, units=self.units)
+
+    def get_regions(self) -> list[str]:
+        return list(self.data.index)
+
+    def select_from_list(self, brain_regions: list[str], fill_nan=False, inplace=False) -> Self:
         if not (unknown_regions:=np.isin(brain_regions, self.data.index)).all():
             unknown_regions = np.array(brain_regions)[~unknown_regions]
             raise ValueError(f"Can't find some regions in {self}: '"+"', '".join(unknown_regions)+"'!")
-        data = self.data[self.data.index.isin(brain_regions)]
-        return BrainData(data, name=self.name, metric=self.metric, units=self.units)
+        if fill_nan:
+            data = self.data.reindex(index=brain_regions, fill_value=np.nan)
+        else:
+            data = self.data[self.data.index.isin(brain_regions)]
+        if not inplace:
+            return BrainData(data, self.name, self.metric, self.units)
+        else:
+            self.data = data
+            return self
     
-    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy) -> Self:
+    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy, *args, **kwargs) -> Self:
         selected_allen_regions = brain_onthology.get_selected_regions()
         selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
-        return self.select_from_list(selectable_regions)
+        return self.select_from_list(list(selectable_regions), *args, **kwargs)
     
     def merge_hemispheres(self) -> Self:
         if self.metric not in ("sum",):
@@ -118,7 +149,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 n=10,
                 cmin=None, cmax=None, cmap="magma_r",
                 orientation="frontal",
-                show_text=True,
+                show_text=True, title=None,
                 other=None) -> str:
         if other is None:
             hems = ("both",)
@@ -144,7 +175,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 d.data.to_dict(),
                 position=None,
                 orientation=orientation,
-                title=d.metric,
+                title=title or d.metric,
                 cmap=cmap,
                 vmin=cmin,
                 vmax=cmax,

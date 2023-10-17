@@ -59,7 +59,7 @@ def str_to_enum(metric: str) -> BrainMetrics:
         case "overlaps" | "overlap" | "overlapping":
             return BrainMetrics.OVERLAPPING
         case _:
-            raise ValueError(f"Unknown '{metric}' metric to normalize a group to.")
+            raise ValueError(f"Unknown '{metric}' metric to normalize an animal to.")
 
 def enum_to_str(metric: BrainMetrics):
     match metric:
@@ -78,7 +78,9 @@ def enum_to_str(metric: BrainMetrics):
         case BrainMetrics.RELATIVE_DENSITY:
             return "relative_density"
         case BrainMetrics.OVERLAPPING:
-            return "overlapping"            
+            return "overlapping"   
+        case _:
+            raise ValueError(f"Unknown '{metric}' metric to normalize an animal to.")       
 
 class AnimalBrain:
     def __init__(self, sliced_brain, mode=BrainMetrics.SUM, hemisphere_distinction=True,
@@ -90,7 +92,7 @@ class AnimalBrain:
             self.is_split = first_data.is_split
             assert all([m.name == self.name for m in markers_data.values()]), "All BrainData must be from the same animal!"
             assert all([str_to_enum(m.metric) == self.mode for m in markers_data.values()]), "All BrainData must be of the same metric!"
-            assert all([m.is_split == self.is_split for m in markers_data.values()]), "All BrainData must either have split hemispheres or not!"
+            assert self.is_split == areas.is_split and all([m.is_split == self.is_split for m in markers_data.values()]), "All BrainData must either have split hemispheres or not!"
             self.markers = list(markers_data.keys())
             self.markers_data = markers_data
             self.areas = areas
@@ -111,14 +113,26 @@ class AnimalBrain:
                 raise NotImplementedError(f"Cannot yet build {self} from a SlicedBrain. Use AnimalBrain.analyse() method.")
             case _: # MEAN | CVAR | STD
                 redux = self.reduce_slices_densities(sliced_brain, self.mode, min_slices)
-        self.areas = BrainData(redux["area"], name=self.name, metric=self.mode, units="mm²")
+        self.areas = BrainData(redux["area"], name=self.name, metric=enum_to_str(self.mode), units="mm²")
         self.markers_data = {
-            m: BrainData(redux[m], name=self.name, metric=self.mode, units=m)
+            m: BrainData(redux[m], name=self.name, metric=enum_to_str(self.mode), units=m)
             for m in self.markers
         }
     
     def __str__(self):
         return f"AnimalBrain(name='{self.name}', mode={self.mode}, markers={list(self.markers)})"
+
+    def __getitem__(self, marker: str):
+        return self.markers_data[marker]
+
+    def remove_region(self, *region: str) -> None:
+        for data in self.markers_data.values():
+            data.remove_region(*region, inplace=True, fillnan=True)
+        self.areas.remove_region(*region, inplace=True, fillnan=True)
+
+    def get_regions(self):
+        # assumes areas' and all markers' BrainData are synchronized
+        return self.areas.get_regions()
 
     def sum_slices_detections(self, sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
         all_slices = sliced_brain.concat_slices()
@@ -130,11 +144,11 @@ class AnimalBrain:
 
     def reduce_slices_densities(self, sliced_brain: SlicedBrain, mode: BrainMetrics, min_slices: int) -> pd.DataFrame:
         match mode:
-            case "mean":
+            case BrainMetrics.MEAN:
                 reduction_fun = min_count(np.mean, min_slices, axis=0)
-            case "std":
+            case BrainMetrics.STD:
                 reduction_fun = min_count(np.std, min_slices, ddof=1, axis=0)
-            case "cvar":
+            case BrainMetrics.CVAR:
                 reduction_fun = min_count(coefficient_variation, min_slices)
             case _:
                 raise Exception("This code is unreachable")
@@ -157,11 +171,44 @@ class AnimalBrain:
             case BrainMetrics.OVERLAPPING:
                 return self.overlap_markers(*args, **kwargs)
 
+    def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy,
+                          fill=False, inplace=False):
+        markers_data = {marker: m_data.sort_by_onthology(brain_onthology, fill=fill, inplace=inplace) for marker, m_data in self.markers_data.items()}
+        areas = self.areas.sort_by_onthology(brain_onthology, fill=fill, inplace=inplace)
+        if not inplace:
+            return AnimalBrain(None, markers_data=markers_data, areas=areas)
+        else:
+            return self
+
+    def select_from_list(self, regions: list[str], fill=False, inplace=False) -> Self:
+        markers_data = {marker: m_data.select_from_list(regions, fill=fill, inplace=inplace) for marker, m_data in self.markers_data.items()}
+        areas = self.areas.select_from_list(regions, fill=fill, inplace=inplace)
+        if not inplace:
+            return AnimalBrain(None, markers_data=markers_data, areas=areas)
+        else:
+            return self
+    
+    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy, fill=False, *args, **kwargs) -> Self:
+        selected_allen_regions = brain_onthology.get_selected_regions()
+        if not fill:
+            selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
+        else:
+            selectable_regions = selected_allen_regions
+        return self.select_from_list(selectable_regions, fill=fill, *args, **kwargs)
+
+    def get_units(self, marker=None):
+        if len(self.markers) == 1:
+            marker = self.markers[0]
+        else:
+            assert marker in self.markers, f"Could not get units for marker '{marker}'!"
+        return self.markers_data[marker].units
+
     def density(self) -> Self:
-        assert self.mode == BrainMetrics.SUM, "Cannot compute densities for AnimalBrains whose slices' cell count were not summed."
+        assert self.mode == BrainMetrics.SUM, f"Cannot compute densities for AnimalBrains whose slices' cell count were not summed (mode={self.mode})."
         markers_data = dict()
         for marker in self.markers:
             data = self.markers_data[marker] / self.areas
+            data.metric = enum_to_str(BrainMetrics.DENSITY)
             data.units = f"{marker}/{self.areas.units}"
             markers_data[marker] = data
         return AnimalBrain(None, markers_data=markers_data, areas=self.areas)
@@ -176,6 +223,7 @@ class AnimalBrain:
         for marker in self.markers:
             brainwide_cell_counts = sum((self.markers_data[marker].root(hem) for hem in hems))
             data = self.markers_data[marker] / brainwide_cell_counts
+            data.metric = enum_to_str(BrainMetrics.PERCENTAGE)
             data.units = f"{marker}/{marker} in root"
             markers_data[marker] = data
         return AnimalBrain(None, markers_data=markers_data, areas=self.areas)
@@ -191,6 +239,7 @@ class AnimalBrain:
             brainwide_area = sum((self.areas.root(hem) for hem in hems))
             brainwide_cell_counts = sum((self.markers_data[marker].root(hem) for hem in hems))
             data = (self.markers_data[marker] / self.markers_data["area"]) / (brainwide_cell_counts / brainwide_area)
+            data.metric = enum_to_str(BrainMetrics.RELATIVE_DENSITY)
             data.units = f"{marker} density/root {marker} density"
             markers_data[marker] = data
         return AnimalBrain(None, markers_data=markers_data, areas=self.areas)
@@ -208,9 +257,9 @@ class AnimalBrain:
         overlaps = dict()
         for m in (marker1, marker2):
             # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
-            overlaps[marker1] = (self.markers_data[both] / self.markers_data[marker1]).clip(upper=1)
-            overlaps[marker1].metric = "%overlapping"
-            overlaps[marker1].units = f"({marker1}+{marker2})/{m}"
+            overlaps[m] = (self.markers_data[both] / self.markers_data[marker1]).clip(upper=1)
+            overlaps[m].metric = enum_to_str(BrainMetrics.OVERLAPPING)
+            overlaps[m].units = f"({marker1}+{marker2})/{m}"
         return AnimalBrain(None, markers_data=overlaps, areas=self.areas)
 
     def to_pandas(self):
@@ -228,9 +277,10 @@ class AnimalBrain:
 
     @staticmethod
     def from_pandas(animal_name, df: pd.DataFrame):
-        mode = enum_to_str(df.columns.name)
+        if type(mode:=df.columns.name) != str:
+            mode = enum_to_str(df.columns.name)
         if "area" in df.columns:
-            areas = BrainData(df["area"], animal_name, mode, None)
+            areas = BrainData(df["area"], animal_name, mode, None) # TODO: write a mode_to_units function instead of creating a BrainData with units=None
             df = df.loc[:, df.columns != "area"]
         else:
             areas = None
