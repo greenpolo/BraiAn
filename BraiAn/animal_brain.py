@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import os
 import pandas as pd
+import re
 
 from enum import Enum, auto
 from typing import Self
@@ -15,12 +16,12 @@ from .brain_data import BrainData
 class AnimalBrain:
     def __init__(self, sliced_brain, mode=BrainMetrics.SUM, hemisphere_distinction=True,
                 min_slices=0, markers_data: dict[BrainData]=None, areas: BrainData=None) -> None:
-        if markers_data is not None and areas is not None:
+        if markers_data is not None and len(markers_data) > 0 and areas is not None:
             first_data = tuple(markers_data.values())[0]
-            self.name = first_data.name
+            self.name = first_data.animal_name
             self.mode = BrainMetrics(first_data.metric)
             self.is_split = first_data.is_split
-            assert all([m.name == self.name for m in markers_data.values()]), "All BrainData must be from the same animal!"
+            assert all([m.animal_name == self.name for m in markers_data.values()]), "All BrainData must be from the same animal!"
             assert all([BrainMetrics(m.metric) == self.mode for m in markers_data.values()]), "All BrainData must be of the same metric!"
             assert self.is_split == areas.is_split and all([m.is_split == self.is_split for m in markers_data.values()]), "All BrainData must either have split hemispheres or not!"
             self.markers = list(markers_data.keys())
@@ -175,16 +176,17 @@ class AnimalBrain:
             overlaps[m].units = f"({marker1}+{marker2})/{m}"
         return AnimalBrain(None, markers_data=overlaps, areas=self.areas)
 
-    def to_pandas(self):
-        data = pd.concat({"area": self.areas.data, **{m: m_data.data for m,m_data in self.markers_data.items()}}, axis=1)
+    def to_pandas(self, units=False):
+        data = pd.concat({f"area ({self.areas.units})" if units else "area": self.areas.data,
+                          **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self.markers_data.items()}}, axis=1)
         data.columns.name = str(self.mode)
         return data
 
-    def write_all_brains(self, output_path: str) -> None:
+    def to_csv(self, output_path: str) -> None:
         os.makedirs(output_path, exist_ok=True)
         mode_str = str(self.mode)
         output_path = os.path.join(output_path, f"{self.name}_{mode_str}.csv")
-        data = self.to_pandas()
+        data = self.to_pandas(units=True)
         data.to_csv(output_path, sep="\t", mode="w", index_label=mode_str)
         print(f"{self} saved to {output_path}")
 
@@ -192,12 +194,18 @@ class AnimalBrain:
     def from_pandas(animal_name, df: pd.DataFrame):
         if type(mode:=df.columns.name) != str:
             mode = str(df.columns.name)
-        if "area" in df.columns:
-            areas = BrainData(df["area"], animal_name, mode, None) # TODO: write a mode_to_units function instead of creating a BrainData with units=None
-            df = df.loc[:, df.columns != "area"]
-        else:
-            areas = None
-        markers_data = {marker: BrainData(data, animal_name, mode, None) for marker, data in df.items()}
+        markers_data = dict()
+        areas = None
+        regex = r'(.+) \((.+)\)$'
+        pattern = re.compile(regex)
+        for column, data in df.items():
+            # extracts name and units from the column's name. E.g. 'area (mm²)' -> ('area', 'mm²')
+            matches = re.findall(pattern, column)
+            name, units = matches[0] if len(matches) == 1 else column, None
+            if name == "area":
+                areas = BrainData(data, animal_name, mode, units)
+            else: # it's a marker
+                markers_data[name] = BrainData(data, animal_name, mode, units)
         return AnimalBrain(None, markers_data=markers_data, areas=areas)
 
     @staticmethod
@@ -224,3 +232,11 @@ class AnimalBrain:
         brain.markers_data = {m: m_data.merge_hemispheres() for m, m_data in brain.markers_data.items()}
         brain.areas = brain.areas.merge_hemispheres()
         return brain
+
+def extract_name_and_units(ls):
+    regex = r'(.+) \((.+)\)$'
+    pattern = re.compile(regex)
+    for s in ls:
+        matches = re.findall(pattern, s)
+        assert len(matches) == 1, f"Cannot find units in column '{s}'"
+        yield matches[0]

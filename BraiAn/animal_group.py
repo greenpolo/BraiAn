@@ -65,10 +65,13 @@ class AnimalGroup:
     def combine(self, op, **kwargs):
         return {marker: BrainData.merge(*[brain[marker] for brain in self.animals], op=op, **kwargs) for marker in self.markers}
 
-    def to_pandas(self, marker=None):
+    def to_pandas(self, marker=None, units=False):
         if marker in self.markers:
             df = pd.concat({brain.name: brain.markers_data[marker].data for brain in self.animals}, join="outer", axis=1)
             df.columns.name = str(self.metric)
+            if units:
+                a = self.animals[0]
+                df.rename(columns={marker: f"{marker} ({a[marker].units})"}, inplace=True)
             return df
         df = {"area": pd.concat({brain.name: brain.areas.data for brain in self.animals}, join="outer", axis=0)}
         for marker in self.markers:
@@ -79,6 +82,9 @@ class AnimalGroup:
         ordered_indices = product(self.get_regions(), [animal.name for animal in self.animals])
         df = df.reindex(ordered_indices)
         df.columns.name = str(self.metric)
+        if units:
+            a = self.animals[0]
+            df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.areas.units})" for col in df.columns}, inplace=True)
         return df
     
     def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy, fill=True, inplace=True) -> None:
@@ -156,7 +162,7 @@ class AnimalGroup:
                 raise ValueError(f"Don't know the appropriate title for {self.metric}")
 
     def to_csv(self, output_path, file_name, overwrite=False) -> None:
-        df = self.to_pandas()
+        df = self.to_pandas(units=True)
         save_csv(df, output_path, file_name, overwrite=overwrite, index_label=(df.columns.name, None))
 
     @staticmethod
