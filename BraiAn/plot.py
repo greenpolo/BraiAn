@@ -7,9 +7,10 @@ import numpy as np
 from .utils import nrange
 from .pls import PLS
 from .sliced_brain import merge_sliced_hemispheres, SlicedBrain
-from .animal_brain import AnimalBrain, enum_to_str
+from .animal_brain import AnimalBrain
 from .animal_group import AnimalGroup
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
+from .brain_metrics import BrainMetrics
 
 def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         AllenBrain: AllenBrainHierarchy, selected_regions: list[str],
@@ -33,7 +34,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         x = avg.loc[selected_regions],
                         name = f"{group.name} mean",
                         customdata = np.stack((full_names, sem.loc[selected_regions]), axis=-1),
-                        hovertemplate = enum_to_str(group.metric)+" mean: %{x:2f}±%{customdata[1]:2f} "+group.get_units()+"<br>Region: %{customdata[0]}<br>Group: "+group.name,
+                        hovertemplate = str(group.metric)+" mean: %{x:2f}±%{customdata[1]:2f} "+group.get_units()+"<br>Region: %{customdata[0]}<br>Group: "+group.name,
                         marker_color=color,
                         error_x = dict(
                             type="data",
@@ -50,7 +51,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         x = regions_data[group.markers[0]],
                         name = f"{group.name} animals",
                         customdata = np.stack((animal_regions, animal_names, regions_data["area"]), axis=-1),
-                        hovertemplate = enum_to_str(group.metric)+": %{x:.2f} "+group.get_units()+"<br>Area: %{customdata[2]} mm²<br>Region: %{customdata[0]}<br>Animal: %{customdata[1]}",
+                        hovertemplate = str(group.metric)+": %{x:.2f} "+group.get_units()+"<br>Area: %{customdata[2]} mm²<br>Region: %{customdata[0]}<br>Animal: %{customdata[1]}",
                         opacity=0.5,
                         marker=dict(
                             #color="rgb(0,255,0)",

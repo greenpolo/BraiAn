@@ -8,7 +8,8 @@ from typing import Self
 
 from .brain_data import BrainData
 from .brain_hierarchy import AllenBrainHierarchy
-from .animal_brain import AnimalBrain, BrainMetrics, str_to_enum, enum_to_str
+from .brain_metrics import BrainMetrics
+from .animal_brain import AnimalBrain, BrainMetrics
 from .utils import save_csv
 
 def common_regions(animals: list[AnimalBrain]) -> list[str]:
@@ -29,7 +30,7 @@ class AnimalGroup:
         assert len(animals) > 0, "Inside the group there must be at least one animal."
         self.markers = np.asarray(animals[0].markers)
         assert all([marker in self.markers for brain in animals for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
-        self.metric = str_to_enum(metric) if type(metric) != BrainMetrics else metric
+        self.metric = BrainMetrics(metric)
         assert all([brain.mode == animals[0].mode for brain in animals]), "All AnimalBrains of a group must be hava been processed the same way."
         self.n = len(animals)
         self.is_split = animals[0].is_split
@@ -39,7 +40,7 @@ class AnimalGroup:
         else:
             merge = lambda brain: brain
         if animals[0].mode != self.metric:
-            analyse = lambda brain: brain.analyse(self.metric, **kwargs)
+            analyse = lambda brain: self.metric.analyse(brain, **kwargs)
         else:
             analyse = lambda brain: brain
         if brain_onthology is not None:
@@ -67,7 +68,7 @@ class AnimalGroup:
     def to_pandas(self, marker=None):
         if marker in self.markers:
             df = pd.concat({brain.name: brain.markers_data[marker].data for brain in self.animals}, join="outer", axis=1)
-            df.columns.name = enum_to_str(self.metric)
+            df.columns.name = str(self.metric)
             return df
         df = {"area": pd.concat({brain.name: brain.areas.data for brain in self.animals}, join="outer", axis=0)}
         for marker in self.markers:
@@ -77,7 +78,7 @@ class AnimalGroup:
         df = df.reorder_levels([1,0], axis=0)
         ordered_indices = product(self.get_regions(), [animal.name for animal in self.animals])
         df = df.reindex(ordered_indices)
-        df.columns.name = enum_to_str(self.metric)
+        df.columns.name = str(self.metric)
         return df
     
     def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy, fill=True, inplace=True) -> None:
@@ -117,7 +118,7 @@ class AnimalGroup:
     def select(self, regions: list[str], fill_nan=False, inplace=False) -> Self:
         animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for brain in self.animals]
         if not inplace:
-            # self.metric == animals.metric -> no brain.analyse() is computed
+            # self.metric == animals.metric -> no self.metric.analyse(brain) is computed
             return AnimalGroup(self.name, animals, metric=self.metric, brain_onthology=None, fill_nan=False)
         else:
             self.animals = animals
