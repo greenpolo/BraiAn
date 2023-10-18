@@ -8,6 +8,8 @@ def cache(filepath, url):
     if os.path.exists(filepath):
         return
     resp = requests.get(url)
+    dir_path = os.path.dirname(os.path.realpath(filepath))
+    os.makedirs(dir_path, exist_ok=True)
     with open(filepath, "wb") as f:
         f.write(resp.content)
 
