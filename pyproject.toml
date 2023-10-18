@@ -7,7 +7,7 @@ license = "MPL 2.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.10,<3.12"
 python-igraph = "^0.10.4"
 numpy = "^1.24.3"
 pandas = "^2.0.1"
@@ -17,8 +17,8 @@ networkx = "^3.1"           # used to plot Allen's onthology
 pydot = "^1.4.2"            # used to plot Allen's onthology
 kaleido = "0.2.1"           # used to export plotly images. "0.2.1.post1" version can't be installed
 beautifulsoup4 = "^4.12.2"  # used to blacklist regions from Allen's onthology that have no annotation
-bgheatmap = {git = "ssh://git@github.com/carlocastoldi/bg-heatmaps.git", rev = "scene2d"}        # used to visualize brain heatmap for IEGs overlaps
-brainrender = {git = "ssh://git@github.com/carlocastoldi/brainrender.git"}   # with PR !246
+bgheatmap = {git = "https://github.com/carlocastoldi/bg-heatmaps.git", rev = "scene2d"}        # used to visualize brain heatmap for IEGs overlaps
+brainrender = {git = "https://github.com/carlocastoldi/brainrender.git"}   # with PR !246
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.13.2"
