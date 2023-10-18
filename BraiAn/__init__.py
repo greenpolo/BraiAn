@@ -1,7 +1,7 @@
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS, UPPER_REGIONS
 from .pls import PLS
-from .brain_slice import BrainSlice, merge_slice_hemispheres
-from .sliced_brain import SlicedBrain, merge_sliced_hemispheres
+from .brain_slice import BrainSlice
+from .sliced_brain import SlicedBrain
 from .brain_metrics import BrainMetrics
 from .animal_brain import AnimalBrain
 from .animal_group import AnimalGroup

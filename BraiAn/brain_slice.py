@@ -2,6 +2,9 @@ import copy
 import os
 import pandas as pd
 import re
+from typing import Self
+
+from .brain_data import is_split_left_right, extract_acronym
 from .brain_hierarchy import AllenBrainHierarchy
 
 global MODE_PathAnnotationObjectError
@@ -212,34 +215,19 @@ class BrainSlice:
     def _area_µm2_to_mm2_(self) -> None:
         self.data.area = self.data.area * 1e-06
 
-
-def extract_acronym(region_class):
-    '''
-    This function extracts the region acronym from a QuPath's PathClass assigned by ABBA
-    Example: "Left: AVA" becomes "AVA".
-    '''
-    acronym = re.compile("[Left|Right]: (.+)").findall(region_class)
-    if len(acronym) == 0:
-        # the region's class didn't distinguish between left|right hemispheres 
-        return str(region_class)
-    return acronym[0]
-
-def merge_slice_hemispheres(brain_slice: BrainSlice) -> BrainSlice:
-    '''
-    Function takes as input a BrainSlice. Each row represents a left/right part of a region.
-    
-    The output is a dataframe with each column being the sum of the two hemispheres
-    '''
-    if not brain_slice.is_split:
-        return brain_slice
-    slice = copy.copy(brain_slice)
-    corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in slice.data.index]
-    slice.data = slice.data.groupby(corresponding_region).sum(min_count=1)
-    markers = [c for c in slice.data.columns if c != "area"]
-    slice.markers_density = BrainSlice._get_marker_density(slice.data, markers)
-    slice.is_split = False
-    return slice
-
-def is_split_left_right(index: pd.Index):
-    return (index.str.startswith("Left: ", na=False) | \
-            index.str.startswith("Right: ", na=False)).all()
+    @staticmethod
+    def merge_hemispheres(brain_slice: Self) -> Self:
+        '''
+        Function takes as input a BrainSlice. Each row represents a left/right part of a region.
+        
+        The output is a dataframe with each column being the sum of the two hemispheres
+        '''
+        if not brain_slice.is_split:
+            return brain_slice
+        slice = copy.copy(brain_slice)
+        corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in slice.data.index]
+        slice.data = slice.data.groupby(corresponding_region).sum(min_count=1)
+        markers = [c for c in slice.data.columns if c != "area"]
+        slice.markers_density = BrainSlice._get_marker_density(slice.data, markers)
+        slice.is_split = False
+        return slice

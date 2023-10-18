@@ -6,11 +6,10 @@ import numpy as np
 
 from .utils import nrange
 from .pls import PLS
-from .sliced_brain import merge_sliced_hemispheres, SlicedBrain
+from .sliced_brain import SlicedBrain
 from .animal_brain import AnimalBrain
 from .animal_group import AnimalGroup
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
-from .brain_metrics import BrainMetrics
 
 def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         AllenBrain: AllenBrainHierarchy, selected_regions: list[str],
@@ -168,7 +167,7 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups: list[SlicedBrain]
     n_areas_above_thr = []
     for i, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[i-1] if i > 0 else 0
-        group_cvar_brains = [AnimalBrain(sliced_brain, mode="cvar", hemisphere_distinction=False) for sliced_brain in group_slices]
+        group_cvar_brains = [AnimalBrain.from_slices(sliced_brain, mode="cvar", hemisphere_distinction=False) for sliced_brain in group_slices]
         group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, AllenBrain) for brain in group_cvar_brains]
 
         for j, cvars in enumerate(group_cvar_brains):
@@ -236,11 +235,11 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
     n_brains_before_group = np.cumsum(group_lengths)
     for i, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[i-1] if i > 0 else np.int64(0)
-        group_summed_brains = [AnimalBrain(sliced_brain, hemisphere_distinction=False) for sliced_brain in group_slices]
+        group_summed_brains = [AnimalBrain.from_slices(sliced_brain, hemisphere_distinction=False) for sliced_brain in group_slices]
         summed_brains.extend(group_summed_brains)
         colors.extend([DEFAULT_PLOTLY_COLORS[i]]*len(group_slices)*len(group_slices[0].markers))
         for j, sliced_brain in enumerate(group_slices):
-            sliced_brain = merge_sliced_hemispheres(sliced_brain)
+            sliced_brain = SlicedBrain.merge_hemispheres(sliced_brain)
             for m, marker in enumerate(sliced_brain.markers):
                 n_brain = n_brains_before+(len(group_slices[0].markers)*j)+m
                 slices_density = []

@@ -9,47 +9,24 @@ from typing import Self
 
 from .brain_hierarchy import AllenBrainHierarchy
 from .brain_metrics import BrainMetrics
-from .brain_slice import extract_acronym, is_split_left_right
-from .sliced_brain import merge_sliced_hemispheres, SlicedBrain
+from .sliced_brain import SlicedBrain
 from .brain_data import BrainData
 
 class AnimalBrain:
-    def __init__(self, sliced_brain, mode=BrainMetrics.SUM, hemisphere_distinction=True,
-                min_slices=0, markers_data: dict[BrainData]=None, areas: BrainData=None) -> None:
-        if markers_data is not None and len(markers_data) > 0 and areas is not None:
-            first_data = tuple(markers_data.values())[0]
-            self.name = first_data.animal_name
-            self.mode = BrainMetrics(first_data.metric)
-            self.is_split = first_data.is_split
-            assert all([m.animal_name == self.name for m in markers_data.values()]), "All BrainData must be from the same animal!"
-            assert all([BrainMetrics(m.metric) == self.mode for m in markers_data.values()]), "All BrainData must be of the same metric!"
-            assert self.is_split == areas.is_split and all([m.is_split == self.is_split for m in markers_data.values()]), "All BrainData must either have split hemispheres or not!"
-            self.markers = list(markers_data.keys())
-            self.markers_data = markers_data
-            self.areas = areas
-            return
-        elif sliced_brain is None:
-            raise ValueError("Expected a non-empty sliced_brain parameter, but got None.")
-        if not hemisphere_distinction:
-            sliced_brain = merge_sliced_hemispheres(sliced_brain)
-        
-        self.name = sliced_brain.name
-        self.markers = copy.copy(sliced_brain.markers)
-        self.mode = BrainMetrics(mode)
-        self.is_split = sliced_brain.is_split
-        match self.mode:
-            case BrainMetrics.SUM:
-                redux = self.sum_slices_detections(sliced_brain, min_slices)
-            case BrainMetrics.DENSITY | BrainMetrics.PERCENTAGE | BrainMetrics.RELATIVE_DENSITY | BrainMetrics.OVERLAPPING:
-                raise NotImplementedError(f"Cannot yet build {self} from a SlicedBrain. Use BrainMetrics.DENSITY.analyse(brain) method.")
-            case _: # MEAN | CVAR | STD
-                redux = self.reduce_slices_densities(sliced_brain, self.mode, min_slices)
-        self.areas = BrainData(redux["area"], name=self.name, metric=str(self.mode), units="mm²")
-        self.markers_data = {
-            m: BrainData(redux[m], name=self.name, metric=str(self.mode), units=m)
-            for m in self.markers
-        }
-    
+    def __init__(self, markers_data: dict[BrainData]=None, areas: BrainData=None) -> None:
+        assert len(markers_data) > 0 and areas is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the areas/volumes of each region"
+        first_data = tuple(markers_data.values())[0]
+        self.name = first_data.animal_name
+        self.mode = BrainMetrics(first_data.metric)
+        self.is_split = first_data.is_split
+        assert all([m.animal_name == self.name for m in markers_data.values()]), "All BrainData must be from the same animal!"
+        assert all([BrainMetrics(m.metric) == self.mode for m in markers_data.values()]), "All BrainData must be of the same metric!"
+        assert self.is_split == areas.is_split and all([m.is_split == self.is_split for m in markers_data.values()]), "All BrainData must either have split hemispheres or not!"
+        self.markers = list(markers_data.keys())
+        self.markers_data = markers_data
+        self.areas = areas
+        return
+
     def __str__(self):
         return f"AnimalBrain(name='{self.name}', mode={self.mode}, markers={list(self.markers)})"
 
@@ -70,27 +47,12 @@ class AnimalBrain:
         # assumes areas' and all markers' BrainData are synchronized
         return self.areas.get_regions()
 
-    def sum_slices_detections(self, sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
-        all_slices = sliced_brain.concat_slices()
-        redux = all_slices.groupby(all_slices.index)\
-                            .sum(min_count=min_slices)\
-                            .dropna(axis=0, how="all")\
-                            .astype({m: sliced_brain.get_marker_dtype(m) for m in sliced_brain.markers}) # dropna() changes type to float64
-        return redux
-
-    def reduce_slices_densities(self, sliced_brain: SlicedBrain, mode: BrainMetrics, min_slices: int) -> pd.DataFrame:
-        all_slices = sliced_brain.concat_slices(densities=True)
-        redux = all_slices.groupby(all_slices.index)\
-                            .apply(mode.fold_slices(min_slices))\
-                            .dropna(axis=0, how="all") # we want to keep float64 as the dtype, since the result of the 'mode' function is a float as well
-        return redux
-
     def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy,
                           fill=False, inplace=False):
         markers_data = {marker: m_data.sort_by_onthology(brain_onthology, fill=fill, inplace=inplace) for marker, m_data in self.markers_data.items()}
         areas = self.areas.sort_by_onthology(brain_onthology, fill=fill, inplace=inplace)
         if not inplace:
-            return AnimalBrain(None, markers_data=markers_data, areas=areas)
+            return AnimalBrain(markers_data=markers_data, areas=areas)
         else:
             return self
 
@@ -98,10 +60,10 @@ class AnimalBrain:
         markers_data = {marker: m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for marker, m_data in self.markers_data.items()}
         areas = self.areas.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
-            return AnimalBrain(None, markers_data=markers_data, areas=areas)
+            return AnimalBrain(markers_data=markers_data, areas=areas)
         else:
             return self
-    
+
     def select_from_onthology(self, brain_onthology: AllenBrainHierarchy, fill_nan=False, *args, **kwargs) -> Self:
         selected_allen_regions = brain_onthology.get_selected_regions()
         if not fill_nan:
@@ -125,7 +87,7 @@ class AnimalBrain:
             data.metric = str(BrainMetrics.DENSITY)
             data.units = f"{marker}/{self.areas.units}"
             markers_data[marker] = data
-        return AnimalBrain(None, markers_data=markers_data, areas=self.areas)
+        return AnimalBrain(markers_data=markers_data, areas=self.areas)
 
     def percentage(self) -> BrainData:
         assert self.mode == BrainMetrics.SUM, "Cannot compute percentages for AnimalBrains whose slices' cell count were not summed."
@@ -140,7 +102,7 @@ class AnimalBrain:
             data.metric = str(BrainMetrics.PERCENTAGE)
             data.units = f"{marker}/{marker} in root"
             markers_data[marker] = data
-        return AnimalBrain(None, markers_data=markers_data, areas=self.areas)
+        return AnimalBrain(markers_data=markers_data, areas=self.areas)
 
     def relative_density(self) -> BrainData:
         assert self.mode == BrainMetrics.SUM, "Cannot compute relative densities for AnimalBrains whose slices' cell count were not summed."
@@ -156,7 +118,7 @@ class AnimalBrain:
             data.metric = str(BrainMetrics.RELATIVE_DENSITY)
             data.units = f"{marker} density/root {marker} density"
             markers_data[marker] = data
-        return AnimalBrain(None, markers_data=markers_data, areas=self.areas)
+        return AnimalBrain(markers_data=markers_data, areas=self.areas)
 
     def overlap_markers(self, marker1: str, marker2: str) -> Self:
         if self.mode not in (BrainMetrics.SUM, BrainMetrics.MEAN):
@@ -174,7 +136,7 @@ class AnimalBrain:
             overlaps[m] = (self.markers_data[both] / self.markers_data[marker1]).clip(upper=1)
             overlaps[m].metric = str(BrainMetrics.OVERLAPPING)
             overlaps[m].units = f"({marker1}+{marker2})/{m}"
-        return AnimalBrain(None, markers_data=overlaps, areas=self.areas)
+        return AnimalBrain(markers_data=overlaps, areas=self.areas)
 
     def to_pandas(self, units=False):
         data = pd.concat({f"area ({self.areas.units})" if units else "area": self.areas.data,
@@ -201,12 +163,12 @@ class AnimalBrain:
         for column, data in df.items():
             # extracts name and units from the column's name. E.g. 'area (mm²)' -> ('area', 'mm²')
             matches = re.findall(pattern, column)
-            name, units = matches[0] if len(matches) == 1 else column, None
+            name, units = matches[0] if len(matches) == 1 else (column, None)
             if name == "area":
                 areas = BrainData(data, animal_name, mode, units)
             else: # it's a marker
                 markers_data[name] = BrainData(data, animal_name, mode, units)
-        return AnimalBrain(None, markers_data=markers_data, areas=areas)
+        return AnimalBrain(markers_data=markers_data, areas=areas)
 
     @staticmethod
     def from_csv(animal_name, root_dir, mode):
@@ -218,6 +180,46 @@ class AnimalBrain:
         df.columns.name = df.index.name
         df.index.name = None
         return AnimalBrain.from_pandas(animal_name, df)
+
+    @staticmethod
+    def from_slices(sliced_brain: SlicedBrain, mode=BrainMetrics.SUM, min_slices=0, hemisphere_distinction=True):
+        if not hemisphere_distinction:
+            sliced_brain = SlicedBrain.merge_hemispheres(sliced_brain)
+
+        name = sliced_brain.name
+        markers = copy.copy(sliced_brain.markers)
+        mode = BrainMetrics(mode)
+        match mode:
+            case BrainMetrics.SUM:
+                redux = AnimalBrain.sum_slices_detections(sliced_brain, min_slices)
+            case BrainMetrics.DENSITY | BrainMetrics.PERCENTAGE | BrainMetrics.RELATIVE_DENSITY | BrainMetrics.OVERLAPPING:
+                raise NotImplementedError(f"Cannot yet build AnimalBrain(name='{name}', mode={mode}, markers={list(markers)}) from a SlicedBrain."+\
+                                          "Use BrainMetrics.DENSITY.analyse(brain) method.")
+            case _: # MEAN | CVAR | STD
+                redux = AnimalBrain.reduce_slices_densities(sliced_brain, mode, min_slices)
+        areas = BrainData(redux["area"], name=name, metric=str(mode), units="mm²")
+        markers_data = {
+            m: BrainData(redux[m], name=name, metric=str(mode), units=m)
+            for m in markers
+        }
+        return AnimalBrain(markers_data=markers_data, areas=areas)
+
+    @staticmethod
+    def sum_slices_detections(sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
+        all_slices = sliced_brain.concat_slices()
+        redux = all_slices.groupby(all_slices.index)\
+                            .sum(min_count=min_slices)\
+                            .dropna(axis=0, how="all")\
+                            .astype({m: sliced_brain.get_marker_dtype(m) for m in sliced_brain.markers}) # dropna() changes type to float64
+        return redux
+
+    @staticmethod
+    def reduce_slices_densities(sliced_brain: SlicedBrain, mode: BrainMetrics, min_slices: int) -> pd.DataFrame:
+        all_slices = sliced_brain.concat_slices(densities=True)
+        redux = all_slices.groupby(all_slices.index)\
+                            .apply(mode.fold_slices(min_slices))\
+                            .dropna(axis=0, how="all") # we want to keep float64 as the dtype, since the result of the 'mode' function is a float as well
+        return redux
 
     @staticmethod
     def filter_selected_regions(animal_brain: Self, AllenBrain: AllenBrainHierarchy) -> Self:

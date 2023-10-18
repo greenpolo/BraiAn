@@ -3,9 +3,10 @@ import numpy as np
 import os
 import pandas as pd
 import re
+from typing import Self
 
 from .brain_hierarchy import AllenBrainHierarchy
-from .brain_slice import BrainSlice, merge_slice_hemispheres,\
+from .brain_slice import BrainSlice,\
                         BrainSliceFileError, \
                         ExcludedAllRegionsError, \
                         ExcludedRegionsNotFoundError, \
@@ -137,14 +138,14 @@ class SlicedBrain:
             case _:
                 ValueError(f"Undercognized exception: {type(exception)}")
 
-    
-def merge_sliced_hemispheres(sliced_brain) -> SlicedBrain:
-    if not sliced_brain.is_split:
-        return sliced_brain
-    brain = copy.copy(sliced_brain)
-    brain.slices = [merge_slice_hemispheres(brain_slice) for brain_slice in brain.slices]
-    brain.is_split = False
-    return brain
+    @staticmethod
+    def merge_hemispheres(sliced_brain) -> Self:
+        if not sliced_brain.is_split:
+            return sliced_brain
+        brain = copy.copy(sliced_brain)
+        brain.slices = [BrainSlice.merge_hemispheres(brain_slice) for brain_slice in brain.slices]
+        brain.is_split = False
+        return brain
 
 def remove_qupath_num(detection_key: str) -> str:
     return re.compile("Num (.+)").findall(detection_key)[0]
