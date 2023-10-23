@@ -60,10 +60,10 @@ class AnimalGroup:
         return f"AnimalGroup(metric={self.metric}, n={self.n})"
 
     def _update_mean(self) -> dict:
-        return {marker: BrainData.mean(*[brain[marker] for brain in self.animals]) for marker in self.markers}
+        return {marker: BrainData.mean(*[brain[marker] for brain in self.animals], name=self.name) for marker in self.markers}
 
     def combine(self, op, **kwargs):
-        return {marker: BrainData.merge(*[brain[marker] for brain in self.animals], op=op, **kwargs) for marker in self.markers}
+        return {marker: BrainData.merge(*[brain[marker] for brain in self.animals], op=op, name=self.name, **kwargs) for marker in self.markers}
 
     def to_pandas(self, marker=None, units=False):
         if marker in self.markers:

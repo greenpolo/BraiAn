@@ -43,13 +43,15 @@ def split_index(regions: list[str]) -> list[str]:
 
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
     @staticmethod
-    def merge(first: Self, second: Self, *others: Self, op=pd.DataFrame.mean, op_name=None, **kwargs) -> Self:
+    def merge(first: Self, second: Self, *others: Self, op=pd.DataFrame.mean, name=None, op_name=None, **kwargs) -> Self:
         assert first.metric == second.metric and all([first.metric == other.metric for other in others]), "Mean must be done between BrainData of the same metric!"
         assert first.units == second.units and all([first.units == other.units for other in others]), "Mean must be done between BrainData of the same units!"
+        if name is None:
+            name = first.data_name
         if op_name is None:
             op_name = op.__name__
         data = op(pd.concat([first.data, second.data, *[other.data for other in others]], axis=1), axis=1, **kwargs)
-        return BrainData(data, f"{len(others)+2}{first.metric}-{op_name}", first.metric, first.units) 
+        return BrainData(data, name, f"{first.metric}-{op_name} (n={len(others)+2})", first.units) 
 
     @staticmethod
     def mean(*args, **kwargs) -> Self:
@@ -59,8 +61,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                  brain_onthology=None, fill=False) -> None: # brain_onthology: AllenBrainHierarchy
         self.data = data.copy()
         self.is_split = is_split_left_right(self.data.index)
-        self.animal_name = str(name)
-        self.data.name = self.animal_name
+        self.data_name = str(name) # data_name
+        self.data.name = self.data_name
         self.metric = str(metric)
         if units is not None:
             self.units = str(units)
@@ -71,7 +73,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.sort_by_onthology(brain_onthology, fill, inplace=True)
     
     def __str__(self) -> str:
-        return f"BrainData(name={self.animal_name}, metric={self.metric})"
+        return f"BrainData(name={self.data_name}, metric={self.metric})"
     
     def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy,
                           fill=False, inplace=False) -> Self:
@@ -86,7 +88,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         # NOTE: since fill_value=np.nan -> converts dtype to float
         data = self.data.reindex(all_regions, copy=False, fill_value=np.nan)
         if not inplace:
-            return BrainData(data, self.animal_name, self.metric, self.units)
+            return BrainData(data, self.data_name, self.metric, self.units)
         else:
             self.data = data
             return self
@@ -113,7 +115,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             data[list(region)] = np.nan
         else:
             data = data[data.index.isin(region)]
-        return self if inplace else BrainData(data, name=self.animal_name, metric=self.metric, units=self.units)
+        return self if inplace else BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
 
     def get_regions(self) -> list[str]:
         return list(self.data.index)
@@ -127,7 +129,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         else:
             data = self.data[self.data.index.isin(brain_regions)]
         if not inplace:
-            return BrainData(data, self.animal_name, self.metric, self.units)
+            return BrainData(data, self.data_name, self.metric, self.units)
         else:
             self.data = data
             return self
@@ -142,7 +144,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             raise ValueError(f"Cannot properly merge '{self.metric}' BrainData from left/right hemispheres into a single region!")
         corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self.data.index]
         data = self.data.groupby(corresponding_region).sum(min_count=1)
-        return BrainData(data, name=self.animal_name, metric=self.metric, units=self.units)
+        return BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
 
     def plot(self,
                 brain_regions: list[str],
@@ -158,7 +160,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             # brain_data = brain_data[brain_data.index.isin(brain_regions)]
             # brain_data = brain_data[~brain_data.isna().all(axis=1)]
             data = (self.select_from_list(brain_regions),)
-            data_names = (self.animal_name,)
+            data_names = (self.data_name,)
             _cmin = data[0].min()
             _cmax = data[0].max()
         else:
@@ -166,7 +168,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             data = (self.select_from_list(brain_regions), other.select_from_list(brain_regions))
             _cmin = min(data[0].min(), data[1].min())
             _cmax = max(data[0].max(), data[1].max())
-            data_names = (self.animal_name, other.name)
+            data_names = (self.data_name, other.data_name)
         if cmin is None:
             cmin = math.floor(_cmin)
         if cmax is None:

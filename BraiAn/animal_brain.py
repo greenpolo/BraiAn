@@ -16,10 +16,10 @@ class AnimalBrain:
     def __init__(self, markers_data: dict[BrainData]=None, areas: BrainData=None) -> None:
         assert len(markers_data) > 0 and areas is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the areas/volumes of each region"
         first_data = tuple(markers_data.values())[0]
-        self.name = first_data.animal_name
+        self.name = first_data.data_name
         self.mode = BrainMetrics(first_data.metric)
         self.is_split = first_data.is_split
-        assert all([m.animal_name == self.name for m in markers_data.values()]), "All BrainData must be from the same animal!"
+        assert all([m.data_name == self.name for m in markers_data.values()]), "All BrainData must be from the same animal!"
         assert all([BrainMetrics(m.metric) == self.mode for m in markers_data.values()]), "All BrainData must be of the same metric!"
         assert self.is_split == areas.is_split and all([m.is_split == self.is_split for m in markers_data.values()]), "All BrainData must either have split hemispheres or not!"
         self.markers = list(markers_data.keys())
@@ -133,7 +133,7 @@ class AnimalBrain:
         overlaps = dict()
         for m in (marker1, marker2):
             # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
-            overlaps[m] = (self.markers_data[both] / self.markers_data[marker1]).clip(upper=1)
+            overlaps[m] = (self.markers_data[both] / self.markers_data[m]).clip(upper=1)
             overlaps[m].metric = str(BrainMetrics.OVERLAPPING)
             overlaps[m].units = f"({marker1}+{marker2})/{m}"
         return AnimalBrain(markers_data=overlaps, areas=self.areas)

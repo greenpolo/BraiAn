@@ -13,11 +13,14 @@ from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 
 def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         AllenBrain: AllenBrainHierarchy, selected_regions: list[str],
-                        animal_size: int, color: str, y_offset, use_acronyms=True) -> None:
+                        animal_size: int, color: str, y_offset, marker=None, use_acronyms=True) -> None:
     if len(group.markers) > 1:
-        raise ValueError("Plotting of AnimalGroups with multiple markers isn't implemented yet")
-    avg = group.mean[group.markers[0]].data
-    sem = group.combine(pd.DataFrame.sem, numeric_only=True)[group.markers[0]].data
+        if marker is None:
+            raise ValueError("Plotting of AnimalGroups with multiple markers isn't implemented yet")
+    else:
+        marker = group.markers[0]
+    avg = group.mean[marker].data
+    sem = group.combine(pd.DataFrame.sem, numeric_only=True)[marker].data
     # selected_regions = np.asarray(group.get_regions())
     # selected_regions = selected_regions[np.isin(selected_regions, regions)]
     regions_data = group.select(selected_regions).to_pandas()
@@ -33,7 +36,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         x = avg.loc[selected_regions],
                         name = f"{group.name} mean",
                         customdata = np.stack((full_names, sem.loc[selected_regions]), axis=-1),
-                        hovertemplate = str(group.metric)+" mean: %{x:2f}±%{customdata[1]:2f} "+group.get_units()+"<br>Region: %{customdata[0]}<br>Group: "+group.name,
+                        hovertemplate = str(group.metric)+" mean: %{x:2f}±%{customdata[1]:2f} "+group.get_units(marker)+"<br>Region: %{customdata[0]}<br>Group: "+group.name,
                         marker_color=color,
                         error_x = dict(
                             type="data",
@@ -50,7 +53,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                         x = regions_data[group.markers[0]],
                         name = f"{group.name} animals",
                         customdata = np.stack((animal_regions, animal_names, regions_data["area"]), axis=-1),
-                        hovertemplate = str(group.metric)+": %{x:.2f} "+group.get_units()+"<br>Area: %{customdata[2]} mm²<br>Region: %{customdata[0]}<br>Animal: %{customdata[1]}",
+                        hovertemplate = str(group.metric)+": %{x:.2f} "+group.get_units(marker)+"<br>Area: %{customdata[2]} mm²<br>Region: %{customdata[0]}<br>Animal: %{customdata[1]}",
                         opacity=0.5,
                         marker=dict(
                             #color="rgb(0,255,0)",
@@ -68,7 +71,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
 UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
 
 def plot_groups(AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
-                selected_regions: list[str], plot_title="", title_size=20,
+                selected_regions: list[str], marker=None, plot_title="", title_size=20,
                 axis_size=15, animal_size=5, use_acronyms=True,
                 colors=DEFAULT_PLOTLY_COLORS, width=900,
                 barheight=30, bargap=0.3, bargroupgap=0.0):
@@ -82,7 +85,7 @@ def plot_groups(AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
     max_bar_offset = region_axis_width - group_bar_width/2
     y_offsets = nrange(-max_bar_offset, max_bar_offset, n_groups)
     for group, y_offset, color in zip(groups, y_offsets, colors):
-        ticklabels = plot_animal_group(fig, group, AllenBrain, selected_regions, animal_size, color, y_offset, use_acronyms=use_acronyms)
+        ticklabels = plot_animal_group(fig, group, AllenBrain, selected_regions, animal_size, color, y_offset, marker=marker, use_acronyms=use_acronyms)
     
     # Plot major divisions
     active_mjd = tuple(AllenBrain.get_areas_major_division(*selected_regions).values())
@@ -123,7 +126,7 @@ def plot_groups(AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
             tickfont=dict(size=axis_size)
         ),
         xaxis=dict(
-            title=groups[0].get_plot_title(),
+            title=groups[0].get_plot_title(marker),
             tickfont=dict(size=axis_size),
             rangemode="tozero",
             side="top"
