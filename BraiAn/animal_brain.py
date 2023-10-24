@@ -138,7 +138,7 @@ class AnimalBrain:
             overlaps[m].units = f"({marker1}+{marker2})/{m}"
         return AnimalBrain(markers_data=overlaps, areas=self.areas)
 
-    def to_pandas(self, units=False):
+    def to_pandas(self, units=False) -> pd.DataFrame:
         data = pd.concat({f"area ({self.areas.units})" if units else "area": self.areas.data,
                           **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self.markers_data.items()}}, axis=1)
         data.columns.name = str(self.mode)
@@ -153,7 +153,7 @@ class AnimalBrain:
         print(f"{self} saved to {output_path}")
 
     @staticmethod
-    def from_pandas(animal_name, df: pd.DataFrame):
+    def from_pandas(animal_name, df: pd.DataFrame) -> Self:
         if type(mode:=df.columns.name) != str:
             mode = str(df.columns.name)
         markers_data = dict()
@@ -171,7 +171,7 @@ class AnimalBrain:
         return AnimalBrain(markers_data=markers_data, areas=areas)
 
     @staticmethod
-    def from_csv(animal_name, root_dir, mode):
+    def from_csv(animal_name, root_dir, mode) -> Self:
         # read CSV
         df = pd.read_csv(os.path.join(root_dir, f"{animal_name}_{mode}.csv"), sep="\t", header=0, index_col=0)
         if df.index.name == "Class":
@@ -182,7 +182,7 @@ class AnimalBrain:
         return AnimalBrain.from_pandas(animal_name, df)
 
     @staticmethod
-    def from_slices(sliced_brain: SlicedBrain, mode=BrainMetrics.SUM, min_slices=0, hemisphere_distinction=True):
+    def from_slices(sliced_brain: SlicedBrain, mode=BrainMetrics.SUM, min_slices=0, hemisphere_distinction=True) -> Self:
         if not hemisphere_distinction:
             sliced_brain = SlicedBrain.merge_hemispheres(sliced_brain)
 
@@ -235,7 +235,7 @@ class AnimalBrain:
         brain.areas = brain.areas.merge_hemispheres()
         return brain
 
-def extract_name_and_units(ls):
+def extract_name_and_units(ls) -> str:
     regex = r'(.+) \((.+)\)$'
     pattern = re.compile(regex)
     for s in ls:

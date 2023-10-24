@@ -59,13 +59,13 @@ class AnimalGroup:
     def __str__(self) -> str:
         return f"AnimalGroup(metric={self.metric}, n={self.n})"
 
-    def _update_mean(self) -> dict:
+    def _update_mean(self) -> dict[str, BrainData]:
         return {marker: BrainData.mean(*[brain[marker] for brain in self.animals], name=self.name) for marker in self.markers}
 
-    def combine(self, op, **kwargs):
+    def combine(self, op, **kwargs) -> dict[str, BrainData]:
         return {marker: BrainData.merge(*[brain[marker] for brain in self.animals], op=op, name=self.name, **kwargs) for marker in self.markers}
 
-    def to_pandas(self, marker=None, units=False):
+    def to_pandas(self, marker=None, units=False) -> pd.DataFrame:
         if marker in self.markers:
             df = pd.concat({brain.name: brain.markers_data[marker].data for brain in self.animals}, join="outer", axis=1)
             df.columns.name = str(self.metric)
@@ -91,7 +91,7 @@ class AnimalGroup:
         for brain in self.animals:
             brain.sort_by_onthology(brain_onthology, fill=fill, inplace=True)
     
-    def get_animals(self):
+    def get_animals(self) -> list[str]:
         return [brain.name for brain in self.animals]
 
     def get_regions(self) -> list[str]:
@@ -104,7 +104,7 @@ class AnimalGroup:
         #     # return set(chain(*all_regions))
         return self.animals[0].get_regions()
 
-    def merge_hemispheres(self, inplace=False):
+    def merge_hemispheres(self, inplace=False) -> Self:
         animals = [AnimalBrain.merge_hemispheres(brain) for brain in self.animals]
         if not inplace:
             return AnimalGroup(self.name, animals, metric=self.metric, brain_onthology=None, fill_nan=False)
@@ -131,7 +131,7 @@ class AnimalGroup:
             self.mean = self._update_mean()
             return self
 
-    def select_animal(self, animal_name: str):
+    def select_animal(self, animal_name: str) -> AnimalBrain:
         return next((brain for brain in self.animals if brain.name == animal_name))
 
     def remove_smaller_subregions(self, *args, **kwargs) -> None:
@@ -139,14 +139,14 @@ class AnimalGroup:
             brain.remove_smaller_subregions(*args, **kwargs)
         self.mean = self._update_mean()
 
-    def get_units(self, marker=None):
+    def get_units(self, marker=None) -> str:
         if len(self.markers) == 1:
             marker = self.markers[0]
         else:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
         return self.animals[0].get_units(marker)
 
-    def get_plot_title(self, marker=None):
+    def get_plot_title(self, marker=None) -> str:
         if len(self.markers) == 1:
             marker = self.markers[0]
         else:
@@ -166,12 +166,12 @@ class AnimalGroup:
         save_csv(df, output_path, file_name, overwrite=overwrite, index_label=(df.columns.name, None))
 
     @staticmethod
-    def from_pandas(group_name, df: pd.DataFrame):
+    def from_pandas(group_name, df: pd.DataFrame) -> Self:
         animals = [AnimalBrain.from_pandas(animal_name, df.xs(animal_name, level=1)) for animal_name in df.index.unique(1)]
         return AnimalGroup(group_name, animals, df.columns.name, fill_nan=False)
 
     @staticmethod
-    def from_csv(group_name, root_dir, file_name):
+    def from_csv(group_name, root_dir, file_name) -> Self:
         # # read CSV
         df = pd.read_csv(os.path.join(root_dir, file_name), sep="\t", header=0, index_col=[0,1])
         df.columns.name = df.index.names[0]

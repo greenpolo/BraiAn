@@ -153,7 +153,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 cmin=None, cmax=None, cmap="magma_r",
                 orientation="frontal",
                 show_text=True, title=None,
-                other=None) -> str:
+                other=None) -> None:
         if other is None:
             hems = ("both",)
             # brain_data = brain_data.loc[selected_regions]
@@ -224,6 +224,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             plot_filepath = os.path.join(output_path, filename+f"_{depth:05.0f}.svg")
             f.savefig(plot_filepath)
             plt.close(f)
+        print()
 
 def add_projections(ax: mpl.axes.Axes, heatmap: bgh.heatmap,
                     slicer: bgh.slicer.Slicer, show_text: bool):
