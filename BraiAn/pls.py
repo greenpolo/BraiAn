@@ -58,6 +58,7 @@ Please check that you're reading two groups that normalized on the same brain re
 #        print ("\n gtdummies Y:")
 #        print(Y)
         num_animals,num_groups = Y.shape
+        assert num_groups > 1, "You can't compute the PLS on data coming all from the same group!"
 #        print("\n num_animals:")
 #        print(num_animals)
 #        print("\n num_groups:")
@@ -88,7 +89,11 @@ Please check that you're reading two groups that normalized on the same brain re
 
         data = pd.concat([self.X,self.y],axis=1)
         for i in range(0,num_bootstrap):
-            data_sampled = data.sample(n=data.shape[0], replace=True)
+            while True:
+                data_sampled = data.sample(n=data.shape[0], replace=True)
+                if data_sampled["group"].any() and (~data_sampled["group"]).any():
+                    # make sure the sampled animals are not all from the same group
+                    break
             X_sampled = data_sampled.drop("group",axis=1)
             y_sampled = data_sampled["group"]
             u_bootstrap[:,:,i],s,v_bootstrap[:,:,i] = self.partial_least_squares_correlation(X_sampled,y_sampled)
