@@ -10,7 +10,7 @@ from ..brain_hierarchy import AllenBrainHierarchy
 
 class CrossCorrelation:
     def __init__(self, animal_group: AnimalGroup, regions: list[str], AllenBrain: AllenBrainHierarchy,
-                 normalization: str, min_animals: int, name="") -> None:
+                 min_animals: int, name="") -> None:
         assert not min_animals or (min_animals >= 2), "Invalid minimum number of animals needed for cross correlation. It must be >= 2."
         if len(animal_group.markers) > 1:
             raise ValueError("Cross Correlation of AnimalGroups with multiple markers isn't implemented yet")

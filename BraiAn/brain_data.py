@@ -197,11 +197,16 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             f, ax = plt.subplots(figsize=(9, 9))
             for heatmap in heatmaps:
                 add_projections(ax, heatmap, slicer, show_text)
+            
+            if len(heatmaps) == 2:
+                ax.axvline(x=sum(ax.get_xlim())/2, linestyle="--", color="black", lw=2)
 
             # set title
-            ax.set_title(title, fontsize=20, pad=-15)
+            f.suptitle(title, x=0.5, y=0.88, fontsize=35)
             for data_name, hem in zip(data_names, reversed(hems)): # the hemispheres are flipped because the brain is cut front->back, not back->front
-                ax.set_title(data_name, loc=hem if hem != "both" else "center", y=0, pad=-15)
+                x_pos = 0.5 if hem == "both" else 0.25 if hem == "left" else 0.75
+                f.text(s=data_name, fontsize=25, ha="center", x=x_pos, y=0.12)
+                # ax.set_title(data_name, loc=hem if hem != "both" else "center", y=0, pad=-15)
 
             # style axes
             if orientation == "frontal":

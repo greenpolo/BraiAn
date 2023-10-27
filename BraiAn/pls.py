@@ -26,11 +26,14 @@ class PLS:
     - Ly (pd dataframe): latent variables of Y, i.e. projection of Y on u.
     '''
     
-    def __init__(self, regions: list[str], group_1: AnimalGroup, group_2: AnimalGroup, *groups: AnimalGroup) -> None:
-        groups = [group_1, group_2, *groups]
-        if any(len(g.markers) > 1 for g in groups):
-            raise ValueError("PLS of AnimalGroups with multiple markers isn't implemented yet")
-        assert all(group_1.is_comparable(g) for g in groups[1:]), "Group 1 and Group 2 are not comparable!\n\
+    def __init__(self, regions: list[str], group1: AnimalGroup, group2: AnimalGroup, *groups: AnimalGroup, marker=None) -> None:
+        groups = [group1, group2, *groups]
+        if marker is None:
+            if any(len(g.markers) > 1 for g in groups):
+                raise ValueError("PLS of AnimalGroups with multiple markers isn't implemented yet")
+            else:
+                marker = group1.markers[0]
+        assert all(group1.is_comparable(g) for g in groups[1:]), "Group 1 and Group 2 are not comparable!\n\
 Please check that you're reading two groups that normalized on the same brain regions and on the same marker."
         # Fill a data matrix
         animal_list = [a for g in groups for a in g.get_animals()]
@@ -40,7 +43,7 @@ Please check that you're reading two groups that normalized on the same brain re
         data = pd.DataFrame(index=regions+["group"], columns=animal_list)
 
         for group in groups:
-            data.loc[regions,group.get_animals()] = group.select(regions).to_pandas(group.markers[0])
+            data.loc[regions,group.get_animals()] = group.select(regions).to_pandas(marker)
             data.loc["group",group.get_animals()] = group.name
 
         self.X = data.loc[regions].T.dropna(axis="columns", how="any").astype("float64", copy=False)
