@@ -28,8 +28,7 @@ class AnimalGroup:
         # if not animals or not brain_onthology:
         #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_onthology: AllenBrainHierarchy.")
         assert len(animals) > 0, "Inside the group there must be at least one animal."
-        self.markers = np.asarray(animals[0].markers)
-        assert all([marker in self.markers for brain in animals for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
+        assert all([marker in animals[0].markers for brain in animals[1:] for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
         self.metric = BrainMetrics(metric)
         assert all([brain.mode == animals[0].mode for brain in animals]), "All AnimalBrains of a group must be hava been processed the same way."
         self.n = len(animals)
@@ -54,6 +53,7 @@ class AnimalGroup:
             # now BrainGroup.get_regions(), which returns the regions of the first animal, is correct
             raise ValueError("Cannot set fill_nan=False and brain_onthology=None if all animals of the group don't have the same brain regions.")
         self.animals: list[AnimalBrain] = [sort(analyse(merge(brain))) for brain in animals]
+        self.markers = np.asarray(self.animals[0].markers)
         self.mean = self._update_mean()
     
     def __str__(self) -> str:

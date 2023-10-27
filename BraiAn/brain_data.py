@@ -149,7 +149,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def plot(self,
                 brain_regions: list[str],
                 output_path: str, filename: str,
-                n=10,
+                n=10, depth=None,
                 cmin=None, cmax=None, cmap="magma_r",
                 orientation="frontal",
                 show_text=True, title=None,
@@ -189,47 +189,58 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         ]
         title = heatmaps[0].title
 
-        print("depths: ", end="")
-        for depth in np.linspace(1500, 11000, n):
-            print(f"{depth:.2f}", end="  ")
-            slicer = bgh.slicer.Slicer(depth, orientation, 100, heatmaps[0].scene.root)
+        if depth is not None:
+            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, show_text)
+            return fig
+        else:
+            print("depths: ", end="")
+            for depth in np.linspace(1500, 11000, n):
+                print(f"{depth:.2f}", end="  ")
+                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, show_text)
 
-            f, ax = plt.subplots(figsize=(9, 9))
-            for heatmap in heatmaps:
-                add_projections(ax, heatmap, slicer, show_text)
+                plot_filepath = os.path.join(output_path, filename+f"_{depth:05.0f}.svg")
+                f.savefig(plot_filepath)
+                plt.close(f)
+            print()
+            return
+
+def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
+               data_names: list[str], hems: list[str],
+               orientation: str, title: str,
+               show_text: bool):
+    fig, ax = plt.subplots(figsize=(9, 9))
+    slicer = bgh.slicer.Slicer(depth, orientation, 100, heatmaps[0].scene.root)
+    for heatmap in heatmaps:
+        add_projections(ax, heatmap, slicer, show_text)
             
-            if len(heatmaps) == 2:
-                ax.axvline(x=sum(ax.get_xlim())/2, linestyle="--", color="black", lw=2)
+    if len(heatmaps) == 2:
+        ax.axvline(x=sum(ax.get_xlim())/2, linestyle="--", color="black", lw=2)
 
-            # set title
-            f.suptitle(title, x=0.5, y=0.88, fontsize=35)
-            for data_name, hem in zip(data_names, reversed(hems)): # the hemispheres are flipped because the brain is cut front->back, not back->front
-                x_pos = 0.5 if hem == "both" else 0.25 if hem == "left" else 0.75
-                f.text(s=data_name, fontsize=25, ha="center", x=x_pos, y=0.12)
-                # ax.set_title(data_name, loc=hem if hem != "both" else "center", y=0, pad=-15)
+    # set title
+    fig.suptitle(title, x=0.5, y=0.88, fontsize=35)
+    for data_name, hem in zip(data_names, reversed(hems)): # the hemispheres are flipped because the brain is cut front->back, not back->front
+        x_pos = 0.5 if hem == "both" else 0.25 if hem == "left" else 0.75
+        fig.text(s=data_name, fontsize=25, ha="center", x=x_pos, y=0.12)
+        # ax.set_title(data_name, loc=hem if hem != "both" else "center", y=0, pad=-15)
 
-            # style axes
-            if orientation == "frontal":
-                ax.invert_yaxis()
-            ax.spines["right"].set_visible(False)
-            ax.spines["top"].set_visible(False)
-            ax.spines["left"].set_visible(False)
-            ax.spines['bottom'].set_visible(False)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set(xlabel="", ylabel="")
-            ax.set_aspect('equal',adjustable='box')
+    # style axes
+    if orientation == "frontal":
+        ax.invert_yaxis()
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set(xlabel="", ylabel="")
+    ax.set_aspect('equal',adjustable='box')
 
-            # add colorbar
-            ax.figure.colorbar(
-                mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=heatmaps[0].vmin, vmax=heatmaps[0].vmax), cmap=heatmaps[0].cmap),
-                ax=ax, label=title, fraction=0.046, pad=0.04
-            )
-
-            plot_filepath = os.path.join(output_path, filename+f"_{depth:05.0f}.svg")
-            f.savefig(plot_filepath)
-            plt.close(f)
-        print()
+    # add colorbar
+    ax.figure.colorbar(
+        mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=heatmaps[0].vmin, vmax=heatmaps[0].vmax), cmap=heatmaps[0].cmap),
+        ax=ax, label=title, fraction=0.046, pad=0.04
+    )
+    return fig,ax
 
 def add_projections(ax: mpl.axes.Axes, heatmap: bgh.heatmap,
                     slicer: bgh.slicer.Slicer, show_text: bool):

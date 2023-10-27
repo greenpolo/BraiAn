@@ -137,6 +137,22 @@ class AnimalBrain:
             overlaps[m].metric = str(BrainMetrics.OVERLAPPING)
             overlaps[m].units = f"({marker1}+{marker2})/{m}"
         return AnimalBrain(markers_data=overlaps, areas=self.areas)
+    
+    def similarity_index(self, marker1: str, marker2: str) -> Self:
+        # computes Jaccard's index
+        if self.mode not in (BrainMetrics.SUM, BrainMetrics.MEAN):
+            raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not summed or averaged.")
+        for m in (marker1, marker2):
+            if m not in self.markers:
+                raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
+        try:
+            overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
+        except StopIteration as e:
+            raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
+        similarities = self.markers_data[overlapping] / (self.markers_data[marker1]+self.markers_data[marker2]-self.markers_data[overlapping])
+        similarities.metric = str(BrainMetrics.SIMILARITY_INDEX)
+        similarities.units = "∩/∪"
+        return AnimalBrain(markers_data={overlapping: similarities}, areas=self.areas)
 
     def to_pandas(self, units=False) -> pd.DataFrame:
         data = pd.concat({f"area ({self.areas.units})" if units else "area": self.areas.data,
