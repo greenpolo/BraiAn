@@ -31,6 +31,7 @@ class BrainMetrics(Enum):
     RELATIVE_DENSITY = 7
     OVERLAPPING = 8
     SIMILARITY_INDEX = 9
+    DIFFERENCE = 10
 
     def __repr__(self):
         cls_name = self.__class__.__name__
@@ -65,6 +66,8 @@ class BrainMetrics(Enum):
                 return BrainMetrics.OVERLAPPING
             case "similarity" | "similarity index" | "similarity_index" | "similarityindex" | "sim":
                 return BrainMetrics.SIMILARITY_INDEX
+            case "diff" | "difference":
+                return BrainMetrics.DIFFERENCE
             case _:
                 return None
 
@@ -88,8 +91,10 @@ class BrainMetrics(Enum):
             case BrainMetrics.RELATIVE_DENSITY:
                 return brain.relative_density(*args, **kwargs)
             case BrainMetrics.OVERLAPPING:
-                return brain.overlap_markers(*args, **kwargs)
+                return brain.markers_overlap(*args, **kwargs)
             case BrainMetrics.SIMILARITY_INDEX:
-                return brain.similarity_index(*args, **kwargs)
+                return brain.markers_similarity_index(*args, **kwargs)
+            case BrainMetrics.DIFFERENCE:
+                return brain.markers_difference(*args, **kwargs)
             case _:
                 raise ValueError(f"{self} is meant for BrainSlices reduction, not for AnimalBrain analysis")

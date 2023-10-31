@@ -188,15 +188,16 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             for d,hem in zip(data, hems)
         ]
         title = heatmaps[0].title
+        units = self.units if self.units is not None else title
 
         if depth is not None:
-            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, show_text)
+            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text)
             return fig
         else:
             print("depths: ", end="")
             for depth in np.linspace(1500, 11000, n):
                 print(f"{depth:.2f}", end="  ")
-                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, show_text)
+                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text)
 
                 plot_filepath = os.path.join(output_path, filename+f"_{depth:05.0f}.svg")
                 f.savefig(plot_filepath)
@@ -207,7 +208,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
 def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
                data_names: list[str], hems: list[str],
                orientation: str, title: str,
-               show_text: bool):
+               units: str, show_text: bool):
     fig, ax = plt.subplots(figsize=(9, 9))
     slicer = bgh.slicer.Slicer(depth, orientation, 100, heatmaps[0].scene.root)
     for heatmap in heatmaps:
@@ -238,7 +239,7 @@ def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
     # add colorbar
     ax.figure.colorbar(
         mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=heatmaps[0].vmin, vmax=heatmaps[0].vmax), cmap=heatmaps[0].cmap),
-        ax=ax, label=title, fraction=0.046, pad=0.04
+        ax=ax, label=units, fraction=0.046, pad=0.04
     )
     return fig,ax
 

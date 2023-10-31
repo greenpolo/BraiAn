@@ -56,6 +56,10 @@ class AnimalGroup:
         self.markers = np.asarray(self.animals[0].markers)
         self.mean = self._update_mean()
     
+    def markers_corr(self, marker1: str, marker2: str) -> BrainData:
+        corr = self.to_pandas(marker1).corrwith(self.to_pandas(marker2), method="pearson", axis=1)
+        return BrainData(corr, self.name, "correlation", f"corr({marker1}, {marker2})")
+    
     def __str__(self) -> str:
         return f"AnimalGroup(metric={self.metric}, n={self.n})"
 
