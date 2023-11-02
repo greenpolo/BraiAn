@@ -157,8 +157,8 @@ class AnimalBrain:
     def markers_difference(self, marker1: str, marker2: str) -> Self:
         if self.mode == BrainMetrics.SUM:
             return self.density().markers_difference(marker1, marker2)
-        if self.mode != BrainMetrics.DENSITY:
-            raise ValueError("Cannot compute the marker difference of two markers for AnimalBrains whose data is not density")
+        elif self.mode != BrainMetrics.DENSITY:
+            raise ValueError("Cannot compute the marker difference of two markers for AnimalBrains whose data is not density or sum")
         for m in (marker1, marker2):
             if m not in self.markers:
                 raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
