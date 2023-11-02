@@ -155,6 +155,8 @@ class AnimalBrain:
         return AnimalBrain(markers_data={overlapping: similarities}, areas=self.areas)
 
     def markers_difference(self, marker1: str, marker2: str) -> Self:
+        if self.mode == BrainMetrics.SUM:
+            return self.density().markers_difference(marker1, marker2)
         if self.mode != BrainMetrics.DENSITY:
             raise ValueError("Cannot compute the marker difference of two markers for AnimalBrains whose data is not density")
         for m in (marker1, marker2):

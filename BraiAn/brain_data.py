@@ -1,5 +1,4 @@
 import bgheatmaps as bgh
-import copy
 import itertools
 import math
 import matplotlib as mpl
@@ -8,7 +7,6 @@ import numpy as np
 import os
 import pandas as pd
 import re
-import vedo as vd
 from typing import Self
 
 from .deflector import deflect
@@ -151,7 +149,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 output_path: str, filename: str,
                 n=10, depth=None,
                 cmin=None, cmax=None, cmap="magma_r",
-                orientation="frontal",
+                centered_cmap=False, orientation="frontal",
                 show_text=True, title=None,
                 other=None) -> None:
         if other is None:
@@ -173,6 +171,9 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             cmin = math.floor(_cmin)
         if cmax is None:
             cmax = math.ceil(_cmax)
+        if centered_cmap:
+            cmap = CenteredColormap("RdBu", cmin, cmax)
+
         heatmaps = [
             bgh.heatmap(
                 d.data.to_dict(),
@@ -261,6 +262,29 @@ def add_projections(ax: mpl.axes.Axes, heatmap: bgh.heatmap,
         if show_text and name != "root":
             (x0, y0), (x1, y1) = filled_polys[0].get_path().get_extents().get_points()
             ax.text((x0 + x1) / 2, (y0 + y1) / 2, name, ha="center", va="center", fontsize=10, color="black")
+
+import matplotlib
+import matplotlib.pyplot
+
+class CenteredColormap(matplotlib.colors.LinearSegmentedColormap,
+                       metaclass=deflect(
+                           on_attribute="cmap",
+                           arithmetics=False,
+                           container=False
+                        )):
+    def __init__(self, cmap, vmin: int, vmax: int):
+        if isinstance(cmap, matplotlib.colors.LinearSegmentedColormap):
+            self.cmap = cmap
+        else:
+            self.cmap = matplotlib.pyplot.get_cmap(cmap)
+        center = -vmin/(vmax - vmin)
+        self.norm = matplotlib.colors.TwoSlopeNorm(center, vmin=0, vmax=1)
+        # super compatibility
+        self.N = self.cmap.N
+        self.colorbar_extend = self.cmap.colorbar_extend
+    
+    def __call__(self, X, alpha=None, bytes=False):
+        return matplotlib.cm.ScalarMappable(norm=self.norm, cmap=self.cmap).to_rgba(X, alpha, bytes)
 
 if __name__ == "__main__":
     data1 = pd.Series([100,200,130,np.nan,50])
