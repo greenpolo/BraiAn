@@ -157,7 +157,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             # brain_data = brain_data.loc[selected_regions]
             # brain_data = brain_data[brain_data.index.isin(brain_regions)]
             # brain_data = brain_data[~brain_data.isna().all(axis=1)]
-            data = (self.select_from_list(brain_regions),)
+            data = (self.select_from_list(brain_regions, fill_nan=True),)
             data_names = (self.data_name,)
             _cmin = data[0].min()
             _cmax = data[0].max()
@@ -172,6 +172,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         if cmax is None:
             cmax = math.ceil(_cmax)
         if centered_cmap:
+            assert cmin <=0 and cmax >= 0, "The provided BrainData's range does not include zero! Are you sure you need centered_cmap=True?"
             cmap = CenteredColormap("RdBu", cmin, cmax)
 
         heatmaps = [
@@ -266,25 +267,30 @@ def add_projections(ax: mpl.axes.Axes, heatmap: bgh.heatmap,
 import matplotlib
 import matplotlib.pyplot
 
-class CenteredColormap(matplotlib.colors.LinearSegmentedColormap,
+class NormalizedColormap(matplotlib.colors.LinearSegmentedColormap,
                        metaclass=deflect(
                            on_attribute="cmap",
                            arithmetics=False,
                            container=False
                         )):
-    def __init__(self, cmap, vmin: int, vmax: int):
+    def __init__(self, cmap, norm: matplotlib.colors.Normalize):
         if isinstance(cmap, matplotlib.colors.LinearSegmentedColormap):
             self.cmap = cmap
         else:
             self.cmap = matplotlib.pyplot.get_cmap(cmap)
-        center = -vmin/(vmax - vmin)
-        self.norm = matplotlib.colors.TwoSlopeNorm(center, vmin=0, vmax=1)
+        self.norm = norm
         # super compatibility
         self.N = self.cmap.N
         self.colorbar_extend = self.cmap.colorbar_extend
     
     def __call__(self, X, alpha=None, bytes=False):
         return matplotlib.cm.ScalarMappable(norm=self.norm, cmap=self.cmap).to_rgba(X, alpha, bytes)
+
+class CenteredColormap(NormalizedColormap):
+    def __init__(self, cmap, vmin: int, vmax: int):
+        center = -vmin/(vmax - vmin)
+        norm = matplotlib.colors.TwoSlopeNorm(center, vmin=0, vmax=1)
+        super().__init__(cmap, norm)
 
 if __name__ == "__main__":
     data1 = pd.Series([100,200,130,np.nan,50])

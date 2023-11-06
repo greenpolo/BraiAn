@@ -5,10 +5,9 @@ import pandas as pd
 import numpy as np
 
 from .utils import nrange
-from .pls import PLS
 from .sliced_brain import SlicedBrain
 from .animal_brain import AnimalBrain
-from .animal_group import AnimalGroup
+from .animal_group import AnimalGroup, PLS
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 
 def plot_animal_group(fig: go.Figure, group: AnimalGroup,

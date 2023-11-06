@@ -1,11 +1,10 @@
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS, UPPER_REGIONS
-from .pls import PLS
 from .brain_slice import BrainSlice
 from .sliced_brain import SlicedBrain
 from .brain_data import BrainData
 from .brain_metrics import BrainMetrics
 from .animal_brain import AnimalBrain
-from .animal_group import AnimalGroup
+from .animal_group import AnimalGroup, PLS
 from .statistics import as_prism_data
 from .utils import cache, save_csv, regions_to_plot, remote_dirs
 from .plot import plot_groups, plot_pie, plot_cv_above_threshold, plot_region_density, plot_permutation, plot_salient_regions
