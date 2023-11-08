@@ -38,7 +38,8 @@ class EmptyBrainError(Exception): pass
 
 class SlicedBrain:
     def __init__(self, name: str, animal_dir: str, brain_onthology: AllenBrainHierarchy,
-                area_key: str, tracers_key, markers_key, *overlapping_tracers: list[int], area_units="µm2") -> None:
+                area_key: str, tracers_key, markers_key, *overlapping_tracers: list[int], area_units="µm2",
+                exclude_parent_regions=False) -> None:
         self.name = name
         if not isinstance(tracers_key, str) and len(overlapping_tracers) > 0:
             # QuPath specific
@@ -60,7 +61,7 @@ class SlicedBrain:
             try:
                 slice = BrainSlice(brain_onthology,
                                     results_file,
-                                    regions_to_exclude_file,
+                                    regions_to_exclude_file, exclude_parent_regions,
                                     self.name, image,
                                     area_key, tracers_key, self.markers, area_units=area_units)
             except BrainSliceFileError as e:

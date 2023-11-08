@@ -56,7 +56,7 @@ class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
 
 class BrainSlice:
     def __init__(self, brain_onthology: AllenBrainHierarchy, csv_file: str,
-                 excluded_regions_file: str,
+                 excluded_regions_file: str, exclude_parent_regions: bool,
                  animal:str, name: str, area_key: str,
                  tracers_key: list[str], markers_key: list[str], area_units="µm2") -> None:
         self.animal = animal
@@ -81,7 +81,7 @@ class BrainSlice:
 
         # Take care of regions to be excluded
         try:
-            self.exclude_regions(excluded_regions, brain_onthology)
+            self.exclude_regions(excluded_regions, brain_onthology, exclude_parent_regions)
         except Exception:
             raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
         if len(self.data) == 0:
@@ -178,14 +178,17 @@ class BrainSlice:
     
     def exclude_regions(self,
                         excluded_regions: list[str],
-                        brain_onthology: AllenBrainHierarchy) -> None:
+                        brain_onthology: AllenBrainHierarchy,
+                        exclude_parent_regions: bool) -> None:
         '''
         Take care of regions to be excluded from the analysis.
         If a region is to be excluded, 2 things must happen:
-        (1) The cell counts of that region must be subtracted from all
-            its parent regions.
+        (1) if exclude_parent_regions==False, the cell counts of that
+            region must be subtracted from all its parent regions, 
         (2) The region must disappear from the data, together with all 
             its daughter regions.
+            If exclude_parent_regions==True, all the parent regions must
+            disappear too!
         '''
 
         for reg_hemi in excluded_regions:
@@ -204,8 +207,11 @@ class BrainSlice:
                 row = hemi+": "+region
                 # Subtract the counting results from the parent region.
                 # Use fill_value=0 to prevent "3-NaN=NaN".
-                if row in self.data.index and reg_hemi in self.data.index:
-                    self.data.loc[row] = self.data.loc[row].subtract(self.data.loc[reg_hemi], fill_value=0)
+                if row in self.data.index:
+                    if exclude_parent_regions:
+                        self.data.drop(row, inplace=True)
+                    elif reg_hemi in self.data.index:
+                        self.data.loc[row] = self.data.loc[row].subtract(self.data.loc[reg_hemi], fill_value=0)
 
             # Step 2: Remove the regions that should be excluded
             # together with their daughter regions.
