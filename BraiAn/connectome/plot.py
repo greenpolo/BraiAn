@@ -7,7 +7,7 @@ from .connectome import Connectome
 from ..brain_hierarchy import AllenBrainHierarchy
 
 def draw_network_plot(connectome: Connectome,
-                      layout_fun: ig.Layout, AllenBrain: AllenBrainHierarchy,
+                      layout_fun: ig.Layout, brain_onthology: AllenBrainHierarchy,
                       use_centrality=False, centrality_metric=None, colorscale="Plasma",
                       use_clustering=False, isolated_regions=False,
                       width=None, height=1000,
@@ -18,7 +18,7 @@ def draw_network_plot(connectome: Connectome,
     else:
         G = connectome.G
     graph_layout = layout_fun(G)
-    nodes_trace = draw_nodes(G, graph_layout, 15, AllenBrain, outline_size=6,
+    nodes_trace = draw_nodes(G, graph_layout, 15, brain_onthology, outline_size=6,
                              use_centrality=use_centrality, centrality_metric=centrality_metric,
                              use_clustering=use_clustering)
     if use_centrality and centrality_metric in G.vs.attributes():
@@ -37,7 +37,7 @@ def draw_network_plot(connectome: Connectome,
               ))
     return fig
 
-def nodes_hover_info(G: ig.Graph, AllenBrain: AllenBrainHierarchy, title_dict: dict={}):
+def nodes_hover_info(G: ig.Graph, brain_onthology: AllenBrainHierarchy, title_dict: dict={}):
     customdata = []
     hovertemplates = []
     i = 0
@@ -47,7 +47,7 @@ def nodes_hover_info(G: ig.Graph, AllenBrain: AllenBrainHierarchy, title_dict: d
             case "name":
                 customdata.extend((
                      G.vs["name"],
-                     [AllenBrain.full_name[acronym] for acronym in G.vs["name"]]
+                     [brain_onthology.full_name[acronym] for acronym in G.vs["name"]]
                 ))
                 hovertemplates.extend((
                     f"Region: <b>%{{customdata[{i}]}}</b>",
@@ -57,7 +57,7 @@ def nodes_hover_info(G: ig.Graph, AllenBrain: AllenBrainHierarchy, title_dict: d
             case "upper_region":
                 customdata.extend((
                      G.vs["upper_region"],
-                     [AllenBrain.full_name[acronym] for acronym in G.vs["upper_region"]]
+                     [brain_onthology.full_name[acronym] for acronym in G.vs["upper_region"]]
                 ))
                 hovertemplates.append(f"Major Division: %{{customdata[{i}]}} (%{{customdata[{i+1}]}})")
                 i += 2
@@ -83,10 +83,10 @@ def nodes_hover_info(G: ig.Graph, AllenBrain: AllenBrainHierarchy, title_dict: d
     # customdata=np.hstack((old_customdata.customdata, np.expand_dims(<new_data>, 1))), # update customdata
     return np.stack(customdata, axis=-1), hovertemplate
 
-def draw_nodes(G: ig.Graph, graph_layout: ig.Layout, node_size: int, AllenBrain: AllenBrainHierarchy,
+def draw_nodes(G: ig.Graph, graph_layout: ig.Layout, node_size: int, brain_onthology: AllenBrainHierarchy,
                outline_size=0.5, use_centrality=False, centrality_metric: str=None,
                use_clustering=False):
-    colors = AllenBrain.get_region_colors()
+    colors = brain_onthology.get_region_colors()
     nodes_color = []
     outlines_color = []
     if use_clustering:
@@ -110,7 +110,7 @@ def draw_nodes(G: ig.Graph, graph_layout: ig.Layout, node_size: int, AllenBrain:
         nodes_color.append(node_color)
         outlines_color.append(outline_color)
 
-    customdata, hovertemplate = nodes_hover_info(G, AllenBrain, title_dict={"Degree": ig.VertexSeq.degree})
+    customdata, hovertemplate = nodes_hover_info(G, brain_onthology, title_dict={"Degree": ig.VertexSeq.degree})
     nodes_trace = go.Scatter(
         x=[coord[0] for coord in graph_layout.coords],
         y=[coord[1] for coord in graph_layout.coords],

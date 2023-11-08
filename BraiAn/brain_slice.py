@@ -55,8 +55,10 @@ class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
 
 
 class BrainSlice:
-    def __init__(self, AllenBrain: AllenBrainHierarchy, csv_file: str, excluded_regions_file: str,
-                    animal:str, name: str, area_key: str, tracers_key, markers_key, area_units="µm2") -> None:
+    def __init__(self, brain_onthology: AllenBrainHierarchy, csv_file: str,
+                 excluded_regions_file: str,
+                 animal:str, name: str, area_key: str,
+                 tracers_key: list[str], markers_key: list[str], area_units="µm2") -> None:
         self.animal = animal
         self.name = name
         if isinstance(tracers_key, str):
@@ -79,7 +81,7 @@ class BrainSlice:
 
         # Take care of regions to be excluded
         try:
-            self.exclude_regions(excluded_regions, AllenBrain)
+            self.exclude_regions(excluded_regions, brain_onthology)
         except Exception:
             raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
         if len(self.data) == 0:
@@ -97,7 +99,7 @@ class BrainSlice:
     def _get_marker_density(df: pd.DataFrame, markers: list[str]) -> pd.DataFrame:
         return df[markers].div(df["area"], axis=0)
 
-    def read_regions_to_exclude(self, file_path) -> list[str]:
+    def read_regions_to_exclude(self, file_path: str) -> list[str]:
         try:
             with open(file_path, mode="r", encoding="utf-8") as file:
                 excluded_regions = file.readlines()
@@ -107,7 +109,7 @@ class BrainSlice:
         # return [region for region in to_exclude if region == ""] # if we want to allow having empty lines in _regions_to_exclude.txt
         return to_exclude
     
-    def read_results_data(self, csv_file) -> pd.DataFrame:
+    def read_results_data(self, csv_file: str) -> pd.DataFrame:
         data = self.read_csv_file(csv_file)
         self.check_columns(data, ["Name", "Class", "Num Detections",], csv_file)
 
@@ -130,7 +132,7 @@ class BrainSlice:
         data.index.name = None
         return data
 
-    def read_csv_file(self, csv_file) -> pd.DataFrame:
+    def read_csv_file(self, csv_file: str) -> pd.DataFrame:
         try:
             return pd.read_csv(csv_file, sep="\t").drop_duplicates()
         except Exception as e:
@@ -139,7 +141,7 @@ class BrainSlice:
             else:
                 raise InvalidResultsError(animal=self.animal, file=csv_file)
     
-    def clean_rows(self, data, csv_file):
+    def clean_rows(self, data: pd.DataFrame, csv_file: str):
         if (data["Name"] == "Exclude").any():
             # some rows have the Name==Exclude because the cell counting script was run AFTER having done the exclusions
             data = data.loc[data["Name"] != "Exclude"]
@@ -160,7 +162,7 @@ class BrainSlice:
                 raise MissingResultsColumnError(animal=self.animal, file=csv_file, column=column)
         return True
     
-    def check_zero_rows(self, csv_file, markers) -> bool:
+    def check_zero_rows(self, csv_file: str, markers: list[str]) -> bool:
         for marker in markers:
             zero_rows = self.data[marker] == 0
             if sum(zero_rows) > 0:
@@ -174,7 +176,9 @@ class BrainSlice:
         return True
 
     
-    def exclude_regions(self, excluded_regions, AllenBrain) -> None:
+    def exclude_regions(self,
+                        excluded_regions: list[str],
+                        brain_onthology: AllenBrainHierarchy) -> None:
         '''
         Take care of regions to be excluded from the analysis.
         If a region is to be excluded, 2 things must happen:
@@ -191,12 +195,11 @@ class BrainSlice:
                     continue
                 elif MODE_ExcludedRegionNotRecognisedError == "error":
                     raise InvalidExcludedRegionsHemisphereError(animal=self.animal, file=f"{self.name}_regions_to_exclude.txt")
-            hemi = reg_hemi.split(": ")[0]
-            reg = reg_hemi.split(": ")[1]
+            hemi, reg = reg_hemi.split(": ")
 
             # Step 1: subtract counting results of the regions to be excluded
             # from their parent regions.
-            regions_above = AllenBrain.get_regions_above(reg)
+            regions_above = brain_onthology.get_regions_above(reg)
             for region in regions_above:
                 row = hemi+": "+region
                 # Subtract the counting results from the parent region.
@@ -206,11 +209,11 @@ class BrainSlice:
 
             # Step 2: Remove the regions that should be excluded
             # together with their daughter regions.
-            subregions = AllenBrain.list_all_subregions(reg)
+            subregions = brain_onthology.list_all_subregions(reg)
             for subreg in subregions:
                 row = hemi+": "+subreg
                 if row in self.data.index:
-                    self.data = self.data.drop(row)
+                    self.data.drop(row, inplace=True)
     
     def _area_µm2_to_mm2_(self) -> None:
         self.data.area = self.data.area * 1e-06

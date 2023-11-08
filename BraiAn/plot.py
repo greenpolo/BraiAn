@@ -11,7 +11,7 @@ from .animal_group import AnimalGroup, PLS
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 
 def plot_animal_group(fig: go.Figure, group: AnimalGroup,
-                        AllenBrain: AllenBrainHierarchy, selected_regions: list[str],
+                        brain_onthology: AllenBrainHierarchy, selected_regions: list[str],
                         animal_size: int, color: str, y_offset, marker=None, use_acronyms=True) -> None:
     if len(group.markers) > 1:
         if marker is None:
@@ -24,7 +24,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
     # selected_regions = selected_regions[np.isin(selected_regions, regions)]
     regions_data = group.select(selected_regions).to_pandas()
     y_axis, acronyms = pd.factorize(regions_data.index.get_level_values(0))
-    full_names = [AllenBrain.full_name[acronym] for acronym in acronyms]
+    full_names = [brain_onthology.full_name[acronym] for acronym in acronyms]
     if not use_acronyms:
         ticklabels = full_names
     else:
@@ -44,7 +44,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
                 )
     )
     # Scatterplot (animals)
-    animal_regions = [AllenBrain.full_name[acronym] for acronym in regions_data.index.get_level_values(0)]
+    animal_regions = [brain_onthology.full_name[acronym] for acronym in regions_data.index.get_level_values(0)]
     animal_names = regions_data.index.get_level_values(1)
     fig.add_trace(go.Scatter(
                         mode = "markers",
@@ -69,7 +69,7 @@ def plot_animal_group(fig: go.Figure, group: AnimalGroup,
 
 UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
 
-def plot_groups(AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
+def plot_groups(brain_onthology: AllenBrainHierarchy, *groups: AnimalGroup,
                 selected_regions: list[str], marker=None, plot_title="", title_size=20,
                 axis_size=15, animal_size=5, use_acronyms=True,
                 colors=DEFAULT_PLOTLY_COLORS, width=900,
@@ -84,11 +84,11 @@ def plot_groups(AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
     max_bar_offset = region_axis_width - group_bar_width/2
     y_offsets = nrange(-max_bar_offset, max_bar_offset, n_groups)
     for group, y_offset, color in zip(groups, y_offsets, colors):
-        ticklabels = plot_animal_group(fig, group, AllenBrain, selected_regions, animal_size, color, y_offset, marker=marker, use_acronyms=use_acronyms)
+        ticklabels = plot_animal_group(fig, group, brain_onthology, selected_regions, animal_size, color, y_offset, marker=marker, use_acronyms=use_acronyms)
     
     # Plot major divisions
-    active_mjd = tuple(AllenBrain.get_areas_major_division(*selected_regions).values())
-    allen_colours = AllenBrain.get_region_colors()
+    active_mjd = tuple(brain_onthology.get_areas_major_division(*selected_regions).values())
+    allen_colours = brain_onthology.get_region_colors()
     y_start = -0.5
     major_division_height = 0.03
     dist = 0.1
@@ -105,7 +105,7 @@ def plot_groups(AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
             layer="below",
             name=major_division,
             label=dict(
-                text=AllenBrain.full_name[major_division],
+                text=brain_onthology.full_name[major_division],
                 textangle=90,
                 # font=dict(size=20)
             )
@@ -139,14 +139,14 @@ def plot_groups(AllenBrain: AllenBrainHierarchy, *groups: AnimalGroup,
 
     return fig
 
-def plot_pie(selected_regions: list[str], AllenBrain: AllenBrainHierarchy,
+def plot_pie(selected_regions: list[str], brain_onthology: AllenBrainHierarchy,
                 use_acronyms=True, hole=0.3, line_width=2, text_size=12):
-    active_mjd = tuple(AllenBrain.get_areas_major_division(*selected_regions).values())
+    active_mjd = tuple(brain_onthology.get_areas_major_division(*selected_regions).values())
     mjd_occurrences = [(mjd, active_mjd.count(mjd)) for mjd in UPPER_REGIONS]
-    allen_colours = AllenBrain.get_region_colors()
+    allen_colours = brain_onthology.get_region_colors()
     fig = go.Figure(
                     go.Pie(
-                        labels=[mjd if use_acronyms else AllenBrain.full_name[mjd] for mjd,n in mjd_occurrences if n != 0],
+                        labels=[mjd if use_acronyms else brain_onthology.full_name[mjd] for mjd,n in mjd_occurrences if n != 0],
                         values=[n for mjd,n in mjd_occurrences if n != 0],
                         marker=dict(
                             colors=[allen_colours[mjd] for mjd,n in mjd_occurrences if n != 0],
@@ -160,7 +160,7 @@ def plot_pie(selected_regions: list[str], AllenBrain: AllenBrainHierarchy,
                     ))
     return fig
 
-def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups: list[SlicedBrain], cv_threshold=1, width=700, height=500) -> go.Figure:
+def plot_cv_above_threshold(brain_onthology, *sliced_brains_groups: list[SlicedBrain], cv_threshold=1, width=700, height=500) -> go.Figure:
     # fig = go.Figure()
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     brains_name = [f"{brain.name} ({marker})" for group in sliced_brains_groups for brain in group for marker in brain.markers]
@@ -170,7 +170,7 @@ def plot_cv_above_threshold(AllenBrain, *sliced_brains_groups: list[SlicedBrain]
     for i, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[i-1] if i > 0 else 0
         group_cvar_brains = [AnimalBrain.from_slices(sliced_brain, mode="cvar", hemisphere_distinction=False) for sliced_brain in group_slices]
-        group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, AllenBrain) for brain in group_cvar_brains]
+        group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, brain_onthology) for brain in group_cvar_brains]
 
         for j, cvars in enumerate(group_cvar_brains):
             # Scatterplot (animals)
@@ -318,19 +318,19 @@ def plot_permutation(experiment, permutation, n) -> go.Figure:
         )
     return fig
 
-def plot_salient_regions(salient_regions: pd.DataFrame, AllenBrain: AllenBrainHierarchy,
+def plot_salient_regions(salient_regions: pd.DataFrame, brain_onthology: AllenBrainHierarchy,
                             title=None, title_size=20,
                             axis_size=15, use_acronyms=True, use_acronyms_in_mjd=True,
                             mjd_opacity=0.5, width=300,
                             barheight=30, bargap=0.3, bargroupgap=0.0):#, height=500):
-    active_mjd = tuple(AllenBrain.get_areas_major_division(*salient_regions["acronym"].values).values())
-    allen_colours = AllenBrain.get_region_colors()
+    active_mjd = tuple(brain_onthology.get_areas_major_division(*salient_regions["acronym"].values).values())
+    allen_colours = brain_onthology.get_region_colors()
     fig = go.Figure([
         go.Bar(
             x=salient_regions["salience_score"],
             y=[
-                [mjd.upper() if use_acronyms_in_mjd else AllenBrain.full_name[mjd].upper() for mjd in active_mjd],
-                salient_regions["acronym"].values if use_acronyms else [AllenBrain.full_name[r] for r in salient_regions["acronym"]]
+                [mjd.upper() if use_acronyms_in_mjd else brain_onthology.full_name[mjd].upper() for mjd in active_mjd],
+                salient_regions["acronym"].values if use_acronyms else [brain_onthology.full_name[r] for r in salient_regions["acronym"]]
             ],
             marker_color=[allen_colours[r] for r in salient_regions["acronym"]],
             orientation="h"

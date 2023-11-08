@@ -37,7 +37,7 @@ MODE_InvalidExcludedRegionsHemisphereError = "print"
 class EmptyBrainError(Exception): pass
 
 class SlicedBrain:
-    def __init__(self, name: str, animal_dir: str, AllenBrain: AllenBrainHierarchy,
+    def __init__(self, name: str, animal_dir: str, brain_onthology: AllenBrainHierarchy,
                 area_key: str, tracers_key, markers_key, *overlapping_tracers: list[int], area_units="µm2") -> None:
         self.name = name
         if not isinstance(tracers_key, str) and len(overlapping_tracers) > 0:
@@ -58,7 +58,7 @@ class SlicedBrain:
             results_file = os.path.join(csv_slices_dir, f"{image}_regions.txt")
             regions_to_exclude_file = os.path.join(excluded_regions_dir, f"{image}_regions_to_exclude.txt")
             try:
-                slice = BrainSlice(AllenBrain,
+                slice = BrainSlice(brain_onthology,
                                     results_file,
                                     regions_to_exclude_file,
                                     self.name, image,

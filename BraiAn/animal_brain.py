@@ -251,10 +251,10 @@ class AnimalBrain:
         return redux
 
     @staticmethod
-    def filter_selected_regions(animal_brain: Self, AllenBrain: AllenBrainHierarchy) -> Self:
+    def filter_selected_regions(animal_brain: Self, brain_onthology: AllenBrainHierarchy) -> Self:
         brain = copy.copy(animal_brain)
-        brain.markers_data = {m: m_data.select_from_onthology(AllenBrain) for m, m_data in brain.markers_data.items()}
-        brain.areas = brain.areas.select_from_onthology(AllenBrain)
+        brain.markers_data = {m: m_data.select_from_onthology(brain_onthology) for m, m_data in brain.markers_data.items()}
+        brain.areas = brain.areas.select_from_onthology(brain_onthology)
         return brain
 
     @staticmethod

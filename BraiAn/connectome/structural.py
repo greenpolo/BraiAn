@@ -11,12 +11,12 @@ from ..brain_hierarchy import AllenBrainHierarchy
 
 class StructuralConnectome(Connectome):
     def __init__(self, normalized_connection_density_file: str,
-                 regions: list[str], AllenBrain: AllenBrainHierarchy,
+                 regions: list[str], brain_onthology: AllenBrainHierarchy,
                  mode="max", name="Allen's ST - normalized density",
                  log10_cutoff=-5, weighted=True,
                  isolated_vertices=True) -> None:
         # NOTE: no check is done whether 'regions' is a good cut or not of Allen's ontology
-        self.A = self.__read_adjacency_matrix(normalized_connection_density_file, regions, AllenBrain, mode, name)
+        self.A = self.__read_adjacency_matrix(normalized_connection_density_file, regions, brain_onthology, mode, name)
         self.log10_cutoff = log10_cutoff
         self.mask = self.A.data >= 10**log10_cutoff
         A = self.A.data.copy()
@@ -25,7 +25,7 @@ class StructuralConnectome(Connectome):
         self.__add_vertices_attributes(self.A)
 
     def __read_adjacency_matrix(self, normalized_connection_density_file: str,
-                                regions: list[str], AllenBrain: AllenBrainHierarchy,
+                                regions: list[str], brain_onthology: AllenBrainHierarchy,
                                 mode: str, name) -> ConnectomeAdjacency:
         normalized_connection_density = pd.read_csv(normalized_connection_density_file, index_col=0, header=[0,1])
         match mode:
@@ -45,7 +45,7 @@ class StructuralConnectome(Connectome):
             missing_region = str(e).split("'")[1]
             message = f"Cannot find region '{missing_region}' in Allen's connectivity network."
             raise ValueError(message) from e
-        return ConnectomeAdjacency(A=normalized_connection_density, AllenBrain=AllenBrain, name=name)
+        return ConnectomeAdjacency(A=normalized_connection_density, brain_onthology=brain_onthology, name=name)
 
     def __add_vertices_attributes(self, M: ConnectomeAdjacency):
         for v in self.G.vs:

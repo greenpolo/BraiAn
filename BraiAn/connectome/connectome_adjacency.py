@@ -7,14 +7,14 @@ from ..brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
 
 # used both for Structural Connectome and Functional Connectome
 class ConnectomeAdjacency:
-    def __init__(self, A: pd.DataFrame, AllenBrain: AllenBrainHierarchy, name="", upper_regions: dict=None) -> None:
-        if AllenBrain is not None:
-            self.upper_regions = AllenBrain.get_areas_major_division(*A.index)
+    def __init__(self, A: pd.DataFrame, brain_onthology: AllenBrainHierarchy, name="", upper_regions: dict=None) -> None:
+        if brain_onthology is not None:
+            self.upper_regions = brain_onthology.get_areas_major_division(*A.index)
             self.upper_regions = {k: v if v is not None else "root" for (k,v) in self.upper_regions.items()}
         elif upper_regions is not None:
             self.upper_regions = upper_regions
         else:
-            raise ValueError("You must specify either 'AllenBrain' or 'upper_regions'")
+            raise ValueError("You must specify either 'brain_onthology' or 'upper_regions'")
         self.data = self._sort_by_upper_regions(A)
         with np.errstate(divide="ignore", invalid="ignore"):
             self.__data_log10 = np.log10(self.data)
