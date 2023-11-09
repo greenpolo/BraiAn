@@ -2,9 +2,11 @@ import copy
 import numpy as np
 import os
 import pandas as pd
+import platform
 import re
 from typing import Self
 
+from . import resolve_symlink
 from .brain_hierarchy import AllenBrainHierarchy
 from .brain_slice import BrainSlice,\
                         BrainSliceFileError, \
@@ -57,11 +59,15 @@ class SlicedBrain:
         self.slices: list[BrainSlice] = []
         for image in images:
             results_file = os.path.join(csv_slices_dir, f"{image}_regions.txt")
+            if not os.path.exists(results_file) and platform.system() == "Windows":
+                results_file += ".lnk"
             regions_to_exclude_file = os.path.join(excluded_regions_dir, f"{image}_regions_to_exclude.txt")
+            if not os.path.exists(regions_to_exclude_file) and platform.system() == "Windows":
+                regions_to_exclude_file += ".lnk"
             try:
                 slice = BrainSlice(brain_onthology,
-                                    results_file,
-                                    regions_to_exclude_file, exclude_parent_regions,
+                                    resolve_symlink(results_file),
+                                    resolve_symlink(regions_to_exclude_file), exclude_parent_regions,
                                     self.name, image,
                                     area_key, tracers_key, self.markers, area_units=area_units)
             except BrainSliceFileError as e:
@@ -85,9 +91,8 @@ class SlicedBrain:
         return self.slices[0].data[marker].dtype
     
     def get_image_names_in_folder(self, path) -> list[str]:
-        all_files = os.listdir(path)
-        images = list({file.replace("_regions.txt", "") for file in all_files if "_regions.txt" in file})
-        #csv_files = [file.replace("_regions.csv", "") for file in all_files if "_regions.csv" in file]
+        images = list({re.sub('_regions.txt[.lnk]*', '', file) for file in os.listdir(path)})
+        # images = list({re.sub('_regions.csv[.lnk]*', '', file) for file in os.listdir(path)}) # csv_files
         images.sort()
         return images
     
