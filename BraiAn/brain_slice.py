@@ -75,7 +75,8 @@ class BrainSlice:
         if not self.is_split:
             raise InvalidRegionsHemisphereError(animal=self.animal, file=csv_file)
         self.data.rename(columns={area_key: "area"} | dict(zip(tracers_key, markers_key)), inplace=True)
-        #@assert (df.area > 0).all()
+        #assert (df.area > 0).all()
+        assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animaly={self.animal} slice={self.name}"
         self.data = self.data[self.data["area"] > 0]
         self.check_zero_rows(csv_file, markers_key)
 

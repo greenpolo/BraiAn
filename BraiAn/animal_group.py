@@ -1,7 +1,8 @@
-import copy
 import os
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
+import scipy
 from itertools import product, chain
 from functools import reduce
 from typing import Self
@@ -53,7 +54,7 @@ class AnimalGroup:
             # now BrainGroup.get_regions(), which returns the regions of the first animal, is correct
             raise ValueError("Cannot set fill_nan=False and brain_onthology=None if all animals of the group don't have the same brain regions.")
         self.animals: list[AnimalBrain] = [sort(analyse(merge(brain))) for brain in animals]
-        self.markers = np.asarray(self.animals[0].markers)
+        self.markers: npt.NDArray[np.str_] = np.asarray(self.animals[0].markers)
         self.mean = self._update_mean()
     
     def markers_corr(self, marker1: str, marker2: str) -> BrainData:
@@ -61,7 +62,7 @@ class AnimalGroup:
         return BrainData(corr, self.name, str(self.metric)+f"-corr (n={self.n})", f"corr({marker1}, {marker2})")
 
     def pls_regions(self, other: Self, selected_regions: list[str], marker=None,
-                    n_permutations=5000, n_bootstrap=5000, fill_nan=True):
+                    n_permutations=5000, n_bootstrap=5000, fill_nan=True) -> dict[str,BrainData]:
         markers = self.markers if marker is None else (marker,)
         salience_scores = dict()
         for m in markers:
@@ -70,8 +71,9 @@ class AnimalGroup:
             pls.bootstrap_salience_scores(rank=1, num_bootstrap=n_bootstrap)
             v = pls.v_salience_scores[0].copy()
             if fill_nan:
-                missing_regions = np.asarray(selected_regions)[~np.isin(selected_regions, v.index)]
-                v = pd.concat((v, pd.Series(index=missing_regions, data=np.nan)))
+                v_ = pd.Series(np.nan, index=selected_regions)
+                v_[v.index] = v
+                v = v_
             brain_data = BrainData(v, f"{self.name}+{other.name}", "pls_salience", "z-score")
             if len(markers) == 1:
                 return brain_data
@@ -110,8 +112,12 @@ class AnimalGroup:
         return df
     
     def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy, fill=True, inplace=True) -> None:
-        for brain in self.animals:
-            brain.sort_by_onthology(brain_onthology, fill=fill, inplace=True)
+        if not inplace:
+            return AnimalGroup(self.name, self.animals, metric=self.metric, brain_onthology=brain_onthology, fill_nan=fill)
+        else:
+            for brain in self.animals:
+                brain.sort_by_onthology(brain_onthology, fill=fill, inplace=True)
+            return self
     
     def get_animals(self) -> list[str]:
         return [brain.name for brain in self.animals]
@@ -219,7 +225,6 @@ class PLS:
     - Lx (pd dataframe): latent variables of X, i.e. projection of X on v.
     - Ly (pd dataframe): latent variables of Y, i.e. projection of Y on u.
     '''
-    
     def __init__(self, regions: list[str], group1: AnimalGroup, group2: AnimalGroup, *groups: AnimalGroup, marker=None) -> None:
         groups = [group1, group2, *groups]
         if marker is None:
@@ -246,7 +251,7 @@ Please check that you're reading two groups that normalized on the same brain re
         
         self.Lx = self.X @ self.v
         self.Ly = self.Y @ self.u
-        
+
     def partial_least_squares_correlation(self,X,Y):
         num_animals,num_groups = Y.shape
         # Compute M = diag{1.T * Y}.inv * Y.T * X (the average for each group)
@@ -256,7 +261,7 @@ Please check that you're reading two groups that normalized on the same brain re
         # SVD
         u, s, vh = np.linalg.svd(R, full_matrices=False) # self.X, retrieved from AnimalGroup, must have no NaN [dropna(how='any')]. If it does the PLS cannot be computed in the other regions as well
         return u,s,vh.T
-    
+
     def bootstrap_salience_scores(self,rank,num_bootstrap):
         u_bootstrap = np.expand_dims(np.zeros(self.u.shape), axis=2).repeat(num_bootstrap,axis=2)
         v_bootstrap = np.expand_dims(np.zeros(self.v.shape), axis=2).repeat(num_bootstrap,axis=2)
@@ -279,9 +284,9 @@ Please check that you're reading two groups that normalized on the same brain re
 
         self.v_salience_scores = pd.DataFrame(v_salience[:,0:rank], index=self.X.columns)
         self.u_salience_scores = pd.DataFrame(u_salience[:,0:rank])
-    
+
         return self.u_salience_scores,self.v_salience_scores
-    
+
     def randomly_permute_singular_values(self,num_permutations):
     
         singular_values = np.expand_dims(np.zeros(self.s.shape), axis=0).repeat(num_permutations,axis=0)
@@ -303,6 +308,11 @@ Please check that you're reading two groups that normalized on the same brain re
             
         self.singular_values = singular_values[:count,:]
         return self.s,self.singular_values
-    
+
     def above_threshold(self, threshold, group=0):
         return self.v_salience_scores[group][self.v_salience_scores[group].abs() > threshold]
+
+    @staticmethod
+    def norm_threshold(nsigma=2) -> float:
+        # returns the μ ± (nsigma)σ of the normal
+        return scipy.stats.norm.ppf([0.6826, 0.9545, 0.9973])[nsigma]
