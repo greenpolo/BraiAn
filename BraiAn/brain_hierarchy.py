@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import requests
 
 from bs4 import BeautifulSoup
+from collections import OrderedDict
 from operator import xor
 from networkx.drawing.nx_pydot import graphviz_layout
 from .visit_dict import *
@@ -267,16 +268,21 @@ class AllenBrainHierarchy:
             region_acronym = parent
         return path
 
-    def get_areas_major_division(self, *acronyms) -> dict:
-        regions_md = {}
-        for region_acronym in acronyms:
-            if region_acronym in MAJOR_DIVISIONS:
-                regions_md[region_acronym] = region_acronym
-                continue
-            regions_above = self.get_regions_above(region_acronym)
-            above_md = [r for r in regions_above if r in MAJOR_DIVISIONS]
-            regions_md[region_acronym] = above_md[0] if above_md else None
-        return regions_md
+    def get_areas_major_division(self, *acronyms, sorted=False) -> dict:
+        def get_region_mjd(node: dict, depth: int):
+            if node["major_division"]:
+                get_region_mjd.curr_mjd = node["acronym"]
+            if node["acronym"] in acronyms:
+                get_region_mjd.res[node["acronym"]] = get_region_mjd.curr_mjd
+        get_region_mjd.curr_mjd = None
+        get_region_mjd.res = OrderedDict() if sorted else dict()
+        visit_dfs(self.dict, "children", get_region_mjd)
+        return get_region_mjd.res
+
+    def get_layer1(self) -> list[str]:
+        # NOTE: this is the layer1 as defined as in CCFv3
+        # TODO: should check whether the current instance's version is CCFv3
+        return ["FRP1", "MOp1", "MOs1", "SSp-n1", "SSp-bfd1", "SSp-ll1", "SSp-m1", "SSp-ul1", "SSp-tr1", "SSp-un1", "SSs1", "GU1", "VISC1", "AUDd1", "AUDp1", "AUDpo1", "AUDv1", "VISal1", "VISam1", "VISl1", "VISp1", "VISpl1", "VISpm1", "ACAd1" "ACAv1", "PL1", "ILA1", "ORBl1", "ORBm1", "ORBvl1", "AId1", "AIp1", "AIv1", "RSPagl1", "RSPd1", "RSPv1", "PTLp1", "TEa1", "PERI1", "ECT1", "PIR1", "OT1", "NLOT1", "COAa1", "COApl1", "COApm1", "PAA1", "TR1"]
 
     def get_full_names(self):
         '''

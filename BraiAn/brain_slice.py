@@ -190,8 +190,13 @@ class BrainSlice:
             its daughter regions.
             If exclude_parent_regions==True, all the parent regions must
             disappear too!
+        NOTE: if a region of layer1 was *explicitaly* excluded, it won't
+        impact (i.e. remove) the parent regions!
+        This decision was taken because often layer1 is mis-aligned and with
+        few detection. We don't want to delete too much data and we reckon
+        this exception does not impact too much on the data
         '''
-
+        layer1 = set(brain_onthology.get_layer1())
         for reg_hemi in excluded_regions:
             if ": " not in reg_hemi:
                 if MODE_ExcludedRegionNotRecognisedError != "silent":
@@ -209,7 +214,7 @@ class BrainSlice:
                 # Subtract the counting results from the parent region.
                 # Use fill_value=0 to prevent "3-NaN=NaN".
                 if row in self.data.index:
-                    if exclude_parent_regions:
+                    if exclude_parent_regions and reg not in layer1:
                         self.data.drop(row, inplace=True)
                     elif reg_hemi in self.data.index:
                         self.data.loc[row] = self.data.loc[row].subtract(self.data.loc[reg_hemi], fill_value=0)
