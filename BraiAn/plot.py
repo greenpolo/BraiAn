@@ -1,8 +1,9 @@
+import matplotlib.colors as mplc
+import numpy as np
+import pandas as pd
+import plotly.colors as plc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from plotly.colors import DEFAULT_PLOTLY_COLORS
-import pandas as pd
-import numpy as np
 
 from .utils import nrange
 from .sliced_brain import SlicedBrain
@@ -72,7 +73,7 @@ UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
 def plot_groups(brain_onthology: AllenBrainHierarchy, *groups: AnimalGroup,
                 selected_regions: list[str], marker=None, plot_title="", title_size=20,
                 axis_size=15, animal_size=5, use_acronyms=True,
-                colors=DEFAULT_PLOTLY_COLORS, width=900,
+                colors=plc.DEFAULT_PLOTLY_COLORS, width=900,
                 barheight=30, bargap=0.3, bargroupgap=0.0):
     # assumes that selected_regions are sorted in depth-first order of the Allen Brain's ontology
     assert len(groups) > 0, "You selected zero AnimalGroups to plot."
@@ -186,7 +187,7 @@ def plot_cv_above_threshold(brain_onthology, *sliced_brains_groups: list[SlicedB
                         opacity=0.7,
                         marker=dict(
                             size=7,
-                            color=DEFAULT_PLOTLY_COLORS[i],
+                            color=plc.DEFAULT_PLOTLY_COLORS[i],
                             line=dict(
                                 color="rgb(0,0,0)",
                                 width=1
@@ -239,7 +240,7 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
         n_brains_before = n_brains_before_group[i-1] if i > 0 else np.int64(0)
         group_summed_brains = [AnimalBrain.from_slices(sliced_brain, hemisphere_distinction=False) for sliced_brain in group_slices]
         summed_brains.extend(group_summed_brains)
-        colors.extend([DEFAULT_PLOTLY_COLORS[i]]*len(group_slices)*len(group_slices[0].markers))
+        colors.extend([plc.DEFAULT_PLOTLY_COLORS[i]]*len(group_slices)*len(group_slices[0].markers))
         for j, sliced_brain in enumerate(group_slices):
             sliced_brain = SlicedBrain.merge_hemispheres(sliced_brain)
             for m, marker in enumerate(sliced_brain.markers):
@@ -263,7 +264,7 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
                         opacity=0.7,
                         marker=dict(
                             size=7,
-                            color=DEFAULT_PLOTLY_COLORS[i],
+                            color=plc.DEFAULT_PLOTLY_COLORS[i],
                             line=dict(
                                 color="rgb(0,0,0)",
                                 width=1
@@ -363,5 +364,142 @@ def plot_salient_regions(salient_regions: pd.DataFrame, brain_onthology: AllenBr
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         template="simple_white"
+    )
+    return fig
+
+def plot_gridgroups(group1: AnimalGroup, group2: AnimalGroup,
+                    marker1: str, marker2: str,
+                    selected_regions: list[str], brain_onthology: AllenBrainHierarchy=None,
+                    pls_n_permutations: int=5000, pls_n_bootstrap: int=5000,
+                    height: int=None, width: int=None,
+                    barplot_width: float=0.7, space_between_markers: float=0.01,
+                    color_g1m1="LightCoral", color_g2m1="SandyBrown",
+                    color_g1m2="IndianRed", color_g2m2="Orange",
+                    color_heatmap="deep_r") -> go.Figure:
+    assert barplot_width < 1 and barplot_width > 0, "Expecting 0 < barplot_width < 1"
+    assert marker1 in group1.markers, f"Missing {marker1} in {group1}"
+    assert marker2 in group1.markers, f"Missing {marker2} in {group1}"
+    assert marker1 in group2.markers, f"Missing {marker1} in {group2}"
+    assert marker2 in group2.markers, f"Missing {marker2} in {group2}"
+    heatmap_width = 1-barplot_width
+    bar_to_heatmap_ratio = np.array([barplot_width, heatmap_width])
+    marker_ratio = bar_to_heatmap_ratio*((1-space_between_markers)/2)
+    column_widths = [*marker_ratio, space_between_markers, *marker_ratio[::-1]] # 5 subplots, with the middle one beight a spacer
+    fig = make_subplots(rows=1, cols=5, horizontal_spacing=0, column_widths=column_widths, shared_yaxes=True)
+
+    if brain_onthology is not None:
+        group1 = group1.sort_by_onthology(brain_onthology, fill=True, inplace=False)
+        group2 = group2.sort_by_onthology(brain_onthology, fill=True, inplace=False)
+        regions_mjd = brain_onthology.get_areas_major_division(*selected_regions, sorted=True)
+        selected_regions = list(regions_mjd.keys())
+        pls = group1.pls_regions(group2, selected_regions, n_permutations=pls_n_permutations, n_bootstrap=pls_n_bootstrap)
+        pls_marker1 = pls[marker1].sort_by_onthology(brain_onthology, fill=False, inplace=False).data
+        pls_marker2 = pls[marker2].sort_by_onthology(brain_onthology, fill=False, inplace=False).data
+    else:
+        pls = group1.pls_regions(group2, selected_regions, n_permutations=pls_n_permutations, n_bootstrap=pls_n_bootstrap)
+        pls_marker1 = pls[marker1].data
+        pls_marker2 = pls[marker2].data
+    metric = str(group1.metric)
+    group1_marker1 = group1.to_pandas(marker=marker1).loc[selected_regions]
+    group2_marker1 = group2.to_pandas(marker=marker1).loc[selected_regions]
+    group1_marker2 = group1.to_pandas(marker=marker2).loc[selected_regions]
+    group2_marker2 = group2.to_pandas(marker=marker2).loc[selected_regions]
+    assert ((pls[marker1].data.index == pls[marker2].data.index) & \
+            (pls[marker2].data.index == group1_marker1.index) & \
+            (group1_marker1.index == group2_marker2.index)).all(), "BrainGroups' data and PLS results and must be on the same brain regions!"
+
+    def to_rgba(color: str, alpha) -> str:
+        r,g,b = plc.convert_to_RGB_255(mplc.to_rgb(color))
+        return f"rgba({r}, {g}, {b}, {alpha})"
+
+    def bar_ht(marker):
+        return "<b>%{meta}</b><br>"+marker+" "+metric+": %{x}<br>region: %{y}<br><extra></extra>"
+    def heatmap_ht(marker):
+        return "animal: %{x}<br>region: %{y}<br>"+marker+" "+metric+": %{z:.2f}<extra></extra>"
+
+    def bar(group_df: pd.DataFrame, salience_scores: pd.Series, threshold: float, group_name: str, marker: str, color: str):
+        alpha_below_thr = 0.2
+        alpha_undefined = 0.1
+        fill_color = pd.Series(np.where(salience_scores.abs().ge(threshold, fill_value=0), color, to_rgba(color, alpha_below_thr)), index=salience_scores.index)
+        is_undefined = salience_scores.isna()
+        fill_color[is_undefined] = to_rgba(color, alpha_undefined)
+        line_color = pd.Series(np.where(is_undefined, to_rgba(color, alpha_undefined), color), index=is_undefined.index)
+        trace_name = f"{group_name} [{marker}]"
+        trace = go.Bar(x=group_df.mean(axis=1), y=group_df.index,
+                        error_x=dict(type="data", array=group_df.sem(axis=1), thickness=1),
+                        marker=dict(line_color=line_color, line_width=1, color=fill_color), orientation="h",
+                        hovertemplate=bar_ht(marker1), showlegend=False,
+                        name=trace_name, legendgroup=trace_name, meta=trace_name)
+        trace_legend = go.Scatter(x=[None], y=[None], mode="markers", marker=dict(color=color, symbol="square", size=15),
+                                    name=trace_name, showlegend=True, legendgroup=trace_name)
+        return trace, trace_legend
+    def heatmap(group_df: pd.DataFrame, marker: str):
+        hmap = go.Heatmap(z=group_df, x=group_df.columns, y=group_df.index, hoverongaps=True, coloraxis="coloraxis", hovertemplate=heatmap_ht(marker))
+        nan_hmap = go.Heatmap(z=np.isnan(group_df).astype(int), x=group_df.columns, y=group_df.index, hoverinfo='skip',
+                            showscale=False, colorscale=[[0, "rgba(0,0,0,0)"], [1, "silver"]])
+        return hmap, nan_hmap
+
+    threshold = PLS.norm_threshold(nsigma=2) # use the μ ± 3σ of the normal as threshold
+    bar_g1m1, bar_g1m1_legend = bar(group1_marker1, pls_marker1, threshold, group1.name, marker1, color_g1m1)
+    bar_g2m1, bar_g2m1_legend = bar(group2_marker1, pls_marker1, threshold, group2.name, marker1, color_g2m1)
+    bar_g1m2, bar_g1m2_legend = bar(group1_marker2, pls_marker2, threshold, group1.name, marker2, color_g1m2)
+    bar_g2m2, bar_g2m2_legend = bar(group2_marker2, pls_marker2, threshold, group2.name, marker2, color_g2m2)
+
+    heatmap_g1m1, heatmap_g1m1_nan = heatmap(group1_marker1, marker1)
+    heatmap_g2m1, heatmap_g2m1_nan = heatmap(group2_marker1, marker1)
+    heatmap_g1m2, heatmap_g1m2_nan = heatmap(group1_marker2, marker2)
+    heatmap_g2m2, heatmap_g2m2_nan = heatmap(group2_marker2, marker2)
+
+    all_values = pd.concat((group1_marker1.mean(axis=1)+group1_marker1.sem(axis=1)/2,
+                            group2_marker1.mean(axis=1)+group2_marker1.sem(axis=1)/2,
+                            group1_marker2.mean(axis=1)+group1_marker2.sem(axis=1)/2,
+                            group2_marker2.mean(axis=1)+group2_marker2.sem(axis=1)/2))
+    bar_range=(all_values.min(), all_values.max())
+
+    # MARKER1 - left side
+    fig.add_trace(bar_g1m1,         row=1, col=1)
+    fig.add_trace(bar_g1m1_legend,  row=1, col=1)
+    fig.add_trace(bar_g2m1,         row=1, col=1)
+    fig.add_trace(bar_g2m1_legend,  row=1, col=1)
+    fig.update_xaxes(autorange="reversed", range=bar_range, row=1, col=1)
+    fig.add_trace(heatmap_g1m1,     row=1, col=2)
+    fig.add_trace(heatmap_g1m1_nan, row=1, col=2)
+    fig.add_vline(x=group1_marker1.shape[1]-.5, line_color="white", row=1, col=2)
+    fig.add_trace(heatmap_g2m1,     row=1, col=2)
+    fig.add_trace(heatmap_g2m1_nan, row=1, col=2)
+    fig.update_xaxes(tickangle=45,  row=1, col=2)
+
+    # MARKER2 - right side
+    fig.add_trace(heatmap_g1m2,     row=1, col=4)
+    fig.add_trace(heatmap_g1m2_nan, row=1, col=4)
+    fig.add_vline(x=group1_marker1.shape[1]-.5, line_color="white", row=1, col=4)
+    fig.add_trace(heatmap_g2m2,     row=1, col=4)
+    fig.add_trace(heatmap_g2m2_nan, row=1, col=4)
+    fig.update_xaxes(tickangle=45,  row=1, col=4)
+    fig.add_trace(bar_g1m2,         row=1, col=5)
+    fig.add_trace(bar_g1m2_legend,  row=1, col=5)
+    fig.add_trace(bar_g2m2,         row=1, col=5)
+    fig.add_trace(bar_g2m2_legend,  row=1, col=5)
+    fig.update_xaxes(range=bar_range, row=1, col=5)
+
+    if brain_onthology is not None:
+        # add a fake trace to the empty subplot, otherwise add_annotation yref="y" makes no sense
+        fig.add_trace(go.Scatter(x=[None], y=[selected_regions[len(selected_regions)//2]], mode="markers", name=None, showlegend=False), row=1, col=3)
+        k = list(regions_mjd.keys())
+        v = np.asarray(list(regions_mjd.values()))
+        prev = 0
+        for y in np.where(v[:-1] != v[1:])[0]:
+            fig.add_hline(y=y+.5, line_color="white")
+            n_of_mjd = (y-prev)
+            middle_of_mjd = k[prev+(n_of_mjd//2)]
+            fig.add_annotation(x=0, y=middle_of_mjd, text=v[y], showarrow=False, textangle=90, align="center", xanchor="center", yanchor="middle", row=1, col=3)
+            prev = y
+        fig.update_xaxes(showticklabels=False, row=1, col=3)
+
+    #fig.update_xaxes(scaleanchor="y", constrain="domain", row=1, col=2)
+    fig.update_xaxes(side="top")
+    fig.update_yaxes(autorange="reversed") #, title="region")
+    fig.update_layout(height=height, width=width, plot_bgcolor="rgba(0,0,0,0)", legend=dict(tracegroupgap=0),
+        coloraxis=dict(colorscale=color_heatmap, colorbar=dict(lenmode="pixels", len=500, thickness=15, outlinewidth=1, y=0.95, yanchor="top"))
     )
     return fig
