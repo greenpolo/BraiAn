@@ -1,3 +1,4 @@
+import itertools
 import matplotlib.colors as mplc
 import numpy as np
 import pandas as pd
@@ -373,7 +374,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
                     brain_onthology: AllenBrainHierarchy=None,
                     pls_n_permutations: int=5000, pls_n_bootstrap: int=5000,
                     height: int=None, width: int=None,
-                    barplot_width: float=0.7, space_between_markers: float=0.01,
+                    barplot_width: float=0.7, space_between_markers: float=0.02,
                     groups_marker1_colours=["LightCoral", "SandyBrown"],
                     groups_marker2_colours=["IndianRed", "Orange"],
                     color_heatmap="deep_r") -> go.Figure:
@@ -402,11 +403,16 @@ def plot_gridgroups(groups: list[AnimalGroup],
         trace = go.Bar(x=group_df.mean(axis=1), y=group_df.index,
                         error_x=dict(type="data", array=group_df.sem(axis=1), thickness=1),
                         marker=dict(line_color=line_color, line_width=1, color=fill_color), orientation="h",
-                        hovertemplate=bar_ht(marker, metric), showlegend=False,
+                        hovertemplate=bar_ht(marker, metric), showlegend=False, offsetgroup=group_name,
                         name=trace_name, legendgroup=trace_name, meta=trace_name)
         trace_legend = go.Scatter(x=[None], y=[None], mode="markers", marker=dict(color=color, symbol="square", size=15),
-                                    name=trace_name, showlegend=True, legendgroup=trace_name)
-        return trace, trace_legend
+                                    name=trace_name, showlegend=True, legendgroup=trace_name, offsetgroup=group_name)
+        group_df_ = group_df.stack()
+        scatter = go.Scatter(x=group_df_, y=group_df_.index.get_level_values(0), mode="markers",
+                             marker=dict(color=color, size=8, line=dict(color="rgb(0,0,0)", width=1)),
+                             name=f"animal [{marker}]", showlegend=True, legendgroup=trace_name,
+                             offsetgroup=group_name, orientation="h")
+        return trace, trace_legend, scatter
     def heatmap(group_df: pd.DataFrame, metric: str, marker: str):
         hmap = go.Heatmap(z=group_df, x=group_df.columns, y=group_df.index, hoverongaps=False, coloraxis="coloraxis", hovertemplate=heatmap_ht(marker, metric))
         nan_hmap = go.Heatmap(z=np.isnan(group_df).astype(int), x=group_df.columns, y=group_df.index, hoverinfo="skip", #hoverongaps=False, hovertemplate=heatmap_ht(marker),
@@ -489,20 +495,21 @@ def plot_gridgroups(groups: list[AnimalGroup],
     if brain_onthology is not None:
         # add a fake trace to the empty subplot, otherwise add_annotation yref="y" makes no sense
         fig.add_trace(go.Scatter(x=[None], y=[selected_regions[len(selected_regions)//2]], mode="markers", name=None, showlegend=False), row=1, col=major_divisions_subplot)
-        k = list(regions_mjd.keys())
-        v = np.asarray(list(regions_mjd.values()))
+        regions = list(regions_mjd.keys())
+        mjds = np.asarray(list(regions_mjd.values()))
         prev = 0
-        for y in np.where(v[:-1] != v[1:])[0]:
+        for y in itertools.chain(np.where(mjds[:-1] != mjds[1:])[0], (len(mjds)-1,)):
             fig.add_hline(y=y+.5, line_color="white")
+            mjd = mjds[y]
             n_of_mjd = (y-prev)
-            middle_of_mjd = k[prev+(n_of_mjd//2)]
-            fig.add_annotation(x=0, y=middle_of_mjd, text=v[y], showarrow=False, textangle=90, align="center", xanchor="center", yanchor="middle", row=1, col=major_divisions_subplot)
+            middle_of_mjd = regions[prev+(n_of_mjd//2)] if n_of_mjd != 1 else regions[y]
+            fig.add_annotation(x=0, y=middle_of_mjd, text=f"<b>{mjd}</b>", showarrow=False, font_size=15, textangle=90, align="center", xanchor="center", yanchor="middle", row=1, col=major_divisions_subplot)
             prev = y
         fig.update_xaxes(showticklabels=False, row=1, col=major_divisions_subplot)
 
     fig.update_xaxes(side="top")
     fig.update_yaxes(autorange="reversed") #, title="region")
-    fig.update_layout(height=height, width=width, plot_bgcolor="rgba(0,0,0,0)", legend=dict(tracegroupgap=0),
+    fig.update_layout(height=height, width=width, plot_bgcolor="rgba(0,0,0,0)", legend=dict(tracegroupgap=0), scattermode="group",
         coloraxis=dict(colorscale=color_heatmap, colorbar=dict(lenmode="pixels", len=500, thickness=15, outlinewidth=1, y=0.95, yanchor="top"))
     )
     return fig
