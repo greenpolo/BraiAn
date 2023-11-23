@@ -81,7 +81,7 @@ class AnimalGroup:
         return salience_scores
     
     def __str__(self) -> str:
-        return f"AnimalGroup(metric={self.metric}, n={self.n})"
+        return f"AnimalGroup('{self.name}', metric={self.metric}, n={self.n})"
 
     def _update_mean(self) -> dict[str, BrainData]:
         return {marker: BrainData.mean(*[brain[marker] for brain in self.animals], name=self.name) for marker in self.markers}
