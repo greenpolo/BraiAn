@@ -373,7 +373,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
                     marker1: str, marker2: str=None,
                     brain_onthology: AllenBrainHierarchy=None,
                     pls_n_permutations: int=5000, pls_n_bootstrap: int=5000,
-                    height: int=None, width: int=None,
+                    height: int=None, width: int=None, plot_scatter=True,
                     barplot_width: float=0.7, space_between_markers: float=0.02,
                     groups_marker1_colours=["LightCoral", "SandyBrown"],
                     groups_marker2_colours=["IndianRed", "Orange"],
@@ -388,7 +388,8 @@ def plot_gridgroups(groups: list[AnimalGroup],
     def heatmap_ht(marker, metric):
         return "animal: %{x}<br>region: %{y}<br>"+marker+" "+metric+": %{z:.2f}<extra></extra>"
 
-    def bar(group_df: pd.DataFrame, group_name: str, metric: str, marker: str, color: str,
+    def bar(group_df: pd.DataFrame, group_name: str, metric: str,
+            marker: str, color: str, plot_scatter: bool,
             salience_scores: pd.Series=None, threshold: float=None):
         if salience_scores is None:
             fill_color, line_color = color, color
@@ -407,19 +408,22 @@ def plot_gridgroups(groups: list[AnimalGroup],
                         name=trace_name, legendgroup=trace_name, meta=trace_name)
         trace_legend = go.Scatter(x=[None], y=[None], mode="markers", marker=dict(color=color, symbol="square", size=15),
                                     name=trace_name, showlegend=True, legendgroup=trace_name, offsetgroup=group_name)
+        if not plot_scatter:
+            return trace, trace_legend
         group_df_ = group_df.stack()
         scatter = go.Scatter(x=group_df_, y=group_df_.index.get_level_values(0), mode="markers",
                              marker=dict(color=color, size=8, line=dict(color="rgb(0,0,0)", width=1)),
                              name=f"animal [{marker}]", showlegend=True, legendgroup=trace_name,
                              offsetgroup=group_name, orientation="h")
         return trace, trace_legend, scatter
+
     def heatmap(group_df: pd.DataFrame, metric: str, marker: str):
         hmap = go.Heatmap(z=group_df, x=group_df.columns, y=group_df.index, hoverongaps=False, coloraxis="coloraxis", hovertemplate=heatmap_ht(marker, metric))
         nan_hmap = go.Heatmap(z=np.isnan(group_df).astype(int), x=group_df.columns, y=group_df.index, hoverinfo="skip", #hoverongaps=False, hovertemplate=heatmap_ht(marker),
                             showscale=False, colorscale=[[0, "rgba(0,0,0,0)"], [1, "silver"]])
         return hmap, nan_hmap
     
-    def markers_traces(groups: list[AnimalGroup], marker: str, groups_colours: list):
+    def markers_traces(groups: list[AnimalGroup], marker: str, groups_colours: list, plot_scatter: bool):
         for group in groups:
             assert marker in group.markers, f"Missing {marker} in {group}"
         metric = str(groups[0].metric)
@@ -438,15 +442,27 @@ def plot_gridgroups(groups: list[AnimalGroup],
                     f"The salience scores ofthe PLS on '{marker}' are on different regions/order. "+\
                     "Make sure to fill to NaN the scores for the regions missing in at least one animal."
             threshold = PLS.norm_threshold(nsigma=2) # use the μ ± 3σ of the normal as threshold
-        # bar() returns 2 traces: a real one and one for the legend
+        # bar() returns 2(+1) traces: a real one, one for the legend and, eventually, a scatter plot
         bars = [trace for group, group_df, group_colour in zip(groups, groups_df, groups_colours)
-                      for trace in (bar(group_df, group.name, metric, marker, group_colour, salience_scores, threshold) if pls_filtering
-                               else bar(group_df, group.name, metric, marker, group_colour))]
+                      for trace in (bar(group_df, group.name, metric, marker, group_colour, plot_scatter, salience_scores, threshold) if pls_filtering
+                               else bar(group_df, group.name, metric, marker, group_colour, plot_scatter))]
         # heatmap() returns 2 traces: a real one and one for NaNs
         heatmaps = [trace for group_df in groups_df for trace in heatmap(group_df, metric, marker)]
         max_value = pd.concat((group.mean(axis=1)+group.sem(axis=1)/2 for group in groups_df)).max()
         heatmap_group_seps = np.cumsum([group_df.shape[1] for group_df in groups_df[:-1]])-.5
         return heatmaps, heatmap_group_seps, bars, max_value
+    
+    def prepare_subplots(n_markers: int, bar_to_heatmap_ratio: float, gap_width: float, ) -> go.Figure:
+        available_plot_width = (1-gap_width)/n_markers
+        marker_ratio = bar_to_heatmap_ratio*available_plot_width
+        if n_markers == 1:
+            column_widths = [gap_width, *marker_ratio] # 3 subplots, with the first one being a spacer
+        elif n_markers == 2:
+            column_widths = [*marker_ratio[::-1], gap_width, *marker_ratio] # 5 subplots, with the middle one being a spacer
+        else:
+            raise ValueError("Cannot create a gridplot for more than 2 markers")
+        fig = make_subplots(rows=1, cols=(2*n_markers)+1, horizontal_spacing=0, column_widths=column_widths, shared_yaxes=True)
+        return fig
 
     assert barplot_width < 1 and barplot_width > 0, "Expecting 0 < barplot_width < 1"
     assert len(groups) >= 1, "You must provide at least one group!"
@@ -459,23 +475,22 @@ def plot_gridgroups(groups: list[AnimalGroup],
 
     heatmap_width = 1-barplot_width
     bar_to_heatmap_ratio = np.array([heatmap_width, barplot_width])
-    heatmaps, group_seps, bars, max_value = markers_traces(groups, marker1, groups_marker1_colours)
+    heatmaps, group_seps, bars, max_value = markers_traces(groups, marker1, groups_marker1_colours, plot_scatter)
     if marker2 is None:
-        marker_ratio = bar_to_heatmap_ratio*(1-space_between_markers)
-        column_widths = [space_between_markers, *marker_ratio] # 3 subplots, with the first one being a spacer
-        fig = make_subplots(rows=1, cols=3, horizontal_spacing=0, column_widths=column_widths, shared_yaxes=True)
+        fig = prepare_subplots(1, bar_to_heatmap_ratio, space_between_markers if brain_onthology is not None else 0)
+        
         major_divisions_subplot = 1
+        
         fig.add_traces(heatmaps, rows=1, cols=2)
         [fig.add_vline(x=x, line_color="white", row=1, col=2) for x in group_seps]
         fig.update_xaxes(tickangle=45,  row=1, col=2)
         fig.add_traces(bars, rows=1, cols=3)
     else:
         m1_heatmaps, m1_group_seps, m1_bars, m1_max_value = heatmaps, group_seps, bars, max_value
-        m2_heatmaps, m2_group_seps, m2_bars, m2_max_value = markers_traces(groups, marker2, groups_marker2_colours)
-        marker_ratio = bar_to_heatmap_ratio*((1-space_between_markers)/2)
-        column_widths = [*marker_ratio[::-1], space_between_markers, *marker_ratio] # 5 subplots, with the middle one being a spacer
-        fig = make_subplots(rows=1, cols=5, horizontal_spacing=0, column_widths=column_widths, shared_yaxes=True)
+        m2_heatmaps, m2_group_seps, m2_bars, m2_max_value = markers_traces(groups, marker2, groups_marker2_colours, plot_scatter)
+        fig = prepare_subplots(2, bar_to_heatmap_ratio, space_between_markers)
         bar_range = (0, max(m1_max_value, m2_max_value))
+        
         # MARKER1 - left side
         fig.add_traces(m1_bars, rows=1, cols=1)
         fig.update_xaxes(autorange="reversed", range=bar_range, row=1, col=1)
@@ -506,6 +521,9 @@ def plot_gridgroups(groups: list[AnimalGroup],
             fig.add_annotation(x=0, y=middle_of_mjd, text=f"<b>{mjd}</b>", showarrow=False, font_size=15, textangle=90, align="center", xanchor="center", yanchor="middle", row=1, col=major_divisions_subplot)
             prev = y
         fig.update_xaxes(showticklabels=False, row=1, col=major_divisions_subplot)
+    elif marker2 is None:
+        # the major division's subplot is not used, so we have to use the ticks of the heatmap
+        fig.update_yaxes(showticklabels=True, row=1, col=2)
 
     fig.update_xaxes(side="top")
     fig.update_yaxes(autorange="reversed") #, title="region")
