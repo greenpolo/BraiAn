@@ -10,6 +10,7 @@ from .utils import nrange
 from .sliced_brain import SlicedBrain
 from .animal_brain import AnimalBrain
 from .animal_group import AnimalGroup, PLS
+from .brain_data import BrainData
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 
 def plot_animal_group(fig: go.Figure, group: AnimalGroup,
@@ -373,6 +374,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
                     marker1: str, marker2: str=None,
                     brain_onthology: AllenBrainHierarchy=None,
                     pls_n_permutations: int=5000, pls_n_bootstrap: int=5000,
+                    markers_salience_scores: dict[str, BrainData]=None,
                     height: int=None, width: int=None, plot_scatter=True,
                     barplot_width: float=0.7, space_between_markers: float=0.02,
                     groups_marker1_colours=["LightCoral", "SandyBrown"],
@@ -432,8 +434,11 @@ def plot_gridgroups(groups: list[AnimalGroup],
         assert len(groups_colours) >= len(groups), f"{marker}: You must provide a colour for each group!"
         groups_df = [group.to_pandas(marker=marker).loc[selected_regions] for group in groups] # .loc sorts the DatFrame in selected_regions' order
         if pls_filtering:=len(groups) == 2:
-            salience_scores = groups[0].pls_regions(groups[1], selected_regions, marker=marker, fill_nan=True,
-                                                    n_permutations=pls_n_permutations, n_bootstrap=pls_n_bootstrap)
+            if markers_salience_scores is None:
+                salience_scores = groups[0].pls_regions(groups[1], selected_regions, marker=marker, fill_nan=True,
+                                                        n_permutations=pls_n_permutations, n_bootstrap=pls_n_bootstrap)
+            else:
+                salience_scores =  markers_salience_scores[marker]
             if brain_onthology is not None:
                 salience_scores = salience_scores.sort_by_onthology(brain_onthology, fill=False, inplace=False).data
             else:
@@ -441,7 +446,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
             assert all(salience_scores.index == groups_df[0].index), \
                     f"The salience scores ofthe PLS on '{marker}' are on different regions/order. "+\
                     "Make sure to fill to NaN the scores for the regions missing in at least one animal."
-            threshold = PLS.norm_threshold(nsigma=2) # use the μ ± 3σ of the normal as threshold
+            threshold = PLS.norm_threshold(nsigma=3) # use the μ ± 3σ of the normal as threshold
         # bar() returns 2(+1) traces: a real one, one for the legend and, eventually, a scatter plot
         bars = [trace for group, group_df, group_colour in zip(groups, groups_df, groups_colours)
                       for trace in (bar(group_df, group.name, metric, marker, group_colour, plot_scatter, salience_scores, threshold) if pls_filtering

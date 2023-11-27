@@ -29,3 +29,5 @@ from .connectome.structural import StructuralConnectome
 from .connectome.pruned import PrunedConnectomics
 from .connectome.plot import draw_network_plot
 from .connectome.plot_chord import draw_chord_plot
+
+from .config import BraiAnConfig

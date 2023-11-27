@@ -313,6 +313,7 @@ Please check that you're reading two groups that normalized on the same brain re
         return self.v_salience_scores[group][self.v_salience_scores[group].abs() > threshold]
 
     @staticmethod
-    def norm_threshold(nsigma=2) -> float:
+    def norm_threshold(nsigma=3) -> float:
+        assert nsigma >= 1 and nsigma <= 3
         # returns the μ ± (nsigma)σ of the normal
-        return scipy.stats.norm.ppf([0.6826, 0.9545, 0.9973])[nsigma]
+        return scipy.stats.norm.ppf([0.6826, 0.9545, 0.9973])[nsigma-1]
