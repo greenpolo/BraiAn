@@ -14,44 +14,45 @@ MODE_RegionsWithNoCountError = "silent"
 MODE_ExcludedRegionNotRecognisedError = "print"
 
 class BrainSliceFileError(Exception):
-    def __init__(self, animal=None, file=None, *args: object) -> None:
-        self.animal_name = animal
+    def __init__(self, slice=None, file=None, *args: object) -> None:
+        self.animal_name = slice.animal
+        self.slice_name = slice.name
         self.file_path = file
         super().__init__(*args)
 class ExcludedRegionsNotFoundError(BrainSliceFileError):
     def __str__(self):
-        return f"Animal '{self.animal_name}' - could not read the expected regions_to_exclude: {self.file_path}"
+        return f"Animal '{self.animal_name}', slice '{self.slice_name}' - could not read the expected regions_to_exclude: {self.file_path}"
 class ExcludedAllRegionsError(BrainSliceFileError):
     def __str__(self):
-        return f"Animal '{self.animal_name}' - the corresponding regions_to_exclude excludes everything: {self.file_path}"
+        return f"Animal '{self.animal_name}', slice '{self.slice_name}' - the corresponding regions_to_exclude excludes everything: {self.file_path}"
 class EmptyResultsError(BrainSliceFileError):
     def __str__(self):
-        return f"Animal '{self.animal_name}' - empty file: {self.file_path}"
+        return f"Animal '{self.animal_name}', slice '{self.slice_name}' - empty file: {self.file_path}"
 class NanResultsError(BrainSliceFileError):
     def __str__(self):
-        return f"Animal '{self.animal_name}' - NaN-filled file: {self.file_path}"
+        return f"Animal '{self.animal_name}', slice '{self.slice_name}' - NaN-filled file: {self.file_path}"
 class InvalidResultsError(BrainSliceFileError):
     def __str__(self):
-        return f"Animal '{self.animal_name}' - could not read results file: {self.file_path}"
+        return f"Animal '{self.animal_name}', slice '{self.slice_name}' - could not read results file: {self.file_path}"
 class MissingResultsColumnError(BrainSliceFileError):
     def __init__(self, column, **kargs: object) -> None:
         self.column = column
         super().__init__(**kargs)
     def __str__(self):
-        return f"Animal '{self.animal_name}' - column '{self.column}' is missing in file: {self.file_path}"
+        return f"Animal '{self.animal_name}', slice '{self.slice_name}' - column '{self.column}' is missing in file: {self.file_path}"
 class RegionsWithNoCountError(BrainSliceFileError):
     def __init__(self, tracer, regions, **kargs: object) -> None:
         self.tracer = tracer
         self.regions = regions
         super().__init__(**kargs)
     def __str__(self) -> str:
-        return f"Animal '{self.animal_name}' - there are {len(self.regions)} region(s) with no count of tracer '{self.tracer}' in file: {self.file_path}"
+        return f"Animal '{self.animal_name}', slice '{self.slice_name}' - there are {len(self.regions)} region(s) with no count of tracer '{self.tracer}' in file: {self.file_path}"
 class InvalidRegionsHemisphereError(BrainSliceFileError): 
     def __str__(self):
-        return f"Animal '{self.animal_name}' - results file {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
+        return f"Animal '{self.animal_name}', slice '{self.slice_name}' - results file {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
 class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
     def __str__(self):
-        return f"Animal '{self.animal_name}' - regions_to_exclude file {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
+        return f"Animal '{self.animal_name}', slice '{self.slice_name}' - regions_to_exclude file {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
 
 
 class BrainSlice:
@@ -73,7 +74,7 @@ class BrainSlice:
         self.data = pd.DataFrame(data, columns=[area_key, *tracers_key])
         self.is_split = is_split_left_right(self.data.index)
         if not self.is_split:
-            raise InvalidRegionsHemisphereError(animal=self.animal, file=csv_file)
+            raise InvalidRegionsHemisphereError(slice=self, file=csv_file)
         self.data.rename(columns={area_key: "area"} | dict(zip(tracers_key, markers_key)), inplace=True)
         #assert (df.area > 0).all()
         assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animaly={self.animal} slice={self.name}"
@@ -86,7 +87,7 @@ class BrainSlice:
         except Exception:
             raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
         if len(self.data) == 0:
-            raise ExcludedAllRegionsError(animal=self.animal, file=excluded_regions_file)
+            raise ExcludedAllRegionsError(slice=self, file=excluded_regions_file)
         match area_units:
             case "µm2" | "um2":
                 self._area_µm2_to_mm2_()
@@ -105,7 +106,7 @@ class BrainSlice:
             with open(file_path, mode="r", encoding="utf-8") as file:
                 excluded_regions = file.readlines()
         except FileNotFoundError:
-            raise ExcludedRegionsNotFoundError(animal=self.animal, file=file_path)
+            raise ExcludedRegionsNotFoundError(slice=self, file=file_path)
         to_exclude = [line.strip() for line in excluded_regions]
         # return [region for region in to_exclude if region == ""] # if we want to allow having empty lines in _regions_to_exclude.txt
         return to_exclude
@@ -115,7 +116,7 @@ class BrainSlice:
         self.check_columns(data, ["Name", "Class", "Num Detections",], csv_file)
 
         if data["Num Detections"].count() == 0:
-            raise NanResultsError(animal=self.animal, file=csv_file)
+            raise NanResultsError(slice=self, file=csv_file)
 
         data = self.clean_rows(data, csv_file)
 
@@ -129,7 +130,7 @@ class BrainSlice:
                 data = data.set_index("Class")
                 data = data.drop("wholebrain", axis=0)
             case _:
-                raise InvalidResultsError(animal=self.animal, file=csv_file)
+                raise InvalidResultsError(slice=self, file=csv_file)
         data.index.name = None
         return data
 
@@ -138,9 +139,9 @@ class BrainSlice:
             return pd.read_csv(csv_file, sep="\t").drop_duplicates()
         except Exception as e:
             if os.stat(csv_file).st_size == 0:
-                raise EmptyResultsError(animal=self.animal, file=csv_file)
+                raise EmptyResultsError(slice=self, file=csv_file)
             else:
-                raise InvalidResultsError(animal=self.animal, file=csv_file)
+                raise InvalidResultsError(slice=self, file=csv_file)
     
     def clean_rows(self, data: pd.DataFrame, csv_file: str):
         if (data["Name"] == "Exclude").any():
@@ -154,20 +155,20 @@ class BrainSlice:
 \tPlease, check on QuPath that you selected the right Class for every exclusion.")
         data = data.loc[data["Name"] != "PathAnnotationObject"]
         if len(data) == 0:
-            raise EmptyResultsError(animal=self.animal, file=csv_file)
+            raise EmptyResultsError(slice=self, file=csv_file)
         return data
 
     def check_columns(self, data, columns, csv_file) -> bool:
         for column in columns:
             if column not in data.columns:
-                raise MissingResultsColumnError(animal=self.animal, file=csv_file, column=column)
+                raise MissingResultsColumnError(slice=self, file=csv_file, column=column)
         return True
     
     def check_zero_rows(self, csv_file: str, markers: list[str]) -> bool:
         for marker in markers:
             zero_rows = self.data[marker] == 0
             if sum(zero_rows) > 0:
-                err = RegionsWithNoCountError(animal=self.animal, file=csv_file,
+                err = RegionsWithNoCountError(slice=self, file=csv_file,
                             tracer=marker, regions=self.data.index[zero_rows].to_list())
                 if MODE_RegionsWithNoCountError == "error":
                     raise err
@@ -203,7 +204,7 @@ class BrainSlice:
                     print(f"WARNING: Class '{reg_hemi}' is not recognised as a brain region. It was skipped from the regions_to_exclude in animal '{self.animal}', file: {self.name}_regions_to_exclude.txt")
                     continue
                 elif MODE_ExcludedRegionNotRecognisedError == "error":
-                    raise InvalidExcludedRegionsHemisphereError(animal=self.animal, file=f"{self.name}_regions_to_exclude.txt")
+                    raise InvalidExcludedRegionsHemisphereError(slice=self, file=f"{self.name}_regions_to_exclude.txt")
             hemi, reg = reg_hemi.split(": ")
 
             # Step 1: subtract counting results of the regions to be excluded

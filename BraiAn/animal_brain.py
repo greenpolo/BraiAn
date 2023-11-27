@@ -163,7 +163,7 @@ class AnimalBrain:
             if m not in self.markers:
                 raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
         diff = self.markers_data[marker1] - self.markers_data[marker2]
-        diff.metric = str(BrainMetrics.DIFFERENCE)
+        diff.metric = str(BrainMetrics.DENSITY_DIFFERENCE)
         diff.units = f"{marker1}-{marker2}"
         return AnimalBrain(markers_data={f"{marker1}+{marker2}": diff}, areas=self.areas)
 
