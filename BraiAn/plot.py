@@ -447,7 +447,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
             assert all(salience_scores.index == groups_df[0].index), \
                     f"The salience scores ofthe PLS on '{marker}' are on different regions/order. "+\
                     "Make sure to fill to NaN the scores for the regions missing in at least one animal."
-            threshold = PLS.norm_threshold(nsigma=3) if pls_threshold is None else pls_threshold # use the μ ± 3σ of the normal as threshold
+            threshold = PLS.norm_threshold(p=0.01, two_way=True) if pls_threshold is None else pls_threshold
         # bar() returns 2(+1) traces: a real one, one for the legend and, eventually, a scatter plot
         bars = [trace for group, group_df, group_colour in zip(groups, groups_df, groups_colours)
                       for trace in (bar(group_df, group.name, metric, marker, group_colour, plot_scatter, salience_scores, threshold) if pls_filtering
