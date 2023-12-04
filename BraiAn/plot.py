@@ -415,8 +415,10 @@ def plot_gridgroups(groups: list[AnimalGroup],
             return trace, trace_legend
         group_df_ = group_df.stack()
         scatter = go.Scatter(x=group_df_, y=group_df_.index.get_level_values(0), mode="markers",
-                             marker=dict(color=color, size=8, line=dict(color="rgb(0,0,0)", width=1)),
-                             name=f"animal [{marker}]", showlegend=True, legendgroup=trace_name,
+                             marker=dict(color=[c for c in fill_color for _ in range(group_df.shape[1])],
+                                         size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
+                             text=group_df_.index.get_level_values(1),
+                             name=f"{group_name} animals [{marker}]", showlegend=True, #legendgroup=trace_name,
                              offsetgroup=group_name, orientation="h")
         return trace, trace_legend, scatter
 
@@ -454,7 +456,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
                                else bar(group_df, group.name, metric, marker, group_colour, plot_scatter))]
         # heatmap() returns 2 traces: a real one and one for NaNs
         heatmaps = [trace for group_df in groups_df for trace in heatmap(group_df, metric, marker)]
-        max_value = pd.concat((group.mean(axis=1)+group.sem(axis=1)/2 for group in groups_df)).max()
+        max_value = pd.concat((group.mean(axis=1)+group.sem(axis=1) for group in groups_df)).max()
         heatmap_group_seps = np.cumsum([group_df.shape[1] for group_df in groups_df[:-1]])-.5
         return heatmaps, heatmap_group_seps, bars, max_value
     
@@ -499,7 +501,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         
         # MARKER1 - left side
         fig.add_traces(m1_bars, rows=1, cols=1)
-        fig.update_xaxes(autorange="reversed", range=bar_range, row=1, col=1)
+        fig.update_xaxes(range=bar_range[::-1], row=1, col=1) # NOTE: don't use autorange='(min) reversed', as it doesn't play nice with range
         fig.add_traces(m1_heatmaps, rows=1, cols=2)
         [fig.add_vline(x=x, line_color="white", row=1, col=2) for x in m1_group_seps]
         fig.update_xaxes(tickangle=45,  row=1, col=2)
