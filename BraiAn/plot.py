@@ -415,9 +415,9 @@ def plot_gridgroups(groups: list[AnimalGroup],
         if not plot_scatter:
             return trace, trace_legend
         group_df_ = group_df.stack()
+        scatter_colours = [c for c,n in zip(fill_color, (~group_df.isna()).sum(axis=1)) for _ in range(n)]
         scatter = go.Scatter(x=group_df_, y=group_df_.index.get_level_values(0), mode="markers",
-                             marker=dict(color=[c for c in fill_color for _ in range(group_df.shape[1])],
-                                         size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
+                             marker=dict(color=scatter_colours, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
                              text=group_df_.index.get_level_values(1),
                              name=f"{group_name} animals [{marker}]", showlegend=True, #legendgroup=trace_name,
                              offsetgroup=group_name, orientation="h")
