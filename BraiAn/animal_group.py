@@ -225,25 +225,30 @@ class PLS:
     - Lx (pd dataframe): latent variables of X, i.e. projection of X on v.
     - Ly (pd dataframe): latent variables of Y, i.e. projection of Y on u.
     '''
-    def __init__(self, regions: list[str], group1: AnimalGroup, group2: AnimalGroup, *groups: AnimalGroup, marker=None) -> None:
+    def __init__(self, regions: list[str], group1: AnimalGroup, group2: AnimalGroup, *groups: AnimalGroup,
+                 marker=None, markers=None) -> None:
         groups = [group1, group2, *groups]
         if marker is None:
-            if any(len(g.markers) > 1 for g in groups):
+            if markers is not None:
+                assert len(groups) == len(markers), "You need to pass only one marker OR as many markers as the number of groups!"
+            elif any(len(g.markers) > 1 for g in groups):
                 raise ValueError("PLS of AnimalGroups with multiple markers isn't implemented yet")
             else:
-                marker = group1.markers[0]
+                markers = [group1.markers[0]]*len(groups)
+        else:
+            markers = [marker]*len(groups)
         assert all(group1.is_comparable(g) for g in groups[1:]), "Group 1 and Group 2 are not comparable!\n\
 Please check that you're reading two groups that normalized on the same brain regions and on the same marker."
         # Fill a data matrix
-        animal_list = [a for g in groups for a in g.get_animals()]
-        if len(animal_list) != len(set(animal_list)):
-            print("WARNING: some animal(s) are in multiple AnimalGroups")
+        animal_list = [f"{a}_{i}" for i,g in enumerate(groups) for a in g.get_animals()]
         animal_list.sort()
         data = pd.DataFrame(index=regions+["group"], columns=animal_list)
 
-        for group in groups:
-            data.loc[regions,group.get_animals()] = group.select(regions).to_pandas(marker)
-            data.loc["group",group.get_animals()] = group.name
+        for i,(group,_marker) in enumerate(zip(groups, markers)):
+            selected_data = group.select(regions).to_pandas(_marker)
+            selected_data.columns = selected_data.columns.str.cat((str(i),)*selected_data.shape[1], sep="_")
+            data.loc[regions,selected_data.columns] = selected_data
+            data.loc["group",selected_data.columns] = group.name+"_"+str(i)
 
         self.X = data.loc[regions].T.dropna(axis="columns", how="any").astype("float64", copy=False)
         self.Y = pd.get_dummies(data.loc["group"].T)
