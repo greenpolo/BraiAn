@@ -149,7 +149,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 output_path: str, filename: str,
                 n=10, depth=None,
                 selected_regions: list[str]=None,
-                cmin=None, cmax=None, cmap="magma_r",
+                cmin=None, ccenter=0, cmax=None, cmap="magma_r",
                 centered_cmap=False, orientation="frontal",
                 show_text=True, title=None,
                 other=None) -> None:
@@ -173,8 +173,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         if cmax is None:
             cmax = math.ceil(_cmax)
         if centered_cmap:
-            assert cmin <=0 and cmax >= 0, "The provided BrainData's range does not include zero! Are you sure you need centered_cmap=True?"
-            cmap = CenteredColormap("RdBu", cmin, cmax)
+            assert cmin < ccenter < cmax, "The provided BrainData's range does not include zero! Are you sure you need centered_cmap=True?"
+            cmap = CenteredColormap("RdBu", cmin, ccenter, cmax)
         if selected_regions is not None:
             all(r in brain_regions for r in selected_regions), "Some regions in 'selected_regions' are not inside 'brain_regions'!"
 
@@ -294,8 +294,8 @@ class NormalizedColormap(matplotlib.colors.LinearSegmentedColormap,
         return matplotlib.cm.ScalarMappable(norm=self.norm, cmap=self.cmap).to_rgba(X, alpha, bytes)
 
 class CenteredColormap(NormalizedColormap):
-    def __init__(self, cmap, vmin: int, vmax: int):
-        center = -vmin/(vmax - vmin)
+    def __init__(self, cmap, vmin: int, vcenter: float, vmax: int):
+        center = (vcenter-vmin)/(vmax - vmin)
         norm = matplotlib.colors.TwoSlopeNorm(center, vmin=0, vmax=1)
         super().__init__(cmap, norm)
 
