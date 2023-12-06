@@ -148,13 +148,14 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 brain_regions: list[str],
                 output_path: str, filename: str,
                 n=10, depth=None,
+                selected_regions: list[str]=None,
                 cmin=None, cmax=None, cmap="magma_r",
                 centered_cmap=False, orientation="frontal",
                 show_text=True, title=None,
                 other=None) -> None:
         if other is None:
             hems = ("both",)
-            # brain_data = brain_data.loc[selected_regions]
+            # brain_data = brain_data.loc[brain_regions]
             # brain_data = brain_data[brain_data.index.isin(brain_regions)]
             # brain_data = brain_data[~brain_data.isna().all(axis=1)]
             data = (self.select_from_list(brain_regions, fill_nan=True),)
@@ -174,6 +175,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         if centered_cmap:
             assert cmin <=0 and cmax >= 0, "The provided BrainData's range does not include zero! Are you sure you need centered_cmap=True?"
             cmap = CenteredColormap("RdBu", cmin, cmax)
+        if selected_regions is not None:
+            all(r in brain_regions for r in selected_regions), "Some regions in 'selected_regions' are not inside 'brain_regions'!"
 
         heatmaps = [
             bgh.heatmap(
@@ -193,13 +196,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         units = self.units if self.units is not None else title
 
         if depth is not None:
-            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text)
+            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, selected_regions)
             return fig
         else:
             print("depths: ", end="")
             for depth in np.linspace(1500, 11000, n):
                 print(f"{depth:.2f}", end="  ")
-                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text)
+                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, selected_regions)
 
                 plot_filepath = os.path.join(output_path, filename+f"_{depth:05.0f}.svg")
                 f.savefig(plot_filepath)
@@ -210,11 +213,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
 def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
                data_names: list[str], hems: list[str],
                orientation: str, title: str,
-               units: str, show_text: bool):
+               units: str, show_text: bool, selected_regions: list[str]):
     fig, ax = plt.subplots(figsize=(9, 9))
     slicer = bgh.slicer.Slicer(depth, orientation, 100, heatmaps[0].scene.root)
     for heatmap in heatmaps:
-        add_projections(ax, heatmap, slicer, show_text)
+        if selected_regions is None:
+            selected_regions = []
+        add_projections(ax, heatmap, slicer, show_text, selected_regions)
             
     if len(heatmaps) == 2:
         ax.axvline(x=sum(ax.get_xlim())/2, linestyle="--", color="black", lw=2)
@@ -246,17 +251,19 @@ def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
     return fig,ax
 
 def add_projections(ax: mpl.axes.Axes, heatmap: bgh.heatmap,
-                    slicer: bgh.slicer.Slicer, show_text: bool):
+                    slicer: bgh.slicer.Slicer, show_text: bool,
+                    selected_regions: list[str]):
     projected,_ = slicer.get_structures_slice_coords(heatmap.regions_meshes, heatmap.scene.root)
     for r, coords in projected.items():
         name, segment = r.split("_segment_")
+        is_selected = name in selected_regions
         filled_polys = ax.fill(
             coords[:, 0],
             coords[:, 1],
             color=heatmap.colors[name],
             label=name if segment == "0" and name != "root" else None,
-            lw=1,
-            ec="k",
+            linewidth=1.5 if is_selected else 1,
+            edgecolor="white" if is_selected else "black",
             zorder=-1 if name == "root" or heatmap.colors[name] == [0,0,0] else None,
             alpha=0.3 if name == "root" or heatmap.colors[name] == [0,0,0] else None,
         )
