@@ -380,6 +380,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
                     barplot_width: float=0.7, space_between_markers: float=0.02,
                     groups_marker1_colours=["LightCoral", "SandyBrown"],
                     groups_marker2_colours=["IndianRed", "Orange"],
+                    max_value=None,
                     color_heatmap="deep_r") -> go.Figure:
     
     def to_rgba(color: str, alpha) -> str:
@@ -456,9 +457,9 @@ def plot_gridgroups(groups: list[AnimalGroup],
                                else bar(group_df, group.name, metric, marker, group_colour, plot_scatter))]
         # heatmap() returns 2 traces: a real one and one for NaNs
         heatmaps = [trace for group_df in groups_df for trace in heatmap(group_df, metric, marker)]
-        max_value = pd.concat((group.mean(axis=1)+group.sem(axis=1) for group in groups_df)).max()
+        _max_value = pd.concat((group.mean(axis=1)+group.sem(axis=1) for group in groups_df)).max()
         heatmap_group_seps = np.cumsum([group_df.shape[1] for group_df in groups_df[:-1]])-.5
-        return heatmaps, heatmap_group_seps, bars, max_value
+        return heatmaps, heatmap_group_seps, bars, _max_value
     
     def prepare_subplots(n_markers: int, bar_to_heatmap_ratio: float, gap_width: float, ) -> go.Figure:
         available_plot_width = (1-gap_width)/n_markers
@@ -483,7 +484,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
 
     heatmap_width = 1-barplot_width
     bar_to_heatmap_ratio = np.array([heatmap_width, barplot_width])
-    heatmaps, group_seps, bars, max_value = markers_traces(groups, marker1, groups_marker1_colours, plot_scatter)
+    heatmaps, group_seps, bars, _max_value = markers_traces(groups, marker1, groups_marker1_colours, plot_scatter)
     if marker2 is None:
         fig = prepare_subplots(1, bar_to_heatmap_ratio, space_between_markers if brain_onthology is not None else 0)
         
@@ -494,10 +495,10 @@ def plot_gridgroups(groups: list[AnimalGroup],
         fig.update_xaxes(tickangle=45,  row=1, col=2)
         fig.add_traces(bars, rows=1, cols=3)
     else:
-        m1_heatmaps, m1_group_seps, m1_bars, m1_max_value = heatmaps, group_seps, bars, max_value
+        m1_heatmaps, m1_group_seps, m1_bars, m1_max_value = heatmaps, group_seps, bars, _max_value
         m2_heatmaps, m2_group_seps, m2_bars, m2_max_value = markers_traces(groups, marker2, groups_marker2_colours, plot_scatter)
         fig = prepare_subplots(2, bar_to_heatmap_ratio, space_between_markers)
-        bar_range = (0, max(m1_max_value, m2_max_value))
+        bar_range = (0, max(m1_max_value, m2_max_value) if max_value is None else max_value)
         
         # MARKER1 - left side
         fig.add_traces(m1_bars, rows=1, cols=1)
