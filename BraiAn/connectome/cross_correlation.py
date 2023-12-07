@@ -10,11 +10,14 @@ from ..brain_hierarchy import AllenBrainHierarchy
 
 class CrossCorrelation:
     def __init__(self, animal_group: AnimalGroup, regions: list[str], brain_onthology: AllenBrainHierarchy,
-                 min_animals: int, name="") -> None:
+                 min_animals: int, name="", marker=None) -> None:
         assert not min_animals or (min_animals >= 2), "Invalid minimum number of animals needed for cross correlation. It must be >= 2."
-        if len(animal_group.markers) > 1:
-            raise ValueError("Cross Correlation of AnimalGroups with multiple markers isn't implemented yet")
-        normalized_data = animal_group.select(regions).to_pandas(animal_group.markers[0]).T
+        if marker is None:
+            if len(animal_group.markers) > 1:
+                raise ValueError("Cross Correlation of AnimalGroups with multiple markers isn't implemented yet")
+            else:
+                marker = animal_group.markers[0]
+        normalized_data = animal_group.select(regions).to_pandas(marker).T
         self.n = len(normalized_data)
         if not min_animals:
             # if None, all animals must have the region
@@ -34,16 +37,16 @@ class CrossCorrelation:
     
     @staticmethod
     def regions_in_both_groups(cross1, cross2):
-        return (~cross1.r.isna().all(axis=1)) & (~cross2.r.isna().all(axis=1))
+        return (~cross1.r.data.isna().all(axis=1)) & (~cross2.r.data.isna().all(axis=1))
 
     @staticmethod
     def make_comparable(*ccs: Self):
         regions_in_all_groups = functools.reduce(CrossCorrelation.regions_in_both_groups, ccs)
         for cc in ccs:
-            cc.r.loc[~regions_in_all_groups,:] = np.nan
-            cc.r.loc[:,~regions_in_all_groups] = np.nan
-            cc.p.loc[:,~regions_in_all_groups] = np.nan
-            cc.p.loc[~regions_in_all_groups,:] = np.nan
+            cc.r.data.loc[~regions_in_all_groups,:] = np.nan
+            cc.r.data.loc[:,~regions_in_all_groups] = np.nan
+            cc.p.data.loc[:,~regions_in_all_groups] = np.nan
+            cc.p.data.loc[~regions_in_all_groups,:] = np.nan
 
     def plot(self, star_size=15, **kwargs):
         fig = self.r.plot(**kwargs)
