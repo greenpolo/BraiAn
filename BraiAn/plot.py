@@ -321,21 +321,21 @@ def plot_permutation(experiment, permutation, n) -> go.Figure:
         )
     return fig
 
-def plot_salient_regions(salient_regions: pd.DataFrame, brain_onthology: AllenBrainHierarchy,
+def plot_salient_regions(salience_scores: pd.Series, brain_onthology: AllenBrainHierarchy,
                             title=None, title_size=20,
                             axis_size=15, use_acronyms=True, use_acronyms_in_mjd=True,
-                            mjd_opacity=0.5, width=300,
+                            mjd_opacity=0.5, width=300, thresholds=None,
                             barheight=30, bargap=0.3, bargroupgap=0.0):#, height=500):
-    active_mjd = tuple(brain_onthology.get_areas_major_division(*salient_regions["acronym"].values).values())
+    active_mjd = tuple(brain_onthology.get_areas_major_division(*salience_scores.index).values())
     allen_colours = brain_onthology.get_region_colors()
     fig = go.Figure([
         go.Bar(
-            x=salient_regions["salience_score"],
+            x=salience_scores,
             y=[
                 [mjd.upper() if use_acronyms_in_mjd else brain_onthology.full_name[mjd].upper() for mjd in active_mjd],
-                salient_regions["acronym"].values if use_acronyms else [brain_onthology.full_name[r] for r in salient_regions["acronym"]]
+                salience_scores.index if use_acronyms else [brain_onthology.full_name[r] for r in salience_scores.index]
             ],
-            marker_color=[allen_colours[r] for r in salient_regions["acronym"]],
+            marker_color=[allen_colours[r] for r in salience_scores.index],
             orientation="h"
         )
     ])
@@ -346,6 +346,12 @@ def plot_salient_regions(salient_regions: pd.DataFrame, brain_onthology: AllenBr
             continue
         fig.add_hrect(y0=y0, y1=y0+n, fillcolor=allen_colours[mjd], line_width=0, opacity=mjd_opacity)
         y0 += n
+    if thresholds is not None:
+        if isinstance(thresholds, float):
+            thresholds = (thresholds,)
+        for threshold in thresholds:
+            fig.add_vline(threshold, opacity=1, line=dict(width=2, dash="dash", color="black"))
+            fig.add_vline(-threshold, opacity=1, line=dict(width=2, dash="dash", color="black"))
 
     fig.update_layout(
         title=dict(
@@ -360,6 +366,7 @@ def plot_salient_regions(salient_regions: pd.DataFrame, brain_onthology: AllenBr
             tickfont=dict(size=axis_size)
         ),
         yaxis=dict(
+            autorange="reversed",
             dtick=1,
             tickfont=dict(size=axis_size)
         ),
