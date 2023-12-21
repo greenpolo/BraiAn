@@ -1,4 +1,4 @@
-import bgheatmaps as bgh
+import brainglobe_heatmap as bgh
 import itertools
 import math
 import matplotlib as mpl
@@ -132,7 +132,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.data = data
             return self
     
-    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy, *args, **kwargs) -> Self:
+    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy,
+                              *args, **kwargs) -> Self:
         selected_allen_regions = brain_onthology.get_selected_regions()
         selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
         return self.select_from_list(list(selectable_regions), *args, **kwargs)
