@@ -52,17 +52,19 @@ def remote_dirs(experiment_dir_name: str,
             mnt_point = "/Volumes/Ricerca/"
             
         case "linux":
-            mnt_point = "/run/user/1000/gvfs/smb-share:server=ich.techosp.it,share=ricerca/"
+            mnt_point = "/mnt/tenibre/"
+            # mnt_point = "/run/user/1000/gvfs/smb-share:server=ich.techosp.it,share=ricerca/"
         case "win32":
-            mnt_point = "\\\\ich.techosp.it\\Ricerca\\"
+            mnt_point = r"\\sshfs\bs@tenibre.ipmc.cnrs.fr!2222\bs\ ".strip()
+            # mnt_point = "\\\\ich.techosp.it\\Ricerca\\"
         case _:
             raise Exception(f"Can't find the 'Ricerca' folder in the server for '{sys.platform}' operative system. Please report the developer (Carlo)!")
     if not os.path.isdir(mnt_point):
         raise Exception(f"Could not read '{mnt_point}'. Please be sure you are connected to the server.")
     if is_collaboration_project:
-        data_root  =  os.path.join(mnt_point, "Lab Matteoli", "Silva", "collaborations", collaboration_dir_name, "data", experiment_dir_name)
-        plots_root = os.path.join(mnt_point, "Lab Matteoli", "Silva", "collaborations", collaboration_dir_name, "results", experiment_dir_name, "plots")
+        data_root  =  os.path.join(mnt_point, "collaborations", collaboration_dir_name, "data", experiment_dir_name)
+        plots_root = os.path.join(mnt_point, "collaborations", collaboration_dir_name, "results", experiment_dir_name, "plots")
     else:
-        data_root  =  os.path.join(mnt_point, "Lab Matteoli", "Silva", "projects", "data", experiment_dir_name)
-        plots_root = os.path.join(mnt_point, "Lab Matteoli", "Silva", "projects", "results", experiment_dir_name, "plots")
+        data_root  =  os.path.join(mnt_point, "projects", "data", experiment_dir_name)
+        plots_root = os.path.join(mnt_point, "projects", "results", experiment_dir_name, "plots")
     return data_root, plots_root
