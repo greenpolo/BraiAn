@@ -215,15 +215,15 @@ Created on Wed Mar  9 22:28:08 2022
 
 class PLS:
     '''
-    This class facilitates partial least squares analysis on the BLA and IL results.
+    This class facilitates mean-centered task Partial Least Squares Correlation on brain-wide results.
     The PLS objects has the following properties:
     - X (pd dataframe): the brain activity matrix with animals as rows and brain regions as columns
-    - y (pd dataframe): the data groups (i.e., targets), for each animal. '1' means IL, '0' means BLA.
-    - u (numpy array): saliences of Y (group matrix)
+    - y (pd dataframe): the data groups (i.e., targets), for each animal
+    - u (numpy array): saliences of Y (group matrix). rows: group profiles that best characterize R
     - s (numpy array): singular values of the correlation matrix
-    - v (numpy array): saliences of X (brain activity matrix)
-    - Lx (pd dataframe): latent variables of X, i.e. projection of X on v.
-    - Ly (pd dataframe): latent variables of Y, i.e. projection of Y on u.
+    - v (numpy array): saliences of X (brain activity matrix). rows: brain regions that best characterize R
+    - Lx (pd dataframe): latent variables of X, i.e. projection of X on v. AKA "brain scores"
+    - Ly (pd dataframe): latent variables of Y, i.e. projection of Y on u. AKA "group scores"
     '''
     def __init__(self, regions: list[str], group1: AnimalGroup, group2: AnimalGroup, *groups: AnimalGroup,
                  marker=None, markers=None) -> None:
@@ -318,6 +318,6 @@ Please check that you're reading two groups that normalized on the same brain re
         return self.v_salience_scores[group][self.v_salience_scores[group].abs() > threshold]
 
     @staticmethod
-    def norm_threshold(p: float, two_way=True) -> float:
+    def norm_threshold(p: float, two_tailed=True) -> float:
         assert p > 0 and p < 1
-        return scipy.stats.norm.ppf(1-p/2 if two_way else 1-p)
+        return scipy.stats.norm.ppf(1-p/2 if two_tailed else 1-p)
