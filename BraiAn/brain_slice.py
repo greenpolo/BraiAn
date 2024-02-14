@@ -113,7 +113,9 @@ class BrainSlice:
     
     def read_results_data(self, csv_file: str) -> pd.DataFrame:
         data = self.read_csv_file(csv_file)
-        self.check_columns(data, ["Name", "Class", "Num Detections",], csv_file)
+        if "Class" in data.columns:
+            raise ValueError("You are analyising results file exported with QuPath <0.5.x. Such files are no longer supported!")
+        self.check_columns(data, ["Name", "Classification", "Num Detections",], csv_file)
 
         if data["Num Detections"].count() == 0:
             raise NanResultsError(slice=self, file=csv_file)
@@ -122,12 +124,12 @@ class BrainSlice:
 
         # There may be one region/row with Name == "Root" and Class == NaN indicating the whole slice.
         # We remove it. As we want the distinction between hemispheres
-        match (data["Class"].isnull()).sum():
+        match (data["Classification"].isnull()).sum():
             case 0:
-                data = data.set_index("Class")
+                data = data.set_index("Classification")
             case 1:
-                data["Class"] = data["Class"].fillna("wholebrain")
-                data = data.set_index("Class")
+                data["Classification"] = data["Classification"].fillna("wholebrain")
+                data = data.set_index("Classification")
                 data = data.drop("wholebrain", axis=0)
             case _:
                 raise InvalidResultsError(slice=self, file=csv_file)
