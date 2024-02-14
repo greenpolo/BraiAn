@@ -437,8 +437,8 @@ def plot_gridgroups(groups: list[AnimalGroup],
         # scatter_colours = [fill_color for n in (~group_df.isna()).sum(axis=1) for _ in range(n)]
         scatter_colours = [c for c,n in zip(fill_color, (~group_df.isna()).sum(axis=1)) for _ in range(n)]
         scatter = go.Scatter(x=group_df_, y=group_df_.index.get_level_values(0), mode="markers",
-                             # marker=dict(color=scatter_colours, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
-                             marker=dict(color=fill_color, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
+                             marker=dict(color=scatter_colours, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
+                             # marker=dict(color=fill_color, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
                              text=group_df_.index.get_level_values(1),
                              name=f"{group_name} animals [{marker}]", showlegend=True, #legendgroup=trace_name,
                              offsetgroup=group_name, orientation="h")
@@ -508,6 +508,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
     heatmaps, group_seps, bars, _max_value = markers_traces(groups, marker1, groups_marker1_colours, plot_scatter)
     if marker2 is None:
         fig = prepare_subplots(1, bar_to_heatmap_ratio, space_between_markers if brain_onthology is not None else 0)
+        data_range = (0, _max_value if max_value is None else max_value)
         
         major_divisions_subplot = 1
         units = f"{str(groups[0].metric)} [{groups[0].mean[marker1].units}]"
@@ -516,17 +517,17 @@ def plot_gridgroups(groups: list[AnimalGroup],
         [fig.add_vline(x=x, line_color="white", row=1, col=2) for x in group_seps]
         fig.update_xaxes(tickangle=45, row=1, col=2)
         fig.add_traces(bars, rows=1, cols=3)
-        fig.update_xaxes(title=units, row=1, col=3)
+        fig.update_xaxes(title=units, range=data_range, row=1, col=3)
     else:
         m1_heatmaps, m1_group_seps, m1_bars, m1_max_value = heatmaps, group_seps, bars, _max_value
         m2_heatmaps, m2_group_seps, m2_bars, m2_max_value = markers_traces(groups, marker2, groups_marker2_colours, plot_scatter)
         fig = prepare_subplots(2, bar_to_heatmap_ratio, space_between_markers)
-        bar_range = (0, max(m1_max_value, m2_max_value) if max_value is None else max_value)
+        data_range = (0, max(m1_max_value, m2_max_value) if max_value is None else max_value)
         
         # MARKER1 - left side
         units = f"{str(groups[0].metric)} [{groups[0].mean[marker1].units}]"
         fig.add_traces(m1_bars, rows=1, cols=1)
-        fig.update_xaxes(title=units, range=bar_range[::-1], row=1, col=1) # NOTE: don't use autorange='(min) reversed', as it doesn't play nice with range
+        fig.update_xaxes(title=units, range=data_range[::-1], row=1, col=1) # NOTE: don't use autorange='(min) reversed', as it doesn't play nice with range
         fig.add_traces(m1_heatmaps, rows=1, cols=2)
         [fig.add_vline(x=x, line_color="white", row=1, col=2) for x in m1_group_seps]
         fig.update_xaxes(tickangle=45,  row=1, col=2)
@@ -539,7 +540,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         [fig.add_vline(x=x, line_color="white", row=1, col=4) for x in m2_group_seps]
         fig.update_xaxes(tickangle=45,  row=1, col=4)
         fig.add_traces(m2_bars, rows=1, cols=5)
-        fig.update_xaxes(title=units, range=bar_range, row=1, col=5)
+        fig.update_xaxes(title=units, range=data_range, row=1, col=5)
 
     if brain_onthology is not None:
         # add a fake trace to the empty subplot, otherwise add_annotation yref="y" makes no sense
@@ -562,9 +563,10 @@ def plot_gridgroups(groups: list[AnimalGroup],
     fig.update_xaxes(side="top")
     fig.update_yaxes(autorange="reversed") #, title="region")
     fig.update_layout(height=height, width=width, plot_bgcolor="rgba(0,0,0,0)", legend=dict(tracegroupgap=0), scattermode="group",
-        coloraxis=dict(colorscale=color_heatmap, colorbar=dict(lenmode="pixels", len=500,
-                                                               thickness=15, outlinewidth=1, y=0.85, yanchor="top",
-                                                               title=units if marker2 is None else units.replace(marker2, "marker"),
-                                                               title_side="right"))
+        coloraxis=dict(colorscale=color_heatmap, cmin=data_range[0], cmax=data_range[1],
+                       colorbar=dict(lenmode="pixels", len=500,
+                                     thickness=15, outlinewidth=1, y=0.85, yanchor="top",
+                                     title=units if marker2 is None else units.replace(marker2, "marker"),
+                                     title_side="right"))
     )
     return fig
