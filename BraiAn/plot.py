@@ -434,11 +434,12 @@ def plot_gridgroups(groups: list[AnimalGroup],
         if not plot_scatter:
             return trace, trace_legend
         group_df_ = group_df.stack()
-        # scatter_colours = [fill_color for n in (~group_df.isna()).sum(axis=1) for _ in range(n)]
-        scatter_colours = [c for c,n in zip(fill_color, (~group_df.isna()).sum(axis=1)) for _ in range(n)]
+        if salience_scores is None:
+            scatter_colour = fill_color
+        else:
+            scatter_colour = [c for c,n in zip(fill_color, (~group_df.isna()).sum(axis=1)) for _ in range(n)]
         scatter = go.Scatter(x=group_df_, y=group_df_.index.get_level_values(0), mode="markers",
-                             marker=dict(color=scatter_colours, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
-                             # marker=dict(color=fill_color, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
+                             marker=dict(color=scatter_colour, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
                              text=group_df_.index.get_level_values(1),
                              name=f"{group_name} animals [{marker}]", showlegend=True, #legendgroup=trace_name,
                              offsetgroup=group_name, orientation="h")
@@ -469,7 +470,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
             else:
                 salience_scores = salience_scores.data
             assert all(salience_scores.index == groups_df[0].index), \
-                    f"The salience scores ofthe PLS on '{marker}' are on different regions/order. "+\
+                    f"The salience scores of the PLS on '{marker}' are on different regions/order. "+\
                     "Make sure to fill to NaN the scores for the regions missing in at least one animal."
             threshold = PLS.norm_threshold(p=0.01, two_tailed=True) if pls_threshold is None else pls_threshold
         # bar() returns 2(+1) traces: a real one, one for the legend and, eventually, a scatter plot
