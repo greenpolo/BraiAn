@@ -349,7 +349,7 @@ class BraiAnConfig:
     # def remove_high_variation_regions(self, threshold: float):
     #     for group in self.groups:
     #         for animal_brain, slices in zip(groups_sum_brains[i], group_slices):
-    #             cvars = BraiAn.AnimalBrain.from_slices(slices, mode="cvar", hemisphere_distinction=animal_brain.is_split, min_slices=0)
+    #             cvars = AnimalBrain.from_slices(slices, mode="cvar", hemisphere_distinction=animal_brain.is_split, min_slices=0)
     #             # TODO: currently there is no differentiation between real markers and overlapping markers.
     #             # This bad workaround excludes all those markers having a '+' in the name.
     #             real_markers = [m for m in cvars.markers if "+" not in m]

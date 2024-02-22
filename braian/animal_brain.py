@@ -27,6 +27,9 @@ class AnimalBrain:
         self.areas = areas
         return
 
+    def __repr__(self):
+        return str(self)
+
     def __str__(self):
         return f"AnimalBrain(name='{self.name}', mode={self.mode}, markers={list(self.markers)})"
 
@@ -198,11 +201,15 @@ class AnimalBrain:
             else: # it's a marker
                 markers_data[name] = BrainData(data, animal_name, mode, units)
         return AnimalBrain(markers_data=markers_data, areas=areas)
+    
+    @staticmethod
+    def exists_csv(animal_name, root_dir, mode) -> bool:
+        return os.path.exists(os.path.join(root_dir, f"{animal_name}_{str(mode)}.csv"))
 
     @staticmethod
     def from_csv(animal_name, root_dir, mode) -> Self:
         # read CSV
-        df = pd.read_csv(os.path.join(root_dir, f"{animal_name}_{mode}.csv"), sep="\t", header=0, index_col=0)
+        df = pd.read_csv(os.path.join(root_dir, f"{animal_name}_{str(mode)}.csv"), sep="\t", header=0, index_col=0)
         if df.index.name == "Class":
             # is old csv
             raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
