@@ -5,6 +5,7 @@ description = "A python library for whole-brain analysis"
 authors = ["Carlo Castoldi <carlo.castoldi@outlook.com>"]
 license = "MPL 2.0"
 readme = "README.md"
+packages = [{include = "braian"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4"
@@ -20,13 +21,6 @@ beautifulsoup4 = "^4.12.2"      # used to blacklist regions from Allen's ontholo
 brainglobe-heatmap = "^v0.5.2"  # used to visualize brain heatmap for IEGs overlaps
 urllib3 = "^1.26.16"            # fix poetry+conda bug: https://github.com/python-poetry/poetry/issues/7936
 tables = "^3.9.2"               # fix problem with h5py installation
-
-[tool.poetry.group.dev.dependencies]
-ipython = "^8.13.2"
-ipykernel = "^6.23.0"
-nbformat = "^5.9.2"             # used to display inline plotly's graphs
-#jupyter-client = "<8"
-#pyzmq = "<25"
 
 [build-system]
 requires = ["poetry-core"]
