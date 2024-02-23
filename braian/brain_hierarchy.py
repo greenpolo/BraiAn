@@ -7,9 +7,9 @@ Created on Fri Mar  4 16:04:28 2022
 @author: carlocastoldi
 """
 
-import copy
+import igraph as ig
 import json
-import networkx as nx
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import requests
@@ -17,7 +17,7 @@ import requests
 from bs4 import BeautifulSoup
 from collections import OrderedDict
 from operator import xor
-from networkx.drawing.nx_pydot import graphviz_layout
+from plotly.colors import DEFAULT_PLOTLY_COLORS
 from .visit_dict import *
 
 MAJOR_DIVISIONS = [
@@ -206,10 +206,17 @@ class AllenBrainHierarchy:
         and the parent region's acronym is the corresponding value.
         'root' region has not entry in the dictionary.
         '''
-        assert attr == "acronym" or attr == "id", "'attr' parameter must either be 'acronym' or 'id'"
-        all_areas = get_all_nodes(self.dict, "children")
-        all_areas_acronyms = [node[attr] for node in all_areas if node["acronym"] != "root"]
-        return self.get_parent_areas(**{attr+"s": all_areas_acronyms})
+        return {subregion: region for region,subregion in self.get_edges(attr)}
+    
+    def get_edges(self, attr="id"):
+        assert attr in ("id", "acronym", "graph_order"), "'attr' parameter must be  'id', 'acronym' or 'graph_order'"
+        edges = []
+        visit_parents(self.dict,
+                      "children",
+                      lambda region,subregion:
+                          None if region is None else
+                          edges.append((region[attr], subregion[attr])))
+        return edges
 
     def get_all_subregions(self, attr="acronym"):
         '''
@@ -307,55 +314,40 @@ class AllenBrainHierarchy:
         all_areas = get_all_nodes(self.dict, "children")
         return {area["acronym"]: "#"+area["color_hex_triplet"] for area in all_areas}
 
-    def to_nx_attributes(self, attributes):
-        # due to a bug of networkx it's not possible to call an attribute 'name'.
-        # However we have a 'name' attribute in Allen's JSON.
-        # For this reason we change it to 'region_name'
-        if "region_name" in attributes:
-            def change_attr_name(d, old_attr, new_attr):
-                d[new_attr] = d[old_attr]
-                del d[old_attr]
-            brain_dict = copy.deepcopy(self.dict)
-            visit_bfs(brain_dict, "children", lambda node,_: change_attr_name(node, "name", "region_name"))
-        else:
-            brain_dict = self.dict
+    def to_igraph(self):
+        def add_attributes(graph: ig.Graph):
+            def visit(region, depth):
+                v = graph.vs[region["graph_order"]]
+                v["name"] = region["acronym"]
+                v["Depth"] = depth
+            return visit
 
-        all_areas = get_all_nodes(brain_dict, "children")
-        attributes_dict = {area["id"]: {attribute: area[attribute] for attribute in attributes} for area in all_areas}
-        return attributes_dict
-
-    def get_nx_graph(self):
-        G = nx.Graph()
-        edges = self.get_all_parent_areas(attr="id")
-        G.add_edges_from(edges.items())
-        
-        # Add attributes to the regions
-        attribute_columns = ["acronym", "region_name", "color_hex_triplet", "depth"]
-        attrs = self.to_nx_attributes(attribute_columns)
-        nx.set_node_attributes(G, attrs)
-        #for col_name in attribute_columns:
-        #    nx.set_node_attributes(G, self.df[col_name].to_dict(), col_name)
+        G = ig.Graph(edges=self.get_edges(attr="graph_order"))
+        visit_bfs(self.dict, "children", add_attributes(G))
         return G
 
-    def plot_plotly_graph(self):
-        '''
-        This function plots the brain hierarchy using plotly.
-        G = networkx graph
-        pos = node positions (as a dictionary)
-        '''
+    def plot(self):
+        G = self.to_igraph()
+        graph_layout = G.layout_reingold_tilford(mode="in", root=[0])
+        edges_trace = self.draw_edges(G, graph_layout, width=0.5)
+        nodes_trace = self.draw_nodes(G, graph_layout, node_size=5)
+        plot_layout = go.Layout(
+            title="Allen's brain region hierarchy",
+            titlefont_size=16,
+            showlegend=False,
+            hovermode="closest",
+            margin=dict(b=20,l=5,r=5,t=40),
+            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            yaxis=dict(showgrid=True, zeroline=False, dtick=1, autorange="reversed")
+        )
+        return go.Figure([edges_trace, nodes_trace], layout=plot_layout)
 
-        G = self.get_nx_graph()
-        if not(hasattr(self, "pos")):
-            print("Calculating node positions...")
-            self.nx_node_pos = graphviz_layout(G, prog="dot")
-            self.nx_node_pos = {int(n):p for n,p in self.nx_node_pos.items()}
-            nx.set_node_attributes(G, self.nx_node_pos, name="pos")
-
+    def draw_edges(self, G: ig.Graph, layout: ig.Layout, width: int):
         edge_x = []
         edge_y = []
-        for edge in G.edges():
-            x0, y0 = G.nodes[edge[0]]["pos"]
-            x1, y1 = G.nodes[edge[1]]["pos"]
+        for e in G.es:
+            x0, y0 = layout.coords[e.source]
+            x1, y1 = layout.coords[e.target]
             edge_x.append(x0)
             edge_x.append(x1)
             edge_x.append(None)
@@ -363,49 +355,108 @@ class AllenBrainHierarchy:
             edge_y.append(y1)
             edge_y.append(None)
 
-        edge_trace = go.Scatter(
+        edges_trace = go.Scatter(
             x=edge_x, y=edge_y,
-            line=dict(width=0.5, color="#888"),
+            line=dict(width=width, color="#888"),
             hoverinfo="none",
-            mode="lines")
+            mode="lines+markers" if G.is_directed() else "lines",
+            showlegend=False)
+        
+        if G.is_directed():
+            edges_trace.marker = dict(
+                    symbol="arrow",
+                    size=10,
+                    angleref="previous",
+                    standoff=8,
+                )
+        
+        return edges_trace
+    
+    def draw_nodes(self, G: ig.Graph, graph_layout: ig.Layout, node_size: int,
+               outline_size=0.5, use_centrality=False, centrality_metric: str=None,
+               use_clustering=False):
+        colors = self.get_region_colors()
+        nodes_color = []
+        outlines_color = []
+        if use_clustering:
+            if "cluster" not in G.vs.attributes():
+                raise ValueError("No clustering is made on the provided connectome")
+            get_outline_color = lambda v: DEFAULT_PLOTLY_COLORS[v["cluster"] % len(DEFAULT_PLOTLY_COLORS)]
+        else:
+            get_outline_color = lambda v: colors[v["name"]]
+        if use_centrality and (centrality_metric is None or centrality_metric not in G.vs.attributes()):
+            raise ValueError("If you want to plot the centrality, you must also specify a nodes' attribute in 'centrality_metric'")
+        for v in G.vs:
+            if v.degree() > 0:
+                outline_color = get_outline_color(v)
+                node_color = v[centrality_metric] if use_centrality else colors[v["name"]]
+            elif "is_undefined" in v.attributes() and v["is_undefined"]:
+                outline_color = 'rgb(140,140,140)'
+                node_color = '#A0A0A0'
+            else:
+                outline_color = 'rgb(150,150,150)'
+                node_color = '#CCCCCC'
+            nodes_color.append(node_color)
+            outlines_color.append(outline_color)
 
-        node_x = []
-        node_y = []
-        for node in G.nodes():
-            x, y = G.nodes[node]["pos"]
-            node_x.append(x)
-            node_y.append(y)
-
-        node_trace = go.Scatter(
-            x=node_x, y=node_y,
+        customdata, hovertemplate = self.nodes_hover_info(G, title_dict={"Degree": ig.VertexSeq.degree})
+        nodes_trace = go.Scatter(
+            x=[coord[0] for coord in graph_layout.coords],
+            y=[coord[1] for coord in graph_layout.coords],
             mode="markers",
-            hoverinfo="text",
-            marker=dict(
-                color=[],
-                size=5,
-                line_width=.1))
+            name="",
+            marker=dict(symbol="circle",
+                        size=node_size,
+                        color=nodes_color,
+                        line=dict(color=outlines_color, width=outline_size)),
+            customdata=customdata,
+            hovertemplate=hovertemplate,
+            showlegend=False
+        )
+        return nodes_trace
+    
+    def nodes_hover_info(self, G: ig.Graph, title_dict: dict={}):
+        customdata = []
+        hovertemplates = []
+        i = 0
+        # Add vertices' attributes
+        for attr in G.vs.attributes():
+            match attr:
+                case "name":
+                    customdata.extend((
+                        G.vs["name"],
+                        [self.full_name[acronym] for acronym in G.vs["name"]]
+                    ))
+                    hovertemplates.extend((
+                        f"Region: <b>%{{customdata[{i}]}}</b>",
+                        f"<i>%{{customdata[{i+1}]}}</i>"
+                    ))
+                    i += 2
+                case "upper_region":
+                    customdata.extend((
+                        G.vs["upper_region"],
+                        [self.full_name[acronym] for acronym in G.vs["upper_region"]]
+                    ))
+                    hovertemplates.append(f"Major Division: %{{customdata[{i}]}} (%{{customdata[{i+1}]}})")
+                    i += 2
+                case _:
+                    if attr in title_dict:
+                        fun = title_dict[attr]
+                        customdata.append(fun(G.vs))
+                    else:
+                        customdata.append(G.vs[attr])
+                    hovertemplates.append(f"{attr}: %{{customdata[{i}]}}")
+                    i += 1
+        # Add additional information
+        # fun is expected to be a function that takes a VertexSeq and spits a value for each vertex.
+        for attr_title, fun in title_dict.items():
+            if attr_title in G.vs.attributes():
+                continue
+            customdata.append(fun(G.vs))
+            hovertemplates.append(f"{attr_title}: %{{customdata[{i}]}}")
+            i += 1
 
-        node_colors = []
-        node_text = []
-        for node_id in G.nodes():
-            # Number of connections as color
-            node_colors.append("#"+G.nodes()[node_id]["color_hex_triplet"])
-            # Region name as text to show
-            node_text.append(G.nodes()[node_id]["region_name"] + " (" +
-                             G.nodes()[node_id]["acronym"] + "), " + 
-                             "level = " + str(G.nodes()[node_id]["depth"])) 
-
-        node_trace.marker.color = node_colors
-        node_trace.text = node_text
-
-        fig = go.Figure(data=[edge_trace, node_trace],
-                 layout=go.Layout(
-                    title="Hierarchy of brain regions",
-                    titlefont_size=16,
-                    showlegend=False,
-                    hovermode="closest",
-                    margin=dict(b=20,l=5,r=5,t=40),
-                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
-                    )
-        return fig
+        hovertemplate = "<br>".join(hovertemplates)
+        hovertemplate += "<extra></extra>"
+        # customdata=np.hstack((old_customdata.customdata, np.expand_dims(<new_data>, 1))), # update customdata
+        return np.stack(customdata, axis=-1), hovertemplate

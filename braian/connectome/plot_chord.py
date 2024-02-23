@@ -5,7 +5,7 @@ import igraph as ig
 
 from ..brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
 from .connectome import Connectome
-from .plot import no_axis, draw_nodes
+from .plot import no_axis
 
 def draw_chord_plot(connectome: Connectome,
                     brain_onthology: AllenBrainHierarchy,
@@ -56,7 +56,7 @@ def draw_chord_plot(connectome: Connectome,
               annotations=extract_annotations(kwargs, pos=-0.07, step=-0.02)
               )
 
-    nodes = draw_nodes(G, circle_layout, regions_size, brain_onthology)
+    nodes = brain_onthology.draw_nodes(G, circle_layout, regions_size)
     add_regions_acronyms(layout, G, circle_layout, regions_font_size)
     colorscale_min = connectome.r_cutoff if colorscale_min == "cutoff" else colorscale_min
     lines, edge_info = draw_edges(G, connectome.weight_str, circle_layout, max_edge_width, use_weighted_edge_widths,
