@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+#
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
 import pandas as pd
 from .brain_hierarchy import AllenBrainHierarchy
 from .animal_group import AnimalGroup

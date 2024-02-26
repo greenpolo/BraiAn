@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+#
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
 import functools
 import numpy as np
 import pandas as pd

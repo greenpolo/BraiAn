@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+#
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
 import os
 import numpy as np
 import numpy.typing as npt
@@ -292,8 +296,7 @@ Please check that you're reading two groups that normalized on the same brain re
 
         return self.u_salience_scores,self.v_salience_scores
 
-    def randomly_permute_singular_values(self,num_permutations):
-    
+    def randomly_permute_singular_values(self,num_permutations):    
         singular_values = np.expand_dims(np.zeros(self.s.shape), axis=0).repeat(num_permutations,axis=0)
         X_np = self.X.to_numpy()
         Y_np = self.Y.to_numpy()

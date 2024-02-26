@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+#
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar  4 16:04:28 2022
