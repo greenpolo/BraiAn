@@ -121,7 +121,7 @@ class AnimalBrain:
         for marker in self.markers:
             brainwide_area = sum((self.areas.root(hem) for hem in hems))
             brainwide_cell_counts = sum((self.markers_data[marker].root(hem) for hem in hems))
-            data = (self.markers_data[marker] / self.markers_data["area"]) / (brainwide_cell_counts / brainwide_area)
+            data = (self.markers_data[marker] / self.areas) / (brainwide_cell_counts / brainwide_area)
             data.metric = str(BrainMetrics.RELATIVE_DENSITY)
             data.units = f"{marker} density/root {marker} density"
             markers_data[marker] = data
