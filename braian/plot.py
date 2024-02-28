@@ -326,9 +326,29 @@ def plot_permutation(experiment, permutation, n) -> go.Figure:
     return fig
 
 def plot_groups_salience(pls: PLS, component=1):
-    return go.Figure(go.Bar(x=pls.Y.columns, y=pls.u[:,component-1]))
+    return go.Figure(go.Bar(x=pls.Y.columns, y=pls.u[:,component-1])).update_layout(title=f"Component {component}")
 
-def plot_latent_variables(pls: PLS, of="X"):
+def plot_latent_component(pls: PLS, component=1):
+    # from https://vgonzenbach.github.io/multivariate-cookbook/partial-least-squares-correlation.html#visualizing-latent-variables
+    n_groups = pls.Y.shape[1]
+    scatters = []
+    for i in range(n_groups):
+        group_i = pls.Lx.index.str.endswith(str(i))
+        group_scatter = go.Scatter(x=pls.Lx.loc[group_i, component-1],
+                                   y=pls.Ly.loc[group_i, component-1],
+                                   mode="markers+text", textposition="top center",
+                                   text=pls.Lx.loc[group_i].index, name=pls.Y.columns[i]
+        )
+        scatters.append(group_scatter)
+    fig = go.Figure(scatters)
+    return fig.update_layout(title=f"Component {component}")\
+              .update_yaxes(title="Ly")\
+              .update_xaxes(title="Lx")
+
+def plot_latent_variable(pls: PLS, of="X"):
+    # always plots first and second components
+    # of=="X" -> plots the brain scores
+    # of=="Y" -> plots the group scores
     assert of.lower() in ("x", "y"), "You must choose whether to plot latent variables of X (brain scores) or of Y (group scores)"
     latent_variables = pls.Lx if of.lower() == "x" else pls.Ly
     fig = go.Figure([go.Scatter(x=latent_variables[0][pls.Y.iloc[:,i]], y=latent_variables[1][pls.Y.iloc[:,i]],
