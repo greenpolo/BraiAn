@@ -74,10 +74,10 @@ class AnimalBrain:
     def select_from_onthology(self, brain_onthology: AllenBrainHierarchy, fill_nan=False, *args, **kwargs) -> Self:
         selected_allen_regions = brain_onthology.get_selected_regions()
         if not fill_nan:
-            selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
+            selectable_regions = set(self.get_regions()).intersection(set(selected_allen_regions))
         else:
             selectable_regions = selected_allen_regions
-        return self.select_from_list(selectable_regions, fill_nan=fill_nan, *args, **kwargs)
+        return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, *args, **kwargs)
 
     def get_units(self, marker=None):
         if len(self.markers) == 1:
