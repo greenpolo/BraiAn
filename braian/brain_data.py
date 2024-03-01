@@ -267,10 +267,10 @@ def add_projections(ax: mpl.axes.Axes, heatmap: bgh.heatmap,
             coords[:, 1],
             color=heatmap.colors[name],
             label=name if segment == "0" and name != "root" else None,
-            linewidth=1.5 if is_selected else 1,
-            edgecolor="white" if is_selected else "black",
-            zorder=-1 if name == "root" or heatmap.colors[name] == [0,0,0] else None,
-            alpha=0.3 if name == "root" or heatmap.colors[name] == [0,0,0] else None,
+            linewidth=1.5 if is_selected else 0.5,
+            edgecolor="black" if is_selected else (0, 0, 0, 0.5),
+            zorder=-1 if name == "root" or heatmap.colors[name] == [0,0,0] else 1 if is_selected else 0,
+            alpha=0.5 if name == "root" or heatmap.colors[name] == [0,0,0] else None,
         )
         if show_text and name != "root":
             (x0, y0), (x1, y1) = filled_polys[0].get_path().get_extents().get_points()
