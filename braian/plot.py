@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import plotly.colors as plc
 import plotly.graph_objects as go
+import random
 from plotly.subplots import make_subplots
 
 from .utils import nrange
@@ -17,134 +18,31 @@ from .animal_group import AnimalGroup, PLS
 from .brain_data import BrainData
 from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 
-def plot_animal_group(fig: go.Figure, group: AnimalGroup,
-                        brain_onthology: AllenBrainHierarchy, selected_regions: list[str],
-                        animal_size: int, color: str, y_offset, marker=None, use_acronyms=True) -> None:
-    if len(group.markers) > 1:
-        if marker is None:
-            raise ValueError("Plotting of AnimalGroups with multiple markers isn't implemented yet")
-    else:
-        marker = group.markers[0]
-    avg = group.mean[marker].data
-    sem = group.combine(pd.DataFrame.sem, numeric_only=True)[marker].data
-    # selected_regions = np.asarray(group.get_regions())
-    # selected_regions = selected_regions[np.isin(selected_regions, regions)]
-    regions_data = group.select(selected_regions).to_pandas()
-    y_axis, acronyms = pd.factorize(regions_data.index.get_level_values(0))
-    full_names = [brain_onthology.full_name[acronym] for acronym in acronyms]
-    if not use_acronyms:
-        ticklabels = full_names
-    else:
-        ticklabels = acronyms
-    
-    # Barplot (group)
-    fig.add_trace(go.Bar(
-                        x = avg.loc[selected_regions],
-                        name = f"{group.name} mean",
-                        customdata = np.stack((full_names, sem.loc[selected_regions]), axis=-1),
-                        hovertemplate = str(group.metric)+" mean: %{x:2f}±%{customdata[1]:2f} "+group.get_units(marker)+"<br>Region: %{customdata[0]}<br>Group: "+group.name,
-                        marker_color=color,
-                        error_x = dict(
-                            type="data",
-                            array=sem.loc[selected_regions]
-                        )
-                )
-    )
-    # Scatterplot (animals)
-    animal_regions = [brain_onthology.full_name[acronym] for acronym in regions_data.index.get_level_values(0)]
-    animal_names = regions_data.index.get_level_values(1)
-    fig.add_trace(go.Scatter(
-                        mode = "markers",
-                        y = y_axis + y_offset,
-                        x = regions_data[group.markers[0]],
-                        name = f"{group.name} animals",
-                        customdata = np.stack((animal_regions, animal_names, regions_data["area"]), axis=-1),
-                        hovertemplate = str(group.metric)+": %{x:.2f} "+group.get_units(marker)+"<br>Area: %{customdata[2]} mm²<br>Region: %{customdata[0]}<br>Animal: %{customdata[1]}",
-                        opacity=0.5,
-                        marker=dict(
-                            #color="rgb(0,255,0)",
-                            color=color,
-                            size=animal_size,
-                            line=dict(
-                                color="rgb(0,0,0)",
-                                width=1
-                            )
-                        )
-                )
-    )
-    return ticklabels
+def plot_animal_group(group: AnimalGroup, selected_regions: list[str],
+                        animal_size: int, *markers: str, colors=[],
+                        orientation="h", plot_hash=None):
+    if len(markers) == 0:
+        markers = group.markers
+    if not isinstance(colors, list):
+        colors = [colors]
+    if len(colors) < len(markers):
+        raise ValueError(f"You must provide at least {len(markers)} colors. One for each marker!")
+    if not plot_hash:
+        plot_hash = group.name
+    data = [trace for marker,color in zip(markers,colors) for trace in
+            bar_sample(group.to_pandas(marker=marker).loc[selected_regions],
+                group.name, str(group.metric), marker=marker,
+                color=color, plot_scatter=True,
+                orientation=orientation, plot_hash=plot_hash)
+            ]
+    fig = go.Figure(data=data)
+    if orientation == "h":
+        fig.update_xaxes(side="top")
+        fig.update_yaxes(autorange="reversed")
+    fig.update_layout(legend=dict(tracegroupgap=0), scattermode="group")
+    return fig
 
 UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
-
-def plot_groups(brain_onthology: AllenBrainHierarchy, *groups: AnimalGroup,
-                selected_regions: list[str], marker=None, plot_title="", title_size=20,
-                axis_size=15, animal_size=5, use_acronyms=True,
-                colors=plc.DEFAULT_PLOTLY_COLORS, width=900,
-                barheight=30, bargap=0.3, bargroupgap=0.0):
-    # assumes that selected_regions are sorted in depth-first order of the Allen Brain's ontology
-    assert len(groups) > 0, "You selected zero AnimalGroups to plot."
-    fig = go.Figure()
-
-    n_groups = len(groups)
-    region_axis_width = (1-bargap)/2
-    group_bar_width = (1-bargap)/n_groups
-    max_bar_offset = region_axis_width - group_bar_width/2
-    y_offsets = nrange(-max_bar_offset, max_bar_offset, n_groups)
-    for group, y_offset, color in zip(groups, y_offsets, colors):
-        ticklabels = plot_animal_group(fig, group, brain_onthology, selected_regions, animal_size, color, y_offset, marker=marker, use_acronyms=use_acronyms)
-    
-    # Plot major divisions
-    active_mjd = tuple(brain_onthology.get_areas_major_division(*selected_regions).values())
-    allen_colours = brain_onthology.get_region_colors()
-    y_start = -0.5
-    major_division_height = 0.03
-    dist = 0.1
-    for major_division in UPPER_REGIONS:
-        n = active_mjd.count(major_division)
-        if n == 0:
-            continue
-        fig.add_shape(
-            type="rect",
-            x0=-major_division_height-0.008, x1=0-0.008, y0=y_start+(dist/2), y1=y_start+n-(dist/2),
-            xref="paper",
-            line=dict(width=0),
-            fillcolor=allen_colours[major_division],
-            layer="below",
-            name=major_division,
-            label=dict(
-                text=brain_onthology.full_name[major_division],
-                textangle=90,
-                # font=dict(size=20)
-            )
-        )
-        y_start += n
-
-    # Update layout
-    fig.update_layout(
-        title = dict(
-            text=plot_title,
-            font=dict(size=title_size)
-        ),
-        yaxis = dict(
-            tickmode="array",
-            tickvals=np.arange(0,len(selected_regions)),
-            ticktext=[label+"          " for label in ticklabels],
-            tickfont=dict(size=axis_size)
-        ),
-        xaxis=dict(
-            title=groups[0].get_plot_title(marker),
-            tickfont=dict(size=axis_size),
-            rangemode="tozero",
-            side="top"
-        ),
-        bargap=bargap,bargroupgap=bargroupgap,
-        width=width, height=(barheight*n_groups+(barheight*n_groups)*bargap)*(len(selected_regions)+1), # height,
-        hovermode="closest",
-        # hovermode="x unified",
-        yaxis_range = [-1,len(selected_regions)]
-    )
-
-    return fig
 
 def plot_pie(selected_regions: list[str], brain_onthology: AllenBrainHierarchy,
                 use_acronyms=True, hole=0.3, line_width=2, text_size=12):
@@ -425,49 +323,8 @@ def plot_gridgroups(groups: list[AnimalGroup],
                     groups_marker2_colours=["IndianRed", "Orange"],
                     max_value=None,
                     color_heatmap="deep_r") -> go.Figure:
-    
-    def to_rgba(color: str, alpha) -> str:
-        r,g,b = plc.convert_to_RGB_255(mplc.to_rgb(color))
-        return f"rgba({r}, {g}, {b}, {alpha})"
-
-    def bar_ht(marker, metric):
-        return "<b>%{meta}</b><br>"+marker+" "+metric+": %{x}<br>region: %{y}<br><extra></extra>"
     def heatmap_ht(marker, metric):
         return "animal: %{x}<br>region: %{y}<br>"+marker+" "+metric+": %{z:.2f}<extra></extra>"
-
-    def bar(group_df: pd.DataFrame, group_name: str, metric: str,
-            marker: str, color: str, plot_scatter: bool,
-            salience_scores: pd.Series=None, threshold: float=None):
-        if salience_scores is None:
-            fill_color, line_color = color, color
-        else:
-            alpha_below_thr = 0.2
-            alpha_undefined = 0.1
-            fill_color = pd.Series(np.where(salience_scores.abs().ge(threshold, fill_value=0), color, to_rgba(color, alpha_below_thr)), index=salience_scores.index)
-            is_undefined = salience_scores.isna()
-            fill_color[is_undefined] = to_rgba(color, alpha_undefined)
-            line_color = pd.Series(np.where(is_undefined, to_rgba(color, alpha_undefined), color), index=is_undefined.index)
-        trace_name = f"{group_name} [{marker}]"
-        trace = go.Bar(x=group_df.mean(axis=1), y=group_df.index,
-                        error_x=dict(type="data", array=group_df.sem(axis=1), thickness=1),
-                        marker=dict(line_color=line_color, line_width=1, color=fill_color), orientation="h",
-                        hovertemplate=bar_ht(marker, metric), showlegend=False, offsetgroup=group_name,
-                        name=trace_name, legendgroup=trace_name, meta=trace_name)
-        trace_legend = go.Scatter(x=[None], y=[None], mode="markers", marker=dict(color=color, symbol="square", size=15),
-                                    name=trace_name, showlegend=True, legendgroup=trace_name, offsetgroup=group_name)
-        if not plot_scatter:
-            return trace, trace_legend
-        group_df_ = group_df.stack()
-        if salience_scores is None:
-            scatter_colour = fill_color
-        else:
-            scatter_colour = [c for c,n in zip(fill_color, (~group_df.isna()).sum(axis=1)) for _ in range(n)]
-        scatter = go.Scatter(x=group_df_, y=group_df_.index.get_level_values(0), mode="markers",
-                             marker=dict(color=scatter_colour, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
-                             text=group_df_.index.get_level_values(1),
-                             name=f"{group_name} animals [{marker}]", showlegend=True, #legendgroup=trace_name,
-                             offsetgroup=group_name, orientation="h")
-        return trace, trace_legend, scatter
 
     def heatmap(group_df: pd.DataFrame, metric: str, marker: str):
         hmap = go.Heatmap(z=group_df, x=group_df.columns, y=group_df.index, hoverongaps=False, coloraxis="coloraxis", hovertemplate=heatmap_ht(marker, metric))
@@ -497,10 +354,11 @@ def plot_gridgroups(groups: list[AnimalGroup],
                     f"The salience scores of the PLS on '{marker}' are on different regions/order. "+\
                     "Make sure to fill to NaN the scores for the regions missing in at least one animal."
             threshold = PLS.norm_threshold(p=0.01, two_tailed=True) if pls_threshold is None else pls_threshold
-        # bar() returns 2(+1) traces: a real one, one for the legend and, eventually, a scatter plot
+        # bar_sample() returns 2(+1) traces: a real one, one for the legend and, eventually, a scatter plot
         bars = [trace for group, group_df, group_colour in zip(groups, groups_df, groups_colours)
-                      for trace in (bar(group_df, group.name, metric, marker, group_colour, plot_scatter, salience_scores, threshold) if pls_filtering
-                               else bar(group_df, group.name, metric, marker, group_colour, plot_scatter))]
+                      for trace in (bar_sample(group_df, group.name, metric, marker, group_colour, plot_scatter, plot_hash=group.name,
+                                               salience_scores=salience_scores, threshold=threshold) if pls_filtering
+                               else bar_sample(group_df, group.name, metric, marker, group_colour, plot_scatter, plot_hash=group.name))]
         # heatmap() returns 2 traces: a real one and one for NaNs
         heatmaps = [trace for group_df in groups_df for trace in heatmap(group_df, metric, marker)]
         _max_value = pd.concat((group.mean(axis=1)+group.sem(axis=1) for group in groups_df)).max()
@@ -595,3 +453,56 @@ def plot_gridgroups(groups: list[AnimalGroup],
                                      title_side="right"))
     )
     return fig
+
+def bar_sample(df: pd.DataFrame, population_name: str,
+           metric: str, marker: str, color: str, plot_scatter: bool,
+           salience_scores: pd.Series=None, threshold: float=None,
+           alpha_below_thr=0.2, alpha_undefined=0.1,
+           showlegend=True, orientation="h", plot_hash=None):
+    # expects df to be a regions×sample DataFrame (where <rows> × <columns>)
+    def bar_ht(marker, metric, base="y", length="x"):
+        return f"<b>%{{meta}}</b><br>{marker} {metric}: %{{{length}}}<br>region: %{{{base}}}<br><extra></extra>"
+    traces = []
+    if plot_hash is None:
+        plot_hash = random.random()
+    if salience_scores is None:
+        fill_color, line_color = color, color
+    else:
+        fill_color = pd.Series(np.where(salience_scores.abs().ge(threshold, fill_value=0), color, to_rgba(color, alpha_below_thr)), index=salience_scores.index)
+        is_undefined = salience_scores.isna()
+        fill_color[is_undefined] = to_rgba(color, alpha_undefined)
+        line_color = pd.Series(np.where(is_undefined, to_rgba(color, alpha_undefined), color), index=is_undefined.index)
+    trace_name = f"{population_name} [{marker}]"
+    base, length = ("y", "x") if orientation == "h" else ("x", "y")
+    bar = go.Bar(**{length: df.mean(axis=1), base: df.index, 
+                    f"error_{length}": dict(type="data", array=df.sem(axis=1), thickness=1)},
+                    marker=dict(line_color=line_color, line_width=1, color=fill_color), orientation=orientation,
+                    hovertemplate=bar_ht(marker, metric, base, length), showlegend=False, offsetgroup=plot_hash,
+                    name=trace_name, legendgroup=trace_name, meta=trace_name)
+    traces.append(bar)
+    if showlegend:
+        legend = go.Scatter(x=[None], y=[None], mode="markers", marker=dict(color=color, symbol="square", size=15),
+                            name=trace_name, showlegend=True, legendgroup=trace_name, offsetgroup=plot_hash)
+        traces.append(legend)
+    if not plot_scatter:
+        return tuple(traces)
+    df_stacked = df.stack()
+    regions = df_stacked.index.get_level_values(0)
+    sample_names = df_stacked.index.get_level_values(1)
+    if salience_scores is None:
+        scatter_colour = fill_color
+    else:
+        scatter_colour = [c for c,n in zip(fill_color, (~df.isna()).sum(axis=1)) for _ in range(n)]
+    scatter = go.Scatter(**{length: df_stacked, base: regions},
+                         mode="markers",
+                         marker=dict(color=scatter_colour, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
+                         text=sample_names, hovertemplate=bar_ht(marker, metric, base, length),
+                         name=f"{population_name} animals [{marker}]", showlegend=showlegend, #legendgroup=trace_name,
+                         offsetgroup=plot_hash, orientation=orientation, meta=sample_names)
+    traces.append(scatter)
+    # scatter requires layout(scattermode="group")
+    return tuple(traces)
+
+def to_rgba(color: str, alpha) -> str:
+    r,g,b = plc.convert_to_RGB_255(mplc.to_rgb(color))
+    return f"rgba({r}, {g}, {b}, {alpha})"
