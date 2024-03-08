@@ -278,7 +278,7 @@ def plot_salient_regions(salience_scores: pd.Series, brain_onthology: AllenBrain
         n = active_mjd.count(mjd)
         if n == 0:
             continue
-        fig.add_hrect(y0=y0, y1=y0+n, fillcolor=allen_colours[mjd], line_width=0, opacity=mjd_opacity)
+        fig.add_hrect(y0=y0, y1=y0+n, fillcolor=allen_colours[mjd], line_width=0, opacity=mjd_opacity, layer="below")
         y0 += n
     if thresholds is not None:
         if isinstance(thresholds, float):
