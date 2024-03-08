@@ -51,6 +51,12 @@ def set_blacklisted(node, is_blacklisted):
 def is_blacklisted(node):
     return "blacklisted" in node and node["blacklisted"]
 
+def set_reference(node, has_reference):
+    node["has_reference"] = has_reference
+
+def has_reference(node):
+    return "has_reference" in node and node["has_reference"]
+
 class AllenBrainHierarchy:
     def __init__(self, path_to_allen_json, blacklisted_acronyms=[], version=None):
         with open(path_to_allen_json, "r") as file:
@@ -59,13 +65,14 @@ class AllenBrainHierarchy:
         self.dict = allen_data["msg"][0]
         # First label every region as "not blacklisted"
         visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
+        visit_bfs(self.dict, "children", lambda n,d: set_reference(n, True))
         if blacklisted_acronyms:
             self.blacklist_regions(blacklisted_acronyms, key="acronym")
             # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
         if version is not None:
             unannoted_regions = self.__get_unannoted_regions(version)
-            self.blacklist_regions(unannoted_regions, key="acronym")
+            self.blacklist_regions(unannoted_regions, key="acronym", has_reference=False)
 
         self.add_depth_to_regions()
         self.mark_major_divisions()
@@ -108,13 +115,20 @@ class AllenBrainHierarchy:
             return list(regions)
         return self.minimimum_treecover(_regions)
 
-    def blacklist_regions(self, blacklisted_regions, key="acronym"):
+    def blacklist_regions(self, blacklisted_regions, key="acronym", has_reference=True):
         # find every region to-be-blacklisted, and blacklist all its tree
+        # set has_reference=False if the given regions are not existent in the annotation atlas
         for region_value in blacklisted_regions:
             blacklisted_region = find_subtree(self.dict, key, region_value, "children")
             if not blacklisted_region:
                 raise ValueError(f"Can't find a region with '{key}'='{blacklisted_region}' to blacklist in Allen's Brain")
             visit_bfs(blacklisted_region, "children", lambda n,d: set_blacklisted(n, True))
+            if not has_reference:
+                visit_bfs(blacklisted_region, "children", lambda n,d: set_reference(n, False))
+    
+    def get_blacklisted_trees(self, key="acronym"):
+        regions = non_overlapping_where(self.dict, "children", lambda n,d: is_blacklisted(n) and has_reference(n), mode="bfs")
+        return [region[key] for region in regions]
 
     def mark_major_divisions(self):
         add_boolean_attribute(self.dict, "children", "major_division", lambda node,d: node["acronym"] in MAJOR_DIVISIONS)
