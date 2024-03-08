@@ -174,7 +174,7 @@ class AnimalBrain:
         diff.units = f"{marker1}-{marker2}"
         return AnimalBrain(markers_data={f"{marker1}+{marker2}": diff}, areas=self.areas)
     
-    def _group_change(self, group, fun: callable, symbol: str) -> BrainData: # AnimalGroup
+    def _group_change(self, group, metric, fun: callable, symbol: str) -> BrainData: # AnimalGroup
         assert self.is_split == group.is_split, "Both AnimalBrain and AnimalGroup must either have the hemispheres split or not"
         assert set(self.markers) == set(group.markers), "Both AnimalBrain and AnimalGroup must have the same markers"
         # assert self.mode == group.metric == BrainMetrics.DENSITY, f"Both AnimalBrain and AnimalGroup must be on {BrainMetrics.DENSITY}"
@@ -183,16 +183,16 @@ class AnimalBrain:
         markers_data = dict()
         for marker,this in self.markers_data.items():
             data = fun(this, group.mean[marker])
-            data.metric = str(BrainMetrics.FOLD_CHANGE)
+            data.metric = str(metric)
             data.units = f"{marker} {str(self.mode)}{symbol}{group.name} {str(group.metric)}"
             markers_data[marker] = data
         return AnimalBrain(markers_data=markers_data, areas=self.areas)
 
     def fold_change(self, group) -> BrainData: # AnimalGroup
-        return self._group_change(group, lambda animal,group: animal/group, "/")
+        return self._group_change(group, BrainMetrics.FOLD_CHANGE, lambda animal,group: animal/group, "/")
 
     def diff_change(self, group) -> BrainData: # AnimalGroup
-        return self._group_change(group, lambda animal,group: animal-group, "-")
+        return self._group_change(group, BrainMetrics.DIFF_CHANGE, lambda animal,group: animal-group, "-")
 
     def to_pandas(self, units=False) -> pd.DataFrame:
         data = pd.concat({f"area ({self.areas.units})" if units else "area": self.areas.data,
