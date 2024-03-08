@@ -153,7 +153,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 brain_regions: list[str],
                 output_path: str, filename: str,
                 n=10, depth=None,
-                selected_regions: list[str]=None,
+                hem_highlighted_regions: list[list[str]]=None,
                 cmin=None, ccenter=0, cmax=None, cmap="magma_r",
                 centered_cmap=False, orientation="frontal",
                 show_text=True, title=None,
@@ -180,8 +180,14 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         if centered_cmap:
             assert cmin < ccenter < cmax, "The provided BrainData's range does not include zero! Are you sure you need centered_cmap=True?"
             cmap = CenteredColormap("RdBu", cmin, ccenter, cmax)
-        if selected_regions is not None:
-            all(r in brain_regions for r in selected_regions), "Some regions in 'selected_regions' are not inside 'brain_regions'!"
+        if hem_highlighted_regions is not None:
+            if not isinstance(hem_highlighted_regions[0], list):
+                # if you passed only one list, it will highlight the same brain regions in both hemispheres
+                hem_highlighted_regions = [hem_highlighted_regions]*len(hems)
+            all(r in brain_regions for selected_regions in hem_highlighted_regions
+                                   for r in selected_regions), "Some regions in 'selected_regions' are not inside 'brain_regions'!"
+        else:
+            hem_highlighted_regions = [[],[]]
 
         heatmaps = [
             bgh.heatmap(
@@ -201,13 +207,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         units = self.units if self.units is not None else title
 
         if depth is not None:
-            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, selected_regions)
+            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, hem_highlighted_regions)
             return fig
         else:
             print("depths: ", end="")
             for depth in np.linspace(1500, 11000, n):
                 print(f"{depth:.2f}", end="  ")
-                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, selected_regions)
+                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, hem_highlighted_regions)
 
                 plot_filepath = os.path.join(output_path, filename+f"_{depth:05.0f}.svg")
                 f.savefig(plot_filepath)
@@ -218,13 +224,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
 def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
                data_names: list[str], hems: list[str],
                orientation: str, title: str,
-               units: str, show_text: bool, selected_regions: list[str]):
+               units: str, show_text: bool, hem_highlighted_regions: list[list[str]]):
     fig, ax = plt.subplots(figsize=(9, 9))
     slicer = bgh.slicer.Slicer(depth, orientation, 100, heatmaps[0].scene.root)
-    for heatmap in heatmaps:
-        if selected_regions is None:
-            selected_regions = []
-        add_projections(ax, heatmap, slicer, show_text, selected_regions)
+    for heatmap, highlighted_regions in zip(heatmaps, hem_highlighted_regions):
+        if highlighted_regions is None:
+            highlighted_regions = []
+        add_projections(ax, heatmap, slicer, show_text, highlighted_regions)
             
     if len(heatmaps) == 2:
         ax.axvline(x=sum(ax.get_xlim())/2, linestyle="--", color="black", lw=2)
