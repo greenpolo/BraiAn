@@ -72,7 +72,7 @@ class AnimalGroup:
         for m in markers:
             pls = PLS(selected_regions, self, other, marker=m)
             pls.randomly_permute_singular_values(n_permutations)
-            pls.bootstrap_salience_scores(rank=1, num_bootstrap=n_bootstrap)
+            pls.bootstrap_salience_scores(num_bootstrap=n_bootstrap)
             v = pls.v_salience_scores[0].copy()
             if fill_nan:
                 v_ = pd.Series(np.nan, index=selected_regions)
@@ -257,21 +257,28 @@ Please check that you're reading two groups that normalized on the same brain re
         self.X = data.loc[regions].T.dropna(axis="columns", how="any").astype("float64", copy=False)
         self.Y = pd.get_dummies(data.loc["group"].T)
         self.u, self.s, self.v = self.partial_least_squares_correlation(self.X,self.Y)
+        # self.u = pd.DataFrame(self.u, index=self.Y.columns)
+        # self.v = pd.DataFrame(self.v, index=self.X.columns)
         
         self.Lx = self.X @ self.v
         self.Ly = self.Y @ self.u
+        
+        self.v_salience_scores = None
+        self.u_salience_scores = None
+        self.singular_values = None
 
     def partial_least_squares_correlation(self,X,Y):
         num_animals,num_groups = Y.shape
         # Compute M = diag{1.T * Y}.inv * Y.T * X (the average for each group)
         M = np.linalg.inv(np.diag(np.ones(num_animals) @ Y)) @ (Y.T @ X).astype("float")
+        # R := matrix of the deviations of the groups to their grand mean
         # Mean-center M to get R
         R = M - np.ones((num_groups,1)) @ ( np.ones((1,num_groups)) @ M) / num_groups
         # SVD
         u, s, vh = np.linalg.svd(R, full_matrices=False) # self.X, retrieved from AnimalGroup, must have no NaN [dropna(how='any')]. If it does the PLS cannot be computed in the other regions as well
         return u,s,vh.T
 
-    def bootstrap_salience_scores(self,rank,num_bootstrap):
+    def bootstrap_salience_scores(self, num_bootstrap):
         u_bootstrap = np.expand_dims(np.zeros(self.u.shape), axis=2).repeat(num_bootstrap,axis=2)
         v_bootstrap = np.expand_dims(np.zeros(self.v.shape), axis=2).repeat(num_bootstrap,axis=2)
 
@@ -291,8 +298,8 @@ Please check that you're reading two groups that normalized on the same brain re
         v_salience = self.v / v_bootstrap.std(axis=2)
         u_salience = self.u / u_bootstrap.std(axis=2)
 
-        self.v_salience_scores = pd.DataFrame(v_salience[:,0:rank], index=self.X.columns)
-        self.u_salience_scores = pd.DataFrame(u_salience[:,0:rank])
+        self.v_salience_scores = pd.DataFrame(v_salience, index=self.X.columns)
+        self.u_salience_scores = pd.DataFrame(u_salience, index=self.Y.columns)
 
         return self.u_salience_scores,self.v_salience_scores
 
@@ -317,8 +324,8 @@ Please check that you're reading two groups that normalized on the same brain re
         self.singular_values = singular_values[:count,:]
         return self.s,self.singular_values
 
-    def above_threshold(self, threshold, group=0):
-        return self.v_salience_scores[group][self.v_salience_scores[group].abs() > threshold]
+    def above_threshold(self, threshold, component=1):
+        return self.v_salience_scores[component-1][self.v_salience_scores[component-1].abs() > threshold]
 
     @staticmethod
     def norm_threshold(p: float, two_tailed=True) -> float:
