@@ -205,15 +205,20 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         ]
         title = heatmaps[0].title
         units = self.units if self.units is not None else title
+        xrange, yrange = heatmap_range(heatmaps[0])
 
         if depth is not None:
-            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, hem_highlighted_regions)
+            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, hem_highlighted_regions, xrange, yrange)
             return fig
         else:
             print("depths: ", end="")
-            for depth in np.linspace(1500, 11000, n):
+            max_depth = heatmaps[0].scene.atlas.shape_um[bgh.slicer.get_ax_idx(orientation)]
+            for depth in np.linspace(1500, max_depth-1700, n, dtype=int):
+                # frontal: 1500-11500
+                # horizontal: 1500-6300
+                # sagittal: 1500-9700
                 print(f"{depth:.2f}", end="  ")
-                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, hem_highlighted_regions)
+                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, hem_highlighted_regions, xrange, yrange)
 
                 plot_filepath = os.path.join(output_path, filename+f"_{depth:05.0f}.svg")
                 f.savefig(plot_filepath)
@@ -221,10 +226,20 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             print()
             return
 
+def heatmap_range(heatmap: bgh.heatmap):
+    shape_um = np.array(heatmap.scene.atlas.shape_um)
+    origin = heatmap.scene.atlas.root.center
+    x = np.where(heatmap.slicer.plane0.u != 0)[0][0]
+    y = np.where(heatmap.slicer.plane0.v != 0)[0][0]
+    x_min, y_min = -origin[[x, y]]
+    x_max, y_max = (shape_um-origin)[[x, y]]
+    return (x_min, x_max), (y_min, y_max)
+
 def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
                data_names: list[str], hems: list[str],
                orientation: str, title: str,
-               units: str, show_text: bool, hem_highlighted_regions: list[list[str]]):
+               units: str, show_text: bool, hem_highlighted_regions: list[list[str]],
+               xrange: tuple[float, float], yrange: tuple[float, float]):
     fig, ax = plt.subplots(figsize=(9, 9))
     slicer = bgh.slicer.Slicer(depth, orientation, 100, heatmaps[0].scene.root)
     for heatmap, highlighted_regions in zip(heatmaps, hem_highlighted_regions):
@@ -243,6 +258,8 @@ def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
         # ax.set_title(data_name, loc=hem if hem != "both" else "center", y=0, pad=-15)
 
     # style axes
+    plt.xlim(*xrange)
+    plt.ylim(*yrange)
     if orientation == "frontal":
         ax.invert_yaxis()
     ax.spines["right"].set_visible(False)
