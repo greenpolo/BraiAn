@@ -120,7 +120,6 @@ class BraiAnConfig:
                         groups[0].pls_regions(groups[1],
                                               self.regions_to_plot,
                                               marker,
-                                              n_permutations,
                                               n_bootstrap,
                                               fill_nan=True)
                      # remove the kwargs that will be used in apply()

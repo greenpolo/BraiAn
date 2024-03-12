@@ -66,12 +66,13 @@ class AnimalGroup:
         return BrainData(corr, self.name, str(self.metric)+f"-corr (n={self.n})", f"corr({marker1}, {marker2})")
 
     def pls_regions(self, other: Self, selected_regions: list[str], marker=None,
-                    n_permutations=5000, n_bootstrap=5000, fill_nan=True) -> dict[str,BrainData]:
+                    n_bootstrap=5000, fill_nan=True, seed=None) -> dict[str,BrainData]:
         markers = self.markers if marker is None else (marker,)
         salience_scores = dict()
         for m in markers:
+            if seed is not None:
+                np.random.seed(seed)
             pls = PLS(selected_regions, self, other, marker=m)
-            pls.randomly_permute_singular_values(n_permutations)
             pls.bootstrap_salience_scores(num_bootstrap=n_bootstrap)
             v = pls.v_salience_scores[0].copy()
             if fill_nan:
@@ -322,7 +323,10 @@ Please check that you're reading two groups that normalized on the same brain re
             count += 1
             
         self.singular_values = singular_values[:count,:]
-        return self.s,self.singular_values
+    
+    def test_null_hypothesis(self):
+        n_permutations,_ = self.singular_values.shape
+        return (self.singular_values > self.s).sum(axis=0)/n_permutations
 
     def above_threshold(self, threshold, component=1):
         return self.v_salience_scores[component-1][self.v_salience_scores[component-1].abs() > threshold]

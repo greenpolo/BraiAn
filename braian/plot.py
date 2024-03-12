@@ -201,12 +201,15 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
     )
     return fig
 
-def plot_permutation(experiment, permutation, n) -> go.Figure:
+def plot_permutation(pls: PLS, component=1) -> go.Figure:
+    n,_ = pls.singular_values.shape
+    experiment = pls.s[component-1]
+    permutation = pls.singular_values
     fig = go.Figure(data=[
-            go.Histogram(x=permutation[:,0], nbinsx=10, name=f"Sampling distribution<br>under H0 ({n} permutations)")
+            go.Histogram(x=permutation[:,component-1], nbinsx=10, name=f"Sampling distribution<br>under H0 ({n} permutations)")
         ])
     fig.add_vline(x=experiment, line_width=2, line_color="red", annotation_text="Experiment")
-    fig.update_layout(       
+    fig.update_layout(
             xaxis = dict(
                 title="First singular value"
             ),
@@ -314,8 +317,8 @@ def plot_gridgroups(groups: list[AnimalGroup],
                     selected_regions: list[str],
                     marker1: str, marker2: str=None,
                     brain_onthology: AllenBrainHierarchy=None,
-                    pls_n_permutations: int=5000, pls_n_bootstrap: int=5000,
-                    pls_threshold=None,
+                    pls_n_bootstrap: int=5000,
+                    pls_threshold=None, pls_seed=None,
                     markers_salience_scores: dict[str, BrainData]=None,
                     height: int=None, width: int=None, plot_scatter=True,
                     barplot_width: float=0.7, space_between_markers: float=0.02,
@@ -343,7 +346,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         if pls_filtering:=len(groups) == 2:
             if markers_salience_scores is None:
                 salience_scores = groups[0].pls_regions(groups[1], selected_regions, marker=marker, fill_nan=True,
-                                                        n_permutations=pls_n_permutations, n_bootstrap=pls_n_bootstrap)
+                                                        n_bootstrap=pls_n_bootstrap, seed=pls_seed)
             else:
                 salience_scores =  markers_salience_scores[marker]
             if brain_onthology is not None:
