@@ -154,7 +154,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 output_path: str, filename: str,
                 n=10, depth=None,
                 hem_highlighted_regions: list[list[str]]=None,
-                cmin=None, ccenter=0, cmax=None, cmap="magma_r",
+                cmin=None, ccenter=0, cmax=None, cmaps="magma_r",
                 centered_cmap=False, orientation="frontal",
                 show_text=True, title=None,
                 other=None) -> None:
@@ -179,7 +179,9 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             cmax = math.ceil(_cmax)
         if centered_cmap:
             assert cmin < ccenter < cmax, "The provided BrainData's range does not include zero! Are you sure you need centered_cmap=True?"
-            cmap = CenteredColormap("RdBu", cmin, ccenter, cmax)
+            cmaps = (CenteredColormap("RdBu", cmin, ccenter, cmax),)*2
+        if isinstance(cmaps, (str, mpl.colors.Colormap)):
+            cmaps = (cmaps,)*2
         if hem_highlighted_regions is not None:
             if not isinstance(hem_highlighted_regions[0], list):
                 # if you passed only one list, it will highlight the same brain regions in both hemispheres
@@ -201,7 +203,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 format="2D",
                 hemisphere=hem
             )
-            for d,hem in zip(data, hems)
+            for d,hem,cmap in zip(data, hems, cmaps)
         ]
         title = heatmaps[0].title
         units = self.units if self.units is not None else title
@@ -299,32 +301,29 @@ def add_projections(ax: mpl.axes.Axes, heatmap: bgh.heatmap,
             (x0, y0), (x1, y1) = filled_polys[0].get_path().get_extents().get_points()
             ax.text((x0 + x1) / 2, (y0 + y1) / 2, name, ha="center", va="center", fontsize=10, color="black")
 
-import matplotlib
-import matplotlib.pyplot
-
-class NormalizedColormap(matplotlib.colors.LinearSegmentedColormap,
+class NormalizedColormap(mpl.colors.LinearSegmentedColormap,
                        metaclass=deflect(
                            on_attribute="cmap",
                            arithmetics=False,
                            container=False
                         )):
-    def __init__(self, cmap, norm: matplotlib.colors.Normalize):
-        if isinstance(cmap, matplotlib.colors.LinearSegmentedColormap):
+    def __init__(self, cmap, norm: mpl.colors.Normalize):
+        if isinstance(cmap, mpl.colors.LinearSegmentedColormap):
             self.cmap = cmap
         else:
-            self.cmap = matplotlib.pyplot.get_cmap(cmap)
+            self.cmap = plt.get_cmap(cmap)
         self.norm = norm
         # super compatibility
         self.N = self.cmap.N
         self.colorbar_extend = self.cmap.colorbar_extend
     
     def __call__(self, X, alpha=None, bytes=False):
-        return matplotlib.cm.ScalarMappable(norm=self.norm, cmap=self.cmap).to_rgba(X, alpha, bytes)
+        return mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cmap).to_rgba(X, alpha, bytes)
 
 class CenteredColormap(NormalizedColormap):
     def __init__(self, cmap, vmin: int, vcenter: float, vmax: int):
         center = (vcenter-vmin)/(vmax - vmin)
-        norm = matplotlib.colors.TwoSlopeNorm(center, vmin=0, vmax=1)
+        norm = mpl.colors.TwoSlopeNorm(center, vmin=0, vmax=1)
         super().__init__(cmap, norm)
 
 if __name__ == "__main__":
