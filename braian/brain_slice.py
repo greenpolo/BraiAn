@@ -76,6 +76,7 @@ class BrainSlice:
         excluded_regions = self.read_regions_to_exclude(excluded_regions_file)
         self.check_columns(data, [area_key, *tracers_key], csv_file)
         self.data = pd.DataFrame(data, columns=[area_key, *tracers_key])
+        self.__fix_nan_countings(tracers_key)
         self.is_split = is_split_left_right(self.data.index)
         if not self.is_split:
             raise InvalidRegionsHemisphereError(slice=self, file=csv_file)
@@ -169,6 +170,15 @@ class BrainSlice:
             if column not in data.columns:
                 raise MissingResultsColumnError(slice=self, file=csv_file, column=column)
         return True
+    
+    def __fix_nan_countings(self, detection_columns):
+        # qupath-extension-biop:qupath.ext.biop.utils.Results.sendResultsToFile()
+        # fills with NaNs columns when there is no detection in the whole image
+        # This, for instance, can happen when there is no overlapping detection.
+        # The counting are thus set to zero
+        are_detections_missing = self.data[detection_columns].isna().all()
+        missing_detections = are_detections_missing.index[are_detections_missing]
+        self.data[missing_detections] = 0
     
     def check_zero_rows(self, csv_file: str, markers: list[str]) -> bool:
         for marker in markers:
