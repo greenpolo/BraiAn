@@ -213,6 +213,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, hem_highlighted_regions, xrange, yrange)
             return fig
         else:
+            os.makedirs(output_path, mode=0o777, exist_ok=True)
             print("depths: ", end="")
             max_depth = heatmaps[0].scene.atlas.shape_um[bgh.slicer.get_ax_idx(orientation)]
             for depth in np.linspace(1500, max_depth-1700, n, dtype=int):
