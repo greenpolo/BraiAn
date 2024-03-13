@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from .connectome import Connectome
-from .connectome_adjacency import ConnectomeAdjacency
-from ..brain_hierarchy import AllenBrainHierarchy
+from braian.connectome.connectome import Connectome
+from braian.connectome.connectome_adjacency import ConnectomeAdjacency
+from braian.brain_hierarchy import AllenBrainHierarchy
 
 class StructuralConnectome(Connectome):
     def __init__(self, normalized_connection_density_file: str,

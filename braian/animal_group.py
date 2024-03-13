@@ -11,11 +11,11 @@ from itertools import product, chain
 from functools import reduce
 from typing import Self
 
-from .brain_data import BrainData
-from .brain_hierarchy import AllenBrainHierarchy
-from .brain_metrics import BrainMetrics
-from .animal_brain import AnimalBrain, BrainMetrics
-from .utils import save_csv
+from braian.brain_data import BrainData
+from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.brain_metrics import BrainMetrics
+from braian.animal_brain import AnimalBrain, BrainMetrics
+from braian.utils import save_csv
 
 def common_regions(animals: list[AnimalBrain]) -> list[str]:
     all_regions = [set(brain.get_regions()) for brain in animals]

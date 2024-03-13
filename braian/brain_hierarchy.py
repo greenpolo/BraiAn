@@ -23,7 +23,7 @@ from bs4 import BeautifulSoup
 from collections import OrderedDict
 from operator import xor
 from plotly.colors import DEFAULT_PLOTLY_COLORS
-from .visit_dict import *
+from braian.visit_dict import *
 
 MAJOR_DIVISIONS = [
     "Isocortex",

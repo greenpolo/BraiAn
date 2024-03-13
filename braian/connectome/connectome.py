@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 from typing import Self
 
-from .utils_bu import participation_coefficient
-from ..brain_hierarchy import AllenBrainHierarchy
+from braian.connectome.utils_bu import participation_coefficient
+from braian.brain_hierarchy import AllenBrainHierarchy
 
 class Connectome:
     def __init__(self, A: pd.DataFrame,

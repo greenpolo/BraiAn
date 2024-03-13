@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import typing
 
-from ..brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
+from braian.brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
 
 # used both for Structural Connectome and Functional Connectome
 class ConnectomeAdjacency:

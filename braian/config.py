@@ -10,14 +10,14 @@ import tomllib
 from collections import namedtuple
 from typing import Self
 
-from .animal_brain import AnimalBrain
-from .animal_group import AnimalGroup
-from .brain_data import BrainData
-from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
-from .brain_metrics import BrainMetrics
-from .brain_slice import BrainSlice
-from .sliced_brain import SlicedBrain
-from .utils import cache
+from braian.animal_brain import AnimalBrain
+from braian.animal_group import AnimalGroup
+from braian.brain_data import BrainData
+from braian.brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
+from braian.brain_metrics import BrainMetrics
+from braian.brain_slice import BrainSlice
+from braian.sliced_brain import SlicedBrain
+from braian.utils import cache
 
 
 # # ######################################### LOAD CONFIG #########################################

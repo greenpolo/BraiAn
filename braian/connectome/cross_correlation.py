@@ -8,9 +8,9 @@ import pandas as pd
 
 from scipy.stats import pearsonr
 from typing import Self
-from .connectome_adjacency import ConnectomeAdjacency
-from ..animal_group import AnimalGroup
-from ..brain_hierarchy import AllenBrainHierarchy
+from braian.connectome.connectome_adjacency import ConnectomeAdjacency
+from braian.animal_group import AnimalGroup
+from braian.brain_hierarchy import AllenBrainHierarchy
 
 class CrossCorrelation:
     def __init__(self, animal_group: AnimalGroup, regions: list[str], brain_onthology: AllenBrainHierarchy,

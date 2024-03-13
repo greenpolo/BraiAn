@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 import pandas as pd
-from .brain_hierarchy import AllenBrainHierarchy
-from .animal_group import AnimalGroup
+from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.animal_group import AnimalGroup
 
 def as_prism_data(brain_onthology: AllenBrainHierarchy,
                   group1: AnimalGroup, group2: AnimalGroup, *groups: AnimalGroup,

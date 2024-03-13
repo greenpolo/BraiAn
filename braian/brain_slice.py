@@ -8,8 +8,8 @@ import pandas as pd
 import re
 from typing import Self
 
-from .brain_data import is_split_left_right, extract_acronym
-from .brain_hierarchy import AllenBrainHierarchy
+from braian.brain_data import is_split_left_right, extract_acronym
+from braian.brain_hierarchy import AllenBrainHierarchy
 
 global MODE_PathAnnotationObjectError
 global MODE_ExcludedRegionNotRecognisedError

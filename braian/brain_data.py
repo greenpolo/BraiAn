@@ -13,8 +13,8 @@ import pandas as pd
 import re
 from typing import Self
 
-from .deflector import deflect
-from .brain_hierarchy import AllenBrainHierarchy
+from braian.deflector import deflect
+from braian.brain_hierarchy import AllenBrainHierarchy
 
 def extract_acronym(region_class):
     '''
@@ -334,5 +334,5 @@ if __name__ == "__main__":
     data2.index = ["Isocortex", "TH", "HY", "HPF", "not-a-region"]
     brain_data1 = BrainData(data1, name="Control1", metric="Density", units="cFos/mm²")
     brain_data2 = BrainData(data2, name="Control2", metric="Density", units="cFos/mm²")
-    brain_data1.plot(["Isocortex", "TH", "HY", "HPF"], "/tmp/", "heatmap", n=10, cmin=None, cmax=None,
+    brain_data1.plot(["Isocortex", "TH", "HY", "HPF"], "/tmp/", "heatmap", n=11, cmin=None, cmax=None,
                      orientation="frontal", show_text=True, other=brain_data2)

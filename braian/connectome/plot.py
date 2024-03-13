@@ -5,8 +5,8 @@
 import igraph as ig
 import plotly.graph_objects as go
 
-from .connectome import Connectome
-from ..brain_hierarchy import AllenBrainHierarchy
+from braian.connectome.connectome import Connectome
+from braian.brain_hierarchy import AllenBrainHierarchy
 
 def draw_network_plot(connectome: Connectome,
                       layout_fun: ig.Layout, brain_onthology: AllenBrainHierarchy,

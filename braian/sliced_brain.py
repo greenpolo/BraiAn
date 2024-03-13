@@ -10,9 +10,9 @@ import platform
 import re
 from typing import Self
 
-from . import resolve_symlink
-from .brain_hierarchy import AllenBrainHierarchy
-from .brain_slice import BrainSlice,\
+from braian import resolve_symlink
+from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.brain_slice import BrainSlice,\
                         BrainSliceFileError, \
                         ExcludedAllRegionsError, \
                         ExcludedRegionsNotFoundError, \

@@ -11,10 +11,10 @@ import re
 from enum import Enum, auto
 from typing import Self
 
-from .brain_hierarchy import AllenBrainHierarchy
-from .brain_metrics import BrainMetrics
-from .sliced_brain import SlicedBrain
-from .brain_data import BrainData
+from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.brain_metrics import BrainMetrics
+from braian.sliced_brain import SlicedBrain
+from braian.brain_data import BrainData
 
 class AnimalBrain:
     def __init__(self, markers_data: dict[BrainData]=None, areas: BrainData=None) -> None:

@@ -11,12 +11,12 @@ import plotly.graph_objects as go
 import random
 from plotly.subplots import make_subplots
 
-from .utils import nrange
-from .sliced_brain import SlicedBrain
-from .animal_brain import AnimalBrain
-from .animal_group import AnimalGroup, PLS
-from .brain_data import BrainData
-from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
+from braian.utils import nrange
+from braian.sliced_brain import SlicedBrain
+from braian.animal_brain import AnimalBrain
+from braian.animal_group import AnimalGroup, PLS
+from braian.brain_data import BrainData
+from braian.brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 
 def plot_animal_group(group: AnimalGroup, selected_regions: list[str],
                         animal_size: int, *markers: str, colors=[],

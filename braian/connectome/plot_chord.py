@@ -7,9 +7,9 @@ import pandas as pd
 import numpy as np
 import igraph as ig
 
-from ..brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
-from .connectome import Connectome
-from .plot import no_axis
+from braian.brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
+from braian.connectome.connectome import Connectome
+from braian.connectome.plot import no_axis
 
 def draw_chord_plot(connectome: Connectome,
                     brain_onthology: AllenBrainHierarchy,

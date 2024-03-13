@@ -5,9 +5,9 @@
 import igraph as ig
 import numpy as np
 
-from .connectome import Connectome
-from .connectome_adjacency import ConnectomeAdjacency
-from .cross_correlation import CrossCorrelation
+from braian.connectome.connectome import Connectome
+from braian.connectome.connectome_adjacency import ConnectomeAdjacency
+from braian.connectome.cross_correlation import CrossCorrelation
 
 class FunctionalConnectome(Connectome):
     def __init__(self, cc: CrossCorrelation,

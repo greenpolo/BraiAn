@@ -2,11 +2,11 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-from .connectome import Connectome
-from .connectome_adjacency import ConnectomeAdjacency
-from .cross_correlation import CrossCorrelation
-from .structural import StructuralConnectome
-from ..utils import get_indices_where
+from braian.connectome.connectome import Connectome
+from braian.connectome.connectome_adjacency import ConnectomeAdjacency
+from braian.connectome.cross_correlation import CrossCorrelation
+from braian.connectome.structural import StructuralConnectome
+from braian.utils import get_indices_where
 
 import numpy as np
 
