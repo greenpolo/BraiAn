@@ -34,11 +34,12 @@ class BrainMetrics(Enum):
     PERCENTAGE = 6
     RELATIVE_DENSITY = 7
     OVERLAPPING = 8
-    SIMILARITY_INDEX = 9
-    CHANCE_LEVEL = 10
-    DENSITY_DIFFERENCE = 11
-    FOLD_CHANGE = 12
-    DIFF_CHANGE = 13
+    JACCARD_INDEX = 9
+    SIMILARITY_INDEX = 10
+    CHANCE_LEVEL = 11
+    DENSITY_DIFFERENCE = 12
+    FOLD_CHANGE = 13
+    DIFF_CHANGE = 14
 
     def __repr__(self):
         cls_name = self.__class__.__name__
@@ -71,6 +72,8 @@ class BrainMetrics(Enum):
                 return BrainMetrics.RELATIVE_DENSITY
             case "overlaps" | "overlap" | "overlapping":
                 return BrainMetrics.OVERLAPPING
+            case "jaccard" | "jaccard_index" | "jaccard index":
+                return BrainMetrics.JACCARD_INDEX
             case "similarity" | "similarity index" | "similarity_index" | "similarityindex" | "sim":
                 return BrainMetrics.SIMILARITY_INDEX
             case "chance" | "chance_level" | "chance level":
@@ -105,6 +108,8 @@ class BrainMetrics(Enum):
                 return brain.relative_density(*args, **kwargs)
             case BrainMetrics.OVERLAPPING:
                 return brain.markers_overlap(*args, **kwargs)
+            case BrainMetrics.JACCARD_INDEX:
+                return brain.markers_jaccard_index(*args, **kwargs)
             case BrainMetrics.SIMILARITY_INDEX:
                 return brain.markers_similarity_index(*args, **kwargs)
             case BrainMetrics.CHANCE_LEVEL:

@@ -145,7 +145,7 @@ class AnimalBrain:
             overlaps[m].units = f"({marker1}+{marker2})/{m}"
         return AnimalBrain(markers_data=overlaps, areas=self.areas)
     
-    def markers_similarity_index(self, marker1: str, marker2: str) -> Self:
+    def markers_jaccard_index(self, marker1: str, marker2: str) -> Self:
         # computes Jaccard's index
         if self.mode not in (BrainMetrics.SUM, BrainMetrics.MEAN):
             raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not summed or averaged.")
@@ -157,11 +157,11 @@ class AnimalBrain:
         except StopIteration as e:
             raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
         similarities = self.markers_data[overlapping] / (self.markers_data[marker1]+self.markers_data[marker2]-self.markers_data[overlapping])
-        similarities.metric = str(BrainMetrics.SIMILARITY_INDEX)
+        similarities.metric = str(BrainMetrics.JACCARD_INDEX)
         similarities.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
         return AnimalBrain(markers_data={overlapping: similarities}, areas=self.areas)
-
-    def markers_chance_level(self, marker1: str, marker2: str) -> Self:
+    
+    def markers_similarity_index(self, marker1: str, marker2: str) -> Self:
         # computes Jaccard's index
         if self.mode not in (BrainMetrics.SUM, BrainMetrics.MEAN):
             raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not summed or averaged.")
@@ -173,11 +173,39 @@ class AnimalBrain:
         except StopIteration as e:
             raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
         # NOT normalized in (0,1)
-        # chance_level = self.markers_data[overlapping] / (self.markers_data[marker1]*self.markers_data[marker2]) * self.areas
+        # similarities = self.markers_data[overlapping] / (self.markers_data[marker1]*self.markers_data[marker2]) * self.areas
         # NORMALIZED
-        chance_level = self.markers_data[overlapping]**2 / (self.markers_data[marker1]*self.markers_data[marker2])
-        chance_level.metric = "chance level" # str(BrainMetrics.CHANCE_LEVEL)
-        chance_level.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
+        similarities = self.markers_data[overlapping]**2 / (self.markers_data[marker1]*self.markers_data[marker2])
+        similarities.metric = str(BrainMetrics.SIMILARITY_INDEX)
+        similarities.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
+        return AnimalBrain(markers_data={overlapping: similarities}, areas=self.areas)
+
+    def markers_chance_level(self, marker1: str, marker2: str) -> Self:
+        # This chance level is good only if the used for the fold change.
+        #
+        # It is similar to our Similarity Index, as it is derived from its NOT normalized form.
+        # ideally it would use the #DAPI instead of the area, as that would give an interval
+        # which is easier to work with.
+        # However, when:
+        #  * the DAPI is not available AND
+        #  * we're interested in the difference of fold change between groups
+        # we can ignore the DAPI count it simplifies during the rate group1/group2
+        # thus the use case of this index.
+        #
+        # since the areas/DAPI simplifies only when they are ~comparable between animals,
+        # we force the AnimalBrain to be a result of MEAN of SlicedBrain, not SUM of SlicedBrain
+        if self.mode != BrainMetrics.MEAN:
+            raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not averaged.")
+        for m in (marker1, marker2):
+            if m not in self.markers:
+                raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
+        try:
+            overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
+        except StopIteration as e:
+            raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
+        chance_level = self.markers_data[overlapping] / (self.markers_data[marker1]*self.markers_data[marker2])
+        chance_level.metric = str(BrainMetrics.CHANCE_LEVEL)
+        chance_level.units = f"({marker1}∩{marker2})/({marker1}×{marker2})"
         return AnimalBrain(markers_data={overlapping: chance_level}, areas=self.areas)
 
     def markers_difference(self, marker1: str, marker2: str) -> Self:
