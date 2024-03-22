@@ -177,7 +177,7 @@ class AnimalBrain:
         # NORMALIZED
         similarities = self.markers_data[overlapping]**2 / (self.markers_data[marker1]*self.markers_data[marker2])
         similarities.metric = str(BrainMetrics.SIMILARITY_INDEX)
-        similarities.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
+        similarities.units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
         return AnimalBrain(markers_data={overlapping: similarities}, areas=self.areas)
 
     def markers_chance_level(self, marker1: str, marker2: str) -> Self:

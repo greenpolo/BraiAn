@@ -157,6 +157,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 cmin=None, ccenter=0, cmax=None, cmaps="magma_r",
                 centered_cmap=False, orientation="frontal",
                 show_text=True, title=None,
+                ticks=None, ticks_labels=None,
                 other=None) -> None:
         if other is None:
             hems = ("both",)
@@ -221,7 +222,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 # horizontal: 1500-6300
                 # sagittal: 1500-9700
                 print(f"{depth:.2f}", end="  ")
-                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, hem_highlighted_regions, xrange, yrange)
+                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units,
+                                  show_text, hem_highlighted_regions, xrange, yrange, ticks, ticks_labels)
 
                 plot_filepath = os.path.join(output_path, filename+f"_{depth:05.0f}.svg")
                 f.savefig(plot_filepath)
@@ -242,7 +244,8 @@ def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
                data_names: list[str], hems: list[str],
                orientation: str, title: str,
                units: str, show_text: bool, hem_highlighted_regions: list[list[str]],
-               xrange: tuple[float, float], yrange: tuple[float, float]):
+               xrange: tuple[float, float], yrange: tuple[float, float],
+               ticks: list[float], ticks_labels: list[str]):
     fig, ax = plt.subplots(figsize=(9, 9))
     slicer = bgh.slicer.Slicer(depth, orientation, 100, heatmaps[0].scene.root)
     for heatmap, highlighted_regions in zip(heatmaps, hem_highlighted_regions):
@@ -275,10 +278,14 @@ def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
     ax.set_aspect('equal',adjustable='box')
 
     # add colorbar
-    ax.figure.colorbar(
+    cbar = ax.figure.colorbar(
         mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=heatmaps[0].vmin, vmax=heatmaps[0].vmax), cmap=heatmaps[0].cmap),
         ax=ax, label=units, fraction=0.046, pad=0.04
     )
+    if ticks is not None:
+        cbar.ax.set_yticks(ticks, minor=True)
+        if ticks_labels is not None:
+            cbar.ax.set_yticklabels(ticks_labels, minor=True)
     return fig,ax
 
 def add_projections(ax: mpl.axes.Axes, heatmap: bgh.heatmap,
