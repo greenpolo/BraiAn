@@ -45,19 +45,31 @@ def split_index(regions: list[str]) -> list[str]:
 
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
     @staticmethod
-    def merge(first: Self, second: Self, *others: Self, op=pd.DataFrame.mean, name=None, op_name=None, **kwargs) -> Self:
-        assert first.metric == second.metric and all([first.metric == other.metric for other in others]), "Mean must be done between BrainData of the same metric!"
-        assert first.units == second.units and all([first.units == other.units for other in others]), "Mean must be done between BrainData of the same units!"
+    def merge(first: Self, second: Self, *others: Self, op=pd.DataFrame.mean, name=None, op_name=None,
+              same_metrics=True, same_units=True, **kwargs) -> Self:
+        assert first.metric == second.metric and all([first.metric == other.metric for other in others]),\
+            f"Merging must be done between BrainData of the same metric, instead got {[first.metric, second.metric, *[other.metric for other in others]]}!"
+        if same_units:
+            assert first.units == second.units and all([first.units == other.units for other in others]),\
+                f"Merging must be done between BrainData of the same units, {[first.units, second.units, *[other.units for other in others]]}!"
         if name is None:
-            name = first.data_name
+            name = ":".join([first.data_name, second.data_name, *[other.data_name for other in others]])
         if op_name is None:
             op_name = op.__name__
         data = op(pd.concat([first.data, second.data, *[other.data for other in others]], axis=1), axis=1, **kwargs)
-        return BrainData(data, name, f"{first.metric}-{op_name} (n={len(others)+2})", first.units) 
+        return BrainData(data, name, f"{first.metric}:{op_name} (n={len(others)+2})", first.units) 
 
     @staticmethod
     def mean(*args, **kwargs) -> Self:
-        return BrainData.merge(*args, op=pd.DataFrame.mean, **kwargs)
+        return BrainData.merge(*args, op=pd.DataFrame.mean, same_metrics=True, same_units=True, **kwargs)
+
+    @staticmethod
+    def minimum(*args, **kwargs) -> Self:
+        return BrainData.merge(*args, op=pd.DataFrame.min, same_metrics=True, same_units=False, **kwargs)
+
+    @staticmethod
+    def maximum(*args, **kwargs) -> Self:
+        return BrainData.merge(*args, op=pd.DataFrame.max, same_metrics=True, same_units=False, **kwargs)
 
     def __init__(self, data: pd.Series, name: str, metric: str, units: str,
                  brain_onthology=None, fill=False) -> None: # brain_onthology: AllenBrainHierarchy

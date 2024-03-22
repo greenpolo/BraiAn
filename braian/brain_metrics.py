@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 import numpy as np
-from enum import Enum
+from enum import Enum, auto
 
 # decorates a function [xs: list->float] so that if the list is too short, it returns NaN
 def min_count(fun, min, **kwargs):
@@ -26,20 +26,21 @@ def coefficient_variation(x) -> np.float64:
         return x.apply(coefficient_variation, axis=0)   
 
 class BrainMetrics(Enum):
-    SUM = 1
-    MEAN = 2
-    CVAR = 3
-    STD = 4
-    DENSITY = 5
-    PERCENTAGE = 6
-    RELATIVE_DENSITY = 7
-    OVERLAPPING = 8
-    JACCARD_INDEX = 9
-    SIMILARITY_INDEX = 10
-    CHANCE_LEVEL = 11
-    DENSITY_DIFFERENCE = 12
-    FOLD_CHANGE = 13
-    DIFF_CHANGE = 14
+    SUM = auto()
+    MEAN = auto()
+    CVAR = auto()
+    STD = auto()
+    DENSITY = auto()
+    PERCENTAGE = auto()
+    RELATIVE_DENSITY = auto()
+    OVERLAPPING = auto()
+    JACCARD_INDEX = auto()
+    SIMILARITY_INDEX = auto()
+    OVERLAP_COEFFICIENT = auto()
+    CHANCE_LEVEL = auto()
+    DENSITY_DIFFERENCE = auto()
+    FOLD_CHANGE = auto()
+    DIFF_CHANGE = auto()
 
     def __repr__(self):
         cls_name = self.__class__.__name__
@@ -76,6 +77,8 @@ class BrainMetrics(Enum):
                 return BrainMetrics.JACCARD_INDEX
             case "similarity" | "similarity index" | "similarity_index" | "similarityindex" | "sim":
                 return BrainMetrics.SIMILARITY_INDEX
+            case "szymkiewicz_simpson" | "overlap_coeff" | "overlap_coefficient" | "overlap coefficient":
+                return BrainMetrics.OVERLAP_COEFFICIENT
             case "chance" | "chance_level" | "chance level":
                 return BrainMetrics.CHANCE_LEVEL
             case "ddiff" | "density_difference" | "density difference":
@@ -112,6 +115,8 @@ class BrainMetrics(Enum):
                 return brain.markers_jaccard_index(*args, **kwargs)
             case BrainMetrics.SIMILARITY_INDEX:
                 return brain.markers_similarity_index(*args, **kwargs)
+            case BrainMetrics.OVERLAP_COEFFICIENT:
+                return brain.markers_overlap_coefficient(*args, **kwargs)
             case BrainMetrics.CHANCE_LEVEL:
                 return brain.markers_chance_level(*args, **kwargs)
             case BrainMetrics.DENSITY_DIFFERENCE:
