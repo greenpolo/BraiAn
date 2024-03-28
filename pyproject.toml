@@ -23,6 +23,7 @@ beautifulsoup4 = "^4.12.2"      # used to blacklist regions from Allen's ontholo
 brainglobe-heatmap = "^v0.5.2"  # used to visualize brain heatmap for IEGs overlaps
 urllib3 = "^1.26.16"            # fix poetry+conda bug: https://github.com/python-poetry/poetry/issues/7936
 tables = "^3.9.2"               # fix problem with h5py installation
+pywin32 = {version = "^306", platform = "win32"}
 
 [build-system]
 requires = ["poetry-core"]
