@@ -3,15 +3,19 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 import numpy as np
+import pandas as pd
 from enum import Enum, auto
 
 # decorates a function [xs: list->float] so that if the list is too short, it returns NaN
 def min_count(fun, min, **kwargs):
-    def nan_if_less(xs: list) -> float:
+    def nan_if_less(xs): # (list | np.array | pd.Series | pd.DataFrame) -> float | pd.Series:
         if len(xs) >= min:
             return fun(xs, **kwargs)
         else:
-            return np.NaN
+            if isinstance(xs, pd.DataFrame):
+                return pd.Series(np.full(xs.shape[1], np.NaN), index=xs.columns)
+            xs = np.array(xs)
+            return np.NaN if xs.ndim == 1 else np.full(xs.shape[1], np.NaN)
     return nan_if_less
 
 # https://en.wikipedia.org/wiki/Coefficient_of_variation

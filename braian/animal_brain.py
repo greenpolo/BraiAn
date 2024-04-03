@@ -8,12 +8,11 @@ import os
 import pandas as pd
 import re
 
-from enum import Enum, auto
-from typing import Self
+from typing import Generator, Self
 
 from braian.brain_hierarchy import AllenBrainHierarchy
 from braian.brain_metrics import BrainMetrics
-from braian.sliced_brain import SlicedBrain
+from braian.sliced_brain import SlicedBrain, EmptyBrainError
 from braian.brain_data import BrainData
 
 class AnimalBrain:
@@ -312,14 +311,18 @@ class AnimalBrain:
         name = sliced_brain.name
         markers = copy.copy(sliced_brain.markers)
         mode = BrainMetrics(mode)
+        if len(sliced_brain.slices) < min_slices:
+            raise EmptyBrainError(sliced_brain.name)
         match mode:
             case BrainMetrics.SUM:
                 redux = AnimalBrain.sum_slices_detections(sliced_brain, min_slices)
-            case BrainMetrics.DENSITY | BrainMetrics.PERCENTAGE | BrainMetrics.RELATIVE_DENSITY | BrainMetrics.OVERLAPPING:
-                raise NotImplementedError(f"Cannot yet build AnimalBrain(name='{name}', mode={mode}, markers={list(markers)}) from a SlicedBrain."+\
-                                          "Use BrainMetrics.DENSITY.analyse(brain) method.")
-            case _: # MEAN | CVAR | STD
+            case BrainMetrics.MEAN | BrainMetrics.CVAR | BrainMetrics.STD:
                 redux = AnimalBrain.reduce_slices_densities(sliced_brain, mode, min_slices)
+            case _: # e.g. DENSITY | PERCENTAGE | RELATIVE_DENSITY | OVERLAPPING:
+                raise NotImplementedError(f"Cannot yet build AnimalBrain(name='{name}', mode={mode}, markers={list(markers)}) from a SlicedBrain."+\
+                                          "You may want to first call BrainMetrics.DENSITY.analyse(brain) method.")
+        if redux.shape[0] == 0:
+            raise EmptyBrainError(sliced_brain.name)
         areas = BrainData(redux["area"], name=name, metric=str(mode), units="mm²")
         markers_data = {
             m: BrainData(redux[m], name=name, metric=str(mode), units=m)
@@ -358,7 +361,7 @@ class AnimalBrain:
         brain.areas = brain.areas.merge_hemispheres()
         return brain
 
-def extract_name_and_units(ls) -> str:
+def extract_name_and_units(ls) -> Generator[str, None, None]:
     regex = r'(.+) \((.+)\)$'
     pattern = re.compile(regex)
     for s in ls:
