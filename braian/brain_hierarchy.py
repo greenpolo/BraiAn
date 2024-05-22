@@ -12,6 +12,7 @@ Created on Fri Mar  4 16:04:28 2022
 @author: carlocastoldi
 """
 
+import braian.utils
 import igraph as ig
 import json
 import numpy as np
@@ -71,8 +72,10 @@ class AllenBrainHierarchy:
             # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
         if version is not None:
-            unannoted_regions = self.__get_unannoted_regions(version)
+            unannoted_regions, self.annotation_version = self.__get_unannoted_regions(version)
             self.blacklist_regions(unannoted_regions, key="acronym", has_reference=False)
+        else:
+            self.annotation_version = None
 
         self.add_depth_to_regions()
         self.mark_major_divisions()
@@ -101,7 +104,7 @@ class AllenBrainHierarchy:
         else:
             regions_w_annotation = [int(link["href"][len("structure_"):-len(".nrrd")]) for link in soup.select('a[href*=".nrrd"]')]
         regions_wo_annotation = get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dfs)
-        return [region["acronym"] for region in regions_wo_annotation]
+        return [region["acronym"] for region in regions_wo_annotation], annotation_version
 
     def contains_all_children(self, regions: list[str], parent: str):
         return all(r in regions for r in self.direct_subregions[parent])
@@ -178,6 +181,41 @@ class AllenBrainHierarchy:
     def unselect_all(self):
         if "selected" in self.dict:
             del_attribute(self.dict, "children", "selected")
+
+    def get_regions(self, selection_method: str) -> list[str]:
+        self.unselect_all()
+        match selection_method:
+            case "summary structures":
+                # selects the Summary Strucutures
+                if self.annotation_version != "ccf_2017":
+                    raise ValueError("BraiAn does not support 'summary structures' selection_method on atlas versions different from CCFv3")
+                self.select_from_csv(braian.utils.get_resource_path("CCFv3_summary_structures.csv"))
+            case "major divisions":
+                self.select_regions(MAJOR_DIVISIONS)
+            case "smallest" | "leaves":
+                # excluded_from_leaves = set(braian.MAJOR_DIVISIONS) - {"Isocortex", "OLF", "CTXsp", "HPF", "STR", "PAL"}
+                # excluded_from_leaves = self.minimimum_treecover(excluded_from_leaves)
+                # self.blacklist_regions(excluded_from_leaves)
+                self.select_leaves()
+            case s if s.startswith("depth"):
+                n = selection_method.split(" ")[-1]
+                try:
+                    depth = int(n)
+                except Exception:
+                    raise ValueError("Could not retrieve the <n> parameter of the 'depth' method for 'selection_method'")
+                self.select_at_depth(depth)
+            case s if s.startswith("structural level"):
+                n = selection_method.split(" ")[-1]
+                try:
+                    level = int(n)
+                except Exception:
+                    raise ValueError("Could not retrieve the <n> parameter of the 'structural level' method for 'selection_method'")
+                self.select_at_structural_level(level)
+            case _:
+                raise ValueError(f"Invalid value '{selection_method}' for selection_method")
+        selected_regions = self.get_selected_regions()
+        # print(f"You selected {len(selected_regions)} regions to plot.")
+        return selected_regions
 
     def ids_to_acronym(self, ids, mode="depth"):
         match mode:

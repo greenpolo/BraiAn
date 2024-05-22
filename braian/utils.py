@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import requests
 import sys
+from importlib import resources
 
 def cache(filepath, url):
     if os.path.exists(filepath):
@@ -16,6 +17,12 @@ def cache(filepath, url):
     os.makedirs(dir_path, exist_ok=True)
     with open(filepath, "wb") as f:
         f.write(resp.content)
+
+def get_resource_path(resource_name: str):
+    with resources.as_file(resources.files(__package__)
+                                    .joinpath("resources")
+                                    .joinpath(resource_name)) as path:
+        return path
 
 def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False, sep="\t", decimal=".", **kwargs) -> None:
     os.makedirs(output_path, exist_ok=True)
