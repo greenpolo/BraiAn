@@ -11,6 +11,7 @@ import numpy as np
 import os
 import pandas as pd
 import re
+from collections.abc import Collection
 from typing import Self
 
 from braian.deflector import deflect
@@ -133,6 +134,29 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
 
     def get_regions(self) -> list[str]:
         return list(self.data.index)
+
+    def set_regions(self, brain_regions: list[str], brain_ontology: AllenBrainHierarchy,
+                    fill=np.nan, overwrite=False, inplace=False) -> Self:
+        if isinstance(fill, Collection):
+            brain_regions = np.asarray(brain_regions)
+            if len(fill) != len(brain_regions):
+                raise ValueError("'fill' argument requires a collection of the same length as 'brain_regions'")
+        else:
+            assert isinstance(fill, (int, float, np.number)), "'fill' argument must either be a collection or a number"
+            fill = itertools.repeat(fill)
+        if not all(are_regions := brain_ontology.are_regions(brain_regions, "acronym")):
+            unknown_regions = brain_regions[~are_regions]
+            raise ValueError("Unrecognised regions in the given ontology: "+unknown_regions)
+        data = self.data.copy() if not inplace else self.data
+        for region,value in zip(brain_regions, fill):
+            if not overwrite and region in data.index:
+                continue
+            data[region] = value
+        if not inplace:
+            return BrainData(data, self.data_name, self.metric, self.units)
+        else:
+            self.data = data
+            return self
 
     def select_from_list(self, brain_regions: list[str], fill_nan=False, inplace=False) -> Self:
         if not (unknown_regions:=np.isin(brain_regions, self.data.index)).all():

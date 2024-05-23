@@ -22,6 +22,7 @@ import requests
 
 from bs4 import BeautifulSoup
 from collections import OrderedDict
+from collections.abc import Collection
 from operator import xor
 from plotly.colors import DEFAULT_PLOTLY_COLORS
 from braian.visit_dict import *
@@ -105,6 +106,18 @@ class AllenBrainHierarchy:
             regions_w_annotation = [int(link["href"][len("structure_"):-len(".nrrd")]) for link in soup.select('a[href*=".nrrd"]')]
         regions_wo_annotation = get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dfs)
         return [region["acronym"] for region in regions_wo_annotation], annotation_version
+
+    def are_regions(self, regions: Collection, key="acronym"):
+        assert isinstance(regions, Collection), f"Expected a '{Collection}' but get '{type(regions)}'"
+        regions = list(regions)
+        regions_set = set(regions)
+        is_region = [False] * len(regions)
+        def check_region(node, depth):
+            id = node[key]
+            if id in regions_set:
+                is_region[regions.index(id)] = True
+        visit_dfs(self.dict, "children", check_region)
+        return is_region
 
     def contains_all_children(self, regions: list[str], parent: str):
         return all(r in regions for r in self.direct_subregions[parent])
