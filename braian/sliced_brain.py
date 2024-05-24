@@ -50,13 +50,13 @@ class SlicedBrain:
         if not isinstance(tracers_key, str) and len(overlapping_tracers) > 0:
             # QuPath specific
             qupath_channels = [remove_qupath_num(t) for t in tracers_key]
-            overlapping_channels = get_overlapping_keys(qupath_channels, overlapping_tracers)
+            overlapping_channels = get_overlapping_keys(qupath_channels, [overlapping_tracers])
             overlapping_detections = [f"Num {c1}~{c2}" for c1,c2 in overlapping_channels]
             assert all([o not in tracers_key for o in overlapping_detections]), f"You don't have to specify the columns of the overlapping detections {overlapping_detections}.\n"+\
             "Just pass the indices of the markers you want to do an overlapping comparison with."
             tracers_key = copy.copy(tracers_key) + overlapping_detections
         self.markers = [markers_key] if isinstance(markers_key, str) else copy.copy(markers_key)
-        self.markers += [f"{m1}+{m2}" for m1,m2 in get_overlapping_keys(self.markers, overlapping_tracers)]
+        self.markers += [f"{m1}+{m2}" for m1,m2 in get_overlapping_keys(self.markers, [overlapping_tracers])]
         excluded_regions_dir = os.path.join(animal_dir, "regions_to_exclude")
         csv_slices_dir = os.path.join(animal_dir, "results")
         images = self.get_image_names_in_folder(csv_slices_dir)
@@ -160,6 +160,6 @@ class SlicedBrain:
 def remove_qupath_num(detection_key: str) -> str:
     return re.compile("Num (.+)").findall(detection_key)[0]
 
-def get_overlapping_keys(values: list[str], overlapping_tracers: list[int]) -> list[str]:
+def get_overlapping_keys(values: list[str], overlapping_tracers: list[tuple[int,int]]) -> list[str]:
     assert all([len(idx) == 2 for idx in overlapping_tracers]), "Overlapping marker analyisis is supported only between two markers!"
     return [(values[i1], values[i2]) for i1,i2 in overlapping_tracers]

@@ -246,22 +246,26 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         units = self.units if self.units is not None else title
         xrange, yrange = heatmap_range(heatmaps[0])
 
-        if depth is not None:
-            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units, show_text, hem_highlighted_regions, xrange, yrange)
+        if depth is not None and isinstance(depth, (int, float, np.number)):
+            fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units,
+                                 show_text, hem_highlighted_regions, xrange, yrange, ticks, ticks_labels)
             return fig
         else:
+            max_depth = heatmaps[0].scene.atlas.shape_um[bgh.slicer.get_ax_idx(orientation)]
+            depths = depth if depth is not None else np.linspace(1500, max_depth-1700, n, dtype=int)
             os.makedirs(output_path, mode=0o777, exist_ok=True)
             print("depths: ", end="")
-            max_depth = heatmaps[0].scene.atlas.shape_um[bgh.slicer.get_ax_idx(orientation)]
-            for depth in np.linspace(1500, max_depth-1700, n, dtype=int):
+            for position in depths:
+                if position < 0 or position > max_depth:
+                    continue
                 # frontal: 1500-11500
                 # horizontal: 1500-6300
                 # sagittal: 1500-9700
-                print(f"{depth:.2f}", end="  ")
-                f,ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units,
+                print(f"{position:.2f}", end="  ")
+                f,ax = plot_slice(position, heatmaps, data_names, hems, orientation, title, units,
                                   show_text, hem_highlighted_regions, xrange, yrange, ticks, ticks_labels)
 
-                plot_filepath = os.path.join(output_path, filename+f"_{depth:05.0f}.svg")
+                plot_filepath = os.path.join(output_path, filename+f"_{position:05.0f}.svg")
                 f.savefig(plot_filepath)
                 plt.close(f)
             print()
@@ -276,14 +280,14 @@ def heatmap_range(heatmap: bgh.heatmap):
     x_max, y_max = (shape_um-origin)[[x, y]]
     return (x_min, x_max), (y_min, y_max)
 
-def plot_slice(depth: int, heatmaps: list[bgh.heatmap],
+def plot_slice(position: int, heatmaps: list[bgh.heatmap],
                data_names: list[str], hems: list[str],
                orientation: str, title: str,
                units: str, show_text: bool, hem_highlighted_regions: list[list[str]],
                xrange: tuple[float, float], yrange: tuple[float, float],
                ticks: list[float], ticks_labels: list[str]):
     fig, ax = plt.subplots(figsize=(9, 9))
-    slicer = bgh.slicer.Slicer(depth, orientation, 100, heatmaps[0].scene.root)
+    slicer = bgh.slicer.Slicer(position, orientation, 100, heatmaps[0].scene.root) # requires https://github.com/brainglobe/brainglobe-heatmap/pull/43
     for heatmap, highlighted_regions in zip(heatmaps, hem_highlighted_regions):
         if highlighted_regions is None:
             highlighted_regions = []
