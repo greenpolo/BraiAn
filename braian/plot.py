@@ -44,14 +44,14 @@ def plot_animal_group(group: AnimalGroup, selected_regions: list[str],
 
 UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
 
-def plot_pie(selected_regions: list[str], brain_onthology: AllenBrainHierarchy,
+def plot_pie(selected_regions: list[str], brain_ontology: AllenBrainHierarchy,
                 use_acronyms=True, hole=0.3, line_width=2, text_size=12):
-    active_mjd = tuple(brain_onthology.get_areas_major_division(*selected_regions).values())
+    active_mjd = tuple(brain_ontology.get_areas_major_division(*selected_regions).values())
     mjd_occurrences = [(mjd, active_mjd.count(mjd)) for mjd in UPPER_REGIONS]
-    allen_colours = brain_onthology.get_region_colors()
+    allen_colours = brain_ontology.get_region_colors()
     fig = go.Figure(
                     go.Pie(
-                        labels=[mjd if use_acronyms else brain_onthology.full_name[mjd] for mjd,n in mjd_occurrences if n != 0],
+                        labels=[mjd if use_acronyms else brain_ontology.full_name[mjd] for mjd,n in mjd_occurrences if n != 0],
                         values=[n for mjd,n in mjd_occurrences if n != 0],
                         marker=dict(
                             colors=[allen_colours[mjd] for mjd,n in mjd_occurrences if n != 0],
@@ -65,7 +65,7 @@ def plot_pie(selected_regions: list[str], brain_onthology: AllenBrainHierarchy,
                     ))
     return fig
 
-def plot_cv_above_threshold(brain_onthology, *sliced_brains_groups: list[SlicedBrain], cv_threshold=1, width=700, height=500) -> go.Figure:
+def plot_cv_above_threshold(brain_ontology, *sliced_brains_groups: list[SlicedBrain], cv_threshold=1, width=700, height=500) -> go.Figure:
     # fig = go.Figure()
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     brains_name = [f"{brain.name} ({marker})" for group in sliced_brains_groups for brain in group for marker in brain.markers]
@@ -75,7 +75,7 @@ def plot_cv_above_threshold(brain_onthology, *sliced_brains_groups: list[SlicedB
     for i, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[i-1] if i > 0 else 0
         group_cvar_brains = [AnimalBrain.from_slices(sliced_brain, mode="cvar", hemisphere_distinction=False) for sliced_brain in group_slices]
-        group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, brain_onthology) for brain in group_cvar_brains]
+        group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, brain_ontology) for brain in group_cvar_brains]
 
         for j, cvars in enumerate(group_cvar_brains):
             # Scatterplot (animals)
@@ -258,19 +258,19 @@ def plot_latent_variable(pls: PLS, of="X"):
                     for i in range(pls.Y.shape[1])])
     return fig.update_yaxes(title="2").update_xaxes(title="1")
 
-def plot_salient_regions(salience_scores: pd.Series, brain_onthology: AllenBrainHierarchy,
+def plot_salient_regions(salience_scores: pd.Series, brain_ontology: AllenBrainHierarchy,
                             title=None, title_size=20,
                             axis_size=15, use_acronyms=True, use_acronyms_in_mjd=True,
                             mjd_opacity=0.5, width=300, thresholds=None,
                             barheight=30, bargap=0.3, bargroupgap=0.0):#, height=500):
-    active_mjd = tuple(brain_onthology.get_areas_major_division(*salience_scores.index).values())
-    allen_colours = brain_onthology.get_region_colors()
+    active_mjd = tuple(brain_ontology.get_areas_major_division(*salience_scores.index).values())
+    allen_colours = brain_ontology.get_region_colors()
     fig = go.Figure([
         go.Bar(
             x=salience_scores,
             y=[
-                [mjd.upper() if use_acronyms_in_mjd else brain_onthology.full_name[mjd].upper() for mjd in active_mjd],
-                salience_scores.index if use_acronyms else [brain_onthology.full_name[r] for r in salience_scores.index]
+                [mjd.upper() if use_acronyms_in_mjd else brain_ontology.full_name[mjd].upper() for mjd in active_mjd],
+                salience_scores.index if use_acronyms else [brain_ontology.full_name[r] for r in salience_scores.index]
             ],
             marker_color=[allen_colours[r] for r in salience_scores.index],
             orientation="h"
@@ -316,7 +316,7 @@ def plot_salient_regions(salience_scores: pd.Series, brain_onthology: AllenBrain
 def plot_gridgroups(groups: list[AnimalGroup],
                     selected_regions: list[str],
                     marker1: str, marker2: str=None,
-                    brain_onthology: AllenBrainHierarchy=None,
+                    brain_ontology: AllenBrainHierarchy=None,
                     pls_n_bootstrap: int=5000,
                     pls_threshold=None, pls_seed=None,
                     markers_salience_scores: dict[str, BrainData]=None,
@@ -349,8 +349,8 @@ def plot_gridgroups(groups: list[AnimalGroup],
                                                         n_bootstrap=pls_n_bootstrap, seed=pls_seed)
             else:
                 salience_scores =  markers_salience_scores[marker]
-            if brain_onthology is not None:
-                salience_scores = salience_scores.sort_by_onthology(brain_onthology, fill=False, inplace=False).data
+            if brain_ontology is not None:
+                salience_scores = salience_scores.sort_by_ontology(brain_ontology, fill=False, inplace=False).data
             else:
                 salience_scores = salience_scores.data
             assert all(salience_scores.index == groups_df[0].index), \
@@ -384,16 +384,16 @@ def plot_gridgroups(groups: list[AnimalGroup],
     assert len(groups) >= 1, "You must provide at least one group!"
     # NOTE: if the groups have the same animals (i.e. same name), the heatmaps overlap
 
-    if brain_onthology is not None:
-        groups = [group.sort_by_onthology(brain_onthology, fill=True, inplace=False) for group in groups]
-        regions_mjd = brain_onthology.get_areas_major_division(*selected_regions, sorted=True)
+    if brain_ontology is not None:
+        groups = [group.sort_by_ontology(brain_ontology, fill=True, inplace=False) for group in groups]
+        regions_mjd = brain_ontology.get_areas_major_division(*selected_regions, sorted=True)
         selected_regions = list(regions_mjd.keys())
 
     heatmap_width = 1-barplot_width
     bar_to_heatmap_ratio = np.array([heatmap_width, barplot_width])
     heatmaps, group_seps, bars, _max_value = markers_traces(groups, marker1, groups_marker1_colours, plot_scatter)
     if marker2 is None:
-        fig = prepare_subplots(1, bar_to_heatmap_ratio, space_between_markers if brain_onthology is not None else 0)
+        fig = prepare_subplots(1, bar_to_heatmap_ratio, space_between_markers if brain_ontology is not None else 0)
         data_range = (0, _max_value if max_value is None else max_value)
         
         major_divisions_subplot = 1
@@ -428,7 +428,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         fig.add_traces(m2_bars, rows=1, cols=5)
         fig.update_xaxes(title=units, range=data_range, row=1, col=5)
 
-    if brain_onthology is not None:
+    if brain_ontology is not None:
         # add a fake trace to the empty subplot, otherwise add_annotation yref="y" makes no sense
         fig.add_trace(go.Scatter(x=[None], y=[selected_regions[len(selected_regions)//2]], mode="markers", name=None, showlegend=False), row=1, col=major_divisions_subplot)
         regions = list(regions_mjd.keys())

@@ -16,7 +16,7 @@ from braian.sliced_brain import SlicedBrain, EmptyBrainError
 from braian.brain_data import BrainData
 
 class AnimalBrain:
-    def __init__(self, markers_data: dict[BrainData]=None, areas: BrainData=None) -> None:
+    def __init__(self, markers_data: dict[str,BrainData]=None, areas: BrainData=None) -> None:
         assert len(markers_data) > 0 and areas is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the areas/volumes of each region"
         first_data = tuple(markers_data.values())[0]
         self.name = first_data.data_name
@@ -44,19 +44,19 @@ class AnimalBrain:
             data.remove_region(*region, inplace=True, fillnan=True)
         self.areas.remove_region(*region, inplace=True, fillnan=True)
 
-    def remove_smaller_subregions(self, area_threshold, brain_onthology: AllenBrainHierarchy) -> None:
+    def remove_smaller_subregions(self, area_threshold, brain_ontology: AllenBrainHierarchy) -> None:
         small_regions = {smaller_region for small_region in self.areas.data[self.areas.data <= area_threshold].index
-                                        for smaller_region in brain_onthology.list_all_subregions(small_region)}
+                                        for smaller_region in brain_ontology.list_all_subregions(small_region)}
         self.remove_region(*small_regions)
 
     def get_regions(self):
         # assumes areas' and all markers' BrainData are synchronized
         return self.areas.get_regions()
 
-    def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy,
+    def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy,
                           fill=False, inplace=False):
-        markers_data = {marker: m_data.sort_by_onthology(brain_onthology, fill=fill, inplace=inplace) for marker, m_data in self.markers_data.items()}
-        areas = self.areas.sort_by_onthology(brain_onthology, fill=fill, inplace=inplace)
+        markers_data = {marker: m_data.sort_by_ontology(brain_ontology, fill=fill, inplace=inplace) for marker, m_data in self.markers_data.items()}
+        areas = self.areas.sort_by_ontology(brain_ontology, fill=fill, inplace=inplace)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, areas=areas)
         else:
@@ -70,8 +70,8 @@ class AnimalBrain:
         else:
             return self
 
-    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy, fill_nan=False, *args, **kwargs) -> Self:
-        selected_allen_regions = brain_onthology.get_selected_regions()
+    def select_from_ontology(self, brain_ontology: AllenBrainHierarchy, fill_nan=False, *args, **kwargs) -> Self:
+        selected_allen_regions = brain_ontology.get_selected_regions()
         if not fill_nan:
             selectable_regions = set(self.get_regions()).intersection(set(selected_allen_regions))
         else:
@@ -348,10 +348,10 @@ class AnimalBrain:
         return redux
 
     @staticmethod
-    def filter_selected_regions(animal_brain: Self, brain_onthology: AllenBrainHierarchy) -> Self:
+    def filter_selected_regions(animal_brain: Self, brain_ontology: AllenBrainHierarchy) -> Self:
         brain = copy.copy(animal_brain)
-        brain.markers_data = {m: m_data.select_from_onthology(brain_onthology) for m, m_data in brain.markers_data.items()}
-        brain.areas = brain.areas.select_from_onthology(brain_onthology)
+        brain.markers_data = {m: m_data.select_from_ontology(brain_ontology) for m, m_data in brain.markers_data.items()}
+        brain.areas = brain.areas.select_from_ontology(brain_ontology)
         return brain
 
     @staticmethod

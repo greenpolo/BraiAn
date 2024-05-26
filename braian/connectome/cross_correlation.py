@@ -13,7 +13,7 @@ from braian.animal_group import AnimalGroup
 from braian.brain_hierarchy import AllenBrainHierarchy
 
 class CrossCorrelation:
-    def __init__(self, animal_group: AnimalGroup, regions: list[str], brain_onthology: AllenBrainHierarchy,
+    def __init__(self, animal_group: AnimalGroup, regions: list[str], brain_ontology: AllenBrainHierarchy,
                  min_animals: int, name="", marker=None) -> None:
         assert not min_animals or (min_animals >= 2), "Invalid minimum number of animals needed for cross correlation. It must be >= 2."
         if marker is None:
@@ -31,8 +31,8 @@ class CrossCorrelation:
         # r = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[0], min_periods=min_animals)
         p = normalized_data.corr(method=lambda x,y: pearsonr(x,y)[1], min_periods=min_animals)
         rp_name_space = " - " if name else ""
-        self.r = ConnectomeAdjacency(r, brain_onthology, name+rp_name_space+"Pearson coefficient")
-        self.p = ConnectomeAdjacency(p, brain_onthology, name+rp_name_space+"p-value")
+        self.r = ConnectomeAdjacency(r, brain_ontology, name+rp_name_space+"Pearson coefficient")
+        self.p = ConnectomeAdjacency(p, brain_ontology, name+rp_name_space+"p-value")
         self.name = name
 
     def remove_insufficient_regions(self):

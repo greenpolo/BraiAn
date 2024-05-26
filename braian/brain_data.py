@@ -73,7 +73,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return BrainData.merge(*args, op=pd.DataFrame.max, same_metrics=True, same_units=False, **kwargs)
 
     def __init__(self, data: pd.Series, name: str, metric: str, units: str,
-                 brain_onthology=None, fill=False) -> None: # brain_onthology: AllenBrainHierarchy
+                 brain_ontology=None, fill=False) -> None: # brain_ontology: AllenBrainHierarchy
         self.data = data.copy()
         self.is_split = is_split_left_right(self.data.index)
         self.data_name = str(name) # data_name
@@ -84,19 +84,19 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         else:
             self.units = ""
             print(f"WARNING: {self} has no units")
-        if brain_onthology is not None:
-            self.sort_by_onthology(brain_onthology, fill, inplace=True)
+        if brain_ontology is not None:
+            self.sort_by_ontology(brain_ontology, fill, inplace=True)
     
     def __str__(self) -> str:
         return f"BrainData(name={self.data_name}, metric={self.metric})"
     
-    def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy,
+    def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy,
                           fill=False, inplace=False) -> Self:
-        all_regions = brain_onthology.list_all_subregions("root", mode="depth")
+        all_regions = brain_ontology.list_all_subregions("root", mode="depth")
         if self.is_split:
             all_regions = split_index(all_regions)
         if len(unknown_regions:=self.data.index[~self.data.index.isin(all_regions)]) > 0:
-            raise ValueError(f"The following regions are unknown to the given brain onthology: '"+"', '".join(unknown_regions)+"'")
+            raise ValueError(f"The following regions are unknown to the given brain ontology: '"+"', '".join(unknown_regions)+"'")
         if not fill:
             all_regions = np.array(all_regions)
             all_regions = all_regions[np.isin(all_regions, self.data.index)]
@@ -172,9 +172,9 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.data = data
             return self
     
-    def select_from_onthology(self, brain_onthology: AllenBrainHierarchy,
+    def select_from_ontology(self, brain_ontology: AllenBrainHierarchy,
                               *args, **kwargs) -> Self:
-        selected_allen_regions = brain_onthology.get_selected_regions()
+        selected_allen_regions = brain_ontology.get_selected_regions()
         selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
         return self.select_from_list(list(selectable_regions), *args, **kwargs)
     

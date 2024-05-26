@@ -12,7 +12,7 @@ from braian.connectome.connectome import Connectome
 from braian.connectome.plot import no_axis
 
 def draw_chord_plot(connectome: Connectome,
-                    brain_onthology: AllenBrainHierarchy,
+                    brain_ontology: AllenBrainHierarchy,
                     title="",
                     size=1500,
                     no_background=True,
@@ -35,7 +35,7 @@ def draw_chord_plot(connectome: Connectome,
 
     circle_layout = G.layout_circle()
     circle_layout.rotate(180/len(circle_layout)) # rotate by half of a unit to sync with ideograms' rotation
-    colors = brain_onthology.get_region_colors()
+    colors = brain_ontology.get_region_colors()
 
     paper_bgcolor = 'rgba(0,0,0,0)' if no_background else 'rgba(255,255,255,255)'
 
@@ -60,7 +60,7 @@ def draw_chord_plot(connectome: Connectome,
               annotations=extract_annotations(kwargs, pos=-0.07, step=-0.02)
               )
 
-    nodes = brain_onthology.draw_nodes(G, circle_layout, regions_size)
+    nodes = brain_ontology.draw_nodes(G, circle_layout, regions_size)
     add_regions_acronyms(layout, G, circle_layout, regions_font_size)
     colorscale_min = connectome.r_cutoff if colorscale_min == "cutoff" else colorscale_min
     lines, edge_info = draw_edges(G, connectome.weight_str, circle_layout, max_edge_width, use_weighted_edge_widths,
@@ -68,7 +68,7 @@ def draw_chord_plot(connectome: Connectome,
                                   colorscale_min=colorscale_min, colorscale_max=colorscale_max)
     colorbar = add_colorbar(connectome, colorscale=colorscale,
                             cmin=colorscale_min, cmax=colorscale_max)
-    ideograms = draw_ideograms(layout, G.vs["upper_region"], brain_onthology, colors, a=ideograms_arc_index)
+    ideograms = draw_ideograms(layout, G.vs["upper_region"], brain_ontology, colors, a=ideograms_arc_index)
 
     fig = go.Figure(data=ideograms+lines+[nodes]+edge_info+[colorbar], layout=layout)
     return fig
@@ -170,7 +170,7 @@ def add_colorbar(connectome: Connectome,
                 hoverinfo="none"
                 )
 
-def draw_ideograms(layout, all_upper_regions, brain_onthology,
+def draw_ideograms(layout, all_upper_regions, brain_ontology,
                     colors, outline_color='rgb(150,150,150)',
                     a=50):
     upper_regions = sorted(list(set(all_upper_regions)), key=UPPER_REGIONS.index)
@@ -192,7 +192,7 @@ def draw_ideograms(layout, all_upper_regions, brain_onthology,
                                 mode='lines',
                                 line=dict(color=ideo_colors[k], shape='spline', width=0.25),
                                 text=f"<b>{upper_regions[k]}</b><br>"+
-                                        f"<i>{brain_onthology.full_name[upper_regions[k]]}</i><br>"
+                                        f"<i>{brain_ontology.full_name[upper_regions[k]]}</i><br>"
                                         f"N displayed regions: {n_regions_in_upper[k]:d}",
                                 hoverinfo='text'
                                 )

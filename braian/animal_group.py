@@ -28,10 +28,10 @@ def have_same_regions(animals: list[AnimalBrain]) -> bool:
 
 class AnimalGroup:
     def __init__(self, name: str, animals: list[AnimalBrain], metric: BrainMetrics, merge_hemispheres=False,
-                 brain_onthology: AllenBrainHierarchy=None, fill_nan=True, **kwargs) -> None:
+                 brain_ontology: AllenBrainHierarchy=None, fill_nan=True, **kwargs) -> None:
         self.name = name
-        # if not animals or not brain_onthology:
-        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_onthology: AllenBrainHierarchy.")
+        # if not animals or not brain_ontology:
+        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AllenBrainHierarchy.")
         assert len(animals) > 0, "Inside the group there must be at least one animal."
         assert all([marker in animals[0].markers for brain in animals[1:] for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
         self.metric = BrainMetrics(metric)
@@ -47,8 +47,8 @@ class AnimalGroup:
             analyse = lambda brain: self.metric.analyse(brain, **kwargs)
         else:
             analyse = lambda brain: brain
-        if brain_onthology is not None:
-            sort = lambda brain: brain.sort_by_onthology(brain_onthology, fill=fill_nan, inplace=False)
+        if brain_ontology is not None:
+            sort = lambda brain: brain.sort_by_ontology(brain_ontology, fill=fill_nan, inplace=False)
         elif fill_nan:
             regions = common_regions(animals)
             sort = lambda brain: brain.select_from_list(regions, fill=True, inplace=False)
@@ -56,7 +56,7 @@ class AnimalGroup:
             sort = lambda brain: brain
         else:
             # now BrainGroup.get_regions(), which returns the regions of the first animal, is correct
-            raise ValueError("Cannot set fill_nan=False and brain_onthology=None if all animals of the group don't have the same brain regions.")
+            raise ValueError("Cannot set fill_nan=False and brain_ontology=None if all animals of the group don't have the same brain regions.")
         self.animals: list[AnimalBrain] = [sort(analyse(merge(brain))) for brain in animals]
         self.markers: npt.NDArray[np.str_] = np.asarray(self.animals[0].markers)
         self.mean = self._update_mean()
@@ -116,12 +116,12 @@ class AnimalGroup:
             df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.areas.units})" for col in df.columns}, inplace=True)
         return df
     
-    def sort_by_onthology(self, brain_onthology: AllenBrainHierarchy, fill=True, inplace=True) -> None:
+    def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy, fill=True, inplace=True) -> None:
         if not inplace:
-            return AnimalGroup(self.name, self.animals, metric=self.metric, brain_onthology=brain_onthology, fill_nan=fill)
+            return AnimalGroup(self.name, self.animals, metric=self.metric, brain_ontology=brain_ontology, fill_nan=fill)
         else:
             for brain in self.animals:
-                brain.sort_by_onthology(brain_onthology, fill=fill, inplace=True)
+                brain.sort_by_ontology(brain_ontology, fill=fill, inplace=True)
             return self
     
     def get_animals(self) -> list[str]:
@@ -130,9 +130,9 @@ class AnimalGroup:
     def get_regions(self) -> list[str]:
         # NOTE: all animals of the group are expected to have the same regions!
         # if not have_same_regions(animals):
-        #     # NOTE: if the animals of the AnimalGroup were not sorted by onthology, the order is not guaranteed to be significant
+        #     # NOTE: if the animals of the AnimalGroup were not sorted by ontology, the order is not guaranteed to be significant
         #     print(f"WARNING: animals of {self} don't have the same brain regions. "+\
-        #           "The order of the brain regions is not guaranteed to be significant. It's better to first call sort_by_onthology()")
+        #           "The order of the brain regions is not guaranteed to be significant. It's better to first call sort_by_ontology()")
         #     return list(reduce(set.union, all_regions))
         #     # return set(chain(*all_regions))
         return self.animals[0].get_regions()
@@ -140,7 +140,7 @@ class AnimalGroup:
     def merge_hemispheres(self, inplace=False) -> Self:
         animals = [AnimalBrain.merge_hemispheres(brain) for brain in self.animals]
         if not inplace:
-            return AnimalGroup(self.name, animals, metric=self.metric, brain_onthology=None, fill_nan=False)
+            return AnimalGroup(self.name, animals, metric=self.metric, brain_ontology=None, fill_nan=False)
         else:
             self.animals = animals
             self.mean = self._update_mean()
@@ -158,7 +158,7 @@ class AnimalGroup:
         animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for brain in self.animals]
         if not inplace:
             # self.metric == animals.metric -> no self.metric.analyse(brain) is computed
-            return AnimalGroup(self.name, animals, metric=self.metric, brain_onthology=None, fill_nan=False)
+            return AnimalGroup(self.name, animals, metric=self.metric, brain_ontology=None, fill_nan=False)
         else:
             self.animals = animals
             self.mean = self._update_mean()

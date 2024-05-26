@@ -54,8 +54,8 @@ class BraiAnConfig:
                 AnimalBrain.from_slices(sliced_brain, mode=metric, hemisphere_distinction=False)
                 for sliced_brain in self.sliced_brains]
         
-        def to_group(self, metric: str, brain_onthology: AllenBrainHierarchy):
-            return AnimalGroup(self.name, self.brains, metric=metric, brain_onthology=brain_onthology, merge_hemispheres=True)
+        def to_group(self, metric: str, brain_ontology: AllenBrainHierarchy):
+            return AnimalGroup(self.name, self.brains, metric=metric, brain_ontology=brain_ontology, merge_hemispheres=True)
         
         def _remove_small_regions(self, animal: SlicedBrain, threshold: float) -> None:
             for s in animal.slices:
@@ -95,7 +95,7 @@ class BraiAnConfig:
         def __init__(self, id, group_reduction: str, metric: str,
                      min_area: float, regions_to_plot: list[str],
                      type: str, selected_groups, selected_markers, # list[GroupDirectory]
-                     brain_onthology: AllenBrainHierarchy, dir_name: str, **kwargs) -> None:
+                     brain_ontology: AllenBrainHierarchy, dir_name: str, **kwargs) -> None:
             self.id = id
             self.metric = metric
             self.min_area = min_area # TODO
@@ -103,7 +103,7 @@ class BraiAnConfig:
             self.type = type
             self.groups = selected_groups
             self.markers = selected_markers
-            self.brain_onthology = brain_onthology
+            self.brain_ontology = brain_ontology
             self.dir = dir_name
             self.group_reduction = group_reduction.lower()
 
@@ -132,7 +132,7 @@ class BraiAnConfig:
         
         def apply(self):
             if "result" not in self.__dict__:
-                self.result = [AnimalGroup(group.name, group.brains, self.metric, brain_onthology=self.brain_onthology,
+                self.result = [AnimalGroup(group.name, group.brains, self.metric, brain_ontology=self.brain_ontology,
                                 merge_hemispheres=True, **self.kwargs) for group in self.groups]
                 if self.markers is None:
                     self.markers = {m for group in self.result for m in group.markers}
@@ -224,7 +224,7 @@ class BraiAnConfig:
         self.data_path = data_path
         path_to_allen_json = os.path.join(self.data_path, "AllenMouseBrainOntology.json")
         cache(path_to_allen_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        self.brain_onthology = AllenBrainHierarchy(path_to_allen_json,
+        self.brain_ontology = AllenBrainHierarchy(path_to_allen_json,
                                                    self.config["atlas"]["excluded-branches"],
                                                    version=self.config["atlas"]["version"])
         self.groups = [BraiAnConfig.GroupDirectory(
@@ -241,11 +241,11 @@ class BraiAnConfig:
             case "summary structures":
                 # selects the Summary Strucutures
                 path_to_summary_structures = os.path.join(self.data_path, "AllenSummaryStructures.csv")
-                self.brain_onthology.select_from_csv(path_to_summary_structures)
+                self.brain_ontology.select_from_csv(path_to_summary_structures)
             case "major divisions":
-                self.brain_onthology.select_regions(MAJOR_DIVISIONS)
+                self.brain_ontology.select_regions(MAJOR_DIVISIONS)
             case "smallest":
-                self.brain_onthology.select_leaves()
+                self.brain_ontology.select_leaves()
             case s if s.startswith("depth"):
                 # "depth <n>" where <n> is an integer of the depth desired
                 n = method.split(" ")[-1]
@@ -253,7 +253,7 @@ class BraiAnConfig:
                     depth = int(n)
                 except Exception:
                     raise Exception("Could not retrieve the <n> parameter of the 'depth' method for 'REGIONS_TO_PLOT_SELECTION_METHOD'")
-                self.brain_onthology.select_at_depth(depth)
+                self.brain_ontology.select_at_depth(depth)
             case s if s.startswith("structural level"):
                 # "structural level <n>" where <n> is an integer of the level desired
                 n = method.split(" ")[-1]
@@ -261,7 +261,7 @@ class BraiAnConfig:
                     level = int(n)
                 except Exception:
                     raise Exception("Could not retrieve the <n> parameter of the 'structural level' method for 'REGIONS_TO_PLOT_SELECTION_METHOD'")
-                self.brain_onthology.select_at_structural_level(level)
+                self.brain_ontology.select_at_structural_level(level)
             # case s if s.startswith("pls"):
             #     # "pls <experiment> <salience_threshold>" (e.g., "pls proof 1.2")
             #     options = method.split(" ")
@@ -272,10 +272,10 @@ class BraiAnConfig:
             #     pls_file = f"pls_{animal_groups[0].markers[0]}_{str(animal_groups[0].metric)}_salient_regions_above_{pls_threshold}.csv".lower()
             #     regions_to_plot_pls_csv = os.path.abspath(os.path.join(DATA_ROOT, os.pardir, pls_experiment, "BraiAn_output", comparison.dir, pls_file))
             #     assert os.path.isfile(regions_to_plot_pls_csv), f"Could not find the file '{regions_to_plot_pls_csv}'"
-            #     brain_onthology.select_from_csv(regions_to_plot_pls_csv, key="acronym")
+            #     brain_ontology.select_from_csv(regions_to_plot_pls_csv, key="acronym")
             case _:
                 raise Exception(f"Invalid value '{method}' for REGIONS_TO_PLOT_SELECTION_METHOD")
-        regions = self.brain_onthology.get_selected_regions()
+        regions = self.brain_ontology.get_selected_regions()
         return regions
     
     def read_groups(self, path_to_groups) -> list[list[SlicedBrain]]:
@@ -294,7 +294,7 @@ class BraiAnConfig:
                 path_to_group,
                 self.config["brains"]["slices-min-area"],
                 self.config["brains"]["slices-remove-singles"],
-                self.brain_onthology,
+                self.brain_ontology,
                 self.config["brains"]["area-column"],
                 self.config["brains"]["tracer-columns"],
                 self.config["brains"]["markers"],
@@ -309,7 +309,7 @@ class BraiAnConfig:
             group.reduce_slices(self.config["brains"]["slices-aggregation-mode"])
     
     def to_groups(self, metric: str):
-        return [group_dir.to_group(metric, self.brain_onthology) for group_dir in self.groups]
+        return [group_dir.to_group(metric, self.brain_ontology) for group_dir in self.groups]
 
     def _read_comparisons(self) -> list[Comparison]:
         # if "comparison" in config:
@@ -341,7 +341,7 @@ class BraiAnConfig:
             if comp["type"] in ("groups", "markers"):
                 result.append(
                     BraiAnConfig.Comparison(id, group_reduction, metric, min_area, regions_to_plot, comp["type"],
-                                            selected_groups, selected_markers, self.brain_onthology, comp["dir"], **kwargs))
+                                            selected_groups, selected_markers, self.brain_ontology, comp["dir"], **kwargs))
             else:
                 print(f"WARNING: comparison '{id}' has an unknown '{comp['type']}' type. Valid types are 'groups' and 'markers'")
         return result

@@ -60,7 +60,7 @@ class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
 
 
 class BrainSlice:
-    def __init__(self, brain_onthology: AllenBrainHierarchy, csv_file: str,
+    def __init__(self, brain_ontology: AllenBrainHierarchy, csv_file: str,
                  excluded_regions_file: str, exclude_parent_regions: bool,
                  animal:str, name: str, area_key: str,
                  tracers_key: list[str], markers_key: list[str], area_units="µm2") -> None:
@@ -88,7 +88,7 @@ class BrainSlice:
 
         # Take care of regions to be excluded
         try:
-            self.exclude_regions(excluded_regions, brain_onthology, exclude_parent_regions)
+            self.exclude_regions(excluded_regions, brain_ontology, exclude_parent_regions)
         except Exception:
             raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
         if len(self.data) == 0:
@@ -196,7 +196,7 @@ class BrainSlice:
     
     def exclude_regions(self,
                         excluded_regions: list[str],
-                        brain_onthology: AllenBrainHierarchy,
+                        brain_ontology: AllenBrainHierarchy,
                         exclude_parent_regions: bool) -> None:
         '''
         Take care of regions to be excluded from the analysis.
@@ -213,7 +213,7 @@ class BrainSlice:
         few detection. We don't want to delete too much data and we reckon
         this exception does not impact too much on the data
         '''
-        layer1 = set(brain_onthology.get_layer1())
+        layer1 = set(brain_ontology.get_layer1())
         for reg_hemi in excluded_regions:
             if ": " not in reg_hemi:
                 if MODE_ExcludedRegionNotRecognisedError != "silent":
@@ -225,7 +225,7 @@ class BrainSlice:
 
             # Step 1: subtract counting results of the regions to be excluded
             # from their parent regions.
-            regions_above = brain_onthology.get_regions_above(reg)
+            regions_above = brain_ontology.get_regions_above(reg)
             for region in regions_above:
                 row = hemi+": "+region
                 # Subtract the counting results from the parent region.
@@ -238,7 +238,7 @@ class BrainSlice:
 
             # Step 2: Remove the regions that should be excluded
             # together with their daughter regions.
-            subregions = brain_onthology.list_all_subregions(reg)
+            subregions = brain_ontology.list_all_subregions(reg)
             for subreg in subregions:
                 row = hemi+": "+subreg
                 if row in self.data.index:
