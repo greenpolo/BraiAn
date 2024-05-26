@@ -236,48 +236,6 @@ class BraiAnConfig:
                       ]
         self.comparisons = self._read_comparisons()
     
-    def select_regions(self, method: str) -> list[str]:
-        match method:
-            case "summary structures":
-                # selects the Summary Strucutures
-                path_to_summary_structures = os.path.join(self.data_path, "AllenSummaryStructures.csv")
-                self.brain_ontology.select_from_csv(path_to_summary_structures)
-            case "major divisions":
-                self.brain_ontology.select_regions(MAJOR_DIVISIONS)
-            case "smallest":
-                self.brain_ontology.select_leaves()
-            case s if s.startswith("depth"):
-                # "depth <n>" where <n> is an integer of the depth desired
-                n = method.split(" ")[-1]
-                try:
-                    depth = int(n)
-                except Exception:
-                    raise Exception("Could not retrieve the <n> parameter of the 'depth' method for 'REGIONS_TO_PLOT_SELECTION_METHOD'")
-                self.brain_ontology.select_at_depth(depth)
-            case s if s.startswith("structural level"):
-                # "structural level <n>" where <n> is an integer of the level desired
-                n = method.split(" ")[-1]
-                try:
-                    level = int(n)
-                except Exception:
-                    raise Exception("Could not retrieve the <n> parameter of the 'structural level' method for 'REGIONS_TO_PLOT_SELECTION_METHOD'")
-                self.brain_ontology.select_at_structural_level(level)
-            # case s if s.startswith("pls"):
-            #     # "pls <experiment> <salience_threshold>" (e.g., "pls proof 1.2")
-            #     options = method.split(" ")
-            #     assert len(options) == 3, "The 'REGIONS_TO_PLOT_SELECTION_METHOD' option is invalid. Make sure it follows the follows the following pattern: \"pls <experiment> <salience_threshold>\" (e.g., \"pls proof 1.2\")"
-            #     pls_experiment, pls_threshold = options[1:]
-            #     pls_threshold = pls_threshold.replace(".", "_")
-            #     assert len(animal_groups) == 2, f"You can't use the PLS of '{pls_experiment}' for selecting the regions to plot because '{comparison.dir}' has too many groups ({len(animal_groups)})"
-            #     pls_file = f"pls_{animal_groups[0].markers[0]}_{str(animal_groups[0].metric)}_salient_regions_above_{pls_threshold}.csv".lower()
-            #     regions_to_plot_pls_csv = os.path.abspath(os.path.join(DATA_ROOT, os.pardir, pls_experiment, "BraiAn_output", comparison.dir, pls_file))
-            #     assert os.path.isfile(regions_to_plot_pls_csv), f"Could not find the file '{regions_to_plot_pls_csv}'"
-            #     brain_ontology.select_from_csv(regions_to_plot_pls_csv, key="acronym")
-            case _:
-                raise Exception(f"Invalid value '{method}' for REGIONS_TO_PLOT_SELECTION_METHOD")
-        regions = self.brain_ontology.get_selected_regions()
-        return regions
-    
     def read_groups(self, path_to_groups) -> list[list[SlicedBrain]]:
         overlapping_tracers = [[v-1 for k,v in comp["parameters"].items() if k.startswith("marker")]
                                     for comp in self.config["comparison"].values()
@@ -316,7 +274,7 @@ class BraiAnConfig:
         _group_reduction = self.config["comparison"]["group-reduction"]
         _min_area        = self.config["comparison"]["min-area"]
         _regions_to_plot = self.config["comparison"]["regions-to-plot"]
-        _regions_to_plot = self.select_regions(_regions_to_plot)
+        _regions_to_plot = self.brain_ontology.get_regions(_regions_to_plot)
         result = []
         for id, comp in self.config["comparison"].items():
             if not isinstance(comp, dict):
@@ -327,7 +285,7 @@ class BraiAnConfig:
             kwargs          = comp["parameters"]      if "parameters"      in comp else dict()
             kwargs = {k: self._imarker(i) if k.startswith("marker") and isinstance(i, int) else i for k,i in kwargs.items()}
             if "regions-to-plot" in comp:
-                regions_to_plot = self.select_regions(comp["regions-to-plot"])
+                regions_to_plot = self.brain_ontology.get_regions(comp["regions-to-plot"])
             else:
                 regions_to_plot = _regions_to_plot
             if "groups" in comp:

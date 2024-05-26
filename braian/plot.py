@@ -16,7 +16,7 @@ from braian.sliced_brain import SlicedBrain
 from braian.animal_brain import AnimalBrain
 from braian.animal_group import AnimalGroup, PLS
 from braian.brain_data import BrainData
-from braian.brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
+from braian.brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS, UPPER_REGIONS
 
 def plot_animal_group(group: AnimalGroup, selected_regions: list[str],
                         animal_size: int, *markers: str, colors=[],
@@ -41,8 +41,6 @@ def plot_animal_group(group: AnimalGroup, selected_regions: list[str],
         fig.update_yaxes(autorange="reversed")
     fig.update_layout(legend=dict(tracegroupgap=0), scattermode="group")
     return fig
-
-UPPER_REGIONS = ['root', *MAJOR_DIVISIONS]
 
 def plot_pie(selected_regions: list[str], brain_ontology: AllenBrainHierarchy,
                 use_acronyms=True, hole=0.3, line_width=2, text_size=12):

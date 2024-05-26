@@ -1,14 +1,8 @@
-#!/usr/bin/env python3
-
 # SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-# -*- coding: utf-8 -*-
 """
-Created on Fri Mar  4 16:04:28 2022
-
-@author: lukasvandenheuvel
 @author: carlocastoldi
 """
 
@@ -16,13 +10,14 @@ import braian.utils
 import igraph as ig
 import json
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 
 from bs4 import BeautifulSoup
 from collections import OrderedDict
-from collections.abc import Collection
+from collections.abc import Iterable, Container
 from operator import xor
 from plotly.colors import DEFAULT_PLOTLY_COLORS
 from braian.visit_dict import *
@@ -60,7 +55,25 @@ def has_reference(node):
     return "has_reference" in node and node["has_reference"]
 
 class AllenBrainHierarchy:
-    def __init__(self, path_to_allen_json, blacklisted_acronyms=[], version=None):
+    def __init__(self, path_to_allen_json: str, blacklisted_acronyms: Iterable=[], version=None):
+        """
+        Crates an ontology of brain regions based on Allen Institute's structure graphs.
+        To know more where to get the structure graphs, see https://community.brain-map.org/t/downloading-an-ontologys-structure-graph/2880.
+        However, the ontology differs from the region annotations depeding on the version of the common coordinate
+        framework (CCF). This happens when a new CCF version changes a branch in the ontoloy to reflect a new scientific consesus.
+        In Allen's website, the "old" brain region can be identified in grey italic text: https://atlas.brain-map.org/atlas
+        If you want to clean the ontology based on a particular version of the CCF, you can provide a valid value for ``version``
+
+        Parameters
+        ----------
+        path_to_allen_json
+            The path to an Allen structural graph json 
+        blacklisted_acronyms, optional
+            Acronyms of branches from the onthology to exclude completely from the analysis, by default []
+        version, optional
+            Must be "CCFv1", "CCFv2", "CCFv3", "CCFv4" or None.
+            The version of the Common Coordinates Framework to which sync the onthology, by default None
+        """
         with open(path_to_allen_json, "r") as file:
             allen_data = json.load(file)
         
@@ -107,40 +120,106 @@ class AllenBrainHierarchy:
         regions_wo_annotation = get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dfs)
         return [region["acronym"] for region in regions_wo_annotation], annotation_version
 
-    def are_regions(self, regions: Collection, key="acronym"):
-        assert isinstance(regions, Collection), f"Expected a '{Collection}' but get '{type(regions)}'"
-        regions = list(regions)
-        regions_set = set(regions)
-        is_region = [False] * len(regions)
+    def are_regions(self, a: Iterable, key="acronym") -> npt.NDArray:
+        """
+        Check whether each of the elements of the iterable are a brain region of the current ontology or not
+
+        Parameters
+        ----------
+        a
+            list of values that identify uniquely a brain region (e.g. their acronyms)
+        key, optional
+            the key in Allen's structural graph used for the check, by default "acronym"
+
+        Returns
+        -------
+            an array of bools being True where the corresponding value in ``a`` is a region and False otherwise
+        """
+        assert isinstance(a, Iterable), f"Expected a '{Iterable}' but get '{type(a)}'"
+        a = list(a)
+        s = set(a)
+        is_region = np.full_like(a, False)
         def check_region(node, depth):
             id = node[key]
-            if id in regions_set:
-                is_region[regions.index(id)] = True
+            if id in s:
+                is_region[a.index(id)] = True
         visit_dfs(self.dict, "children", check_region)
         return is_region
 
-    def contains_all_children(self, regions: list[str], parent: str):
+    def contains_all_children(self, parent: str, regions: Container[str]):
+        """
+        Check whether a brain region contains all the given regions
+
+        Parameters
+        ----------
+        parent
+            an acronym of a brain region
+        regions
+            the regions to check as subregions of ``parent``
+
+        Returns
+        -------
+            True if all ``regions`` are direct subregions of ``parent``
+        """
         return all(r in regions for r in self.direct_subregions[parent])
 
-    def minimimum_treecover(self, regions: list[str]) -> list[str]:
-        # returns the minimum set of regions that covers all the given regions and not more
+    def minimimum_treecover(self, regions: Iterable[str]) -> list[str]:
+        """
+        Returns the minimum set of regions that covers all the given regions, and not more.
+
+        Parameters
+        ----------
+        regions
+            The acronyms of the regions to cover
+
+        Returns
+        -------
+            a list of acronyms of regions
+
+        Examples
+        --------
+        >>> braian.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+        >>> brain_ontology = braian.AllenBrainHierarchy("ontology.json", [])
+        >>> brain_ontology.minimimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY'])
+        ['BS', 'CB']
+
+        >>> brain_ontology.minimimum_treecover(["RE", "Xi", "PVT", "PT", "TH"])
+        ['TH', 'MTN']
+        """
         regions = set(regions)
-        _regions = {parent if self.contains_all_children(regions, parent) else region
+        _regions = {parent if self.contains_all_children(parent, regions) else region
                         for region, parent in self.get_parent_areas(regions).items()}
         if regions == _regions:
             return list(regions)
         return self.minimimum_treecover(_regions)
 
-    def blacklist_regions(self, blacklisted_regions, key="acronym", has_reference=True):
-        # find every region to-be-blacklisted, and blacklist all its tree
-        # set has_reference=False if the given regions are not existent in the annotation atlas
-        for region_value in blacklisted_regions:
-            blacklisted_region = find_subtree(self.dict, key, region_value, "children")
-            if not blacklisted_region:
-                raise ValueError(f"Can't find a region with '{key}'='{blacklisted_region}' to blacklist in Allen's Brain")
-            visit_bfs(blacklisted_region, "children", lambda n,d: set_blacklisted(n, True))
+    def blacklist_regions(self, regions: Iterable, key="acronym", has_reference=True):
+        """
+        Blacklists from further analysis the given ``regions`` the ontology, as well as all their sub-regions.
+        If the reason of blacklisting is that ``regions`` no longer exist in the used version of the
+        Common Coordinate Framework, set ``has_reference=False``
+
+        Parameters
+        ----------
+        regions
+            regions to blacklist
+        key, optional
+            the key in Allen's structural graph used for the check, by default "acronym"
+        has_reference, optional
+            if ``regions`` exist in the used version of the CCF or not, by default True
+
+        Raises
+        ------
+        ValueError
+            when it can't find at least one of the regions in the ontology
+        """
+        if (not all(self.are_regions(regions))):
+            raise ValueError(f"Can't find a region with '{key}'='{region_node}' to blacklist in Allen's Brain")
+        for region_value in regions:
+            region_node = find_subtree(self.dict, key, region_value, "children")
+            visit_bfs(region_node, "children", lambda n,d: set_blacklisted(n, True))
             if not has_reference:
-                visit_bfs(blacklisted_region, "children", lambda n,d: set_reference(n, False))
+                visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
     
     def get_blacklisted_trees(self, key="acronym"):
         regions = non_overlapping_where(self.dict, "children", lambda n,d: is_blacklisted(n) and has_reference(n), mode="bfs")

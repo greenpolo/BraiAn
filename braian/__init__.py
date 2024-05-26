@@ -14,7 +14,7 @@ match platform.system():
     case _:
         resolve_symlink = lambda path: os.path.realpath(path)
 
-from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS, UPPER_REGIONS
+from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
 from .brain_slice import BrainSlice
 from .sliced_brain import SlicedBrain
 from .brain_data import BrainData

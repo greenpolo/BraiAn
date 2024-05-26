@@ -73,7 +73,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return BrainData.merge(*args, op=pd.DataFrame.max, same_metrics=True, same_units=False, **kwargs)
 
     def __init__(self, data: pd.Series, name: str, metric: str, units: str,
-                 brain_ontology=None, fill=False) -> None: # brain_ontology: AllenBrainHierarchy
+                 brain_ontology:AllenBrainHierarchy|None=None, fill=False) -> None:
         self.data = data.copy()
         self.is_split = is_split_left_right(self.data.index)
         self.data_name = str(name) # data_name
