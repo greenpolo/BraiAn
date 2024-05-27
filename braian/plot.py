@@ -384,7 +384,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
 
     if brain_ontology is not None:
         groups = [group.sort_by_ontology(brain_ontology, fill=True, inplace=False) for group in groups]
-        regions_mjd = brain_ontology.get_areas_major_division(*selected_regions, sorted=True)
+        regions_mjd = brain_ontology.get_areas_major_division(*selected_regions)
         selected_regions = list(regions_mjd.keys())
 
     heatmap_width = 1-barplot_width

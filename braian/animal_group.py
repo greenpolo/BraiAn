@@ -73,6 +73,8 @@ class AnimalGroup:
             if seed is not None:
                 np.random.seed(seed)
             pls = PLS(selected_regions, self, other, marker=m)
+            # pls.randomly_permute_singular_values(PLS_N_PERMUTATION)
+            # p = pls.test_null_hypothesis()[0]
             pls.bootstrap_salience_scores(num_bootstrap=n_bootstrap)
             v = pls.v_salience_scores[0].copy()
             if fill_nan:
