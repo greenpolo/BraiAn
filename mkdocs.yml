@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+# 
+# SPDX-License-Identifier: CC0-1.0
+
+site_name: BraiAn Docs
+
+theme:
+  name: readthedocs
+  highlightjs: true
+  hljs_languages:
+    - python
+    # - toml
+  include_homepage_in_sidebar: true
+  prev_next_buttons_location: bottom
+  navigation_depth: 4
+  collapse_navigation: true
+  titles_only: false
+  sticky_navigation: true
+  locale: en
+  logo: null

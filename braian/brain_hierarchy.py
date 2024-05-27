@@ -92,6 +92,14 @@ class AllenBrainHierarchy:
         self.__mark_major_divisions()
         self.parent_region = self.__get_all_parent_areas()
         self.direct_subregions = self.__get_all_subregions()
+        """
+        Examples
+        -------:
+        >>> self.direct_subregions["ACA"]
+        ["ACAv", "ACAd"] # (dorsal and ventral part)
+        >>> self.direct_subregions["ACAv"]
+        ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"] # all layers in ventral part
+        """
         self.full_name = self.__get_full_names()
 
     def __get_unannoted_regions(self, version):
@@ -177,11 +185,11 @@ class AllenBrainHierarchy:
         --------
         >>> braian.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
         >>> brain_ontology = braian.AllenBrainHierarchy("ontology.json", [])
-        >>> brain_ontology.minimimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY'])
+        >>> sorted(brain_ontology.minimimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY']))
         ['BS', 'CB']
 
-        >>> brain_ontology.minimimum_treecover(["RE", "Xi", "PVT", "PT", "TH"])
-        ['TH', 'MTN']
+        >>> sorted(brain_ontology.minimimum_treecover(["RE", "Xi", "PVT", "PT", "TH"]))
+        ['MTN', 'TH']
         """
         acronyms = set(acronyms)
         _regions = {parent if self.contains_all_children(parent, acronyms) else acronym
@@ -574,8 +582,13 @@ class AllenBrainHierarchy:
         """
         parents = get_parents_where(self.dict, "children", lambda parent,child: child[key] in regions, key)
         for region in regions:
-            if regions not in parents.keys(): raise ValueError(f"Can't find the parent of a region with '{key}': {region}")
+            if region not in parents.keys(): raise ValueError(f"Can't find the parent of a region with '{key}': {region}")
         return {region: (parent[key] if parent else None) for region,parent in parents.items()}
+
+        # parents = get_parents_where(self.dict, "children", lambda parent,child: child[key] in values, key)
+        # for area in values:
+        #     assert area in parents.keys(), f"Can't find the parent of an area with '{key}': {area}"
+        # return {area: (parent[key] if parent else None) for area,parent in parents.items()}
 
     def __get_all_parent_areas(self, key="acronym") -> dict:
         """
@@ -621,15 +634,7 @@ class AllenBrainHierarchy:
 
         Returns
         -------
-            _description_
-
-        Examples
-        -------:
-        >>> subregions["ACA"]
-        ["ACAv", "ACAd"] # (dorsal and ventral part)
-
-        >>> subregions["ACAv"]
-        ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"] # all layers in ventral part
+            a dictionary that maps region→[subregions...]
         """
         subregions = dict()
         def add_subregions(node, depth):
