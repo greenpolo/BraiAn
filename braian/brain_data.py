@@ -229,7 +229,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             hem_highlighted_regions = [[],[]]
 
         heatmaps = [
-            bgh.heatmap(
+            bgh.Heatmap(
                 d.data.to_dict(),
                 position=None,
                 orientation=orientation,
@@ -271,7 +271,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             print()
             return
 
-def heatmap_range(heatmap: bgh.heatmap):
+def heatmap_range(heatmap: bgh.Heatmap):
     shape_um = np.array(heatmap.scene.atlas.shape_um)
     origin = heatmap.scene.atlas.root.center
     x = np.where(heatmap.slicer.plane0.u != 0)[0][0]
@@ -280,7 +280,7 @@ def heatmap_range(heatmap: bgh.heatmap):
     x_max, y_max = (shape_um-origin)[[x, y]]
     return (x_min, x_max), (y_min, y_max)
 
-def plot_slice(position: int, heatmaps: list[bgh.heatmap],
+def plot_slice(position: int, heatmaps: list[bgh.Heatmap],
                data_names: list[str], hems: list[str],
                orientation: str, title: str,
                units: str, show_text: bool, hem_highlighted_regions: list[list[str]],
@@ -328,7 +328,7 @@ def plot_slice(position: int, heatmaps: list[bgh.heatmap],
             cbar.ax.set_yticklabels(ticks_labels, minor=True)
     return fig,ax
 
-def add_projections(ax: mpl.axes.Axes, heatmap: bgh.heatmap,
+def add_projections(ax: mpl.axes.Axes, heatmap: bgh.Heatmap,
                     slicer: bgh.slicer.Slicer, show_text: bool,
                     selected_regions: list[str]):
     projected,_ = slicer.get_structures_slice_coords(heatmap.regions_meshes, heatmap.scene.root)

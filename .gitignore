@@ -8,7 +8,7 @@ data/
 plots/
 **/*.csv
 **/*.html
-R_analysis/
+docs/BraiAn_output/
 .vscode/
 .DS_Store
 **/*.png

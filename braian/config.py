@@ -41,7 +41,7 @@ class BraiAnConfig:
                                            animal_dir,
                                            *args,
                                            **kwargs)
-                self._fix_overlap_detection_if_old_qpscript(sliced_brain)
+                # self._fix_overlap_detection_if_old_qpscript(sliced_brain)
                 if threshold > 0:
                     # TODO: consider to use this option *only* for the coefficient of variation plot!
                     self._remove_small_regions(sliced_brain, threshold)
@@ -71,7 +71,7 @@ class BraiAnConfig:
                 real_markers = [m for m in animal.markers if "+" not in m]
                 s.data = s.data[(s.data[real_markers] != 1).any(axis=1)].copy(deep=True)
         
-        # COMMENTED OUT because mkdocs complains
+        # COMMENTED OUT because mkdocs complains and we don't need it anymore
         # @staticmethod
         # def _fix_overlap_detection_if_old_qpscript(sliced_brain: SlicedBrain):
         #     # if sliced_brain has was computed on data collected from an old QuPath script,

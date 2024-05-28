@@ -7,6 +7,16 @@ repo_url: https://codeberg.org/SilvaLab/BraiAn
 site_description: a versatile toolkit for whole-brain quantitative analysis
 site_author: Carlo Castoldi
 
+nav:
+  - index.md
+  - Tutorials: tutorials.md
+  - How-to guides: how-to-guides.md
+  - Notebook page: notebook.ipynb
+  - test nbj: demo-script.py
+  - API reference: reference.md
+exclude_docs: |
+  /resources/
+
 theme:
   # name: material
   name: readthedocs
@@ -28,8 +38,12 @@ plugins:
   - include-markdown:
       opening_tag: "{%"
       closing_tag: "%}"
-  - autorefs
+  - mkdocs-jupyter:
+      include_source: True
+      include_requirejs: true # required by plotly
+      # theme: dark
   - progress
+  - autorefs
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -38,16 +52,8 @@ plugins:
             show_source: false
             #extensions:
             #  - griffe_attrs
+
 markdown_extensions:
   - admonition
   - pymdownx.escapeall:
       hardbreak: true
-
-
-nav:
-  - index.md
-  - Tutorials: tutorials.md
-  - How-to guides: how-to-guides.md
-  - API reference: reference.md
-exclude_docs: |
-  /resources/
