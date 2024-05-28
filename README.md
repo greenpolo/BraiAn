@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC0-1.0
 -->
 
 # BraiAn
-
+<!--mkdocs-start-->
 ## Prerequisites
 * [python=>3.11](https://www.python.org/downloads/):
   you can use [conda](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [pyenv](https://github.com/pyenv/pyenv)/[pyenv-win](https://pyenv-win.github.io/pyenv-win/#installation) to manage the correct version
@@ -15,24 +15,29 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Installation Guide
 ### Step 1: Set-up an environment for BraiAn
-Create a new python=>3.11 environment.
-* if you intend to use conda, you can create a new environment:
+Create and activate a new `python=>3.11` environment.
 
-  `conda create --name braian_env python=3.11`
+* if you want to use conda:
+```bash
+$ conda create --name braian_env python=3.11
+$ conda activate braian_env
+```
 
-  and activate it with `conda activate braian_env`
-* if you intend to use python's virtual environments:
-  
-  `python3.11 -m venv /path/to/new/braian_env`
-
-  and [activate it](https://docs.python.org/3/library/venv.html#how-venvs-work)
+* if you want to use python's virtual environments:
+```bash
+$ python3.11 -m venv /path/to/new/braian_env
+```
+and [activate it](https://docs.python.org/3/library/venv.html#how-venvs-work)
 
 ### Step 2: clone the repository
-`git clone https://codeberg.org/SilvaLab/BraiAn.git /path/to/BraiAn`
+```bash
+$ git clone https://codeberg.org/SilvaLab/BraiAn.git /path/to/BraiAn
+```
 
 ### Step 3: install BraiAn inside the environment with Poetry
 With the environment set and Poetry installed:
 ```bash
-cd /path/to/BraiAn
-poetry install
+(braian_env) cd /path/to/BraiAn
+(braian_env) poetry install
 ```
+<!--mkdocs-end-->

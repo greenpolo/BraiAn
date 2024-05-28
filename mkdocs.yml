@@ -3,8 +3,12 @@
 # SPDX-License-Identifier: CC0-1.0
 
 site_name: BraiAn Docs
+repo_url: https://codeberg.org/SilvaLab/BraiAn
+site_description: a versatile toolkit for whole-brain quantitative analysis
+site_author: Carlo Castoldi
 
 theme:
+  # name: material
   name: readthedocs
   highlightjs: true
   hljs_languages:
@@ -18,3 +22,32 @@ theme:
   sticky_navigation: true
   locale: en
   logo: null
+
+plugins:
+  - search
+  - include-markdown:
+      opening_tag: "{%"
+      closing_tag: "%}"
+  - autorefs
+  - progress
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_source: false
+            #extensions:
+            #  - griffe_attrs
+markdown_extensions:
+  - admonition
+  - pymdownx.escapeall:
+      hardbreak: true
+
+
+nav:
+  - index.md
+  - Tutorials: tutorials.md
+  - How-to guides: how-to-guides.md
+  - API reference: reference.md
+exclude_docs: |
+  /resources/

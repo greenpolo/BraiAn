@@ -71,25 +71,26 @@ class BraiAnConfig:
                 real_markers = [m for m in animal.markers if "+" not in m]
                 s.data = s.data[(s.data[real_markers] != 1).any(axis=1)].copy(deep=True)
         
-        @staticmethod
-        def _fix_overlap_detection_if_old_qpscript(sliced_brain: SlicedBrain):
-            # if sliced_brain has was computed on data collected from an old QuPath script,
-            # then the number of detection of the first marker is ~wrong. It must be summed to the overlaps between marker1 and marker2
-            for i in range(len(sliced_brain.markers)): # e.g. header="GABA-(cFos+GABA)"
-                marker1_diff = sliced_brain.markers[i]
-                # see https://regex101.com/r/LLwGIl/1
-                markers = re.compile("(?P<m1>\w+)-\((?:(\w+)\+(?P=m1)|(?P=m1)\+(\w+))\)").findall(marker1_diff)
-                # e.g markers=[('GABA', 'cFos', '')]
-                if len(markers) == 0:
-                    continue
-                markers = [m for m in markers[0] if len(m) != 0]
-                marker1, marker2 = markers  # e.g. marker1="GABA" and marker2="cFos"
-                for brain_slice in sliced_brain.slices:
-                    brain_slice.data[marker1_diff] += brain_slice.data[f"{marker1_diff}+{marker2}"]
-                    brain_slice.data.rename(columns={marker1_diff: marker1, f"{marker1_diff}+{marker2}": f"{marker1}+{marker2}"}, inplace=True)
-                sliced_brain.markers[i] = marker1
-                overlap_i = next(i for i in range(len(sliced_brain.markers)) if sliced_brain.markers[i] == f"{marker1_diff}+{marker2}")
-                sliced_brain.markers[overlap_i] = f"{marker1}+{marker2}"
+        # COMMENTED OUT because mkdocs complains
+        # @staticmethod
+        # def _fix_overlap_detection_if_old_qpscript(sliced_brain: SlicedBrain):
+        #     # if sliced_brain has was computed on data collected from an old QuPath script,
+        #     # then the number of detection of the first marker is ~wrong. It must be summed to the overlaps between marker1 and marker2
+        #     for i in range(len(sliced_brain.markers)): # e.g. header="GABA-(cFos+GABA)"
+        #         marker1_diff = sliced_brain.markers[i]
+        #         # see https://regex101.com/r/LLwGIl/1
+        #         markers = re.compile("(?P<m1>\w+)-\((?:(\w+)\+(?P=m1)|(?P=m1)\+(\w+))\)").findall(marker1_diff)
+        #         # e.g markers=[('GABA', 'cFos', '')]
+        #         if len(markers) == 0:
+        #             continue
+        #         markers = [m for m in markers[0] if len(m) != 0]
+        #         marker1, marker2 = markers  # e.g. marker1="GABA" and marker2="cFos"
+        #         for brain_slice in sliced_brain.slices:
+        #             brain_slice.data[marker1_diff] += brain_slice.data[f"{marker1_diff}+{marker2}"]
+        #             brain_slice.data.rename(columns={marker1_diff: marker1, f"{marker1_diff}+{marker2}": f"{marker1}+{marker2}"}, inplace=True)
+        #         sliced_brain.markers[i] = marker1
+        #         overlap_i = next(i for i in range(len(sliced_brain.markers)) if sliced_brain.markers[i] == f"{marker1_diff}+{marker2}")
+        #         sliced_brain.markers[overlap_i] = f"{marker1}+{marker2}"
     
     class Comparison:
         def __init__(self, id, group_reduction: str, metric: str,

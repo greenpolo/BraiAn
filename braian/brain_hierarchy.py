@@ -92,14 +92,12 @@ class AllenBrainHierarchy:
         self.__mark_major_divisions()
         self.parent_region = self.__get_all_parent_areas()
         self.direct_subregions = self.__get_all_subregions()
-        """
-        Examples
-        -------:
-        >>> self.direct_subregions["ACA"]
-        ["ACAv", "ACAd"] # (dorsal and ventral part)
-        >>> self.direct_subregions["ACAv"]
-        ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"] # all layers in ventral part
-        """
+        # Examples
+        # -------:
+        # >>> self.direct_subregions["ACA"]
+        # ["ACAv", "ACAd"] # (dorsal and ventral part)
+        # >>> self.direct_subregions["ACAv"]
+        # ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"] # all layers in ventral part
         self.full_name = self.__get_full_names()
 
     def __get_unannoted_regions(self, version):

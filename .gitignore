@@ -13,3 +13,4 @@ R_analysis/
 .DS_Store
 **/*.png
 **/*.svg
+**/*.json

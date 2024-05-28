@@ -31,6 +31,9 @@ optional = true
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.6.0"
 mkdocstrings = {extras = ["python"], version = "^0.25.1"}
+mkdocs-plugin-progress = "^1.2.0"
+mkdocs-include-markdown-plugin = {git = "https://github.com/carlocastoldi/mkdocs-include-markdown-plugin.git", rev = "longass_lines_fix"}
+mkdocs-material = "^9.5.25"
 
 [build-system]
 requires = ["poetry-core"]
