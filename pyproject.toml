@@ -24,7 +24,6 @@ brainglobe-heatmap = "^v0.5.2"  # used to visualize brain heatmap for IEGs overl
 urllib3 = "^1.26.16"            # fix poetry+conda bug: https://github.com/python-poetry/poetry/issues/7936
 tables = "^3.9.2"               # fix problem with h5py installation
 pywin32 = {version = "^306", platform = "win32"}
-mkdocs-include-markdown-plugin = {git = "https://github.com/carlocastoldi/mkdocs-include-markdown-plugin.git", rev = "longass_lines_fix"}
 
 [tool.poetry.group.docs]
 optional = true
@@ -35,6 +34,7 @@ mkdocstrings = {extras = ["python"], version = "^0.25.1"}
 mkdocs-plugin-progress = "^1.2.0"
 mkdocs-material = "^9.5.25"
 mkdocs-jupyter = "^0.24.7"
+mkdocs-include-markdown-plugin = "^6.1.1"
 
 [build-system]
 requires = ["poetry-core"]

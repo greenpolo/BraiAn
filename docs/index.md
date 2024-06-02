@@ -27,6 +27,6 @@ finding the which ones' activity are the most representative of a group and visu
     end="<!--mkdocs-end-->"
 %}
 
-{% include "resources/allen_ontology.html" %}
+{% include "resources/allen_ontology.html" recursive=false %}
 
-{% include-markdown "resources/gridplot_cfos_vs_Arc1_density_summary_structures.html" %}
+{% include "resources/gridplot_cfos_vs_Arc1_density_summary_structures.html" recursive=false %}

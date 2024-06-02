@@ -10,9 +10,9 @@ site_author: Carlo Castoldi
 nav:
   - index.md
   - Tutorials: tutorials.md
-  - How-to guides: how-to-guides.md
-  - Notebook page: notebook.ipynb
-  - test nbj: demo-script.py
+  - How-to guides:
+    - how-to-guides.md
+    - Notebook page: notebook.ipynb
   - API reference: reference.md
 exclude_docs: |
   /resources/
@@ -38,9 +38,12 @@ plugins:
   - include-markdown:
       opening_tag: "{%"
       closing_tag: "%}"
+      exclude:
+        - "*.ipynb"
   - mkdocs-jupyter:
       include_source: True
       include_requirejs: true # required by plotly
+      execute: false
       # theme: dark
   - progress
   - autorefs
