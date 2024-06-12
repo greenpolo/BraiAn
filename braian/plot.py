@@ -342,6 +342,8 @@ def plot_gridgroups(groups: list[AnimalGroup],
 
     def heatmap(group_df: pd.DataFrame, metric: str, marker: str):
         hmap = go.Heatmap(z=group_df, x=group_df.columns, y=group_df.index, hoverongaps=False, coloraxis="coloraxis", hovertemplate=heatmap_ht(marker, metric))
+        if not group_df.isna().any(axis=None):
+            return (hmap,)
         nan_hmap = go.Heatmap(z=np.isnan(group_df).astype(int), x=group_df.columns, y=group_df.index, hoverinfo="skip", #hoverongaps=False, hovertemplate=heatmap_ht(marker),
                             showscale=False, colorscale=[[0, "rgba(0,0,0,0)"], [1, "silver"]])
         return hmap, nan_hmap
@@ -461,13 +463,12 @@ def plot_gridgroups(groups: list[AnimalGroup],
 
     fig.update_xaxes(side="top")
     fig.update_yaxes(autorange="reversed") #, title="region")
-    fig.update_layout(height=height, width=width, plot_bgcolor="rgba(0,0,0,0)", legend=dict(tracegroupgap=0), scattermode="group",
-        coloraxis=dict(colorscale=color_heatmap, cmin=data_range[0], cmax=data_range[1],
-                       colorbar=dict(lenmode="pixels", len=500,
-                                     thickness=15, outlinewidth=1, y=0.85, yanchor="top",
-                                     title=units if marker2 is None else units.replace(marker2, "marker"),
-                                     title_side="right"))
-    )
+    fig.update_layout(height=height, width=width, plot_bgcolor="rgba(0,0,0,0)", legend=dict(tracegroupgap=0), scattermode="group")
+    fig.update_coloraxes(colorscale=color_heatmap, cmin=data_range[0], cmax=data_range[1],
+                         colorbar=dict(lenmode="fraction", len=1-barplot_width+.03, thickness=15, outlinewidth=1,
+                                       orientation="h", yref="container", y=1, ypad=0,
+                                       title=(units if marker2 is None else units.replace(marker2, "marker"))+"\n",
+                                       title_side="top"))
     return fig
 
 def bar_sample(df: pd.DataFrame, population_name: str,
