@@ -70,34 +70,34 @@ def plot_cv_above_threshold(brain_ontology, *sliced_brains_groups: list[SlicedBr
     group_lengths = [len(group)*len(group[0].markers) for group in sliced_brains_groups] # assumes all animals of a group have the same markers
     n_brains_before_group = np.cumsum(group_lengths)
     n_areas_above_thr = []
-    for i, group_slices in enumerate(sliced_brains_groups):
-        n_brains_before = n_brains_before_group[i-1] if i > 0 else 0
+    for n_group, group_slices in enumerate(sliced_brains_groups):
+        n_brains_before = n_brains_before_group[n_group-1] if n_group > 0 else 0
         group_cvar_brains = [AnimalBrain.from_slices(sliced_brain, mode="cvar", hemisphere_distinction=False) for sliced_brain in group_slices]
         group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, brain_ontology) for brain in group_cvar_brains]
 
-        for j, cvars in enumerate(group_cvar_brains):
+        for n_brain, cvars in enumerate(group_cvar_brains):
             # Scatterplot (animals)
-            for m, marker_cvar in enumerate(cvars.markers):
+            for n_marker, marker_cvar in enumerate(cvars.markers):
                 marker_cvar_filter = cvars[marker_cvar].data > cv_threshold
                 n_areas_above_thr.append(marker_cvar_filter.sum())
                 fig.add_trace(
                     go.Scatter(
                         mode = "markers",
                         y = cvars[marker_cvar].data[marker_cvar_filter],
-                        x = [n_brains_before+(len(group_slices[0].markers)*j)+m]*marker_cvar_filter.sum(),
+                        x = [n_brains_before+(len(group_slices[0].markers)*n_brain)+n_marker]*marker_cvar_filter.sum(),
                         text = cvars[marker_cvar].data.index[marker_cvar_filter],
                         opacity=0.7,
                         marker=dict(
                             size=7,
-                            color=plc.DEFAULT_PLOTLY_COLORS[i],
+                            color=plc.DEFAULT_PLOTLY_COLORS[n_group],
                             line=dict(
                                 color="rgb(0,0,0)",
                                 width=1
                             )
                         ),
                         name="Regions' coefficient<br>of variation",
-                        legendgroup="regions-cv",
-                        showlegend=(i+j)==0
+                        legendgroup=f"regions-cv-{n_group}",
+                        showlegend=n_brain+n_marker==0
                     )
                 )
 
@@ -116,7 +116,7 @@ def plot_cv_above_threshold(brain_ontology, *sliced_brains_groups: list[SlicedBr
     fig.data = (fig.data[-1], *fig.data[:-1])
 
     fig.update_layout(
-        title = f"Coefficient of variaton of markers across brain slices > {cv_threshold}",
+        title = f"Slices' coefficient of variaton > {cv_threshold}",
         
         xaxis = dict(
             tickmode = "array",
@@ -124,9 +124,16 @@ def plot_cv_above_threshold(brain_ontology, *sliced_brains_groups: list[SlicedBr
             ticktext = brains_name
         ),
         yaxis=dict(
-            title = "Brain regions' CV"
+            title = "Regions' CV",
+            gridcolor="#d8d8d8",
         ),
-        width=width, height=height
+        yaxis2=dict(
+            title = f"#regions with CV > {cv_threshold}",
+            griddash="dot",
+            gridcolor="#d8d8d8",
+        ),
+        width=width, height=height,
+        template="none"
     )
     return fig
 
@@ -195,7 +202,8 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
             title = f"marker/mm²"
         ),
 #        hovermode="x unified",
-        width=width, height=height
+        width=width, height=height,
+        template="none"
     )
     return fig
 
@@ -229,6 +237,7 @@ def plot_groups_salience(pls: PLS, component=1):
 
 def plot_latent_component(pls: PLS, component=1):
     # from https://vgonzenbach.github.io/multivariate-cookbook/partial-least-squares-correlation.html#visualizing-latent-variables
+    # seems useless to me, perhaps is for different types of PLS
     n_groups = pls.Y.shape[1]
     scatters = []
     for i in range(n_groups):
@@ -244,17 +253,21 @@ def plot_latent_component(pls: PLS, component=1):
               .update_yaxes(title="Ly")\
               .update_xaxes(title="Lx")
 
-def plot_latent_variable(pls: PLS, of="X"):
+def plot_latent_variable(pls: PLS, of="X", height=800, width=800):
     # always plots first and second components
     # of=="X" -> plots the brain scores
     # of=="Y" -> plots the group scores
     assert of.lower() in ("x", "y"), "You must choose whether to plot latent variables of X (brain scores) or of Y (group scores)"
     latent_variables = pls.Lx if of.lower() == "x" else pls.Ly
     fig = go.Figure([go.Scatter(x=latent_variables[0][pls.Y.iloc[:,i]], y=latent_variables[1][pls.Y.iloc[:,i]],
-                                mode="markers+text", textposition="top center",
+                                # mode="markers+text", textposition="top center", textfont=dict(size=8),
+                                mode="markers",
+                                marker=dict(size=15),
                                 text=pls.Y.iloc[:,i][pls.Y.iloc[:,i]].index, name=pls.Y.columns[i])
                     for i in range(pls.Y.shape[1])])
-    return fig.update_yaxes(title="2").update_xaxes(title="1")
+    return fig.update_layout(template = "none", height=height, width=width)\
+                .update_xaxes(title="1", zerolinecolor="#f0f0f0", gridcolor="#f0f0f0")\
+                .update_yaxes(title="2", zerolinecolor="#f0f0f0", gridcolor="#f0f0f0", scaleanchor="x", scaleratio=1)
 
 def plot_salient_regions(salience_scores: pd.Series, brain_ontology: AllenBrainHierarchy,
                             title=None, title_size=20,
@@ -351,10 +364,10 @@ def plot_gridgroups(groups: list[AnimalGroup],
                 salience_scores = salience_scores.sort_by_ontology(brain_ontology, fill=False, inplace=False).data
             else:
                 salience_scores = salience_scores.data
-            assert all(salience_scores.index == groups_df[0].index), \
+            assert len(salience_scores) == len(groups_df[0]) and all(salience_scores.index == groups_df[0].index), \
                     f"The salience scores of the PLS on '{marker}' are on different regions/order. "+\
                     "Make sure to fill to NaN the scores for the regions missing in at least one animal."
-            threshold = PLS.norm_threshold(p=0.01, two_tailed=True) if pls_threshold is None else pls_threshold
+            threshold = PLS.norm_threshold(p=0.05, two_tailed=True) if pls_threshold is None else pls_threshold
         # bar_sample() returns 2(+1) traces: a real one, one for the legend and, eventually, a scatter plot
         bars = [trace for group, group_df, group_colour in zip(groups, groups_df, groups_colours)
                       for trace in (bar_sample(group_df, group.name, metric, marker, group_colour, plot_scatter, plot_hash=group.name,
@@ -386,6 +399,8 @@ def plot_gridgroups(groups: list[AnimalGroup],
         groups = [group.sort_by_ontology(brain_ontology, fill=True, inplace=False) for group in groups]
         regions_mjd = brain_ontology.get_areas_major_division(*selected_regions)
         selected_regions = list(regions_mjd.keys())
+    # elif len(groups) > 1:
+    #     assert all(set(groups[0].get_regions()) == set(group.get_regions()) for group in in groups[1:])
 
     heatmap_width = 1-barplot_width
     bar_to_heatmap_ratio = np.array([heatmap_width, barplot_width])

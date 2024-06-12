@@ -797,7 +797,8 @@ class AllenBrainHierarchy:
         G = self.to_igraph()
         graph_layout = G.layout_reingold_tilford(mode="in", root=[0])
         edges_trace = self.draw_edges(G, graph_layout, width=0.5)
-        nodes_trace = self.draw_nodes(G, graph_layout, node_size=5)
+        nodes_trace = self.draw_nodes(G, graph_layout, node_size=5, metrics={"Subregions": lambda vs: np.asarray(vs.degree())-1})
+        nodes_trace.marker.line = dict(color="black", width=0.25)
         plot_layout = go.Layout(
             title="Allen's brain region hierarchy",
             titlefont_size=16,
@@ -805,7 +806,8 @@ class AllenBrainHierarchy:
             hovermode="closest",
             margin=dict(b=20,l=5,r=5,t=40),
             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=True, zeroline=False, dtick=1, autorange="reversed")
+            yaxis=dict(showgrid=True, zeroline=False, dtick=1, autorange="reversed", title="depth"),
+            template="none"
         )
         return go.Figure([edges_trace, nodes_trace], layout=plot_layout)
 
@@ -857,8 +859,9 @@ class AllenBrainHierarchy:
         return edges_trace
     
     def draw_nodes(self, G: ig.Graph, layout: ig.Layout, node_size: int,
-               outline_size: float=0.5, use_centrality: bool=False, centrality_metric: str=None,
-               use_clustering: bool=False) -> go.Scatter:
+                outline_size: float=0.5, use_centrality: bool=False, centrality_metric: str=None,
+                use_clustering: bool=False,
+                metrics: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={"degree": ig.VertexSeq.degree}) -> go.Scatter:
         """
         Draws a plotly Scatter plot of the given graph ``G``, based on the given layout.
 
@@ -880,6 +883,11 @@ class AllenBrainHierarchy:
         use_clustering, optional
             If true, it colors the regions nodes outlines based on the ``cluster`` attribute of each ``G`` vertex
             If false, it uses the corresponding brain region color.  By default, False
+        metrics, optional
+            A dictionary that defines M additional information for the vertices of graph ``G``.
+            The keys are title of an additional metric, while the values are functions that
+            take a ``igraph.VertexSeq`` and spits a value for each vertex.
+            By default {"degree": ig.VertexSeq.degree}
 
         Returns
         -------
@@ -916,7 +924,7 @@ class AllenBrainHierarchy:
             nodes_color.append(node_color)
             outlines_color.append(outline_color)
 
-        customdata, hovertemplate = self.nodes_hover_info(G, title_dict={"degree": ig.VertexSeq.degree})
+        customdata, hovertemplate = self.nodes_hover_info(G, title_dict=metrics)
         nodes_trace = go.Scatter(
             x=[coord[0] for coord in layout.coords],
             y=[coord[1] for coord in layout.coords],
