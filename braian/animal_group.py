@@ -61,8 +61,12 @@ class AnimalGroup:
         self.markers: npt.NDArray[np.str_] = np.asarray(self.animals[0].markers)
         self.mean = self._update_mean()
     
-    def markers_corr(self, marker1: str, marker2: str) -> BrainData:
-        corr = self.to_pandas(marker1).corrwith(self.to_pandas(marker2), method="pearson", axis=1)
+    def markers_corr(self, marker1: str, marker2: str, other: Self=None) -> BrainData:
+        if other is None:
+            other = self
+        else:
+            assert self.metric == other.metric
+        corr = self.to_pandas(marker1).corrwith(other.to_pandas(marker2), method="pearson", axis=1)
         return BrainData(corr, self.name, str(self.metric)+f"-corr (n={self.n})", f"corr({marker1}, {marker2})")
 
     def pls_regions(self, other: Self, selected_regions: list[str], marker=None,
@@ -70,12 +74,10 @@ class AnimalGroup:
         markers = self.markers if marker is None else (marker,)
         salience_scores = dict()
         for m in markers:
-            if seed is not None:
-                np.random.seed(seed)
             pls = PLS(selected_regions, self, other, marker=m)
-            # pls.randomly_permute_singular_values(PLS_N_PERMUTATION)
+            # pls.randomly_permute_singular_values(PLS_N_PERMUTATION, seed=seed)
             # p = pls.test_null_hypothesis()[0]
-            pls.bootstrap_salience_scores(num_bootstrap=n_bootstrap)
+            pls.bootstrap_salience_scores(num_bootstrap=n_bootstrap, seed=seed)
             v = pls.v_salience_scores[0].copy()
             if fill_nan:
                 v_ = pd.Series(np.nan, index=selected_regions)
@@ -281,7 +283,9 @@ Please check that you're reading two groups that normalized on the same brain re
         u, s, vh = np.linalg.svd(R, full_matrices=False) # self.X, retrieved from AnimalGroup, must have no NaN [dropna(how='any')]. If it does the PLS cannot be computed in the other regions as well
         return u,s,vh.T
 
-    def bootstrap_salience_scores(self, num_bootstrap):
+    def bootstrap_salience_scores(self, num_bootstrap, seed=None):
+        if seed is not None:
+            np.random.seed(seed)
         u_bootstrap = np.expand_dims(np.zeros(self.u.shape), axis=2).repeat(num_bootstrap,axis=2)
         v_bootstrap = np.expand_dims(np.zeros(self.v.shape), axis=2).repeat(num_bootstrap,axis=2)
 
@@ -306,7 +310,9 @@ Please check that you're reading two groups that normalized on the same brain re
 
         return self.u_salience_scores,self.v_salience_scores
 
-    def randomly_permute_singular_values(self,num_permutations):    
+    def randomly_permute_singular_values(self,num_permutations, seed=None):
+        if seed is not None:
+            np.random.seed(seed)  
         singular_values = np.expand_dims(np.zeros(self.s.shape), axis=0).repeat(num_permutations,axis=0)
         X_np = self.X.to_numpy()
         Y_np = self.Y.to_numpy()
