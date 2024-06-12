@@ -28,10 +28,11 @@ class BraiAnConfig:
             self.id = id
             self.name = name
             self.animal_names = animal_directories
+            self.sliced_brains: list[SlicedBrain] = []  # filled in read()
+            self.brains: list[AnimalBrain] = []         # filled in reduce_slices()
         
         def read(self, path_to_group, threshold: float, remove_singles: bool,
-                 *args, **kwargs) -> None:
-            self.sliced_brains: list[SlicedBrain] = []
+                 *args, **kwargs) -> list[SlicedBrain]:
             for name in self.animal_names:
                 animal_dir = os.path.join(path_to_group, name)
                 if not os.path.isdir(animal_dir):
@@ -48,14 +49,16 @@ class BraiAnConfig:
                 if remove_singles:
                     self._remove_singles(sliced_brain)
                 self.sliced_brains.append(sliced_brain)
+            return self.sliced_brains
         
-        def reduce_slices(self, metric: str):
-            self.brains: list[AnimalBrain] = [
+        def reduce_slices(self, metric: str) -> list[AnimalBrain]:
+            self.brains = [
                 AnimalBrain.from_slices(sliced_brain, mode=metric, hemisphere_distinction=False)
                 for sliced_brain in self.sliced_brains]
+            return self.brains
         
-        def to_group(self, metric: str, brain_ontology: AllenBrainHierarchy):
-            return AnimalGroup(self.name, self.brains, metric=metric, brain_ontology=brain_ontology, merge_hemispheres=True)
+        def to_group(self, metric: str, brain_ontology: AllenBrainHierarchy, *args, **kwargs):
+            return AnimalGroup(self.name, self.brains, metric=metric, brain_ontology=brain_ontology, merge_hemispheres=True, *args, **kwargs)
         
         def _remove_small_regions(self, animal: SlicedBrain, threshold: float) -> None:
             for s in animal.slices:
@@ -262,13 +265,14 @@ class BraiAnConfig:
                 exclude_parent_regions=True,
             )
             print(f"Imported all brain slices from {len(group_dir.animal_names)} animals of '{group_dir.name}' group.")
+        return [g.sliced_brains for g in self.groups]
     
     def reduce_slices(self):
         for group in self.groups:
             group.reduce_slices(self.config["brains"]["slices-aggregation-mode"])
     
-    def to_groups(self, metric: str):
-        return [group_dir.to_group(metric, self.brain_ontology) for group_dir in self.groups]
+    def to_groups(self, metric: str, *args, **kwargs):
+        return [group_dir.to_group(metric, self.brain_ontology, *args, **kwargs) for group_dir in self.groups]
 
     def _read_comparisons(self) -> list[Comparison]:
         # if "comparison" in config:

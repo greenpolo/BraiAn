@@ -63,7 +63,7 @@ class BrainSlice:
     def __init__(self, brain_ontology: AllenBrainHierarchy, csv_file: str,
                  excluded_regions_file: str, exclude_parent_regions: bool,
                  animal:str, name: str, area_key: str,
-                 tracers_key: list[str], markers_key: list[str], area_units="µm2") -> None:
+                 tracers_key: str|list[str], markers_key: str|list[str], area_units: str="µm2") -> None:
         self.animal = animal
         self.name = name
         if isinstance(tracers_key, str):
