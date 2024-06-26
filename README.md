@@ -17,17 +17,24 @@ SPDX-License-Identifier: CC0-1.0
 ### Step 1: Set-up an environment for BraiAn
 Create and activate a new `python=>3.11` environment.
 
-* if you want to use conda:
-```bash
-$ conda create --name braian_env python=3.11
-$ conda activate braian_env
-```
-
-* if you want to use python's virtual environments:
-```bash
-$ python3.11 -m venv /path/to/new/braian_env
-```
-and [activate it](https://docs.python.org/3/library/venv.html#how-venvs-work)
+<table border="0">
+ <tr>
+    <td>
+      Using <a href="https://docs.continuum.io/anaconda/"><code>conda</code></a>:</p>
+      <code>
+      $ conda create --name braian_env python=3.11</p>
+      $ conda activate braian_env
+      </code>
+    </td>
+    <td>
+      Using python venv:</p>
+      <code>
+      $ python3.11 -m venv /path/to/new/braian_env
+      </code></p>
+      and <a href="https://docs.python.org/3/library/venv.html#how-venvs-work">activate it</a>
+    </td>
+ </tr>
+</table>
 
 ### Step 2: clone the repository
 ```bash
