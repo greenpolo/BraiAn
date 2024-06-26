@@ -161,6 +161,7 @@ class AnimalBrain:
         return AnimalBrain(markers_data={overlapping: similarities}, areas=self.areas)
     
     def markers_similarity_index(self, marker1: str, marker2: str) -> Self:
+        # NOTE: if either marker1 or marker2 is zero, it goes to infinite
         # computes an index of normalized similarity we developed
         if self.mode not in (BrainMetrics.SUM, BrainMetrics.MEAN):
             raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not summed or averaged.")

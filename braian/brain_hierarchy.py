@@ -784,6 +784,9 @@ class AllenBrainHierarchy:
 
         G = ig.Graph(edges=self.__get_edges(key="graph_order"))
         visit_bfs(self.dict, "children", add_attributes(G))
+        # if self.dict was modified removing some nodes, 'graph_order' creates some empty vertices
+        # in that case, we remove those vertices
+        G.delete_vertices([v.index for v in G.vs if v.degree() == 0])
         return G
 
     def plot(self) -> go.Figure:

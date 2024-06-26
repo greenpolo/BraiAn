@@ -245,6 +245,7 @@ class PLS:
             else:
                 markers = [group1.markers[0]]*len(groups)
         else:
+            assert all(marker in g.markers for g in groups), f"Missing marker '{marker}' in at least on group!"
             markers = [marker]*len(groups)
         assert all(group1.is_comparable(g) for g in groups[1:]), "Group 1 and Group 2 are not comparable!\n\
 Please check that you're reading two groups that normalized on the same brain regions and on the same marker."
@@ -259,6 +260,7 @@ Please check that you're reading two groups that normalized on the same brain re
             data.loc[regions,selected_data.columns] = selected_data
             data.loc["group",selected_data.columns] = group.name+"_"+str(i)
 
+        data.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.X = data.loc[regions].T.dropna(axis="columns", how="any").astype("float64", copy=False)
         self.Y = pd.get_dummies(data.loc["group"].T)
         self.u, self.s, self.v = self.partial_least_squares_correlation(self.X,self.Y)
