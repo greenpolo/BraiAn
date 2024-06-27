@@ -1,0 +1,88 @@
+<!--
+  Copyright (c) 2016-2024 Martin Donath <martin.donath@squidfunk.com>
+
+  SPDX-License-Identifier: MIT
+-->
+
+{% macro render_content(toc_item) %}
+  <a href="{{ toc_item.url }}" class="md-nav__link">
+    <span class="md-ellipsis">
+      {{ toc_item.title }}
+    </span>
+  </a>
+{% endmacro %}
+
+<!-- Render navigation item -->
+{% macro render(toc_item, path) %}
+
+  <!-- Determine classes -->
+  {% set class = "md-nav__item" %}
+
+  <!-- Navigation item with nested items -->
+  {% if toc_item.children %}
+    <!-- Detertoc_item.titlemine all nested items that are index pages -->
+    {% set indexes = [] %}
+    {% if "navigation.indexes" in features %}
+      {% for toc_item in toc_item.children %}
+          {% set _ = indexes.append(toc_item) %}
+      {% endfor %}
+    {% endif %}
+
+    <!-- Render 1st level items with nested items as sections -->
+    {% if toc_item.level == 1 %}
+      {% set class = class ~ " md-nav__item--section" %}
+      {% set is_section = true %}
+    {% endif %}
+
+    <!-- Nested navigation item -->
+    <li class="{{ class }} md-nav__item--nested">
+        <!-- Active checkbox expands items contained within nested section -->
+        <input
+          class="md-nav__toggle md-toggle"
+          type="checkbox"
+          id="{{ path }}"
+        />
+
+        <!-- Toggle to expand nested items -->
+        {% set tabindex = "0" if not is_section %}
+        <label
+          class="md-nav__link"
+          for="{{ path }}"
+          id="{{ path }}_label"
+          tabindex="{{ tabindex }}"
+          style="margin-top: 0"
+        >
+          {{ render_content(toc_item) }}
+          <span class="md-nav__icon md-icon" style="margin-top: .625em"></span>
+        </label>
+
+        <!-- Nested navigation -->
+        <nav
+          class="md-nav"
+          data-md-level="{{ level }}"
+          aria-labelledby="{{ path }}_label"
+          aria-expanded="false"
+        >
+          <label class="md-nav__title" for="{{ path }}">
+            <span class="md-nav__icon md-icon" style="margin-top: .625em"></span>
+            {{ render_content(toc_item) }}
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+
+            <!-- Nested navigation item -->
+            {% for toc_item in toc_item.children %}
+              {% if not indexes or toc_item != indexes | first %}
+                {{ render(toc_item, path ~ "_" ~ loop.index) }}
+              {% endif %}
+            {% endfor %}
+          </ul>
+        </nav>
+    </li>
+
+  <!-- Navigation item -->
+  {% else %}
+  <li class="{{ class }}">
+    {{ render_content(toc_item) }}
+  </li>
+{% endif %}
+{% endmacro %}

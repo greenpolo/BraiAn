@@ -13,16 +13,18 @@ nav:
 - How-to guides:
   - how-to-guides.md
   - Notebook page: notebook.ipynb
-- API Reference: reference/
+# - API Reference: reference/
+- API Reference: reference.md
 exclude_docs:
   /resources/
-  /scripts/
 watch:
 - braian
 
 
 theme:
+  # name: mkdocs
   name: material
+  custom_dir: docs/custom_theme/material
   # name: readthedocs
   highlightjs: true
   hljs_languages:
@@ -36,6 +38,8 @@ theme:
   sticky_navigation: true
   locale: en
   logo: null
+extra_css:
+- custom_theme/material/style.css
 
 plugins:
 - search
@@ -51,15 +55,15 @@ plugins:
     # theme: dark
 - progress
 - autorefs
-- gen-files:
-    scripts:
-    - docs/scripts/gen_ref_pages.py
-- literate-nav:
-    nav_file: SUMMARY.md
-- section-index
+# - gen-files:
+#     scripts:
+#     - docs/scripts/gen_ref_pages.py
+# - literate-nav:
+#     nav_file: SUMMARY.md
+# - section-index
 - mkdocstrings:
     default_handler: python
-    custom_templates: templates
+    custom_templates: docs/custom_theme
     handlers:
       python:
         import:
@@ -72,31 +76,45 @@ plugins:
         - https://plotly.com/python-api-reference/objects.inv       # plotly
         - https://matplotlib.org/stable/objects.inv                 # matplotlib
         options:
+          #########
+          # GENERAL
+          show_source: false
+          # preload_modules: [braian.connectome]
+          find_stubs_package: false                                 # splits docs from code
+          ##########
+          # HEADINGS
+          heading_level: 1
+          # parameter_headings: true                                # paid feature, gets permalinks
+          show_root_heading: true
+          show_root_full_path: false
+          show_symbol_type_heading: true
+          show_symbol_type_toc: true
+          #########
+          # MEMBERS
+          inherited_members: true
+          members_order: source # alphabetical
+          filters: ["!^_"]
+          group_by_category: true
+          # summary: true                                           # paid feature
+          ############
+          # DOCSTRINGS
           docstring_style: numpy
           docstring_options:
             ignore_init_summary: false
             warn_unknown_params: true
-          show_if_no_docstring: false
           docstring_section_style: list # table, list or spacy
-          filters: ["!^_"]
-          heading_level: 1
-          inherited_members: true
           merge_init_into_class: true
-          parameter_headings: true
+          show_if_no_docstring: false
           show_docstring_attributes: true
-          # preload_modules: [mkdocstrings]
+          show_docstring_modules: true
+          ############
+          # SIGNATURES
+          annotations_path: source # brief
           show_signature: true
           show_signature_annotations: false
           separate_signature: true
           signature_crossrefs: true
           unwrap_annotated: true
-          modernize_annotations:
-          show_root_heading: true
-          show_root_full_path: false
-          show_source: false
-          show_symbol_type_heading: true
-          show_symbol_type_toc: true
-          summary: true
           # extensions:
           #   - griffe_attrs
 
