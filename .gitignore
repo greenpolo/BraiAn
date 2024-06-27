@@ -8,7 +8,7 @@ data/
 plots/
 **/*.csv
 **/*.html
-!docs/custom_theme/partials/*.html
+!docs/custom_theme/**/*.html
 docs/BraiAn_output/
 docs/QuPath_output/
 .vscode/
