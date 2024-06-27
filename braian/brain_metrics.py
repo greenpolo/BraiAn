@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from enum import Enum, auto
 
+__all__ = ["BrainMetrics"]
+
 # decorates a function [xs: list->float] so that if the list is too short, it returns NaN
 def min_count(fun, min, **kwargs):
     def nan_if_less(xs): # (list | np.array | pd.Series | pd.DataFrame) -> float | pd.Series:

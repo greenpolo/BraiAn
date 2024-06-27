@@ -14,19 +14,17 @@ match platform.system():
     case _:
         resolve_symlink = lambda path: os.path.realpath(path)
 
-from .brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
-from .brain_slice import BrainSlice
-from .sliced_brain import SlicedBrain
-from .brain_data import BrainData
-from .brain_metrics import BrainMetrics
-from .animal_brain import AnimalBrain
-from .animal_group import AnimalGroup, PLS
-from .statistics import as_prism_data
+from .brain_hierarchy import *
+from .brain_slice import *
+from .sliced_brain import *
+from .brain_data import *
+from .brain_metrics import *
+from .animal_brain import *
+from .animal_group import *
+from .statistics import *
 from .utils import cache, save_csv, regions_to_plot, remote_dirs
-from .plot import plot_animal_group, plot_pie, plot_cv_above_threshold, plot_region_density, plot_permutation, \
-                    plot_groups_salience, plot_latent_component, plot_latent_variable, plot_salient_regions, plot_gridgroups, \
-                    bar_sample, to_rgba
+from .plot import *
 
-from braian.connectome import *
+# from braian.connectome import *
 
 from .config import BraiAnConfig

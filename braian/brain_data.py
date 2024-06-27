@@ -17,6 +17,8 @@ from typing import Self
 from braian.deflector import deflect
 from braian.brain_hierarchy import AllenBrainHierarchy
 
+__all__ = ["BrainData"]
+
 def extract_acronym(region_class):
     '''
     This function extracts the region acronym from a QuPath's PathClass assigned by ABBA

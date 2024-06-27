@@ -16,6 +16,26 @@ class Connectome:
                  weighted=False, directed=False,
                  name="", weight_str="",
                  graph: ig.Graph=None) -> None:
+        """
+        _summary_
+
+        Parameters
+        ----------
+        A
+            _description_
+        isolated_vertices, optional
+            _description_, by default True
+        weighted, optional
+            _description_, by default False
+        directed, optional
+            _description_, by default False
+        name, optional
+            _description_, by default ""
+        weight_str, optional
+            _description_, by default ""
+        graph, optional
+            _description_, by default None
+        """
         self.name = name
         self.weight_str = weight_str
         if graph is not None:

@@ -6,6 +6,8 @@ import pandas as pd
 from braian.brain_hierarchy import AllenBrainHierarchy
 from braian.animal_group import AnimalGroup
 
+__all__ = ["as_prism_data"]
+
 def as_prism_data(brain_ontology: AllenBrainHierarchy,
                   group1: AnimalGroup, group2: AnimalGroup, *groups: AnimalGroup,
                   marker=None):

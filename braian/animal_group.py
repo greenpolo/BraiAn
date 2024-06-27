@@ -17,6 +17,8 @@ from braian.brain_metrics import BrainMetrics
 from braian.animal_brain import AnimalBrain, BrainMetrics
 from braian.utils import save_csv
 
+__all__ = ["AnimalGroup", "PLS"]
+
 def common_regions(animals: list[AnimalBrain]) -> list[str]:
     all_regions = [set(brain.get_regions()) for brain in animals]
     return list(reduce(set.__or__, all_regions))

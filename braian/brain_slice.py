@@ -11,6 +11,8 @@ from typing import Self
 from braian.brain_data import is_split_left_right, extract_acronym
 from braian.brain_hierarchy import AllenBrainHierarchy
 
+__all__ = ["BrainSlice"]
+
 global MODE_PathAnnotationObjectError
 global MODE_ExcludedRegionNotRecognisedError
 MODE_PathAnnotationObjectError = "print"

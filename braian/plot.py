@@ -18,6 +18,21 @@ from braian.animal_group import AnimalGroup, PLS
 from braian.brain_data import BrainData
 from braian.brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS, UPPER_REGIONS
 
+__all__ = [
+    "plot_animal_group",
+    "plot_pie",
+    "plot_cv_above_threshold",
+    "plot_region_density",
+    "plot_permutation",
+    "plot_groups_salience",
+    "plot_latent_component",
+    "plot_latent_variable",
+    "plot_salient_regions",
+    "plot_gridgroups",
+    "bar_sample",
+    "to_rgba"
+]
+
 def plot_animal_group(group: AnimalGroup, selected_regions: list[str],
                         animal_size: int, *markers: str, colors=[],
                         orientation="h", plot_hash=None):

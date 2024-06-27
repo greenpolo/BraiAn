@@ -15,6 +15,8 @@ from braian.brain_metrics import BrainMetrics
 from braian.sliced_brain import SlicedBrain, EmptyBrainError
 from braian.brain_data import BrainData
 
+__all__ = ["AnimalBrain"]
+
 class AnimalBrain:
     def __init__(self, markers_data: dict[str,BrainData]=None, areas: BrainData=None) -> None:
         assert len(markers_data) > 0 and areas is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the areas/volumes of each region"

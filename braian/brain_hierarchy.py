@@ -22,6 +22,8 @@ from operator import xor
 from plotly.colors import DEFAULT_PLOTLY_COLORS
 from braian.visit_dict import *
 
+__all__ = ["AllenBrainHierarchy", "MAJOR_DIVISIONS"]
+
 MAJOR_DIVISIONS = [
     "Isocortex",
     "OLF",

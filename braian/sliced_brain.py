@@ -23,6 +23,8 @@ from braian.brain_slice import BrainSlice,\
                         InvalidRegionsHemisphereError, \
                         InvalidExcludedRegionsHemisphereError
 
+__all__ = ["SlicedBrain"]
+
 global MODE_ExcludedAllRegionsError
 global MODE_ExcludedRegionsNotFoundError
 global MODE_EmptyResultsError

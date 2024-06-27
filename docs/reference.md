@@ -1,0 +1,6 @@
+<!--
+SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+::: braian
