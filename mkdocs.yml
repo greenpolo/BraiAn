@@ -13,14 +13,17 @@ nav:
 - How-to guides:
   - how-to-guides.md
   - Notebook page: notebook.ipynb
-- API reference: reference.md
+- API Reference: reference/
 exclude_docs:
   /resources/
+  /scripts/
+watch:
+- braian
 
 
 theme:
-  # name: material
-  name: readthedocs
+  name: material
+  # name: readthedocs
   highlightjs: true
   hljs_languages:
   - python
@@ -48,14 +51,22 @@ plugins:
     # theme: dark
 - progress
 - autorefs
+- gen-files:
+    scripts:
+    - docs/scripts/gen_ref_pages.py
+- literate-nav:
+    nav_file: SUMMARY.md
+- section-index
 - mkdocstrings:
     default_handler: python
+    custom_templates: templates
     handlers:
       python:
         import:
         - https://docs.python.org/3/objects.inv                     # python
-        # - https://numpy.org/doc/stable/objects.inv                  # numpy
+        - https://numpy.org/doc/stable/objects.inv                  # numpy
         - https://python.igraph.org/en/stable/api/objects.inv       # igraph
+        # - https://igraph.org/python/doc/api/objects.inv             # igraph
         - https://docs.scipy.org/doc/scipy/reference/objects.inv    # scipy
         - https://pandas.pydata.org/pandas-docs/stable/objects.inv  # pandas
         - https://plotly.com/python-api-reference/objects.inv       # plotly
@@ -65,23 +76,27 @@ plugins:
           docstring_options:
             ignore_init_summary: false
             warn_unknown_params: true
-          docstring_section_style: table # table, list or spacy
+          show_if_no_docstring: false
+          docstring_section_style: list # table, list or spacy
           filters: ["!^_"]
           heading_level: 1
           inherited_members: true
           merge_init_into_class: true
           parameter_headings: true
+          show_docstring_attributes: true
           # preload_modules: [mkdocstrings]
+          show_signature: true
+          show_signature_annotations: false
           separate_signature: true
+          signature_crossrefs: true
+          unwrap_annotated: true
+          modernize_annotations:
           show_root_heading: true
           show_root_full_path: false
-          show_signature_annotations: true
           show_source: false
           show_symbol_type_heading: true
           show_symbol_type_toc: true
-          signature_crossrefs: true
           summary: true
-          unwrap_annotated: true
           # extensions:
           #   - griffe_attrs
 

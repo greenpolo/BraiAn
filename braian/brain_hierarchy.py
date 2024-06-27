@@ -55,25 +55,27 @@ class AllenBrainHierarchy:
     def __init__(self, path_to_allen_json: str, blacklisted_acronyms: Iterable=[], version=None):
         """
         Crates an ontology of brain regions based on Allen Institute's structure graphs.
-        To know more where to get the structure graphs, see https://community.brain-map.org/t/downloading-an-ontologys-structure-graph/2880.
+        To know more where to get the structure graphs, read the
+        [official guide](https://community.brain-map.org/t/downloading-an-ontologys-structure-graph/2880)
+        from Allen Institute.
         However, the ontology differs from the region annotations depeding on the version of the common coordinate
         framework (CCF). This happens when a new CCF version changes a branch in the ontoloy to reflect a new scientific consesus.
-        In Allen's website, the "old" brain region can be identified in grey italic text: https://atlas.brain-map.org/atlas
-        If you want to clean the ontology based on a particular version of the CCF, you can provide a valid value for ``version``
+        In Allen's website, the "old" brain region can be identified in grey italic text: [](https://atlas.brain-map.org/atlas)
+        If you want to clean the ontology based on a particular version of the CCF, you can provide a valid value for `version`
 
         Parameters
         ----------
         path_to_allen_json
-            The path to an Allen structural graph json 
-        blacklisted_acronyms, optional
-            Acronyms of branches from the onthology to exclude completely from the analysis, by default []
-        version, optional
-            Must be "CCFv1", "CCFv2", "CCFv3", "CCFv4" or None.
-            The version of the Common Coordinates Framework to which sync the onthology, by default None
+            The path to an Allen structural graph json
+        blacklisted_acronyms
+            Acronyms of branches from the onthology to exclude completely from the analysis
+        version
+            Must be `"CCFv1"`, `"CCFv2"`, `"CCFv3"`, `"CCFv4"` or `None`.
+            The version of the Common Coordinates Framework to which sync the onthology
         """
         with open(path_to_allen_json, "r") as file:
             allen_data = json.load(file)
-        
+
         self.dict = allen_data["msg"][0]
         # First label every region as "not blacklisted"
         visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
@@ -90,15 +92,21 @@ class AllenBrainHierarchy:
 
         self.__add_depth_to_regions()
         self.__mark_major_divisions()
-        self.parent_region = self.__get_all_parent_areas()
-        self.direct_subregions = self.__get_all_subregions()
-        # Examples
-        # -------:
-        # >>> self.direct_subregions["ACA"]
-        # ["ACAv", "ACAd"] # (dorsal and ventral part)
-        # >>> self.direct_subregions["ACAv"]
-        # ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"] # all layers in ventral part
-        self.full_name = self.__get_full_names()
+        self.parent_region: dict[str,str] = self.__get_all_parent_areas() #: A dictionary mapping region's acronyms to the parent region. It does not have 'root'.
+        self.direct_subregions: dict[str,list[str]] = self.__get_all_subregions()
+        """A dictionary mappin region's acronyms to a list of direct subregions.
+
+        Examples
+        --------
+        >>> braian.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+        >>> brain_ontology = braian.AllenBrainHierarchy("ontology.json", [])
+        >>> brain_ontology.direct_subregions["ACA"]
+        ["ACAv", "ACAd"]                                    # dorsal and ventral part
+        >>> brain_ontology.direct_subregions["ACAv"]
+        ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"]   # all layers in ventral part
+        """
+        self.full_name: dict[str,str] = self.__get_full_names()
+        """A dictionary mapping a regions' acronym to its full name."""
 
     def __get_unannoted_regions(self, version):
         # alternative implementation: use annotation's nrrd file - https://help.brain-map.org/display/mousebrain/API#API-DownloadAtlas3-DReferenceModels
@@ -117,7 +125,7 @@ class AllenBrainHierarchy:
         url = f"http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/{annotation_version}/structure_masks/structure_masks_10"
         soup = BeautifulSoup(requests.get(url).content, "html.parser")
         if annotation_version == "ccf_2022":
-            regions_w_annotation = [int(link["href"][:-len(".nii.gz")].split("_")[0]) for link in soup.select('a[href*=".nii.gz"]')]    
+            regions_w_annotation = [int(link["href"][:-len(".nii.gz")].split("_")[0]) for link in soup.select('a[href*=".nii.gz"]')]
         else:
             regions_w_annotation = [int(link["href"][len("structure_"):-len(".nrrd")]) for link in soup.select('a[href*=".nrrd"]')]
         regions_wo_annotation = get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dfs)
@@ -131,12 +139,13 @@ class AllenBrainHierarchy:
         ----------
         a
             List of values that identify uniquely a brain region (e.g. their acronyms)
-        key, optional
-            The key in Allen's structural graph used for the check, by default "acronym"
+        key
+            The key in Allen's structural graph used for the check
 
         Returns
         -------
-            An array of bools being True where the corresponding value in ``a`` is a region and False otherwise
+        :
+            An array of bools being True where the corresponding value in `a` is a region and False otherwise
         """
         assert isinstance(a, Iterable), f"Expected a '{Iterable}' but get '{type(a)}'"
         a = list(a)
@@ -149,7 +158,7 @@ class AllenBrainHierarchy:
         visit_dfs(self.dict, "children", check_region)
         return is_region
 
-    def contains_all_children(self, parent: str, regions: Container[str]):
+    def contains_all_children(self, parent: str, regions: Container[str]) -> bool:
         """
         Check whether a brain region contains all the given regions
 
@@ -158,11 +167,12 @@ class AllenBrainHierarchy:
         parent
             An acronym of a brain region
         regions
-            The regions to check as subregions of ``parent``
+            The regions to check as subregions of `parent`
 
         Returns
         -------
-            True if all ``regions`` are direct subregions of ``parent``
+        :
+            True if all `regions` are direct subregions of `parent`
         """
         return all(r in regions for r in self.direct_subregions[parent])
 
@@ -177,6 +187,7 @@ class AllenBrainHierarchy:
 
         Returns
         -------
+        :
             A list of acronyms of regions
 
         Examples
@@ -198,23 +209,23 @@ class AllenBrainHierarchy:
 
     def blacklist_regions(self, regions: Iterable, key="acronym", has_reference=True):
         """
-        Blacklists from further analysis the given ``regions`` the ontology, as well as all their sub-regions.
-        If the reason of blacklisting is that ``regions`` no longer exist in the used version of the
-        Common Coordinate Framework, set ``has_reference=False``
+        Blacklists from further analysis the given `regions` the ontology, as well as all their sub-regions.
+        If the reason of blacklisting is that `regions` no longer exist in the used version of the
+        Common Coordinate Framework, set `has_reference=False`
 
         Parameters
         ----------
         regions
             Regions to blacklist
-        key, optional
-            The key in Allen's structural graph used to identify the ``regions`` to blacklist, by default "acronym"
-        has_reference, optional
-            If ``regions`` exist in the used version of the CCF or not, by default True
+        key
+            The key in Allen's structural graph used to identify the `regions` to blacklist
+        has_reference
+            If `regions` exist in the used version of the CCF or not
 
         Raises
         ------
         ValueError
-            If it can't find at least one of the ``regions`` in the ontology
+            If it can't find at least one of the `regions` in the ontology
         """
         if not all(is_region:=self.are_regions(regions, key=key)):
             raise ValueError(f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}")
@@ -223,19 +234,20 @@ class AllenBrainHierarchy:
             visit_bfs(region_node, "children", lambda n,d: set_blacklisted(n, True))
             if not has_reference:
                 visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
-    
+
     def get_blacklisted_trees(self, key="acronym") -> list:
         """
         Returns the biggest brain region of each branch in the ontology that was blacklisted
 
         Parameters
         ----------
-        key, optional
-            The key in Allen's structural graph used to indentify the returned regions, by default "acronym"
+        key
+            The key in Allen's structural graph used to indentify the returned regions
 
         Returns
         -------
-            A list of blacklisted regions, each of which is identifiable with ``key``
+        :
+            A list of blacklisted regions, each of which is identifiable with `key`
         """
         regions = non_overlapping_where(self.dict, "children", lambda n,d: is_blacklisted(n) and has_reference(n), mode="bfs")
         return [region[key] for region in regions]
@@ -260,8 +272,14 @@ class AllenBrainHierarchy:
 
         See also
         --------
-        `get_selected_reions`, `unselect_all`, `add_to_selection`, `select_at_structural_level`,
-        `select_leaves`, `select_summary_structures`, `select_regions`
+        [`braian.AllenBrainHierarchy.get_selected_regions`][]
+        [`braian.AllenBrainHierarchy.unselect_all`][]
+        [`braian.AllenBrainHierarchy.add_to_selection`][]
+        [`braian.AllenBrainHierarchy.select_at_structural_level`][]
+        [`braian.AllenBrainHierarchy.select_leaves`][]
+        [`braian.AllenBrainHierarchy.select_summary_structures`][]
+        [`braian.AllenBrainHierarchy.select_regions`][]
+        [`braian.AllenBrainHierarchy.get_regions`][]
         """
         def is_selected(node, _depth):
             return _depth == depth or (_depth < depth and not node["children"])
@@ -272,7 +290,7 @@ class AllenBrainHierarchy:
         Select all non-overlapping brain regions at the same structural level in the ontology.
         The _structural level_ is an attribute given to each region by Allen,
         defining different level of granularity to study the brain.
-        If a brain region is above the given ``level`` and has no sub-regions, it is not selected.
+        If a brain region is above the given `level` and has no sub-regions, it is not selected.
 
         Parameters
         ----------
@@ -281,8 +299,14 @@ class AllenBrainHierarchy:
 
         See also
         --------
-        `get_selected_reions`, `unselect_all`, `add_to_selection`, `select_at_depth`,
-        `select_leaves`, `select_summary_structures`, `select_regions`
+        [`braian.AllenBrainHierarchy.get_selected_regions`][]
+        [`braian.AllenBrainHierarchy.unselect_all`][]
+        [`braian.AllenBrainHierarchy.add_to_selection`][]
+        [`braian.AllenBrainHierarchy.select_at_depth`][]
+        [`braian.AllenBrainHierarchy.select_leaves`][]
+        [`braian.AllenBrainHierarchy.select_summary_structures`][]
+        [`braian.AllenBrainHierarchy.select_regions`][]
+        [`braian.AllenBrainHierarchy.get_regions`][]
         """
         add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["st_level"] == level)
 
@@ -293,8 +317,14 @@ class AllenBrainHierarchy:
 
         See also
         --------
-        `get_selected_reions`, `unselect_all`, `add_to_selection`, `select_at_depth`,
-        `select_at_structural_level`, `select_summary_structures`, `select_regions`
+        [`braian.AllenBrainHierarchy.get_selected_regions`][]
+        [`braian.AllenBrainHierarchy.unselect_all`][]
+        [`braian.AllenBrainHierarchy.add_to_selection`][]
+        [`braian.AllenBrainHierarchy.select_at_depth`][]
+        [`braian.AllenBrainHierarchy.select_at_structural_level`][]
+        [`braian.AllenBrainHierarchy.select_summary_structures`][]
+        [`braian.AllenBrainHierarchy.select_regions`][]
+        [`braian.AllenBrainHierarchy.get_regions`][]
         """
         add_boolean_attribute(self.dict, "children", "selected", lambda node, d: is_leaf(node, "children") or \
                               not is_blacklisted(node) and all([is_blacklisted(child) for child in node["children"]]))
@@ -310,8 +340,14 @@ class AllenBrainHierarchy:
 
         See also
         --------
-        `get_selected_reions`, `unselect_all`, `add_to_selection`, `select_at_depth`,
-        `select_at_structural_level`, `select_leaves`, `select_regions`
+        [`braian.AllenBrainHierarchy.get_selected_regions`][]
+        [`braian.AllenBrainHierarchy.unselect_all`][]
+        [`braian.AllenBrainHierarchy.add_to_selection`][]
+        [`braian.AllenBrainHierarchy.select_at_depth`][]
+        [`braian.AllenBrainHierarchy.select_at_structural_level`][]
+        [`braian.AllenBrainHierarchy.select_leaves`][]
+        [`braian.AllenBrainHierarchy.select_regions`][]
+        [`braian.AllenBrainHierarchy.get_regions`][]
         """
         # if self.annotation_version is not None:
         # # if self.annotation_version!= "ccf_2017":
@@ -329,18 +365,24 @@ class AllenBrainHierarchy:
         ----------
         regions
             The brain regions to select
-        key, optional
-            The key in Allen's structural graph used to indentify the regions, by default "acronym"
+        key
+            The key in Allen's structural graph used to indentify the regions
 
         Raises
         ------
         ValueError
-            If it can't find at least one of the ``regions`` in the ontology
+            If it can't find at least one of the `regions` in the ontology
 
         See also
         --------
-        `get_selected_reions`, `unselect_all`, `add_to_selection`, `select_at_depth`,
-        `select_at_structural_level`, `select_leaves`, `select_summary_structures`
+        [`braian.AllenBrainHierarchy.get_selected_regions`][]
+        [`braian.AllenBrainHierarchy.unselect_all`][]
+        [`braian.AllenBrainHierarchy.add_to_selection`][]
+        [`braian.AllenBrainHierarchy.select_at_depth`][]
+        [`braian.AllenBrainHierarchy.select_at_structural_level`][]
+        [`braian.AllenBrainHierarchy.select_leaves`][]
+        [`braian.AllenBrainHierarchy.select_summary_structures`][]
+        [`braian.AllenBrainHierarchy.get_regions`][]
         """
         if not all(is_region:=self.are_regions(regions, key=key)):
             raise ValueError(f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}")
@@ -354,13 +396,19 @@ class AllenBrainHierarchy:
         ----------
         regions
             The brain regions to add to selection
-        key, optional
-            The key in Allen's structural graph used to indentify the regions, by default "acronym"
+        key
+            The key in Allen's structural graph used to indentify the regions
 
         See also
         --------
-        `get_selected_reions`, `unselect_all`, `select_at_depth`,
-        `select_at_structural_level`, `select_leaves`, `select_summary_structures`, `select_regions`
+        [`braian.AllenBrainHierarchy.get_selected_regions`][]
+        [`braian.AllenBrainHierarchy.unselect_all`][]
+        [`braian.AllenBrainHierarchy.select_at_depth`][]
+        [`braian.AllenBrainHierarchy.select_at_structural_level`][]
+        [`braian.AllenBrainHierarchy.select_leaves`][]
+        [`braian.AllenBrainHierarchy.select_summary_structures`][]
+        [`braian.AllenBrainHierarchy.select_regions`][]
+        [`braian.AllenBrainHierarchy.get_regions`][]
         """
         assert all(is_region:=self.are_regions(regions, key=key)), \
             f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}"
@@ -373,17 +421,24 @@ class AllenBrainHierarchy:
 
         Parameters
         ----------
-        key, optional
-            The key in Allen's structural graph used to indentify the regions, by default "acronym"
+        key
+            The key in Allen's structural graph used to indentify the regions
 
         Returns
         -------
-            A list of brain regions identified by ``key``
+        :
+            A list of brain regions identified by `key`
 
         See also
         --------
-        `unselect_all`, `add_to_selection`, `select_at_depth`,
-        `select_at_structural_level`, `select_leaves`, `select_summary_structures`, `select_regions`
+        [`braian.AllenBrainHierarchy.unselect_all`][]
+        [`braian.AllenBrainHierarchy.add_to_selection`][]
+        [`braian.AllenBrainHierarchy.select_at_depth`][]
+        [`braian.AllenBrainHierarchy.select_at_structural_level`][]
+        [`braian.AllenBrainHierarchy.select_leaves`][]
+        [`braian.AllenBrainHierarchy.select_summary_structures`][]
+        [`braian.AllenBrainHierarchy.select_regions`][]
+        [`braian.AllenBrainHierarchy.get_regions`][]
         """
         if "selected" not in self.dict: return []
         regions = non_overlapping_where(self.dict, "children", lambda n,d: n["selected"] and not is_blacklisted(n), mode="dfs")
@@ -395,8 +450,14 @@ class AllenBrainHierarchy:
 
         See also
         --------
-        `get_selected_reions`, `add_to_selection`, `select_at_depth`,
-        `select_at_structural_level`, `select_leaves`, `select_summary_structures`, `select_regions`
+        [`braian.AllenBrainHierarchy.get_selected_regions`][]
+        [`braian.AllenBrainHierarchy.add_to_selection`][]
+        [`braian.AllenBrainHierarchy.select_at_depth`][]
+        [`braian.AllenBrainHierarchy.select_at_structural_level`][]
+        [`braian.AllenBrainHierarchy.select_leaves`][]
+        [`braian.AllenBrainHierarchy.select_summary_structures`][]
+        [`braian.AllenBrainHierarchy.select_regions`][]
+        [`braian.AllenBrainHierarchy.get_regions`][]
         """
         if "selected" in self.dict:
             del_attribute(self.dict, "children", "selected")
@@ -412,16 +473,24 @@ class AllenBrainHierarchy:
 
         Returns
         -------
+        :
             A list of acronyms of brain regions
 
         Raises
         ------
         ValueError
-            If ``selection_method`` is not recognised
+            If `selection_method` is not recognised
 
         See also
         --------
-        `select_at_depth`, `select_at_structural_level`, `select_leaves`, `select_summary_structures`, `select_regions`
+        [`braian.AllenBrainHierarchy.get_selected_regions`][]
+        [`braian.AllenBrainHierarchy.unselect_all`][]
+        [`braian.AllenBrainHierarchy.add_to_selection`][]
+        [`braian.AllenBrainHierarchy.select_at_depth`][]
+        [`braian.AllenBrainHierarchy.select_at_structural_level`][]
+        [`braian.AllenBrainHierarchy.select_leaves`][]
+        [`braian.AllenBrainHierarchy.select_summary_structures`][]
+        [`braian.AllenBrainHierarchy.select_regions`][]
         """
         old_selection = self.get_selected_regions(key="id")
         if old_selection: self.unselect_all()
@@ -464,21 +533,22 @@ class AllenBrainHierarchy:
         ----------
         ids
             The brain regions' IDs to convert
-        mode, optional
-            Must be eithe "breadth" or "depth", by default "depth".
+        mode
+            Must be eithe "breadth" or "depth".
             The order in which the returned acronyms will be: breadth-first or depth-first
 
         Returns
         -------
+        :
             A list of acronyms
 
         Raises
         ------
         ValueError
-            If given ``mode`` is not supported
+            If given `mode` is not supported
 
         ValueError
-            If it can't find at least one of the ``ids`` in the ontology
+            If it can't find at least one of the `ids` in the ontology
         """
         match mode:
             case "breadth":
@@ -500,21 +570,22 @@ class AllenBrainHierarchy:
         ----------
         acronyms
             the brain regons' acronyms to convert
-        mode, optional
-            Must be eithe "breadth" or "depth", by default "depth".
+        mode
+            Must be eithe "breadth" or "depth".
             The order in which the returned acronyms will be: breadth-first or depth-first
 
         Returns
         -------
+        :
             A list of region IDs
 
         Raises
         ------
         ValueError
-            If given ``mode`` is not supported
+            If given `mode` is not supported
 
         ValueError
-            If it can't find at least one of the ``ids`` in the ontology
+            If it can't find at least one of the `ids` in the ontology
         """
         match mode:
             case "breadth":
@@ -528,7 +599,7 @@ class AllenBrainHierarchy:
 
     def get_sibiling_regions(self, region:str|int, key="acronym") -> list:
         """
-        Get all brain regions that, combined, make the whole parent of the given ``region``
+        Get all brain regions that, combined, make the whole parent of the given `region`
 
         It does not take into account blacklisted regions
 
@@ -536,17 +607,18 @@ class AllenBrainHierarchy:
         ----------
         region
             A brain region
-        key, optional
-            The key in Allen's structural graph used to indentify the regions, by default "acronym"
+        key
+            The key in Allen's structural graph used to indentify the regions
 
         Returns
         -------
-            All ``region``'s sibilings, including itself
+        :
+            All `region`'s sibilings, including itself
 
         Raises
         ------
         ValueError
-            If it can't find a parent for the given ``region``
+            If it can't find a parent for the given `region`
         """
         parents = get_parents_where(self.dict, "children", lambda parent,child: child[key] == region, key)
         if len(parents) != 1: raise ValueError(f"Can't find the parent of a region with '{key}': {region}")
@@ -566,17 +638,18 @@ class AllenBrainHierarchy:
         ----------
         regions
             The brain regions to search the parent for
-        key, optional
-            The key in Allen's structural graph used to indentify the regions, by default "acronym"
+        key
+            The key in Allen's structural graph used to indentify the regions
 
         Returns
         -------
+        :
             A dicrtionary mapping region→parent
 
         Raises
         ------
         ValueError
-            If it can't find the parent of one of the given ``regions``
+            If it can't find the parent of one of the given `regions`
         """
         parents = get_parents_where(self.dict, "children", lambda parent,child: child[key] in regions, key)
         for region in regions:
@@ -597,15 +670,16 @@ class AllenBrainHierarchy:
 
         Parameters
         ----------
-        key, optional
-            The key in Allen's structural graph used to indentify the regions, by default "acronym"
+        key
+            The key in Allen's structural graph used to indentify the regions
 
         Returns
         -------
+        :
             A dictionary mapping region→parent
         """
         return {subregion: region for region,subregion in self.__get_edges(key)}
-    
+
     def __get_edges(self, key="id") -> list[tuple]:
         assert key in ("id", "acronym", "graph_order"), "'key' parameter must be  'id', 'acronym' or 'graph_order'"
         edges = []
@@ -627,11 +701,12 @@ class AllenBrainHierarchy:
 
         Parameters
         ----------
-        key, optional
-            The key in Allen's structural graph used to indentify the regions, by default "acronym"
+        key
+            The key in Allen's structural graph used to indentify the regions
 
         Returns
         -------
+        :
             a dictionary that maps region→[subregions...]
         """
         subregions = dict()
@@ -651,20 +726,21 @@ class AllenBrainHierarchy:
         ----------
         acronym
             The acronym of the brain region
-        mode, optional
-            Must be eithe "breadth" or "depth", by default "breadth".
+        mode
+            Must be eithe "breadth" or "depth".
             The order in which the returned acronyms will be: breadth-first or depth-first
 
         Returns
         -------
-            A list of subregions of ``acronym``
+        :
+            A list of subregions of `acronym`
 
         Raises
         ------
         ValueError
-            If given ``mode`` is not supported
+            If given `mode` is not supported
         ValueError
-            If it can't find ``acronym`` in the ontology
+            If it can't find `acronym` in the ontology
         """
         match mode:
             case "breadth":
@@ -683,7 +759,7 @@ class AllenBrainHierarchy:
 
     def get_regions_above(self, acronym: str) -> list[str]:
         """
-        Lists all the regions for which ``acronym`` is a subregion.
+        Lists all the regions for which `acronym` is a subregion.
 
         It does not take into account blacklisted regions
 
@@ -694,7 +770,8 @@ class AllenBrainHierarchy:
 
         Returns
         -------
-            List of all regions above, excluding ``acronym``
+        :
+            List of all regions above, excluding `acronym`
         """
         path = []
         attr = "acronym"
@@ -706,7 +783,7 @@ class AllenBrainHierarchy:
 
     def get_areas_major_division(self, acronym: str, *acronyms: str) -> OrderedDict[str, str]:
         """
-        Finds the corresponding major division for each on the the ``acronyms``.
+        Finds the corresponding major division for each on the the `acronyms`.
         The returned dictionary is sorted in depth-first-search order.
 
         It does not take into account blacklisted regions
@@ -718,6 +795,7 @@ class AllenBrainHierarchy:
 
         Returns
         -------
+        :
             An OrderedDict mapping <region acronym>→<major division>
         """
         def get_region_mjd(node: dict, depth: int):
@@ -736,6 +814,7 @@ class AllenBrainHierarchy:
 
         Returns
         -------
+        :
             A list of acronyms of brain regions
         """
         assert self.annotation_version == "ccf_2017", "Unsupported version of the ontology. The current ontology does not know which regions make up the layer 1"
@@ -747,6 +826,7 @@ class AllenBrainHierarchy:
 
         Returns
         -------
+        :
             A dictionary that maps acronyms→name
         """
         all_nodes = get_all_nodes(self.dict, "children")
@@ -758,6 +838,7 @@ class AllenBrainHierarchy:
 
         Returns
         -------
+        :
             A dictionary that maps acronyms→color
         """
         all_areas = get_all_nodes(self.dict, "children")
@@ -770,6 +851,7 @@ class AllenBrainHierarchy:
 
         Returns
         -------
+        :
             A graph
         """
         def add_attributes(graph: ig.Graph):
@@ -795,6 +877,7 @@ class AllenBrainHierarchy:
 
         Returns
         -------
+        :
             A plotly Figure
         """
         G = self.to_igraph()
@@ -816,20 +899,21 @@ class AllenBrainHierarchy:
 
     def draw_edges(self, G: ig.Graph, layout: ig.Layout, width: int) -> go.Scatter:
         """
-        Draws a plotly Line plot of the given graph ``G``, based on the given layout.
-        If ``G`` is a directed graph, it the drawn edges are arrows
+        Draws a plotly Line plot of the given graph `G`, based on the given layout.
+        If `G` is a directed graph, it the drawn edges are arrows
 
         Parameters
         ----------
         G
             A graph
         layout
-            The layout used to position the nodes of the graph ``G``
+            The layout used to position the nodes of the graph `G`
         width
             The width of the edges' lines
 
         Returns
         -------
+        :
             A plotly scatter trace
         """
         edge_x = []
@@ -850,7 +934,7 @@ class AllenBrainHierarchy:
             hoverinfo="none",
             mode="lines+markers" if G.is_directed() else "lines",
             showlegend=False)
-        
+
         if G.is_directed():
             edges_trace.marker = dict(
                     symbol="arrow",
@@ -858,50 +942,50 @@ class AllenBrainHierarchy:
                     angleref="previous",
                     standoff=8,
                 )
-        
+
         return edges_trace
-    
+
     def draw_nodes(self, G: ig.Graph, layout: ig.Layout, node_size: int,
                 outline_size: float=0.5, use_centrality: bool=False, centrality_metric: str=None,
                 use_clustering: bool=False,
                 metrics: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={"degree": ig.VertexSeq.degree}) -> go.Scatter:
         """
-        Draws a plotly Scatter plot of the given graph ``G``, based on the given layout.
+        Draws a plotly Scatter plot of the given graph `G`, based on the given layout.
 
         Parameters
         ----------
         G
             A graph
         layout
-            The layout used to position the nodes of the graph ``G``
+            The layout used to position the nodes of the graph `G`
         node_size
             The size of the region nodes
-        outline_size, optional
-            the size of the region nodes' outlines, by default 0.5
-        use_centrality, optional
-            If true, it colors the regions nodes based on the attribute defined in ``centrality_metric`` of each ``G`` vertex
-            If false, it uses the corresponding brain region color.  By default, False
-        centrality_metric, optional
-            The name of the attribute used if ``use_centrality=True``, by default None
-        use_clustering, optional
-            If true, it colors the regions nodes outlines based on the ``cluster`` attribute of each ``G`` vertex
-            If false, it uses the corresponding brain region color.  By default, False
-        metrics, optional
-            A dictionary that defines M additional information for the vertices of graph ``G``.
+        outline_size
+            the size of the region nodes' outlines
+        use_centrality
+            If true, it colors the regions nodes based on the attribute defined in `centrality_metric` of each `G` vertex
+            If false, it uses the corresponding brain region color.
+        centrality_metric
+            The name of the attribute used if `use_centrality=True`
+        use_clustering
+            If true, it colors the regions nodes outlines based on the `cluster` attribute of each `G` vertex
+            If false, it uses the corresponding brain region color.
+        metrics
+            A dictionary that defines M additional information for the vertices of graph `G`.
             The keys are title of an additional metric, while the values are functions that
-            take a ``igraph.VertexSeq`` and spits a value for each vertex.
-            By default {"degree": ig.VertexSeq.degree}
+            take a `igraph.VertexSeq` and spits a value for each vertex.
 
         Returns
         -------
+        :
             A plotly scatter trace
 
         Raises
         ------
         ValueError
-            If ``use_centrality=True``, but the vertices of ``G`` have no attribute as defined in ``centrality_metric``
+            If `use_centrality=True`, but the vertices of `G` have no attribute as defined in `centrality_metric`
         ValueError
-            If ``use_clustering=True``, but the vertices of ``G`` have no ``cluster`` attribute
+            If `use_clustering=True`, but the vertices of `G` have no `cluster` attribute
         """
         colors = self.get_region_colors()
         nodes_color = []
@@ -942,12 +1026,12 @@ class AllenBrainHierarchy:
             showlegend=False
         )
         return nodes_trace
-    
+
     def nodes_hover_info(self, G: ig.Graph,
                          title_dict: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={}
                          ) -> tuple[npt.NDArray,str]:
         """
-        Computes the information when hovering over a vertex of the graph ``G``.
+        Computes the information when hovering over a vertex of the graph `G`.
         It allows to add additional information based on given functions.
         Returns a tuple where the first element is an matrix of custom data,
         while the second element is a hover template.
@@ -957,14 +1041,14 @@ class AllenBrainHierarchy:
         ----------
         G
             A graph with N vertices
-        title_dict, optional
-            A dictionary that defines M additional information for the vertices of graph ``G``.
+        title_dict
+            A dictionary that defines M additional information for the vertices of graph `G`.
             The keys are title of an additional metric, while the values are functions that
-            take a ``igraph.VertexSeq`` and spits a value for each vertex.
-            By default {}
+            take a `igraph.VertexSeq` and spits a value for each vertex.
 
         Returns
         -------
+        :
             A customdata M×N matrix and a hovertemplate
         """
         customdata = []

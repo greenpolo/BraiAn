@@ -27,13 +27,6 @@ from .plot import plot_animal_group, plot_pie, plot_cv_above_threshold, plot_reg
                     plot_groups_salience, plot_latent_component, plot_latent_variable, plot_salient_regions, plot_gridgroups, \
                     bar_sample, to_rgba
 
-from .connectome.connectome_adjacency import ConnectomeAdjacency
-from .connectome.cross_correlation import CrossCorrelation
-from .connectome.connectome import Connectome
-from .connectome.functional import FunctionalConnectome
-from .connectome.structural import StructuralConnectome
-from .connectome.pruned import PrunedConnectomics
-from .connectome.plot import draw_network_plot
-from .connectome.plot_chord import draw_chord_plot
+from braian.connectome import *
 
 from .config import BraiAnConfig
