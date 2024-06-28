@@ -21,16 +21,13 @@ Create and activate a new `python=>3.11` environment.
  <tr>
     <td>
       Using <a href="https://docs.continuum.io/anaconda/"><code>conda</code></a>:</p>
-      <code>
-      $ conda create --name braian_env python=3.11</p>
-      $ conda activate braian_env
-      </code>
+      <pre><code class="language-bash">$ conda create --name braian_env python=3.11
+$ conda activate braian_env</code></pre>
     </td>
     <td>
       Using python venv:</p>
-      <code>
-      $ python3.11 -m venv /path/to/new/braian_env
-      </code></p>
+      <code class="language-bash">$ python3.11 -m venv /path/to/new/braian_env</code>
+      </p>
       and <a href="https://docs.python.org/3/library/venv.html#how-venvs-work">activate it</a>
     </td>
  </tr>
