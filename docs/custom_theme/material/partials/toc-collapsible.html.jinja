@@ -6,7 +6,7 @@
 
 <!-- Can't override toc.html because it is also used by nav-item.html for a hacky workaround -->
 
-{% import "partials/toc-item-collapsible.html" as item with context %}
+{% import "partials/toc-item-collapsible.html.jinja" as item with context %}
 
 <!-- Determine title -->
 {% set title = lang.t("toc") %}

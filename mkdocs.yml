@@ -14,7 +14,8 @@ nav:
   - how-to-guides.md
   - Notebook page: notebook.ipynb
 # - API Reference: reference/
-- API Reference: reference.md
+- API Reference:
+  - <code>braian</code>: reference.md
 exclude_docs:
   /resources/
 watch:

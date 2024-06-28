@@ -39,14 +39,14 @@ Context:
               {% if parameter.annotation %}
                 {% with expression = parameter.annotation %}
                   : <code>{% include "expression"|get_template with context %}</code>
-                  {%- if parameter.default %}, {{ lang.t("default") }}=
+                  {%- if parameter.default %}, default=
                     {% with expression = parameter.default %}
                       <code>{% include "expression"|get_template with context %}</code>
                     {% endwith %}
                   {% endif %}
                 {% endwith %}
               {% endif %}
-              <dd style="margin-left:2rem">
+              <dd style="margin: 0.5rem 0 1rem 2rem">
                 <div class="doc-md-description">
                   {{ parameter.description|convert_markdown(heading_level, html_id) }}
                 </div>
