@@ -11,13 +11,17 @@ import numpy as np
 import os
 import pandas as pd
 import re
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from typing import Self
 
 from braian.deflector import deflect
 from braian.brain_hierarchy import AllenBrainHierarchy
 
 __all__ = ["BrainData"]
+
+class UnkownBrainRegionsError(Exception):
+    def __init__(self, unknown_regions: Iterable[str]):
+        super().__init__(f"The following regions are unknown to the given brain ontology: '"+"', '".join(unknown_regions)+"'")
 
 def extract_acronym(region_class):
     '''
@@ -45,6 +49,19 @@ def is_split_left_right(index: pd.Index):
 
 def split_index(regions: list[str]) -> list[str]:
     return [": ".join(t) for t in itertools.product(("Left", "Right"), regions)]
+
+def sort_by_ontology(data: pd.DataFrame|pd.Series, brain_ontology: AllenBrainHierarchy,
+                     fill=False, fill_value=np.nan) -> pd.DataFrame|pd.Series:
+        all_regions = brain_ontology.list_all_subregions("root", mode="depth")
+        if is_split_left_right(data.index):
+            all_regions = split_index(all_regions)
+        if len(unknown_regions:=data.index[~data.index.isin(all_regions)]) > 0:
+            raise UnkownBrainRegionsError(unknown_regions)
+        if not fill:
+            all_regions = np.array(all_regions)
+            all_regions = all_regions[np.isin(all_regions, data.index)]
+        # NOTE: if fill_value=np.nan -> converts dtype to float
+        return data.reindex(all_regions, copy=False, fill_value=fill_value)
 
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
     @staticmethod
@@ -94,16 +111,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     
     def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy,
                           fill=False, inplace=False) -> Self:
-        all_regions = brain_ontology.list_all_subregions("root", mode="depth")
-        if self.is_split:
-            all_regions = split_index(all_regions)
-        if len(unknown_regions:=self.data.index[~self.data.index.isin(all_regions)]) > 0:
-            raise ValueError(f"The following regions are unknown to the given brain ontology: '"+"', '".join(unknown_regions)+"'")
-        if not fill:
-            all_regions = np.array(all_regions)
-            all_regions = all_regions[np.isin(all_regions, self.data.index)]
-        # NOTE: since fill_value=np.nan -> converts dtype to float
-        data = self.data.reindex(all_regions, copy=False, fill_value=np.nan)
+        data = sort_by_ontology(self.data, brain_ontology, fill=fill, fill_value=np.nan)
         if not inplace:
             return BrainData(data, self.data_name, self.metric, self.units)
         else:
