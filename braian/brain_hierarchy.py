@@ -138,6 +138,24 @@ class AllenBrainHierarchy:
         regions_wo_annotation = get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dfs)
         return [region["acronym"] for region in regions_wo_annotation], annotation_version
 
+    def is_region(self, r: int|str, key: str="acronym") -> bool:
+        """
+        Check whether a region is recognised in the current ontology or not
+
+        Parameters
+        ----------
+        r
+            A value that uniquely indentifies a brain region (e.g. its acronym)
+        key
+            The key in Allen's structural graph used to identify `r`
+
+        Returns
+        -------
+            True, if a region identifiable by `r` exists in the ontoloy. False otherwise.
+        """
+        return find_subtree(self.dict, key, r, "children") is not None
+        
+
     def are_regions(self, a: Iterable, key: str="acronym") -> npt.NDArray:
         """
         Check whether each of the elements of the iterable are a brain region of the current ontology or not
@@ -147,7 +165,7 @@ class AllenBrainHierarchy:
         a
             List of values that identify uniquely a brain region (e.g. their acronyms)
         key
-            The key in Allen's structural graph used for the check
+            The key in Allen's structural graph used to identify `a`
 
         Returns
         -------
@@ -781,7 +799,6 @@ class AllenBrainHierarchy:
             List of all regions above, excluding `acronym`
         """
         path = []
-        attr = "acronym"
         while acronym in self.parent_region.keys():
             parent = self.parent_region[acronym]
             path.append(parent)
