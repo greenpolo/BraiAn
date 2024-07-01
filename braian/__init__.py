@@ -5,11 +5,13 @@
 import os
 import platform
 
+from pathlib import Path
+
 match platform.system():
     case "Windows":
         import win32com.client
         shell = win32com.client.Dispatch("WScript.Shell")
-        def resolve_symlink(path: str):
+        def resolve_symlink(path: str|Path):
             return shell.CreateShortCut(path).Targetpath if path.endswith(".lnk") else path
     case _:
         resolve_symlink = lambda path: os.path.realpath(path)

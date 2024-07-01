@@ -2,12 +2,17 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
+import errno
 import os
 import numpy as np
 import pandas as pd
+import platform
 import requests
 import sys
 from importlib import resources
+from pathlib import Path
+
+from braian import resolve_symlink
 
 def cache(filepath, url):
     if os.path.exists(filepath):
@@ -23,6 +28,24 @@ def get_resource_path(resource_name: str):
                                     .joinpath("resources")
                                     .joinpath(resource_name)) as path:
         return path
+
+
+def search_file_or_simlink(file_path: str|Path) -> Path:
+    if not isinstance(file_path, Path):
+        file_path = Path(file_path)
+    if not file_path.exists(): # follow_symlinks=False, from Python 3.12
+        if platform.system() == "Windows":
+            file_path_lnk = file_path.with_suffix(file_path.suffix + ".lnk")
+            if file_path_lnk.exists(): # follow_symlinks=True, from Python 3.12
+                try:
+                    return Path(resolve_symlink(file_path_lnk))
+                except OSError:
+                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), file_path)
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), file_path)
+    try:
+        return Path(resolve_symlink(file_path))
+    except OSError:
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), file_path)
 
 def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False, sep="\t", decimal=".", **kwargs) -> None:
     os.makedirs(output_path, exist_ok=True)

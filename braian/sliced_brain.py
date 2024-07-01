@@ -6,7 +6,6 @@ import copy
 import numpy as np
 import os
 import pandas as pd
-import platform
 import re
 from typing import Self
 
@@ -65,20 +64,22 @@ class SlicedBrain:
         self.slices: list[BrainSlice] = []
         for image in images:
             results_file = os.path.join(csv_slices_dir, f"{image}_regions.txt")
-            if not os.path.exists(results_file) and platform.system() == "Windows":
-                results_file += ".lnk"
-            regions_to_exclude_file = os.path.join(excluded_regions_dir, f"{image}_regions_to_exclude.txt")
-            if not os.path.exists(regions_to_exclude_file) and platform.system() == "Windows":
-                regions_to_exclude_file += ".lnk"
+            excluded_regions_file = os.path.join(excluded_regions_dir, f"{image}_regions_to_exclude.txt")
             try:
-                slice = BrainSlice(brain_ontology,
-                                    resolve_symlink(results_file),
-                                    resolve_symlink(regions_to_exclude_file), exclude_parent_regions,
-                                    self.name, image,
-                                    area_key, tracers_key, self.markers, area_units=area_units)
+                # Setting brain_ontology=None, we don't check that the data corresponds to real brain regions
+                # we post-pone the check later in the analysis for performance reasons.
+                # The assumption is that if you're creating a SlicedBrain, you will eventually do
+                # group analysis. Checking against the ontology for each slice would be too time consuming.
+                # We can do it afterwards, after the SlicedBrain is reduced to AnimalBrain
+                slice: BrainSlice = BrainSlice.from_qupath(results_file,
+                                               area_key, tracers_key, self.markers,
+                                               animal=self.name, name=image, is_split=True,
+                                               area_units=area_units, brain_ontology=None)
+                exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
+                slice.exclude_regions(exclude, brain_ontology, exclude_parent_regions)
             except BrainSliceFileError as e:
                 mode = self.get_default_error_mode(e)
-                self.handle_brainslice_error(e, mode, results_file, regions_to_exclude_file)
+                self.handle_brainslice_error(e, mode, results_file, excluded_regions_file)
             else:
                 self.slices.append(slice)
         if len(self.slices) == 0:
@@ -111,14 +112,14 @@ class SlicedBrain:
         assert issubclass(type(exception), BrainSliceFileError), ""
         match mode:
             case "delete":
-                print(exception, "\nRemoving the corresponding result and regions_to_exclude files.")
+                print(f"Animal '{self.name}' -", exception, "\nRemoving the corresponding result and regions_to_exclude files.")
                 os.remove(results_file)
                 if type(exception) != ExcludedRegionsNotFoundError:
                     os.remove(regions_to_exclude_file)
             case "error":
                 raise exception
             case "print":
-                print(exception)
+                print(f"Animal '{self.name}' -", exception)
             case "silent":
                 pass
             case _:
