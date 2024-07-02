@@ -61,22 +61,61 @@ class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
         return f"Exclusions for Slice {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
 
 class BrainSlice:
+    __QUPATH_AREA = "Area um^2"
+
     @staticmethod
-    def from_qupath(csv_file: str|Path, area_key: str,
-                    tracers_key: str|list[str], markers_key: str|list[str],
+    def from_qupath(csv_file: str|Path, detected_channels: str|list[str], markers: str|list[str],
                     *args, **kwargs) -> Self:
-        if isinstance(tracers_key, str):
-            tracers_key = [tracers_key]
-        if isinstance(markers_key, str):
-            markers_key = [markers_key]
-        assert len(tracers_key) == len(markers_key), f"The number of tracers ({len(tracers_key)}) differs from the number of markers ({len(markers_key)})"
+        """
+        Creates a [`BrainSlice`][braian.BrainSlice] from a file exported with
+        [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian).
+        Additional arguments are passed to [`BrainSlice.__init__`][braian.BrainSlice.__init__]
+
+        Parameters
+        ----------
+        csv_file
+            The path to file exported with [`AtlasManager.saveResults()`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AtlasManager.html#saveResults(java.util.List,java.io.File))
+        detected_channels
+            The name of the QuPath channel used to segment detections in each brain region.
+            It accepts more than one channel name if multiple detections were segmented from multiple channels.
+        markers
+            The name of the marker visible in the correspondant `detected_channels`.
+            It accepts the same number of markers as the number of `detected_channels`,
+            if multiple detections were segmented from multiple channels.
+
+        Returns
+        -------
+            A [`BrainSlice`][braian.BrainSlice]
+
+        Raises
+        ------
+        EmptyResultsError
+            If the given `csv_file` is empty
+        InvalidResultsError
+            If the given `csv_file` is an invalid file. Probably because it was not exported through
+            [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian).
+        NanResultsError
+            If the number of total detections in all brain regions, exported from QuPath, is undefined
+        MissingResultsColumnError
+            If `csv_file` is missing reporting the number of detection in at least one `detected_channels`.
+        """
+        if isinstance(detected_channels, str):
+            detected_channels = [detected_channels]
+        detections_cols = [BrainSlice.__column_from_qupath_channel(ch) for ch in detected_channels]
+        if isinstance(markers, str):
+            markers = [markers]
+        assert len(detections_cols) == len(markers), f"The number of tracers ({len(detections_cols)}) differs from the number of markers ({len(markers)})"
         data = BrainSlice.__read_qupath_data(search_file_or_simlink(csv_file))
-        BrainSlice.__check_columns(data, [area_key, *tracers_key], csv_file)
-        data = pd.DataFrame(data, columns=[area_key, *tracers_key])
+        BrainSlice.__check_columns(data, [BrainSlice.__QUPATH_AREA, *detections_cols], csv_file)
+        data = pd.DataFrame(data, columns=[BrainSlice.__QUPATH_AREA, *detections_cols])
         # NOTE: not needed since qupath-extension-braian>=1.0.1
-        BrainSlice.__fix_nan_countings(data, tracers_key)
-        data.rename(columns={area_key: "area"} | dict(zip(tracers_key, markers_key)), inplace=True)
+        BrainSlice.__fix_nan_countings(data, detections_cols)
+        data.rename(columns={BrainSlice.__QUPATH_AREA: "area"} | dict(zip(detections_cols, markers)), inplace=True)
         return BrainSlice(data, *args, **kwargs)
+
+    @staticmethod
+    def __column_from_qupath_channel(channel: str) -> str:
+        return f"Num {channel}"
 
     @staticmethod
     def __read_qupath_data(csv_file: str) -> pd.DataFrame:
@@ -130,6 +169,24 @@ class BrainSlice:
 
     @staticmethod
     def read_qupath_exclusions(file_path: Path|str) -> list[str]:
+        """
+        Reads the regions to exclude from the analysis of a [`BrainSlice`][braian.BrainSlice]
+        from a file exported with [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian).
+
+        Parameters
+        ----------
+        file_path
+            The path to file exported with [`AtlasManager.saveExcludedRegions()`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AtlasManager.html#saveExcludedRegions(java.io.File)).
+
+        Returns
+        -------
+            A list of acronyms of brain regions.
+
+        Raises
+        ------
+        ExcludedRegionsNotFoundError
+            If the `file_path` was not found.
+        """
         try:
             with open(search_file_or_simlink(file_path), mode="r", encoding="utf-8") as file:
                 excluded_regions = file.readlines()
@@ -166,16 +223,46 @@ class BrainSlice:
 
     def __init__(self, data: pd.DataFrame, animal:str, name: str, is_split: bool,
                  area_units: str="µm2", brain_ontology: AllenBrainHierarchy|None=None) -> None:
+        """
+        Creates a `BrainSlice` from a [`DataFrame`][pd.DataFrame]. Each row representes the data
+        of a single brain region, whose acronym is used as index. If the data was collected
+        distinguishing between the two hemispheres, the index is expected to be either `Left: <ACRONYM>`
+        or `Right: <ACRONYM>`. The DataFrame is expected to have at least two columns: one named `"area"`
+        corresponding to the size in `area_units`, and the others corresponding to the markers used to
+        measure brain activity.
+
+        Parameters
+        ----------
+        data
+            The data extracted from a brain slice.
+        animal
+            The name of the animal from which the slice was cut.
+        name
+            The name of hte brain slice.
+        is_split
+            Whether the data was extracted distinguishing between the two hemispheres or not.
+        area_units
+            The units of measurements used by `"area"` column in `data`.
+            Accepted values are: `"µm2"`, `"um2"` or `mm2`.
+        brain_ontology
+            If specified, it checks the brain regions in `data` against the given ontology
+            and it sorts the rows in depth-first order in ontology's hierarchy.
+
+        Raises
+        ------
+        InvalidRegionsHemisphereError
+            If `is_split=True` but some rows' indices don't start with `"Left: "` or with `"Right: "`.
+        ValueError
+            If the specified `area_units` is unknown.
+        """
         self.animal = animal
         self.name = name
         self.data = data
         self.is_split = is_split_left_right(self.data.index)
         if is_split and not self.is_split:
             raise InvalidRegionsHemisphereError(file=self.name)
-        if brain_ontology is not None:
-            self.data = sort_by_ontology(self.data, brain_ontology, fill=False)
-
         BrainSlice.__check_columns(self.data, ("area",), self.name)
+        assert self.data.shape[1] >= 2, "'data' should have at least one column, apart from 'area', containing per-region data"
         match area_units:
             case "µm2" | "um2":
                 self.__area_µm2_to_mm2()
@@ -185,6 +272,8 @@ class BrainSlice:
                 raise ValueError("A brain slice's area can only be expressed in µm² or mm²!")
         assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
         self.data = self.data[self.data["area"] > 0]
+        if brain_ontology is not None:
+            self.data = sort_by_ontology(self.data, brain_ontology, fill=False)
 
         self.markers_density = self.__marker_density()
 

@@ -45,17 +45,16 @@ class EmptyBrainError(Exception): pass
 
 class SlicedBrain:
     def __init__(self, name: str, animal_dir: str, brain_ontology: AllenBrainHierarchy,
-                area_key: str, tracers_key, markers_key, overlapping_tracers: list[list[int]], area_units="µm2",
+                qupath_channels, markers_key, overlapping_tracers: list[list[int]], area_units="µm2",
                 exclude_parent_regions=False) -> None:
         self.name = name
-        if not isinstance(tracers_key, str) and len(overlapping_tracers) > 0:
+        if not isinstance(qupath_channels, str) and len(overlapping_tracers) > 0:
             # QuPath specific
-            qupath_channels = [remove_qupath_num(t) for t in tracers_key]
             overlapping_channels = get_overlapping_keys(qupath_channels, [overlapping_tracers])
-            overlapping_detections = [f"Num {c1}~{c2}" for c1,c2 in overlapping_channels]
-            assert all([o not in tracers_key for o in overlapping_detections]), f"You don't have to specify the columns of the overlapping detections {overlapping_detections}.\n"+\
+            overlapping_detections = [f"{c1}~{c2}" for c1,c2 in overlapping_channels]
+            assert all([o not in qupath_channels for o in overlapping_detections]), f"You don't have to specify the columns of the overlapping detections {overlapping_detections}.\n"+\
             "Just pass the indices of the markers you want to do an overlapping comparison with."
-            tracers_key = copy.copy(tracers_key) + overlapping_detections
+            qupath_channels = copy.copy(qupath_channels) + overlapping_detections
         self.markers = [markers_key] if isinstance(markers_key, str) else copy.copy(markers_key)
         self.markers += [f"{m1}+{m2}" for m1,m2 in get_overlapping_keys(self.markers, [overlapping_tracers])]
         excluded_regions_dir = os.path.join(animal_dir, "regions_to_exclude")
@@ -72,7 +71,7 @@ class SlicedBrain:
                 # group analysis. Checking against the ontology for each slice would be too time consuming.
                 # We can do it afterwards, after the SlicedBrain is reduced to AnimalBrain
                 slice: BrainSlice = BrainSlice.from_qupath(results_file,
-                                               area_key, tracers_key, self.markers,
+                                               qupath_channels, self.markers,
                                                animal=self.name, name=image, is_split=True,
                                                area_units=area_units, brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
@@ -159,9 +158,6 @@ class SlicedBrain:
         brain.slices = [BrainSlice.merge_hemispheres(brain_slice) for brain_slice in brain.slices]
         brain.is_split = False
         return brain
-
-def remove_qupath_num(detection_key: str) -> str:
-    return re.compile("Num (.+)").findall(detection_key)[0]
 
 def get_overlapping_keys(values: list[str], overlapping_tracers: list[tuple[int,int]]) -> list[str]:
     assert all([len(idx) == 2 for idx in overlapping_tracers]), "Overlapping marker analyisis is supported only between two markers!"
