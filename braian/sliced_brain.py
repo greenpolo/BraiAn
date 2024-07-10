@@ -45,7 +45,7 @@ class EmptyBrainError(Exception): pass
 
 class SlicedBrain:
     def __init__(self, name: str, animal_dir: str, brain_ontology: AllenBrainHierarchy,
-                qupath_channels, markers_key, overlapping_tracers: list[list[int]], area_units="µm2",
+                qupath_channels, markers_key, overlapping_tracers: list[int], area_units="µm2",
                 exclude_parent_regions=False) -> None:
         self.name = name
         if not isinstance(qupath_channels, str) and len(overlapping_tracers) > 0:

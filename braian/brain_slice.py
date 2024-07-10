@@ -338,6 +338,8 @@ class BrainSlice:
                         self.data.drop(row, inplace=True)
         except Exception:
             raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
+        finally:
+            self.markers_density = self.__marker_density()
         if len(self.data) == 0:
             raise ExcludedAllRegionsError(file=self.name)
     
