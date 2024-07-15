@@ -13,24 +13,17 @@ nav:
 - How-to guides:
   - how-to-guides.md
   - Notebook page: notebook.ipynb
-# - API Reference: reference/
 - API Reference:
-  - <code>braian</code>: reference.md
+  - braian: reference.md
 exclude_docs:
   /resources/
 watch:
 - braian
 
-
 theme:
-  # name: mkdocs
-  name: material
-  custom_dir: docs/custom_theme/material
-  # name: readthedocs
-  highlightjs: true
-  hljs_languages:
-  - python
-  # - toml
+  # name: material
+  # custom_dir: docs/custom_theme/material
+  name: readthedocs
   include_homepage_in_sidebar: true
   prev_next_buttons_location: bottom
   navigation_depth: 4
@@ -62,6 +55,31 @@ plugins:
 # - literate-nav:
 #     nav_file: SUMMARY.md
 # - section-index
+- multi-theme:
+    additional_themes:
+    # - pages:
+    #   - index.md
+    #   - tutorials.md
+    #   - how-to-guides.md
+    #   - notebook.ipynb
+    #   theme:
+    #     name: readthedocs
+    - pages:
+      - reference.md
+      theme:
+        name: material
+        custom_dir: docs/custom_theme/material
+        highlightjs: true
+        hljs_languages:
+        - python
+        include_homepage_in_sidebar: true
+        prev_next_buttons_location: bottom
+        navigation_depth: 4
+        collapse_navigation: true
+        titles_only: false
+        sticky_navigation: true
+        locale: en
+        logo: null
 - mkdocstrings:
     default_handler: python
     custom_templates: docs/custom_theme
