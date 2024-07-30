@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2022 Free Software Foundation Europe e.V. <https://fsfe.org>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# from https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0
+
+when:
+  - event: [push, manual]
+    branch: master
+
+steps:
+  build-docs:
+    image: python:3.11-buster
+    environment:
+      POETRY_NO_INTERACTION: 1
+      POETRY_VIRTUALENVS_CREATE: 0
+      POETRY_CACHE_DIR: /tmp/poetry_cache
+    commands:
+      - python -m pip install --upgrade pip --root-user-action=ignore
+      - python -m pip install poetry==1.8.3 --root-user-action=ignore
+      - poetry install --only docs && rm -rf $POETRY_CACHE_DIR
+      - mkdocs build
+
+  deploy-docs:
+    image: codeberg.org/xfix/plugin-codeberg-pages-deploy:1
+    settings:
+      folder: site
+      branch: pages
+      ssh_key:
+        from_secret: codeberg_push_from_ci_priv_key
