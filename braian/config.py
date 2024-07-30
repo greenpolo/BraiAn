@@ -6,8 +6,8 @@ import itertools
 import os
 import pandas as pd
 import re
-import tomllib
-from collections import namedtuple
+import toml
+from collections import OrderedDict, namedtuple
 from typing import Self
 
 from braian.animal_brain import AnimalBrain
@@ -22,6 +22,7 @@ from braian.utils import cache
 
 # # ######################################### LOAD CONFIG #########################################
 # EXPERIMENT_NAME = config["experiment"]["name"]
+
 class BraiAnConfig:
     class GroupDirectory:
         def __init__(self, id: int, name: str, animal_directories: list[str]) -> None:
@@ -38,10 +39,10 @@ class BraiAnConfig:
                 if not os.path.isdir(animal_dir):
                     print(f"WARNING: could not find the directory '{animal_dir}'. Skipping animal '{name}'.")
                     continue
-                sliced_brain = SlicedBrain(name,
-                                           animal_dir,
-                                           *args,
-                                           **kwargs)
+                sliced_brain = SlicedBrain.from_qupath(name,
+                                                       animal_dir,
+                                                       *args,
+                                                       **kwargs)
                 # self._fix_overlap_detection_if_old_qpscript(sliced_brain)
                 if threshold > 0:
                     # TODO: consider to use this option *only* for the coefficient of variation plot!
@@ -222,8 +223,8 @@ class BraiAnConfig:
                  data_path: str,
                  config_file: str,
                  ) -> None:
-        with open(config_file, "rb") as f:
-            self.config = tomllib.load(f)
+        with open(config_file, "r") as f:
+            self.config = toml.load(f, _dict=OrderedDict)
         
         self.data_path = data_path
         path_to_allen_json = os.path.join(self.data_path, "AllenMouseBrainOntology.json")
@@ -256,12 +257,11 @@ class BraiAnConfig:
                 path_to_group,
                 self.config["brains"]["slices-min-area"],
                 self.config["brains"]["slices-remove-singles"],
-                self.brain_ontology,
-                self.config["brains"]["qupath-channels"],
-                self.config["brains"]["markers"],
-                *overlapping_tracers,
+                ch2marker=self.config["brains"]["markers"],
+                brain_ontology=self.brain_ontology,
+                overlapping_markers=overlapping_tracers[0],
                 area_units="µm2",
-                exclude_parent_regions=True,
+                exclude_parent_regions=True
             )
             print(f"Imported all brain slices from {len(group_dir.animal_names)} animals of '{group_dir.name}' group.")
         return [g.sliced_brains for g in self.groups]
@@ -309,7 +309,7 @@ class BraiAnConfig:
         return result
     
     def _imarker(self, i):
-        return self.config["brains"]["markers"][i-1]
+        return list(self.config["brains"]["markers"].values())[i-1]
     
     # def remove_high_variation_regions(self, threshold: float):
     #     for group in self.groups:

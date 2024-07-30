@@ -57,13 +57,6 @@ plugins:
 # - section-index
 - multi-theme:
     additional_themes:
-    # - pages:
-    #   - index.md
-    #   - tutorials.md
-    #   - how-to-guides.md
-    #   - notebook.ipynb
-    #   theme:
-    #     name: readthedocs
     - pages:
       - reference.md
       theme:

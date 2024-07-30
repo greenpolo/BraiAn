@@ -69,7 +69,7 @@ class BrainSlice:
         """
         Creates a [`BrainSlice`][braian.BrainSlice] from a file exported with
         [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian).
-        Additional arguments are passed to [`BrainSlice.__init__`][braian.BrainSlice.__init__]
+        Additional arguments are passed to `BrainSlice`'s constructor
 
         Parameters
         ----------
@@ -224,7 +224,7 @@ class BrainSlice:
     def __init__(self, data: pd.DataFrame, animal:str, name: str, is_split: bool,
                  area_units: str="µm2", brain_ontology: AllenBrainHierarchy|None=None) -> None:
         """
-        Creates a `BrainSlice` from a [`DataFrame`][pd.DataFrame]. Each row representes the data
+        Creates a `BrainSlice` from a [`DataFrame`][pandas.DataFrame]. Each row representes the data
         of a single brain region, whose acronym is used as index. If the data was collected
         distinguishing between the two hemispheres, the index is expected to be either `Left: <ACRONYM>`
         or `Right: <ACRONYM>`. The DataFrame is expected to have at least two columns: one named `"area"`
