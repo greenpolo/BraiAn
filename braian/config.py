@@ -257,10 +257,9 @@ class BraiAnConfig:
                 path_to_group,
                 self.config["brains"]["slices-min-area"],
                 self.config["brains"]["slices-remove-singles"],
-                ch2marker=self.config["brains"]["markers"],
                 brain_ontology=self.brain_ontology,
+                ch2marker=self.config["brains"]["markers"],
                 overlapping_markers=overlapping_tracers[0],
-                area_units="µm2",
                 exclude_parent_regions=True
             )
             print(f"Imported all brain slices from {len(group_dir.animal_names)} animals of '{group_dir.name}' group.")

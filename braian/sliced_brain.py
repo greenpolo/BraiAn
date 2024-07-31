@@ -46,21 +46,58 @@ MODE_InvalidExcludedRegionsHemisphereError = "print"
 class EmptyBrainError(Exception): pass
 
 class SlicedBrain:
-    __QUPATH_DIR_NAME_RESULTS = "results"
-    __QUPATH_DIR_NAME_EXCLUSIONS = "regions_to_exclude"
+    __QUPATH_AREA_UNITS = "µm2"
 
     @staticmethod
     def from_qupath(name: str,
                     animal_dir: str|Path,
-                    ch2marker: dict[str,str]|OrderedDict[str,str],
                     brain_ontology: AllenBrainHierarchy,
+                    ch2marker: dict[str,str]|OrderedDict[str,str],
                     overlapping_markers: Iterable[int]=(),
-                    area_units: str="µm2",
-                    exclude_parent_regions: bool=False) -> Self:
+                    exclude_parent_regions: bool=False,
+                    results_subdir: str="results",
+                    exclusions_subdir: str="regions_to_exclude"
+                    ) -> Self:
+        """
+        Creates a [`SlicedBrain`][braian.SlicedBrain] from all the per-image files exported with
+        [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian)
+        inside `animal_dir`.
+
+        Parameters
+        ----------
+        name
+            The name of the animal.
+        animal_dir
+            The path to where all brain sections' reports from QuPath were saved. Both per-region results and exclusions.
+        brain_ontology
+            An ontology against whose version the brain was aligned
+        ch2marker
+            A dictionary mapping QuPath channel names to markers.
+            If `overlapping_markers` is specified, `ch2marker` should be a [OrderedDict][].
+        overlapping_markers
+            If double-positivity between two markers was computed with
+            [`OverlappingDetections`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/OverlappingDetections.html),
+            a tuple of the indices in `ch2marker` of the markers for which the double-positivity was computed.
+        exclude_parent_regions
+            `exclude_parent_regions` from [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions].
+        results_subdir
+            The name of the subfolder in `animal_dir` that contains all cell counts of each brain section.
+        exclusions_subdir
+            The name of the subfolder in `animal_dir` that contains all regions to exclude from further analysis of each brain section.
+
+        Returns
+        -------
+        :
+            A [`SlicedBrain`][braian.SlicedBrain].
+
+        See also
+        --------
+        [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions]
+        """
         if not isinstance(animal_dir, Path):
             animal_dir = Path(animal_dir)
-        csv_slices_dir = animal_dir / SlicedBrain.__QUPATH_DIR_NAME_RESULTS
-        excluded_regions_dir = animal_dir / SlicedBrain.__QUPATH_DIR_NAME_EXCLUSIONS
+        csv_slices_dir = animal_dir / results_subdir
+        excluded_regions_dir = animal_dir / exclusions_subdir
         images = get_image_names_in_folder(csv_slices_dir)
         if len(overlapping_markers) > 0:
             assert len(overlapping_markers) == 2, "SlicedBrain currently supports overlapping at maximum between two markers from QuPath"
@@ -84,7 +121,7 @@ class SlicedBrain:
                 slice: BrainSlice = BrainSlice.from_qupath(results_file,
                                                ch2marker.keys(), ch2marker.values(),
                                                animal=name, name=image, is_split=True,
-                                               area_units=area_units, brain_ontology=None)
+                                               area_units=SlicedBrain.__QUPATH_AREA_UNITS, brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
                 slice.exclude_regions(exclude, brain_ontology, exclude_parent_regions)
             except BrainSliceFileError as e:
@@ -96,40 +133,99 @@ class SlicedBrain:
         
 
     def __init__(self, name: str, slices: Iterable[BrainSlice], markers: Iterable[str]) -> None:
+        """
+        A `SlicedBrain` is a collection of [`BrainSlice`][braian.BrainSlice], and it is
+        an basic structure from which [`AnimalBrain`][braian.AnimalBrain] are reconstructed.
+
+        Parameters
+        ----------
+        name
+            The name of the animal.
+        slices
+            The list of [`BrainSlice`][braian.BrainSlice] that makes up a sample of a brain.
+        markers
+            The list of markers in used in all `BrainSlice`s.
+
+        Raises
+        ------
+        EmptyBrainError
+            If `slices` is empty.
+        """
         self._name = name
-        self.slices: list[BrainSlice] = list(slices)
-        if len(self.slices) == 0:
+        self._slices: tuple[BrainSlice] = tuple(slices)
+        if len(self._slices) == 0:
             raise EmptyBrainError(self._name)
         self.markers = list(markers)
-        are_split = np.array([s.is_split for s in self.slices])
+        are_split = np.array([s.is_split for s in self._slices])
         assert are_split.all() or ~are_split.any(), "Slices from the same animal should either be ALL split between right/left hemisphere or not."
         self.is_split = are_split[0]
+        """Whether the data of the current `SlicedBrain` make a distinction between right and left hemisphere."""
 
     @property
-    def name(self):
+    def name(self) -> str:
+        """The name of the animal."""
         return self._name
 
     @name.setter
-    def name(self, value):
-        for slice in self.slices:
-            slice.name = value
+    def name(self, value: str):
+        for slice in self._slices:
+            slice.animal = value
         self._name = value
+
+    @property
+    def slices(self) -> tuple[BrainSlice]:
+        """The list of slices making up the `SlicedBrain`."""
+        return self._slices
     
-    def get_marker_dtype(self, marker):
+    def _get_marker_dtype(self, marker: str) -> np.dtype:
         assert marker in self.markers, f"Missing marker ('{marker}')!"
-        return self.slices[0].data[marker].dtype
+        return self._slices[0].data[marker].dtype
     
-    def concat_slices(self, densities=False) -> pd.DataFrame:
+    def concat_slices(self, densities: bool=False) -> pd.DataFrame:
+        """
+        Combines all the [`BrainSlice`][braian.BrainSlice] making up the current
+        `SlicedBrain` into a [`DataFrame`][pandas.DataFrame].
+
+        Parameters
+        ----------
+        densities
+            If True, the result is a [`DataFrame`][pandas.DataFrame] of slices marker densities.
+            Otherwise, the result will contain the cell counts.
+
+        Returns
+        -------
+        :
+            A [`DataFrame`][pandas.DataFrame] of the data from all [`SlicedBrain.slices`][braian.SlicedBrain.slices].
+        """
         return pd.concat([slice.data if not densities else
                           pd.concat((slice.data["area"], slice.markers_density), axis=1)
-                          for slice in self.slices])
+                          for slice in self._slices])
 
     @staticmethod
-    def merge_hemispheres(sliced_brain) -> Self:
+    def merge_hemispheres(sliced_brain: Self) -> Self:
+        """
+        Creates a new `SlicedBrain` by from all merged [`BrainSlice`][braian.BrainSlice]
+        in `sliced_brain`.
+
+        Parameters
+        ----------
+        sliced_brain
+            A sliced brain to merge
+
+        Returns
+        -------
+        :
+            A new [`SlicedBrain`][braian.SlicedBrain] with no hemisphere distinction.
+            If `sliced_brain` is already merged, it return the same instance with no changes.
+
+        See also
+        --------
+        [`BrainSlice.`][braian.BrainSlice.merge_hemispheres]            
+        """
         if not sliced_brain.is_split:
             return sliced_brain
         brain = copy.copy(sliced_brain)
-        brain.slices = [BrainSlice.merge_hemispheres(brain_slice) for brain_slice in brain.slices]
+        brain._slices = [BrainSlice.merge_hemispheres(brain_slice) for brain_slice in brain._slices]
         brain.is_split = False
         return brain
 

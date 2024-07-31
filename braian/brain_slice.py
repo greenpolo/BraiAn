@@ -263,7 +263,7 @@ class BrainSlice:
         """The name of the image that captured the section from which the data of the current `BrainSlice` are from."""
         self.data = data
         self.is_split: bool = is_split_left_right(self.data.index)
-        """Whether the data of the current `BrainSlice` are presented with a distinction between right and left hemisphere."""
+        """Whether the data of the current `BrainSlice` make a distinction between right and left hemisphere."""
         if is_split and not self.is_split:
             raise InvalidRegionsHemisphereError(file=self.name)
         BrainSlice.__check_columns(self.data, ("area",), self.name)
@@ -389,7 +389,6 @@ class BrainSlice:
         :
             A new [`BrainSlice`][braian.BrainSlice] with no hemisphere distinction.
             If `slice` is already merged, it return the same instance with no changes.
-            
         """
         if not slice.is_split:
             return slice

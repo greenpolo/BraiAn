@@ -339,7 +339,7 @@ class AnimalBrain:
         redux = all_slices.groupby(all_slices.index)\
                             .sum(min_count=min_slices)\
                             .dropna(axis=0, how="all")\
-                            .astype({m: sliced_brain.get_marker_dtype(m) for m in sliced_brain.markers}) # dropna() changes type to float64
+                            .astype({m: sliced_brain._get_marker_dtype(m) for m in sliced_brain.markers}) # dropna() changes type to float64
         return redux
 
     @staticmethod
