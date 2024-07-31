@@ -151,6 +151,7 @@ class AllenBrainHierarchy:
 
         Returns
         -------
+        :
             True, if a region identifiable by `r` exists in the ontoloy. False otherwise.
         """
         return find_subtree(self.dict, key, r, "children") is not None

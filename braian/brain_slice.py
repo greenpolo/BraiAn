@@ -69,7 +69,7 @@ class BrainSlice:
         """
         Creates a [`BrainSlice`][braian.BrainSlice] from a file exported with
         [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian).
-        Additional arguments are passed to `BrainSlice`'s constructor
+        Additional arguments are passed to `BrainSlice`'s constructor.
 
         Parameters
         ----------
@@ -85,6 +85,7 @@ class BrainSlice:
 
         Returns
         -------
+        :
             A [`BrainSlice`][braian.BrainSlice]
 
         Raises
@@ -180,6 +181,7 @@ class BrainSlice:
 
         Returns
         -------
+        :
             A list of acronyms of brain regions.
 
         Raises
@@ -255,10 +257,13 @@ class BrainSlice:
         ValueError
             If the specified `area_units` is unknown.
         """
-        self.animal = animal
-        self.name = name
+        self.animal: str = animal
+        """The name of the animal from which the current `BrainSlice` is from."""
+        self.name: str = name
+        """The name of the image that captured the section from which the data of the current `BrainSlice` are from."""
         self.data = data
-        self.is_split = is_split_left_right(self.data.index)
+        self.is_split: bool = is_split_left_right(self.data.index)
+        """Whether the data of the current `BrainSlice` are presented with a distinction between right and left hemisphere."""
         if is_split and not self.is_split:
             raise InvalidRegionsHemisphereError(file=self.name)
         BrainSlice.__check_columns(self.data, ("area",), self.name)
@@ -275,7 +280,7 @@ class BrainSlice:
         if brain_ontology is not None:
             self.data = sort_by_ontology(self.data, brain_ontology, fill=False)
 
-        self.markers_density = self.__marker_density()
+        self.markers_density: pd.DataFrame = self.__marker_density()
 
     def get_markers(self) -> list[str]:
         return list(self.data.columns[self.data.columns != "area"])
@@ -286,19 +291,39 @@ class BrainSlice:
                         brain_ontology: AllenBrainHierarchy,
                         exclude_parent_regions: bool):
         """
-        Take care of regions to be excluded from the analysis.
-        If a region is to be excluded, 2 things must happen:
-        (1) if exclude_parent_regions==False, the cell counts of that
-            region must be subtracted from all its parent regions, 
-        (2) The region must disappear from the data, together with all 
-            its daughter regions.
-            If exclude_parent_regions==True, all the parent regions must
-            disappear too!
-        NOTE: if a region of layer1 was *explicitaly* excluded, it won't
-        impact (i.e. remove) the parent regions!
-        This decision was taken because often layer1 is mis-aligned and with
-        few detection. We don't want to delete too much data and we reckon
-        this exception does not impact too much on the data
+        Takes care of the regions to be excluded from the analysis.\\
+        If `exclude_parent_regions` is `False`, for each region:
+
+         1. the cell counts of that region is subtracted fromm all its parent regions
+         2. its cell counts are deleted from the current `BrainSlice`, along with all of its subregions
+
+        If `exclude_parent_regions` is `True`, the parent regions of an excluded region is also
+        deleted from the current `BrainSlice` since its cell count is determined also by that same region.
+
+        NOTE: Netherless, if a Layer 1 region is _explicitly_ excluded, it won't
+        impact (i.e. remove) the parent regions.
+        This decision was taken because Layer 1 is often mis-aligned but with
+        few detection. We don't want to delete too much data and we reckon that
+        this exception does not impact too much on the data of the whole Isocortex.
+
+        Parameters
+        ----------
+        excluded_regions
+            a list of acronyms of the regions to be excluded from the analysis.
+        brain_ontology
+            an ontology against whose version the brain section was aligned.
+        exclude_parent_regions
+            Whether the cell counts of the parent regions are excluded or subtracted.
+
+        Raises
+        ------
+        InvalidExcludedRegionsHemisphereError
+            if [`BrainSlice.is_split`][braian.BrainSlice.is_split] but a region in
+            `excluded_regions` is not considering left/right hemisphere distinction.
+        UnkownBrainRegionsError
+            if a region in `excluded_regions` is not recognised from `brain_ontology`.
+        ExcludedAllRegionsError
+            if there is no cell count left after the exclusion is done.
         """
         try:
             layer1 = set(brain_ontology.get_layer1())
