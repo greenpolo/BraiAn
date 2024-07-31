@@ -8,13 +8,38 @@ site_description: a versatile toolkit for whole-brain quantitative analysis
 site_author: Carlo Castoldi
 
 nav:
-- index.md
-- Tutorials: tutorials.md
-- How-to guides:
-  - how-to-guides.md
-  - Notebook page: notebook.ipynb
-- API Reference:
-  - braian: reference.md
+- Home:
+  - ABBA - Aligning Big Brains & Atlases: https://abba-documentation.readthedocs.io/en/latest/index.html
+- Installation:
+  - Installation: https://abba-documentation.readthedocs.io/en/latest/installation/installation.html
+  - Fiji + ABBA plugin installation: https://abba-documentation.readthedocs.io/en/latest/installation/installation.html#fiji-abba-plugin-installation
+  - QuPath + ABBA extension installation: https://abba-documentation.readthedocs.io/en/latest/installation/installation.html#qupath-abba-extension-installation
+- Tutorial:
+  - Demo dataset: https://abba-documentation.readthedocs.io/en/latest/tutorial/demo_dataset.html
+  - QuPath - Making a project, compatible with ABBA: https://abba-documentation.readthedocs.io/en/latest/tutorial/0_create_qupath_dataset.html
+  - Fiji - BDV Navigation and QuPath project import: https://abba-documentation.readthedocs.io/en/latest/tutorial/1_import_qupath_project.html
+  - Fiji - Slices selection and display: https://abba-documentation.readthedocs.io/en/latest/tutorial/2_registration.html
+  - Fiji - Registration workflow: https://abba-documentation.readthedocs.io/en/latest/tutorial/2_registration.html#fiji-registration-workflow
+  - Fiji - Saving / Opening registrations results: https://abba-documentation.readthedocs.io/en/latest/tutorial/2_registration.html#fiji-saving-opening-registrations-results
+  - Fiji - Exporting ABBA’s registration results: https://abba-documentation.readthedocs.io/en/latest/tutorial/3_export_registrations.html
+  - QuPath - Using ABBA’s registration in QuPath: https://abba-documentation.readthedocs.io/en/latest/tutorial/4_qupath_analysis.html
+- Video tutorial:
+  - Video tutorial: https://abba-documentation.readthedocs.io/en/latest/tutorial/video_tuto.html
+- Slides tutorial:
+  - Slides tutorial: https://abba-documentation.readthedocs.io/en/latest/tutorial/slides_tuto.html
+- Explanation:
+  - Which data source can be used by ABBA ?: https://abba-documentation.readthedocs.io/en/latest/explanation/file_formats_supported.html
+  - ABBA state file and registration formats: https://abba-documentation.readthedocs.io/en/latest/explanation/registration_storage.html
+- FAQ:
+  - Frequent issues / Frequently asked questions: https://abba-documentation.readthedocs.io/en/latest/frequently_asked_questions.html
+- BraiAn:
+  - Home: index.md
+  - Tutorials: tutorials.md
+  - How-to guides:
+    - how-to-guides.md
+    - Notebook page: notebook.ipynb
+  - API Reference:
+    - braian: reference.md
 exclude_docs:
   /resources/
 watch:
