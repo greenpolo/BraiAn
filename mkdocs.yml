@@ -76,12 +76,6 @@ plugins:
     # theme: dark
 - progress
 - autorefs
-# - gen-files:
-#     scripts:
-#     - docs/scripts/gen_ref_pages.py
-# - literate-nav:
-#     nav_file: SUMMARY.md
-# - section-index
 - multi-theme:
     additional_themes:
     - pages:
