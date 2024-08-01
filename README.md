@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
 SPDX-License-Identifier: CC0-1.0
 -->
 
-# BraiAn
+# ![braian logo](docs/assets/logo/network.svg) BraiAn
 <!--mkdocs-start-->
 ## Prerequisites
 * [python=>3.11](https://www.python.org/downloads/):

@@ -89,18 +89,30 @@ if __name__ == "__main__":
     import numpy as np
     c = C(np.array([1,2,3]))
     print(f"c.num: {c.num}")
+    # >>> c.num: [1 2 3]
     a = c.__add__(2.1)
     print(a, type(a))
+    # >>> C(num=<class 'numpy.ndarray'>) <class '__main__.C'>
     a = c.sum()
     print(a, type(a))
+    # >>> 6 <class 'numpy.int64'>
     a = (c + 2.1)
     print(a, type(a), a.num)
+    # >>> C(num=<class 'numpy.ndarray'>) <class '__main__.C'> [3.1 4.1 5.1]
     c_ = C(np.array([1,2,3]))
-    print(f"c_ is (c_ + 1):", c is (c + 1))
+    print(f"c_ is (c_ + 1):", c_ is (c + 1))
+    # >>> c_ is (c_ + 1): False
     print(f"c_ is (c_.__add__(1, inplace=True)):", c_ is (c_.__add__(1, inplace=True)))
+    # >>> c_ is (c_.__add__(1, inplace=True)): True
     print(f"c_ is (c_.clip(max=3)):", c_ is (c_.clip(max=3)))
+    # >>> c_ is (c_.clip(max=3)): False
     print(f"c_ is (c_.clip(max=3, inplace=True)):", c_ is (c_.clip(max=3, inplace=True)))
+    # >>> c_ is (c_.clip(max=3, inplace=True)): True
     print("c_.num:", c_.num)
+    # >>> c_.num: [2 3 3]
     print("c / c_:", r:=(c / c_), r.num)
+    # >>> c / c_: C(num=<class 'numpy.ndarray'>) [0.5        0.66666667 1.        ]
     D().ciao()
+    # >>> A_
     C(D()).ciao()
+    # >>> A_

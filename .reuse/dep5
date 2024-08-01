@@ -8,3 +8,7 @@ Source: https://codeberg.org/SilvaLab/BraiAn
 # Files: src/*
 # Copyright: $YEAR $NAME <$CONTACT>
 # License: ...
+
+Files: docs/assets/* docs/img/*
+Copyright: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+License: CC-BY-NC-ND-4.0

@@ -22,7 +22,7 @@ nav:
   - Fiji - Registration workflow: https://abba-documentation.readthedocs.io/en/latest/tutorial/2_registration.html#fiji-registration-workflow
   - Fiji - Saving / Opening registrations results: https://abba-documentation.readthedocs.io/en/latest/tutorial/2_registration.html#fiji-saving-opening-registrations-results
   - Fiji - Exporting ABBA’s registration results: https://abba-documentation.readthedocs.io/en/latest/tutorial/3_export_registrations.html
-  - QuPath - Using ABBA’s registration in QuPath: https://abba-documentation.readthedocs.io/en/latest/tutorial/4_qupath_analysis.html
+  - QuPath - Using ABBA’s registration in QuPath: https://abba-documentation.readthedocs.io/en/latest/tutorial/4_qupath_analysis.html
 - Video tutorial:
   - Video tutorial: https://abba-documentation.readthedocs.io/en/latest/tutorial/video_tuto.html
 - Slides tutorial:
@@ -56,7 +56,9 @@ theme:
   titles_only: false
   sticky_navigation: true
   locale: en
-  logo: null
+  # logo: assets/logo/dark/compact.svg
+  logo: assets/logo/dark/horizontal.svg
+  # logo: assets/logo/dark/horizontal_condensed.svg
 extra_css:
 - custom_theme/material/style.css
 
