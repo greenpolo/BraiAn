@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
-#
-# SPDX-License-Identifier: LGPL-3.0-or-later
-
 from braian.connectome.connectome import Connectome
 from braian.connectome.connectome_adjacency import ConnectomeAdjacency
 from braian.connectome.cross_correlation import CrossCorrelation

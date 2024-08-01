@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
-#
-# SPDX-License-Identifier: LGPL-3.0-or-later
-
 from .connectome_adjacency import ConnectomeAdjacency
 from .cross_correlation import CrossCorrelation
 from .connectome import Connectome
