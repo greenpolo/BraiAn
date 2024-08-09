@@ -4,29 +4,129 @@ import os
 import pandas as pd
 import re
 
+from enum import Enum, auto
+from pandas.core.groupby import DataFrameGroupBy
 from typing import Generator, Self
 
 from braian.brain_hierarchy import AllenBrainHierarchy
-from braian.brain_metrics import BrainMetrics
 from braian.sliced_brain import SlicedBrain, EmptyBrainError
 from braian.brain_data import BrainData
 
-__all__ = ["AnimalBrain"]
+__all__ = ["AnimalBrain", "SliceMetrics"]
+
+# https://en.wikipedia.org/wiki/Coefficient_of_variation
+def coefficient_variation(x: np.ndarray) -> np.float64:
+    if x.ndim == 1:
+        avg = x.mean()
+        if len(x) > 1 and avg != 0:
+            return x.std(ddof=1) / avg
+        else:
+            return 0
+    else: # compute it for each column of the DataFrame and return a Series
+        return x.apply(coefficient_variation, axis=0)   
+
+class SliceMetrics(Enum):
+    SUM = auto()
+    MEAN = auto()
+    CVAR = auto()
+    STD = auto()
+
+    @property
+    def _raw(self) -> bool:
+        return self in (SliceMetrics.SUM, SliceMetrics.MEAN)
+
+    def __repr__(self):
+        cls_name = self.__class__.__name__
+        return f'<{cls_name}.{self.name}>'
+
+    def __str__(self):
+        return self.name.lower()
+
+    def __format__(self, format_spec: str):
+        return repr(self)
+
+    @classmethod
+    def _missing_(cls, value):
+        if not isinstance(value, str):
+            return None
+        match value.lower():
+            case "sum":
+                return SliceMetrics.SUM
+            case "avg" | "mean":
+                return SliceMetrics.MEAN
+            case "variation" | "cvar" | "coefficient of variation":
+                return SliceMetrics.CVAR
+            case "std" | "standard deviation":
+                return SliceMetrics.STD
+
+    def apply(self, grouped_by_region: DataFrameGroupBy):
+        match self:
+            case SliceMetrics.SUM:
+                return grouped_by_region.sum()
+            case SliceMetrics.MEAN:
+                return grouped_by_region.mean()
+            case SliceMetrics.STD:
+                return grouped_by_region.std(ddof=1)
+            case SliceMetrics.CVAR:
+                return grouped_by_region.apply(coefficient_variation)
+            case _:
+                raise ValueError(f"{self} does not support BrainSlices reductions")
+
+    def __call__(self, sliced_brain: SlicedBrain, min_slices: int, densities: bool):
+        all_slices = sliced_brain.concat_slices(densities=densities)
+        all_slices = all_slices.groupby(all_slices.index).filter(lambda g: len(g) >= min_slices)
+        raw = not densities and self._raw
+        return self.apply(all_slices.groupby(all_slices.index)), raw
 
 class AnimalBrain:
-    def __init__(self, markers_data: dict[str,BrainData]=None, areas: BrainData=None) -> None:
+    RAW_DATA = "raw"
+
+    @staticmethod
+    def from_slices(sliced_brain: SlicedBrain,
+                    mode: SliceMetrics|str=SliceMetrics.SUM, min_slices: int=0,
+                    hemisphere_distinction: bool=True, densities: bool=False) -> Self:
+        if not hemisphere_distinction:
+            sliced_brain = SlicedBrain.merge_hemispheres(sliced_brain)
+
+        name = sliced_brain.name
+        markers = copy.copy(sliced_brain.markers)
+        mode = SliceMetrics(mode)
+        if len(sliced_brain.slices) < min_slices:
+            raise EmptyBrainError(sliced_brain.name)
+        redux, raw = mode(sliced_brain, min_slices, densities=densities)
+        if redux.shape[0] == 0:
+            raise EmptyBrainError(sliced_brain.name)
+        metric = f"{str(mode)}_densities" if densities else str(mode)
+        areas = BrainData(redux["area"], name=name, metric=metric, units="mm²")
+        markers_data = {
+            m: BrainData(redux[m], name=name, metric=metric, units=m)
+            for m in markers
+        }
+        return AnimalBrain(markers_data=markers_data, areas=areas, raw=raw)
+
+    def __init__(self, markers_data: dict[str,BrainData], areas: BrainData, raw: bool=False) -> None:
         assert len(markers_data) > 0 and areas is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the areas/volumes of each region"
-        first_data = tuple(markers_data.values())[0]
-        self.name = first_data.data_name
-        self.mode = BrainMetrics(first_data.metric)
-        self.is_split = first_data.is_split
-        assert all([m.data_name == self.name for m in markers_data.values()]), "All BrainData must be from the same animal!"
-        assert all([BrainMetrics(m.metric) == self.mode for m in markers_data.values()]), "All BrainData must be of the same metric!"
-        assert self.is_split == areas.is_split and all([m.is_split == self.is_split for m in markers_data.values()]), "All BrainData must either have split hemispheres or not!"
-        self.markers = list(markers_data.keys())
+        self.markers = tuple(markers_data.keys())
         self.markers_data = markers_data
         self.areas = areas
+        self.raw = raw
+        assert all([m.data_name == self.name for m in markers_data.values()]), "All markers' BrainData must be from the same animal!"
+        assert all([m.metric == self.mode for m in markers_data.values()]), "All markers' BrainData must have the same metric!"
+        assert all([m.is_split == self.is_split for m in markers_data.values()]), "Markers' BrainData must either all have split hemispheres or none!"
+        assert self.is_split == areas.is_split, "Markers' and areas' BrainData must either both have split hemispheres or none!"
         return
+
+    @property
+    def mode(self) -> str:
+        return self.markers_data[self.markers[0]].metric
+
+    @property
+    def is_split(self) -> bool:
+        return self.markers_data[self.markers[0]].is_split
+
+    @property
+    def name(self) -> str:
+        return self.markers_data[self.markers[0]].data_name
 
     def __repr__(self):
         return str(self)
@@ -47,16 +147,17 @@ class AnimalBrain:
                                         for smaller_region in brain_ontology.list_all_subregions(small_region)}
         self.remove_region(*small_regions)
 
-    def get_regions(self):
+    @property
+    def regions(self) -> list[str]:
         # assumes areas' and all markers' BrainData are synchronized
-        return self.areas.get_regions()
+        return self.areas.regions
 
     def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy,
                           fill=False, inplace=False):
         markers_data = {marker: m_data.sort_by_ontology(brain_ontology, fill=fill, inplace=inplace) for marker, m_data in self.markers_data.items()}
         areas = self.areas.sort_by_ontology(brain_ontology, fill=fill, inplace=inplace)
         if not inplace:
-            return AnimalBrain(markers_data=markers_data, areas=areas)
+            return AnimalBrain(markers_data=markers_data, areas=areas, raw=self.raw)
         else:
             return self
 
@@ -64,14 +165,14 @@ class AnimalBrain:
         markers_data = {marker: m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for marker, m_data in self.markers_data.items()}
         areas = self.areas.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
-            return AnimalBrain(markers_data=markers_data, areas=areas)
+            return AnimalBrain(markers_data=markers_data, areas=areas, raw=self.raw)
         else:
             return self
 
     def select_from_ontology(self, brain_ontology: AllenBrainHierarchy, fill_nan=False, *args, **kwargs) -> Self:
         selected_allen_regions = brain_ontology.get_selected_regions()
         if not fill_nan:
-            selectable_regions = set(self.get_regions()).intersection(set(selected_allen_regions))
+            selectable_regions = set(self.regions).intersection(set(selected_allen_regions))
         else:
             selectable_regions = selected_allen_regions
         return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, *args, **kwargs)
@@ -82,178 +183,6 @@ class AnimalBrain:
         else:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
         return self.markers_data[marker].units
-
-    def density(self) -> Self:
-        assert self.mode == BrainMetrics.SUM, f"Cannot compute densities for AnimalBrains whose slices' cell count were not summed (mode={self.mode})."
-        markers_data = dict()
-        for marker in self.markers:
-            data = self.markers_data[marker] / self.areas
-            data.metric = str(BrainMetrics.DENSITY)
-            data.units = f"{marker}/{self.areas.units}"
-            markers_data[marker] = data
-        return AnimalBrain(markers_data=markers_data, areas=self.areas)
-
-    def percentage(self) -> BrainData:
-        assert self.mode == BrainMetrics.SUM, "Cannot compute percentages for AnimalBrains whose slices' cell count were not summed."
-        if self.is_split:
-            hems = ("L", "R")
-        else:
-            hems = (None,)
-        markers_data = dict()
-        for marker in self.markers:
-            brainwide_cell_counts = sum((self.markers_data[marker].root(hem) for hem in hems))
-            data = self.markers_data[marker] / brainwide_cell_counts
-            data.metric = str(BrainMetrics.PERCENTAGE)
-            data.units = f"{marker}/{marker} in root"
-            markers_data[marker] = data
-        return AnimalBrain(markers_data=markers_data, areas=self.areas)
-
-    def relative_density(self) -> BrainData:
-        assert self.mode == BrainMetrics.SUM, "Cannot compute relative densities for AnimalBrains whose slices' cell count were not summed."
-        if self.is_split:
-            hems = ("L", "R")
-        else:
-            hems = (None,)
-        markers_data = dict()
-        for marker in self.markers:
-            brainwide_area = sum((self.areas.root(hem) for hem in hems))
-            brainwide_cell_counts = sum((self.markers_data[marker].root(hem) for hem in hems))
-            data = (self.markers_data[marker] / self.areas) / (brainwide_cell_counts / brainwide_area)
-            data.metric = str(BrainMetrics.RELATIVE_DENSITY)
-            data.units = f"{marker} density/root {marker} density"
-            markers_data[marker] = data
-        return AnimalBrain(markers_data=markers_data, areas=self.areas)
-
-    def markers_overlap(self, marker1: str, marker2: str) -> Self:
-        if self.mode not in (BrainMetrics.SUM, BrainMetrics.MEAN):
-            raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not summed or averaged.")
-        for m in (marker1, marker2):
-            if m not in self.markers:
-                raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
-        try:
-            both = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
-        except StopIteration as e:
-            raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-        overlaps = dict()
-        for m in (marker1, marker2):
-            # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
-            overlaps[m] = (self.markers_data[both] / self.markers_data[m]).clip(upper=1)
-            overlaps[m].metric = str(BrainMetrics.OVERLAPPING)
-            overlaps[m].units = f"({marker1}+{marker2})/{m}"
-        return AnimalBrain(markers_data=overlaps, areas=self.areas)
-    
-    def markers_jaccard_index(self, marker1: str, marker2: str) -> Self:
-        # computes Jaccard's index
-        if self.mode not in (BrainMetrics.SUM, BrainMetrics.MEAN):
-            raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not summed or averaged.")
-        for m in (marker1, marker2):
-            if m not in self.markers:
-                raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
-        try:
-            overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
-        except StopIteration as e:
-            raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-        similarities = self.markers_data[overlapping] / (self.markers_data[marker1]+self.markers_data[marker2]-self.markers_data[overlapping])
-        similarities.metric = str(BrainMetrics.JACCARD_INDEX)
-        similarities.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
-        return AnimalBrain(markers_data={overlapping: similarities}, areas=self.areas)
-    
-    def markers_similarity_index(self, marker1: str, marker2: str) -> Self:
-        # NOTE: if either marker1 or marker2 is zero, it goes to infinite
-        # computes an index of normalized similarity we developed
-        if self.mode not in (BrainMetrics.SUM, BrainMetrics.MEAN):
-            raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not summed or averaged.")
-        for m in (marker1, marker2):
-            if m not in self.markers:
-                raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
-        try:
-            overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
-        except StopIteration as e:
-            raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-        # NOT normalized in (0,1)
-        # similarities = self.markers_data[overlapping] / (self.markers_data[marker1]*self.markers_data[marker2]) * self.areas
-        # NORMALIZED
-        similarities = self.markers_data[overlapping]**2 / (self.markers_data[marker1]*self.markers_data[marker2])
-        similarities.metric = str(BrainMetrics.SIMILARITY_INDEX)
-        similarities.units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
-        return AnimalBrain(markers_data={overlapping: similarities}, areas=self.areas)
-
-    def markers_overlap_coefficient(self, marker1: str, marker2: str) -> Self:
-        # computes Szymkiewicz–Simpson coefficient
-        if self.mode not in (BrainMetrics.SUM, BrainMetrics.MEAN):
-            raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not summed or averaged.")
-        for m in (marker1, marker2):
-            if m not in self.markers:
-                raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
-        try:
-            overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
-        except StopIteration as e:
-            raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-        overlap_coeffs = self.markers_data[overlapping] / BrainData.minimum(self.markers_data[marker1], self.markers_data[marker2])
-        overlap_coeffs.metric = str(BrainMetrics.OVERLAP_COEFFICIENT)
-        overlap_coeffs.units = f"({marker1}∩{marker2})/min({marker1},{marker2})"
-        return AnimalBrain(markers_data={overlapping: overlap_coeffs}, areas=self.areas)
-
-    def markers_chance_level(self, marker1: str, marker2: str) -> Self:
-        # This chance level is good only if the used for the fold change.
-        #
-        # It is similar to our Similarity Index, as it is derived from its NOT normalized form.
-        # ideally it would use the #DAPI instead of the area, as that would give an interval
-        # which is easier to work with.
-        # However, when:
-        #  * the DAPI is not available AND
-        #  * we're interested in the difference of fold change between groups
-        # we can ignore the DAPI count it simplifies during the rate group1/group2
-        # thus the use case of this index.
-        #
-        # since the areas/DAPI simplifies only when they are ~comparable between animals,
-        # we force the AnimalBrain to be a result of MEAN of SlicedBrain, not SUM of SlicedBrain
-        if self.mode != BrainMetrics.MEAN:
-            raise ValueError("Cannot compute the overlapping of two markers for AnimalBrains whose slices' cell count were not averaged.")
-        for m in (marker1, marker2):
-            if m not in self.markers:
-                raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
-        try:
-            overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in self.markers)
-        except StopIteration as e:
-            raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-        chance_level = self.markers_data[overlapping] / (self.markers_data[marker1]*self.markers_data[marker2])
-        chance_level.metric = str(BrainMetrics.CHANCE_LEVEL)
-        chance_level.units = f"({marker1}∩{marker2})/({marker1}×{marker2})"
-        return AnimalBrain(markers_data={overlapping: chance_level}, areas=self.areas)
-
-    def markers_difference(self, marker1: str, marker2: str) -> Self:
-        if self.mode == BrainMetrics.SUM:
-            return self.density().markers_difference(marker1, marker2)
-        elif self.mode != BrainMetrics.DENSITY:
-            raise ValueError("Cannot compute the marker difference of two markers for AnimalBrains whose data is not density or sum")
-        for m in (marker1, marker2):
-            if m not in self.markers:
-                raise ValueError(f"Marker '{m}' is unknown in '{self.name}'!")
-        diff = self.markers_data[marker1] - self.markers_data[marker2]
-        diff.metric = str(BrainMetrics.DENSITY_DIFFERENCE)
-        diff.units = f"{marker1}-{marker2}"
-        return AnimalBrain(markers_data={f"{marker1}+{marker2}": diff}, areas=self.areas)
-    
-    def _group_change(self, group, metric, fun: callable, symbol: str) -> BrainData: # AnimalGroup
-        assert self.is_split == group.is_split, "Both AnimalBrain and AnimalGroup must either have the hemispheres split or not"
-        assert set(self.markers) == set(group.markers), "Both AnimalBrain and AnimalGroup must have the same markers"
-        # assert self.mode == group.metric == BrainMetrics.DENSITY, f"Both AnimalBrain and AnimalGroup must be on {BrainMetrics.DENSITY}"
-        # assert set(self.get_regions()) == set(group.get_regions()), f"Both AnimalBrain and AnimalGroup must be on the same regions"
-        
-        markers_data = dict()
-        for marker,this in self.markers_data.items():
-            data = fun(this, group.mean[marker])
-            data.metric = str(metric)
-            data.units = f"{marker} {str(self.mode)}{symbol}{group.name} {str(group.metric)}"
-            markers_data[marker] = data
-        return AnimalBrain(markers_data=markers_data, areas=self.areas)
-
-    def fold_change(self, group) -> BrainData: # AnimalGroup
-        return self._group_change(group, BrainMetrics.FOLD_CHANGE, lambda animal,group: animal/group, "/")
-
-    def diff_change(self, group) -> BrainData: # AnimalGroup
-        return self._group_change(group, BrainMetrics.DIFF_CHANGE, lambda animal,group: animal-group, "-")
 
     def to_pandas(self, units=False) -> pd.DataFrame:
         data = pd.concat({f"area ({self.areas.units})" if units else "area": self.areas.data,
@@ -270,9 +199,17 @@ class AnimalBrain:
         print(f"{self} saved to {output_path}")
 
     @staticmethod
+    def is_raw(mode: str) -> bool:
+        try:
+            return SliceMetrics(mode)._raw            
+        except ValueError:
+            return mode == AnimalBrain.RAW_DATA
+
+    @staticmethod
     def from_pandas(animal_name, df: pd.DataFrame) -> Self:
         if type(mode:=df.columns.name) != str:
             mode = str(df.columns.name)
+        raw = AnimalBrain.is_raw(mode)
         markers_data = dict()
         areas = None
         regex = r'(.+) \((.+)\)$'
@@ -285,66 +222,24 @@ class AnimalBrain:
                 areas = BrainData(data, animal_name, mode, units)
             else: # it's a marker
                 markers_data[name] = BrainData(data, animal_name, mode, units)
-        return AnimalBrain(markers_data=markers_data, areas=areas)
+        return AnimalBrain(markers_data=markers_data, areas=areas, raw=raw)
     
     @staticmethod
-    def exists_csv(animal_name, root_dir, mode) -> bool:
-        return os.path.exists(os.path.join(root_dir, f"{animal_name}_{str(mode)}.csv"))
+    def exists_csv(animal_name, root_dir, mode: str=None) -> bool:
+        filename = f"{animal_name}.csv" if mode is not None else f"{animal_name}_{str(mode)}.csv"
+        return os.path.exists(os.path.join(root_dir, filename))
 
     @staticmethod
-    def from_csv(animal_name, root_dir, mode) -> Self:
+    def from_csv(animal_name, root_dir, mode: str=None) -> Self:
         # read CSV
-        df = pd.read_csv(os.path.join(root_dir, f"{animal_name}_{str(mode)}.csv"), sep="\t", header=0, index_col=0)
+        filename = f"{animal_name}.csv" if mode is None else f"{animal_name}_{str(mode)}.csv"
+        df = pd.read_csv(os.path.join(root_dir, filename), sep="\t", header=0, index_col=0)
         if df.index.name == "Class":
             # is old csv
             raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
         df.columns.name = df.index.name
         df.index.name = None
         return AnimalBrain.from_pandas(animal_name, df)
-
-    @staticmethod
-    def from_slices(sliced_brain: SlicedBrain, mode=BrainMetrics.SUM, min_slices=0, hemisphere_distinction=True) -> Self:
-        if not hemisphere_distinction:
-            sliced_brain = SlicedBrain.merge_hemispheres(sliced_brain)
-
-        name = sliced_brain.name
-        markers = copy.copy(sliced_brain.markers)
-        mode = BrainMetrics(mode)
-        if len(sliced_brain.slices) < min_slices:
-            raise EmptyBrainError(sliced_brain.name)
-        match mode:
-            case BrainMetrics.SUM:
-                redux = AnimalBrain.sum_slices_detections(sliced_brain, min_slices)
-            case BrainMetrics.MEAN | BrainMetrics.CVAR | BrainMetrics.STD:
-                redux = AnimalBrain.reduce_slices_densities(sliced_brain, mode, min_slices)
-            case _: # e.g. DENSITY | PERCENTAGE | RELATIVE_DENSITY | OVERLAPPING:
-                raise NotImplementedError(f"Cannot yet build AnimalBrain(name='{name}', mode={mode}, markers={list(markers)}) from a SlicedBrain."+\
-                                          "You may want to first call BrainMetrics.DENSITY.analyse(brain) method.")
-        if redux.shape[0] == 0:
-            raise EmptyBrainError(sliced_brain.name)
-        areas = BrainData(redux["area"], name=name, metric=str(mode), units="mm²")
-        markers_data = {
-            m: BrainData(redux[m], name=name, metric=str(mode), units=m)
-            for m in markers
-        }
-        return AnimalBrain(markers_data=markers_data, areas=areas)
-
-    @staticmethod
-    def sum_slices_detections(sliced_brain: SlicedBrain, min_slices: int) -> pd.DataFrame:
-        all_slices = sliced_brain.concat_slices()
-        redux = all_slices.groupby(all_slices.index)\
-                            .sum(min_count=min_slices)\
-                            .dropna(axis=0, how="all")\
-                            .astype({m: sliced_brain._get_marker_dtype(m) for m in sliced_brain.markers}) # dropna() changes type to float64
-        return redux
-
-    @staticmethod
-    def reduce_slices_densities(sliced_brain: SlicedBrain, mode: BrainMetrics, min_slices: int) -> pd.DataFrame:
-        all_slices = sliced_brain.concat_slices(densities=True)
-        redux = all_slices.groupby(all_slices.index)\
-                            .apply(mode.fold_slices(min_slices))\
-                            .dropna(axis=0, how="all") # we want to keep float64 as the dtype, since the result of the 'mode' function is a float as well
-        return redux
 
     @staticmethod
     def filter_selected_regions(animal_brain: Self, brain_ontology: AllenBrainHierarchy) -> Self:

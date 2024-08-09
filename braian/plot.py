@@ -83,7 +83,7 @@ def plot_cv_above_threshold(brain_ontology, *sliced_brains_groups: list[SlicedBr
     n_areas_above_thr = []
     for n_group, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[n_group-1] if n_group > 0 else 0
-        group_cvar_brains = [AnimalBrain.from_slices(sliced_brain, mode="cvar", hemisphere_distinction=False) for sliced_brain in group_slices]
+        group_cvar_brains = [AnimalBrain.from_slices(sliced_brain, mode="cvar", hemisphere_distinction=False, densities=True) for sliced_brain in group_slices]
         group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, brain_ontology) for brain in group_cvar_brains]
 
         for n_brain, cvars in enumerate(group_cvar_brains):
@@ -413,7 +413,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         regions_mjd = brain_ontology.get_areas_major_division(*selected_regions)
         selected_regions = list(regions_mjd.keys())
     # elif len(groups) > 1:
-    #     assert all(set(groups[0].get_regions()) == set(group.get_regions()) for group in in groups[1:])
+    #     assert all(set(groups[0].regions) == set(group.regions) for group in in groups[1:])
 
     heatmap_width = 1-barplot_width
     bar_to_heatmap_ratio = np.array([heatmap_width, barplot_width])

@@ -10,8 +10,6 @@ from braian.animal_brain import AnimalBrain
 from braian.animal_group import AnimalGroup
 from braian.brain_data import BrainData
 from braian.brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
-from braian.brain_metrics import BrainMetrics
-from braian.brain_slice import BrainSlice
 from braian.sliced_brain import SlicedBrain
 from braian.utils import cache
 
@@ -54,8 +52,8 @@ class BraiAnConfig:
                 for sliced_brain in self.sliced_brains]
             return self.brains
         
-        def to_group(self, metric: str, brain_ontology: AllenBrainHierarchy, *args, **kwargs):
-            return AnimalGroup(self.name, self.brains, metric=metric, brain_ontology=brain_ontology, merge_hemispheres=True, *args, **kwargs)
+        def to_group(self, brain_ontology: AllenBrainHierarchy, *args, **kwargs):
+            return AnimalGroup(self.name, self.brains, brain_ontology=brain_ontology, merge_hemispheres=True, *args, **kwargs)
         
         def _remove_small_regions(self, animal: SlicedBrain, threshold: float) -> None:
             for s in animal.slices:
@@ -251,8 +249,8 @@ class BraiAnConfig:
         for group_dir, path_to_group in zip(self.groups, path_to_groups):
             group_dir.read(
                 path_to_group,
-                self.config["brains"]["slices-min-area"],
-                self.config["brains"]["slices-remove-singles"],
+                threshold=self.config["brains"]["slices-min-area"],
+                remove_singles=self.config["brains"]["slices-remove-singles"],
                 brain_ontology=self.brain_ontology,
                 ch2marker=self.config["brains"]["markers"],
                 overlapping_markers=overlapping_tracers[0],
@@ -265,8 +263,8 @@ class BraiAnConfig:
         for group in self.groups:
             group.reduce_slices(self.config["brains"]["slices-aggregation-mode"])
     
-    def to_groups(self, metric: str, *args, **kwargs):
-        return [group_dir.to_group(metric, self.brain_ontology, *args, **kwargs) for group_dir in self.groups]
+    def to_groups(self, *args, **kwargs):
+        return [group_dir.to_group(self.brain_ontology, *args, **kwargs) for group_dir in self.groups]
 
     def _read_comparisons(self) -> list[Comparison]:
         # if "comparison" in config:
@@ -331,8 +329,8 @@ class BraiAnConfig:
             print(f"Can't find region '{region_acronym}' for animal '{animal_name}'")
             return
         markers = sliced_brain.markers if marker is None else [marker]
-        brain_avg = AnimalBrain.from_slices(sliced_brain, mode="avg", hemisphere_distinction=False)
-        brain_std = AnimalBrain.from_slices(sliced_brain, mode="std", hemisphere_distinction=False)
+        brain_avg = AnimalBrain.from_slices(sliced_brain, mode="avg", hemisphere_distinction=False, densities=True)
+        brain_std = AnimalBrain.from_slices(sliced_brain, mode="std", hemisphere_distinction=False, densities=True)
         for m in markers:
             marker_avg = brain_avg[m]
             marker_std = brain_std[m]

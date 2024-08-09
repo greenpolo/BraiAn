@@ -138,7 +138,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             data = data[data.index.isin(region)]
         return self if inplace else BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
 
-    def get_regions(self) -> list[str]:
+    @property
+    def regions(self) -> list[str]:
         return list(self.data.index)
 
     def set_regions(self, brain_regions: list[str], brain_ontology: AllenBrainHierarchy,

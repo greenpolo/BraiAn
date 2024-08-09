@@ -173,10 +173,6 @@ class SlicedBrain:
         """The list of slices making up the `SlicedBrain`."""
         return self._slices
     
-    def _get_marker_dtype(self, marker: str) -> np.dtype:
-        assert marker in self.markers, f"Missing marker ('{marker}')!"
-        return self._slices[0].data[marker].dtype
-    
     def concat_slices(self, densities: bool=False) -> pd.DataFrame:
         """
         Combines all the [`BrainSlice`][braian.BrainSlice] making up the current

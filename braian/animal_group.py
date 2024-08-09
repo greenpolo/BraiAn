@@ -9,42 +9,36 @@ from typing import Self
 
 from braian.brain_data import BrainData
 from braian.brain_hierarchy import AllenBrainHierarchy
-from braian.brain_metrics import BrainMetrics
-from braian.animal_brain import AnimalBrain, BrainMetrics
+from braian.animal_brain import AnimalBrain
 from braian.utils import save_csv
 
 __all__ = ["AnimalGroup", "PLS"]
 
 def common_regions(animals: list[AnimalBrain]) -> list[str]:
-    all_regions = [set(brain.get_regions()) for brain in animals]
+    all_regions = [set(brain.regions) for brain in animals]
     return list(reduce(set.__or__, all_regions))
 
 def have_same_regions(animals: list[AnimalBrain]) -> bool:
-    regions = animals[0].get_regions()
-    all_regions = [set(brain.get_regions()) for brain in animals]
+    regions = animals[0].regions
+    all_regions = [set(brain.regions) for brain in animals]
     return len(reduce(set.__and__, all_regions)) ==  len(regions)
 
 class AnimalGroup:
-    def __init__(self, name: str, animals: list[AnimalBrain], metric: BrainMetrics, merge_hemispheres=False,
-                 brain_ontology: AllenBrainHierarchy=None, fill_nan=True, **kwargs) -> None:
+    def __init__(self, name: str, animals: list[AnimalBrain], merge_hemispheres=False,
+                 brain_ontology: AllenBrainHierarchy=None, fill_nan: bool=True) -> None:
         self.name = name
         # if not animals or not brain_ontology:
         #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AllenBrainHierarchy.")
-        assert len(animals) > 0, "Inside the group there must be at least one animal."
-        assert all([marker in animals[0].markers for brain in animals[1:] for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
-        self.metric = BrainMetrics(metric)
-        assert all([brain.mode == animals[0].mode for brain in animals]), "All AnimalBrains of a group must be hava been processed the same way."
         self.n = len(animals)
-        self.is_split = animals[0].is_split
-        assert all(self.is_split == brain.is_split for brain in animals), "All AnimalBrains of a group must either have spit hemispheres or not."
-        if self.is_split and merge_hemispheres:
+        assert self.n > 0, "Inside the group there must be at least one animal."
+        assert all([marker in animals[0].markers for brain in animals[1:] for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
+        assert all([brain.mode == animals[0].mode for brain in animals]), "All AnimalBrains of a group must be hava been processed the same way."
+        is_split = animals[0].is_split
+        assert all(is_split == brain.is_split for brain in animals), "All AnimalBrains of a group must either have spit hemispheres or not."
+        if is_split and merge_hemispheres:
             merge = AnimalBrain.merge_hemispheres
         else:
             merge = lambda brain: brain
-        if animals[0].mode != self.metric:
-            analyse = lambda brain: self.metric.analyse(brain, **kwargs)
-        else:
-            analyse = lambda brain: brain
         if brain_ontology is not None:
             sort = lambda brain: brain.sort_by_ontology(brain_ontology, fill=fill_nan, inplace=False)
         elif fill_nan:
@@ -53,12 +47,23 @@ class AnimalGroup:
         elif have_same_regions(animals):
             sort = lambda brain: brain
         else:
-            # now BrainGroup.get_regions(), which returns the regions of the first animal, is correct
+            # now BrainGroup.regions, which returns the regions of the first animal, is correct
             raise ValueError("Cannot set fill_nan=False and brain_ontology=None if all animals of the group don't have the same brain regions.")
-        self.animals: list[AnimalBrain] = [sort(analyse(merge(brain))) for brain in animals]
-        self.markers: npt.NDArray[np.str_] = np.asarray(self.animals[0].markers)
+        self.animals: list[AnimalBrain] = [sort(merge(brain)) for brain in animals] # brain |> merge |> analyse |> sort
         self.mean = self._update_mean()
-    
+
+    @property
+    def metric(self) -> str:
+        return self.animals[0].mode
+
+    @property
+    def is_split(self) -> bool:
+        return self.animals[0].is_split
+
+    @property
+    def markers(self) -> npt.NDArray[np.str_]:
+        return np.asarray(self.animals[0].markers)
+
     def markers_corr(self, marker1: str, marker2: str, other: Self=None) -> BrainData:
         if other is None:
             other = self
@@ -110,7 +115,7 @@ class AnimalGroup:
             df[marker] = all_animals
         df = pd.concat(df, join="outer", axis=1)
         df = df.reorder_levels([1,0], axis=0)
-        ordered_indices = product(self.get_regions(), [animal.name for animal in self.animals])
+        ordered_indices = product(self.regions, [animal.name for animal in self.animals])
         df = df.reindex(ordered_indices)
         df.columns.name = str(self.metric)
         if units:
@@ -120,7 +125,7 @@ class AnimalGroup:
     
     def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy, fill=True, inplace=True) -> None:
         if not inplace:
-            return AnimalGroup(self.name, self.animals, metric=self.metric, brain_ontology=brain_ontology, fill_nan=fill)
+            return AnimalGroup(self.name, self.animals, brain_ontology=brain_ontology, fill_nan=fill)
         else:
             for brain in self.animals:
                 brain.sort_by_ontology(brain_ontology, fill=fill, inplace=True)
@@ -129,7 +134,8 @@ class AnimalGroup:
     def get_animals(self) -> list[str]:
         return [brain.name for brain in self.animals]
 
-    def get_regions(self) -> list[str]:
+    @property
+    def regions(self) -> list[str]:
         # NOTE: all animals of the group are expected to have the same regions!
         # if not have_same_regions(animals):
         #     # NOTE: if the animals of the AnimalGroup were not sorted by ontology, the order is not guaranteed to be significant
@@ -137,12 +143,12 @@ class AnimalGroup:
         #           "The order of the brain regions is not guaranteed to be significant. It's better to first call sort_by_ontology()")
         #     return list(reduce(set.union, all_regions))
         #     # return set(chain(*all_regions))
-        return self.animals[0].get_regions()
+        return self.animals[0].regions
 
     def merge_hemispheres(self, inplace=False) -> Self:
         animals = [AnimalBrain.merge_hemispheres(brain) for brain in self.animals]
         if not inplace:
-            return AnimalGroup(self.name, animals, metric=self.metric, brain_ontology=None, fill_nan=False)
+            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
         else:
             self.animals = animals
             self.mean = self._update_mean()
@@ -154,13 +160,13 @@ class AnimalGroup:
         return set(self.markers) == set(other.markers) and \
                 self.is_split == other.is_split and \
                 self.metric == other.metric # and \
-                # set(self.get_regions()) == set(other.get_regions())
+                # set(self.regions) == set(other.regions)
     
     def select(self, regions: list[str], fill_nan=False, inplace=False) -> Self:
         animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for brain in self.animals]
         if not inplace:
             # self.metric == animals.metric -> no self.metric.analyse(brain) is computed
-            return AnimalGroup(self.name, animals, metric=self.metric, brain_ontology=None, fill_nan=False)
+            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
         else:
             self.animals = animals
             self.mean = self._update_mean()
@@ -181,21 +187,6 @@ class AnimalGroup:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
         return self.animals[0].get_units(marker)
 
-    def get_plot_title(self, marker=None) -> str:
-        if len(self.markers) == 1:
-            marker = self.markers[0]
-        else:
-            assert marker in self.markers, f"Could not get the plot title for marker '{marker}'!"
-        match self.metric:
-            case BrainMetrics.DENSITY:
-                return f"[#{marker} / area]"
-            case BrainMetrics.PERCENTAGE:
-                return f"[#{marker} / brain]"
-            case BrainMetrics.RELATIVE_DENSITY:
-                return f"[#{marker} / area] / [{marker} (brain) / area (brain)]"
-            case _:
-                raise ValueError(f"Don't know the appropriate title for {self.metric}")
-
     def to_csv(self, output_path, file_name, overwrite=False) -> None:
         df = self.to_pandas(units=True)
         save_csv(df, output_path, file_name, overwrite=overwrite, index_label=(df.columns.name, None))
@@ -203,7 +194,7 @@ class AnimalGroup:
     @staticmethod
     def from_pandas(group_name, df: pd.DataFrame) -> Self:
         animals = [AnimalBrain.from_pandas(animal_name, df.xs(animal_name, level=1)) for animal_name in df.index.unique(1)]
-        return AnimalGroup(group_name, animals, df.columns.name, fill_nan=False)
+        return AnimalGroup(group_name, animals, fill_nan=False)
 
     @staticmethod
     def from_csv(group_name, root_dir, file_name) -> Self:
@@ -219,7 +210,9 @@ Created on Wed Mar  9 22:28:08 2022
 @author: lukasvandenheuvel
 @author: carlocastoldi
 """
-
+# pyls.meancentered_pls(pls.X.sort_index(key=lambda s: [int(g) for g in s.str[-1]] ),
+#                       groups=[5,6], n_cond=1, mean_centering=0, p_perm=10_000, n_boot=10_000,
+#                       split=0, rotate=False, seed=42)
 class PLS:
     '''
     This class facilitates mean-centered task Partial Least Squares Correlation on brain-wide results.

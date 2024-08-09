@@ -16,7 +16,6 @@ from .brain_hierarchy import *
 from .brain_slice import *
 from .sliced_brain import *
 from .brain_data import *
-from .brain_metrics import *
 from .animal_brain import *
 from .animal_group import *
 from .statistics import *
@@ -25,4 +24,4 @@ from .plot import *
 
 # from braian.connectome import *
 
-from .config import BraiAnConfig
+# from .config import BraiAnConfig
