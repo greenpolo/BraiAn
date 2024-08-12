@@ -7,6 +7,6 @@ Files: braian/*
 Copyright: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
 License: LGPL-3.0-or-later
 
-Files: docs/assets/* docs/img/*
+Files: docs/assets/* docs/img/* docs/javascripts/*
 Copyright: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
 License: CC-BY-NC-ND-4.0

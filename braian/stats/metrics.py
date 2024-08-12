@@ -67,7 +67,7 @@ def density(brain: AnimalBrain) -> AnimalBrain:
     _enforce_rawdata(brain)
     markers_data = dict()
     for marker in brain.markers:
-        data = brain.markers_data[marker] / brain.areas
+        data = brain[marker] / brain.areas
         data.metric = "density"
         data.units = f"{marker}/{brain.areas.units}"
         markers_data[marker] = data
@@ -81,8 +81,8 @@ def percentage(brain: AnimalBrain) -> AnimalBrain:
         hems = (None,)
     markers_data = dict()
     for marker in brain.markers:
-        brainwide_cell_counts = sum((brain.markers_data[marker].root(hem) for hem in hems))
-        data = brain.markers_data[marker] / brainwide_cell_counts
+        brainwide_cell_counts = sum((brain[marker].root(hem) for hem in hems))
+        data = brain[marker] / brainwide_cell_counts
         data.metric = "percentage"
         data.units = f"{marker}/{marker} in root"
         markers_data[marker] = data
@@ -97,8 +97,8 @@ def relative_density(brain: AnimalBrain) -> AnimalBrain:
     markers_data = dict()
     for marker in brain.markers:
         brainwide_area = sum((brain.areas.root(hem) for hem in hems))
-        brainwide_cell_counts = sum((brain.markers_data[marker].root(hem) for hem in hems))
-        data = (brain.markers_data[marker] / brain.areas) / (brainwide_cell_counts / brainwide_area)
+        brainwide_cell_counts = sum((brain[marker].root(hem) for hem in hems))
+        data = (brain[marker] / brain.areas) / (brainwide_cell_counts / brainwide_area)
         data.metric = "relative_density"
         data.units = f"{marker} density/root {marker} density"
         markers_data[marker] = data
@@ -136,7 +136,7 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
     overlaps = dict()
     for m in (marker1, marker2):
         # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
-        overlaps[m] = (brain.markers_data[both] / brain.markers_data[m]).clip(upper=1)
+        overlaps[m] = (brain[both] / brain[m]).clip(upper=1)
         overlaps[m].metric = "overlaps"
         overlaps[m].units = f"({marker1}+{marker2})/{m}"
     return AnimalBrain(markers_data=overlaps, areas=brain.areas, raw=False)
@@ -151,7 +151,7 @@ def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> Ani
         overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration as e:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-    similarities = brain.markers_data[overlapping] / (brain.markers_data[marker1]+brain.markers_data[marker2]-brain.markers_data[overlapping])
+    similarities = brain[overlapping] / (brain[marker1]+brain[marker2]-brain[overlapping])
     similarities.metric = "jaccard_index"
     similarities.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
     return AnimalBrain(markers_data={overlapping: similarities}, areas=brain.areas, raw=False)
@@ -168,9 +168,9 @@ def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> 
     except StopIteration as e:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     # NOT normalized in (0,1)
-    # similarities = brain.markers_data[overlapping] / (brain.markers_data[marker1]*brain.markers_data[marker2]) * brain.areas
+    # similarities = brain[overlapping] / (brain[marker1]*brain[marker2]) * brain.areas
     # NORMALIZED
-    similarities = brain.markers_data[overlapping]**2 / (brain.markers_data[marker1]*brain.markers_data[marker2])
+    similarities = brain[overlapping]**2 / (brain[marker1]*brain[marker2])
     similarities.metric = "similarity_index"
     similarities.units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
     return AnimalBrain(markers_data={overlapping: similarities}, areas=brain.areas, raw=False)
@@ -185,7 +185,7 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
         overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration as e:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-    overlap_coeffs = brain.markers_data[overlapping] / BrainData.minimum(brain.markers_data[marker1], brain.markers_data[marker2])
+    overlap_coeffs = brain[overlapping] / BrainData.minimum(brain[marker1], brain[marker2])
     overlap_coeffs.metric = "overlap_coefficient"
     overlap_coeffs.units = f"({marker1}∩{marker2})/min({marker1},{marker2})"
     return AnimalBrain(markers_data={overlapping: overlap_coeffs}, areas=brain.areas, raw=False)
@@ -212,7 +212,7 @@ def markers_chance_level(brain: AnimalBrain, marker1: str, marker2: str) -> Anim
         overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration as e:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-    chance_level = brain.markers_data[overlapping] / (brain.markers_data[marker1]*brain.markers_data[marker2])
+    chance_level = brain[overlapping] / (brain[marker1]*brain[marker2])
     chance_level.metric = "chance_level"
     chance_level.units = f"({marker1}∩{marker2})/({marker1}×{marker2})"
     return AnimalBrain(markers_data={overlapping: chance_level}, areas=brain.areas, raw=False)
@@ -221,7 +221,7 @@ def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> Animal
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
-    diff = brain.markers_data[marker1] - brain.markers_data[marker2]
+    diff = brain[marker1] - brain[marker2]
     diff.metric = "marker_difference"
-    diff.units = f"{brain.markers_data[marker1].units}-{brain.markers_data[marker2].units}"
+    diff.units = f"{brain[marker1].units}-{brain[marker2].units}"
     return AnimalBrain(markers_data={f"{marker1}+{marker2}": diff}, areas=brain.areas, raw=False)

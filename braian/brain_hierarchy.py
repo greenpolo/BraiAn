@@ -290,6 +290,7 @@ class AllenBrainHierarchy:
 
         See also
         --------
+        [`has_selection`][braian.AllenBrainHierarchy.has_selection]
         [`get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
         [`unselect_all`][braian.AllenBrainHierarchy.unselect_all]
         [`add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
@@ -317,6 +318,7 @@ class AllenBrainHierarchy:
 
         See also
         --------
+        [`has_selection`][braian.AllenBrainHierarchy.has_selection]
         [`get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
         [`unselect_all`][braian.AllenBrainHierarchy.unselect_all]
         [`add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
@@ -335,6 +337,7 @@ class AllenBrainHierarchy:
 
         See also
         --------
+        [`has_selection`][braian.AllenBrainHierarchy.has_selection]
         [`get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
         [`unselect_all`][braian.AllenBrainHierarchy.unselect_all]
         [`add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
@@ -358,6 +361,7 @@ class AllenBrainHierarchy:
 
         See also
         --------
+        [`has_selection`][braian.AllenBrainHierarchy.has_selection]
         [`get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
         [`unselect_all`][braian.AllenBrainHierarchy.unselect_all]
         [`add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
@@ -393,6 +397,7 @@ class AllenBrainHierarchy:
 
         See also
         --------
+        [`has_selection`][braian.AllenBrainHierarchy.has_selection]
         [`get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
         [`unselect_all`][braian.AllenBrainHierarchy.unselect_all]
         [`add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
@@ -419,6 +424,7 @@ class AllenBrainHierarchy:
 
         See also
         --------
+        [`has_selection`][braian.AllenBrainHierarchy.has_selection]
         [`get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
         [`unselect_all`][braian.AllenBrainHierarchy.unselect_all]
         [`select_at_depth`][braian.AllenBrainHierarchy.select_at_depth]
@@ -432,6 +438,29 @@ class AllenBrainHierarchy:
             f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}"
         add_boolean_attribute(self.dict, "children", "selected",
                               lambda node,d: ("selected" in node and node["selected"]) or node[key] in regions)
+
+    def has_selection(self) -> bool:
+        """
+        Check whether the current ontology is currently selecting any brain region.
+
+        Returns
+        -------
+        :
+            True, if the current ontology had a selection method previosuly called. Otherwise, False.
+
+        See also
+        --------
+        [`get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
+        [`unselect_all`][braian.AllenBrainHierarchy.unselect_all]
+        [`add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
+        [`select_at_depth`][braian.AllenBrainHierarchy.select_at_depth]
+        [`select_at_structural_level`][braian.AllenBrainHierarchy.select_at_structural_level]
+        [`select_leaves`][braian.AllenBrainHierarchy.select_leaves]
+        [`select_summary_structures`][braian.AllenBrainHierarchy.select_summary_structures]
+        [`select_regions`][braian.AllenBrainHierarchy.select_regions]
+        [`get_regions`][braian.AllenBrainHierarchy.get_regions]
+        """
+        return "selected" in self.dict
 
     def get_selected_regions(self, key: str="acronym") -> list:
         """
@@ -449,6 +478,7 @@ class AllenBrainHierarchy:
 
         See also
         --------
+        [`has_selection`][braian.AllenBrainHierarchy.has_selection]
         [`unselect_all`][braian.AllenBrainHierarchy.unselect_all]
         [`add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
         [`select_at_depth`][braian.AllenBrainHierarchy.select_at_depth]
@@ -458,7 +488,7 @@ class AllenBrainHierarchy:
         [`select_regions`][braian.AllenBrainHierarchy.select_regions]
         [`get_regions`][braian.AllenBrainHierarchy.get_regions]
         """
-        if "selected" not in self.dict: return []
+        if not self.has_selection(): return []
         regions = non_overlapping_where(self.dict, "children", lambda n,d: n["selected"] and not is_blacklisted(n), mode="dfs")
         return [region[key] for region in regions]
 
@@ -468,6 +498,7 @@ class AllenBrainHierarchy:
 
         See also
         --------
+        [`has_selection`][braian.AllenBrainHierarchy.has_selection]
         [`get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
         [`add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
         [`select_at_depth`][braian.AllenBrainHierarchy.select_at_depth]
@@ -501,6 +532,7 @@ class AllenBrainHierarchy:
 
         See also
         --------
+        [`has_selection`][braian.AllenBrainHierarchy.has_selection]
         [`get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
         [`unselect_all`][braian.AllenBrainHierarchy.unselect_all]
         [`add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]

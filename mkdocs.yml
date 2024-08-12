@@ -59,8 +59,6 @@ theme:
   # logo: assets/logo/dark/compact.svg
   logo: assets/logo/dark/horizontal.svg
   # logo: assets/logo/dark/horizontal_condensed.svg
-extra_css:
-- custom_theme/material/style.css
 
 plugins:
 - search
@@ -93,7 +91,8 @@ plugins:
         titles_only: false
         sticky_navigation: true
         locale: en
-        logo: null
+        favicon: img/favicon.ico
+        logo: assets/logo/dark/horizontal.svg
 - mkdocstrings:
     default_handler: python
     custom_templates: docs/custom_theme
@@ -155,3 +154,14 @@ markdown_extensions:
   - admonition
   - pymdownx.escapeall:
       hardbreak: true
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/katex.js
+  - https://unpkg.com/katex@0/dist/katex.min.js
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
+
+extra_css:
+  - custom_theme/material/style.css
+  - https://unpkg.com/katex@0/dist/katex.min.css

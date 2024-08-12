@@ -87,8 +87,10 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def maximum(*args, **kwargs) -> Self:
         return BrainData.merge(*args, op=pd.DataFrame.max, same_metrics=True, same_units=False, **kwargs)
 
+    RAW_TYPE: str = "raw"
+
     def __init__(self, data: pd.Series, name: str, metric: str, units: str,
-                 brain_ontology:AllenBrainHierarchy|None=None, fill=False) -> None:
+                 brain_ontology:AllenBrainHierarchy|None=None, fill_nan=False) -> None:
         self.data = data.copy()
         self.is_split = is_split_left_right(self.data.index)
         self.data_name = str(name) # data_name
@@ -100,14 +102,14 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.units = ""
             print(f"WARNING: {self} has no units")
         if brain_ontology is not None:
-            self.sort_by_ontology(brain_ontology, fill, inplace=True)
+            self.sort_by_ontology(brain_ontology, fill_nan, inplace=True)
     
     def __str__(self) -> str:
         return f"BrainData(name={self.data_name}, metric={self.metric})"
     
     def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy,
-                          fill=False, inplace=False) -> Self:
-        data = sort_by_ontology(self.data, brain_ontology, fill=fill, fill_value=np.nan)
+                          fill_nan=False, inplace=False) -> Self:
+        data = sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=np.nan)
         if not inplace:
             return BrainData(data, self.data_name, self.metric, self.units)
         else:
@@ -130,12 +132,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def max(self) -> float:
         return self.data[self.data != np.inf].max()
 
-    def remove_region(self, *region: str, inplace=False, fillnan=False) -> Self:
+    def remove_region(self, region: str, *regions, inplace=False, fill_nan=False) -> Self:
         data = self.data.copy() if not inplace else self.data
-        if fillnan:
-            data[list(region)] = np.nan
+        regions = [region, *regions]
+        if fill_nan:
+            data[regions] = np.nan
         else:
-            data = data[data.index.isin(region)]
+            data = data[data.index.isin(regions)]
         return self if inplace else BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
 
     @property

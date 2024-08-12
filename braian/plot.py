@@ -83,8 +83,8 @@ def plot_cv_above_threshold(brain_ontology, *sliced_brains_groups: list[SlicedBr
     n_areas_above_thr = []
     for n_group, group_slices in enumerate(sliced_brains_groups):
         n_brains_before = n_brains_before_group[n_group-1] if n_group > 0 else 0
-        group_cvar_brains = [AnimalBrain.from_slices(sliced_brain, mode="cvar", hemisphere_distinction=False, densities=True) for sliced_brain in group_slices]
-        group_cvar_brains = [AnimalBrain.filter_selected_regions(brain, brain_ontology) for brain in group_cvar_brains]
+        group_cvar_brains: list[AnimalBrain] = [AnimalBrain.from_slices(sliced_brain, mode="cvar", hemisphere_distinction=False, densities=True) for sliced_brain in group_slices]
+        group_cvar_brains = [brain.select_from_ontology(brain_ontology) for brain in group_cvar_brains]
 
         for n_brain, cvars in enumerate(group_cvar_brains):
             # Scatterplot (animals)
@@ -374,7 +374,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
             else:
                 salience_scores =  markers_salience_scores[marker]
             if brain_ontology is not None:
-                salience_scores = salience_scores.sort_by_ontology(brain_ontology, fill=False, inplace=False).data
+                salience_scores = salience_scores.sort_by_ontology(brain_ontology, fill_nan=False, inplace=False).data
             else:
                 salience_scores = salience_scores.data
             assert len(salience_scores) == len(groups_df[0]) and all(salience_scores.index == groups_df[0].index), \
@@ -409,7 +409,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
     # NOTE: if the groups have the same animals (i.e. same name), the heatmaps overlap
 
     if brain_ontology is not None:
-        groups = [group.sort_by_ontology(brain_ontology, fill=True, inplace=False) for group in groups]
+        groups = [group.sort_by_ontology(brain_ontology, fill_nan=True, inplace=False) for group in groups]
         regions_mjd = brain_ontology.get_areas_major_division(*selected_regions)
         selected_regions = list(regions_mjd.keys())
     # elif len(groups) > 1:

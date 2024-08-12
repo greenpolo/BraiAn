@@ -6,6 +6,7 @@ import re
 
 from enum import Enum, auto
 from pandas.core.groupby import DataFrameGroupBy
+from pathlib import Path
 from typing import Generator, Self
 
 from braian.brain_hierarchy import AllenBrainHierarchy
@@ -26,10 +27,26 @@ def coefficient_variation(x: np.ndarray) -> np.float64:
         return x.apply(coefficient_variation, axis=0)   
 
 class SliceMetrics(Enum):
+    r"""
+    Enum of the metrics used to reduce region data from [`SlicedBrain`][braian.SlicedBrain]
+    into a [`AnimalBrain`][braian.AnimalBrain].
+    
+    Attributes
+    ----------
+    SUM
+        Computes the sum of all the sections data from the same region into a single value
+    MEAN
+        Computes the average $\mu$ of all the sections data from the same region into a single value
+    STD
+        Computes the standard deviation $\sigma$ between all the sections data from the same region into a single value
+    CVAR
+        Computes the [coefficient of variation](https://en.wikipedia.org/wiki/Coefficient_of_variation)
+        $\frac \mu \sigma$ between all the sections data from the same region into a single value
+    """
     SUM = auto()
     MEAN = auto()
-    CVAR = auto()
     STD = auto()
+    CVAR = auto()
 
     @property
     def _raw(self) -> bool:
@@ -79,12 +96,39 @@ class SliceMetrics(Enum):
         return self.apply(all_slices.groupby(all_slices.index)), raw
 
 class AnimalBrain:
-    RAW_DATA = "raw"
-
     @staticmethod
     def from_slices(sliced_brain: SlicedBrain,
                     mode: SliceMetrics|str=SliceMetrics.SUM, min_slices: int=0,
                     hemisphere_distinction: bool=True, densities: bool=False) -> Self:
+        """
+        Crates a cohesive [`AnimalBrain`][braian.AnimalBrain] from data coming from brain sections.
+
+        Parameters
+        ----------
+        sliced_brain
+            A sectioned brain.
+        mode
+            The metric used to reduce sections data from the same region into a single value.
+        min_slices
+            The minimum number of sections for a reduction to be valid.
+            If a region has not enough sections, it will disappear from the dataset.
+        hemisphere_distinction
+            if False and `sliced_brain` is split between left/right hemispheres,
+            it first merges, for each section, the hemispheric data.
+        densities
+            If True, it computes the reduction on the section density (i.e., marker/area)
+            instead of doing it on the raw cell counts.
+
+        Returns
+        -------
+        :
+            An `AnimalBrain`.
+
+        Raises
+        ------
+        EmptyBrainError
+            when `sliced_brain` has not enough sections or when `min_slices` filters out all brain regions.
+        """
         if not hemisphere_distinction:
             sliced_brain = SlicedBrain.merge_hemispheres(sliced_brain)
 
@@ -105,11 +149,27 @@ class AnimalBrain:
         return AnimalBrain(markers_data=markers_data, areas=areas, raw=raw)
 
     def __init__(self, markers_data: dict[str,BrainData], areas: BrainData, raw: bool=False) -> None:
+        """
+        Associates [`BrainData`][braian.BrainData] coming from a single subject,
+        for each marker and for each brain region.
+
+        Parameters
+        ----------
+        markers_data
+            A dictionary that associates the name of a marker to a `BrainData`
+        areas
+            A `BrainData` with the size of the subject's brain regions.
+        raw
+            Whether the data can be considered _raw_ (e.g., contains simple cell positive counts) or not.
+        """
         assert len(markers_data) > 0 and areas is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the areas/volumes of each region"
-        self.markers = tuple(markers_data.keys())
+        self.markers: tuple[str] = tuple(markers_data.keys())
+        """The name of the markers for which the current AnimalBrain has data."""
         self.markers_data = markers_data
-        self.areas = areas
-        self.raw = raw
+        self.areas: BrainData = areas
+        """The data corresponding to the size of each brain region of the current AnimalBrain."""
+        self.raw: bool = raw
+        """Whether the data can be considered _raw_ (e.g., contains simple cell positive counts) or not."""
         assert all([m.data_name == self.name for m in markers_data.values()]), "All markers' BrainData must be from the same animal!"
         assert all([m.metric == self.mode for m in markers_data.values()]), "All markers' BrainData must have the same metric!"
         assert all([m.is_split == self.is_split for m in markers_data.values()]), "Markers' BrainData must either all have split hemispheres or none!"
@@ -118,15 +178,24 @@ class AnimalBrain:
 
     @property
     def mode(self) -> str:
+        """The name of the metric used to compute used to compute the data normalization."""
         return self.markers_data[self.markers[0]].metric
 
     @property
     def is_split(self) -> bool:
+        """Whether the data of the current `AnimalBrain` makes a distinction between right and left hemisphere."""
         return self.markers_data[self.markers[0]].is_split
 
     @property
     def name(self) -> str:
+        """The name of the animal."""
         return self.markers_data[self.markers[0]].data_name
+
+    @property
+    def regions(self) -> list[str]:
+        """The list of region acronyms for which the current `AnimalBrain` has data."""
+        # assumes areas' and all markers' BrainData are synchronized
+        return self.areas.regions
 
     def __repr__(self):
         return str(self)
@@ -135,78 +204,243 @@ class AnimalBrain:
         return f"AnimalBrain(name='{self.name}', mode={self.mode}, markers={list(self.markers)})"
 
     def __getitem__(self, marker: str):
+        """
+        Get the [`BrainData`][braian.BrainData] associated to `marker`.
+        Fails if there is no data for the the given marker
+
+        Parameters
+        ----------
+        marker
+            The marker to extract the data for.
+
+        Returns
+        -------
+        :
+            The data associated to `marker`.
+        """
         return self.markers_data[marker]
 
-    def remove_region(self, *region: str) -> None:
+    def remove_region(self, region: str, *regions, fill_nan: bool=True) -> None:
+        """
+        Removes the data from all the given regions in the current `AnimalBrain`
+
+        Parameters
+        ----------
+        region
+            The acronyms of the regions to exclude from the data.
+        fill_nan
+            If True, instead of removing the regions completely, it fills their value to [`NaN`][np.nan].
+        """
+        regions = (region, *regions)
         for data in self.markers_data.values():
-            data.remove_region(*region, inplace=True, fillnan=True)
-        self.areas.remove_region(*region, inplace=True, fillnan=True)
-
-    def remove_smaller_subregions(self, area_threshold, brain_ontology: AllenBrainHierarchy) -> None:
-        small_regions = {smaller_region for small_region in self.areas.data[self.areas.data <= area_threshold].index
-                                        for smaller_region in brain_ontology.list_all_subregions(small_region)}
-        self.remove_region(*small_regions)
-
-    @property
-    def regions(self) -> list[str]:
-        # assumes areas' and all markers' BrainData are synchronized
-        return self.areas.regions
+            data.remove_region(*regions, inplace=True, fill_nan=fill_nan)
+        self.areas.remove_region(*regions, inplace=True, fill_nan=fill_nan)
 
     def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy,
-                          fill=False, inplace=False):
-        markers_data = {marker: m_data.sort_by_ontology(brain_ontology, fill=fill, inplace=inplace) for marker, m_data in self.markers_data.items()}
-        areas = self.areas.sort_by_ontology(brain_ontology, fill=fill, inplace=inplace)
+                          fill_nan: bool=False, inplace: bool=False) -> Self:
+        """
+        Sorts the data in depth-first order accordingly to the associated `brain_ontology`.
+
+        Parameters
+        ----------
+        brain_ontology
+            The ontology to which the current data was registered against.
+        fill_nan
+            If True, it sets the value to [`NaN`][np.nan] for all the regions in
+            `brain_ontology` missing in the current `AnimalBrain`.
+        inplace
+            If True, it applies the sorting to the current instance.
+
+        Returns
+        -------
+        :
+            A brain with data sorted accordingly to `brain_ontology`.
+            If `inplace=True` it returns the same instance.
+        """
+        markers_data = {marker: m_data.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
+                        for marker, m_data in self.markers_data.items()}
+        areas = self.areas.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, areas=areas, raw=self.raw)
         else:
             return self
 
-    def select_from_list(self, regions: list[str], fill_nan=False, inplace=False) -> Self:
-        markers_data = {marker: m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for marker, m_data in self.markers_data.items()}
+    def select_from_list(self, regions: list[str], fill_nan: bool=False, inplace: bool=False) -> Self:
+        """
+        Filters the data from a given list of regions.
+
+        Parameters
+        ----------
+        regions
+            The acronyms of the regions to select from the data.
+        fill_nan
+            If True, the regions missing from the current data are filled with [`NaN`][np.nan].
+            Otherwise, if the data from some regions are missing, they are ignored.
+        inplace
+            If True, it applies the filtering to the current instance.
+
+        Returns
+        -------
+        :
+            A brain with data filtered accordingly to the given `regions`.
+            If `inplace=True` it returns the same instance.
+        """
+        markers_data = {marker: m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+                        for marker, m_data in self.markers_data.items()}
         areas = self.areas.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, areas=areas, raw=self.raw)
         else:
             return self
 
-    def select_from_ontology(self, brain_ontology: AllenBrainHierarchy, fill_nan=False, *args, **kwargs) -> Self:
+    def select_from_ontology(self, brain_ontology: AllenBrainHierarchy, fill_nan: bool=False, inplace: bool=False) -> Self:
+        """
+        Filters the data from a given brain_ontology, accordingly to a non-overlapping list of regions
+        previously selected from `brain_ontology`.\
+        It fails if no selection method was called on the ontology.
+
+        Parameters
+        ----------
+        brain_ontology
+            The ontology to which the current data was registered against.
+        fill_nan
+            If True, the regions missing from the current data are filled with [`NaN`][np.nan].
+            Otherwise, if the data from some regions are missing, they are ignored.
+        inplace
+            If True, it applies the filtering to the current instance.
+
+        Returns
+        -------
+        :
+            A brain with data filtered accordingly to the given ontology selection.
+            If `inplace=True` it returns the same instance.
+        See also
+        --------
+        [`AllenBrainHierarchy.get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
+        [`AllenBrainHierarchy.unselect_all`][braian.AllenBrainHierarchy.unselect_all]
+        [`AllenBrainHierarchy.add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
+        [`AllenBrainHierarchy.select_at_depth`][braian.AllenBrainHierarchy.select_at_depth]
+        [`AllenBrainHierarchy.select_at_structural_level`][braian.AllenBrainHierarchy.select_at_structural_level]
+        [`AllenBrainHierarchy.select_leaves`][braian.AllenBrainHierarchy.select_leaves]
+        [`AllenBrainHierarchy.select_summary_structures`][braian.AllenBrainHierarchy.select_summary_structures]
+        [`AllenBrainHierarchy.select_regions`][braian.AllenBrainHierarchy.select_regions]
+        [`AllenBrainHierarchy.get_regions`][braian.AllenBrainHierarchy.get_regions]
+        """
+        assert brain_ontology.has_selection(), "No selection found in the given ontology."
         selected_allen_regions = brain_ontology.get_selected_regions()
         if not fill_nan:
             selectable_regions = set(self.regions).intersection(set(selected_allen_regions))
         else:
             selectable_regions = selected_allen_regions
-        return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, *args, **kwargs)
+        return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, inplace=inplace)
 
-    def get_units(self, marker=None):
+    def get_units(self, marker:str|None=None) -> str:
+        """
+        Returns the units of measurment of a marker.
+
+        Parameters
+        ----------
+        marker
+            The marker to get the units for. It can be omitted, if the current brain has only one marker.
+
+        Returns
+        -------
+        :
+            A string representing the units of measurement of `marker`.
+        """
         if len(self.markers) == 1:
             marker = self.markers[0]
         else:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
         return self.markers_data[marker].units
 
-    def to_pandas(self, units=False) -> pd.DataFrame:
+    def to_pandas(self, units: bool=False) -> pd.DataFrame:
+        """
+        Converts the current `AnimalBrain` to a DataFrame. T
+
+        Parameters
+        ----------
+        units
+            Whether the columns should include the units of measurement or not.
+
+        Returns
+        -------
+        :
+            A DataFrame where the rows are the brain regions, the first column is the size
+            of the regions, while the other columns contains the data for each marker.
+            The columns' name is the name of the metric used.
+
+        See also
+        --------
+        [`from_pandas`][braian.AnimalBrain.from_pandas]
+        """
         data = pd.concat({f"area ({self.areas.units})" if units else "area": self.areas.data,
                           **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self.markers_data.items()}}, axis=1)
         data.columns.name = str(self.mode)
         return data
 
-    def to_csv(self, output_path: str) -> None:
+    def to_csv(self, output_path: str, sep=",") -> str:
+        """
+        Write the current `AnimalBrain` to a CSV file.
+
+        Parameters
+        ----------
+        output_path
+            The path to the saved CSV file.
+        sep
+            Character to treat as the delimiter.
+
+        See also
+        --------
+        [`from_csv`][braian.AnimalBrain.from_csv]
+        """
         os.makedirs(output_path, exist_ok=True)
         mode_str = str(self.mode)
         output_path = os.path.join(output_path, f"{self.name}_{mode_str}.csv")
         data = self.to_pandas(units=True)
-        data.to_csv(output_path, sep="\t", mode="w", index_label=mode_str)
-        print(f"{self} saved to {output_path}")
+        data.to_csv(output_path, sep=sep, mode="w", index_label=mode_str)
 
     @staticmethod
     def is_raw(mode: str) -> bool:
+        """
+        Test whether the given string can be associated to a raw metric or not.
+
+        Parameters
+        ----------
+        mode
+            A string representing the name of a metric.
+
+        Returns
+        -------
+        :
+            True, if the given string is associated to a raw metric. Otherwise, False.
+        """
         try:
             return SliceMetrics(mode)._raw            
         except ValueError:
-            return mode == AnimalBrain.RAW_DATA
+            return mode == BrainData.RAW_TYPE
 
     @staticmethod
-    def from_pandas(animal_name, df: pd.DataFrame) -> Self:
+    def from_pandas(df: pd.DataFrame, animal_name: str) -> Self:
+        """
+        Creates an instance of [`AnimalBrain`][braian.AnimalBrain] from a DataFrame.
+
+        Parameters
+        ----------
+        df
+            A [`to_pandas`][braian.AnimalBrain.to_pandas]-compatible `DataFrame`.
+        animal_name
+            The name of the animal associated to the data in `df`.
+
+        Returns
+        -------
+        :
+            An instance of `AnimalBrain` that corresponds to the data in `df`
+
+        See also
+        --------
+        [`to_pandas`][braian.AnimalBrain.to_pandas]
+        """
         if type(mode:=df.columns.name) != str:
             mode = str(df.columns.name)
         raw = AnimalBrain.is_raw(mode)
@@ -223,34 +457,61 @@ class AnimalBrain:
             else: # it's a marker
                 markers_data[name] = BrainData(data, animal_name, mode, units)
         return AnimalBrain(markers_data=markers_data, areas=areas, raw=raw)
-    
-    @staticmethod
-    def exists_csv(animal_name, root_dir, mode: str=None) -> bool:
-        filename = f"{animal_name}.csv" if mode is not None else f"{animal_name}_{str(mode)}.csv"
-        return os.path.exists(os.path.join(root_dir, filename))
 
     @staticmethod
-    def from_csv(animal_name, root_dir, mode: str=None) -> Self:
+    def from_csv(filepath: Path|str, name: str, sep=",") -> Self:
+        """
+        Reads a comma-separated values (CSV) file into `AnimalBrain`.
+
+        Parameters
+        ----------
+        filepath
+            Any valid string path is acceptable. It also accepts any [os.PathLike][].
+        name
+            Name of the animal associated to the date.
+        sep
+            Character or regex pattern to treat as the delimiter.
+
+        Returns
+        -------
+        :
+            An instance of `AnimalBrain` that corresponds to the data in the CSV file
+
+        See also
+        --------
+        [`to_csv`][braian.AnimalBrain.to_csv]
+        """
         # read CSV
-        filename = f"{animal_name}.csv" if mode is None else f"{animal_name}_{str(mode)}.csv"
-        df = pd.read_csv(os.path.join(root_dir, filename), sep="\t", header=0, index_col=0)
+        # filename = f"{name}.csv" if mode is None else f"{name}_{str(mode)}.csv"
+        df = pd.read_csv(filepath, sep=sep, header=0, index_col=0)
         if df.index.name == "Class":
             # is old csv
             raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
         df.columns.name = df.index.name
         df.index.name = None
-        return AnimalBrain.from_pandas(animal_name, df)
-
-    @staticmethod
-    def filter_selected_regions(animal_brain: Self, brain_ontology: AllenBrainHierarchy) -> Self:
-        brain = copy.copy(animal_brain)
-        brain.markers_data = {m: m_data.select_from_ontology(brain_ontology) for m, m_data in brain.markers_data.items()}
-        brain.areas = brain.areas.select_from_ontology(brain_ontology)
-        return brain
+        return AnimalBrain.from_pandas(df, name)
 
     @staticmethod
     def merge_hemispheres(animal_brain: Self) -> Self:
-        brain = copy.copy(animal_brain)
+        """
+        Creates a new `AnimalBrain` by from `animal_brain`.
+
+        Parameters
+        ----------
+        animal_brain
+            A brain to merge.
+
+        Returns
+        -------
+        :
+            A new [`AnimalBrain`][braian.AnimalBrain] with no hemisphere distinction.
+            If `animal_brain` is already merged, it return the same instance with no changes.
+
+        See also
+        --------
+        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]            
+        """
+        brain: AnimalBrain = copy.copy(animal_brain)
         brain.markers_data = {m: m_data.merge_hemispheres() for m, m_data in brain.markers_data.items()}
         brain.areas = brain.areas.merge_hemispheres()
         return brain

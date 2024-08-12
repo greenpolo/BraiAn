@@ -40,10 +40,10 @@ class AnimalGroup:
         else:
             merge = lambda brain: brain
         if brain_ontology is not None:
-            sort = lambda brain: brain.sort_by_ontology(brain_ontology, fill=fill_nan, inplace=False)
+            sort = lambda brain: brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)
         elif fill_nan:
             regions = common_regions(animals)
-            sort = lambda brain: brain.select_from_list(regions, fill=True, inplace=False)
+            sort = lambda brain: brain.select_from_list(regions, fill_nan=True, inplace=False)
         elif have_same_regions(animals):
             sort = lambda brain: brain
         else:
@@ -103,7 +103,7 @@ class AnimalGroup:
 
     def to_pandas(self, marker=None, units=False) -> pd.DataFrame:
         if marker in self.markers:
-            df = pd.concat({brain.name: brain.markers_data[marker].data for brain in self.animals}, join="outer", axis=1)
+            df = pd.concat({brain.name: brain[marker].data for brain in self.animals}, join="outer", axis=1)
             df.columns.name = str(self.metric)
             if units:
                 a = self.animals[0]
@@ -111,7 +111,7 @@ class AnimalGroup:
             return df
         df = {"area": pd.concat({brain.name: brain.areas.data for brain in self.animals}, join="outer", axis=0)}
         for marker in self.markers:
-            all_animals = pd.concat({brain.name: brain.markers_data[marker].data for brain in self.animals}, join="outer", axis=0)
+            all_animals = pd.concat({brain.name: brain[marker].data for brain in self.animals}, join="outer", axis=0)
             df[marker] = all_animals
         df = pd.concat(df, join="outer", axis=1)
         df = df.reorder_levels([1,0], axis=0)
@@ -123,12 +123,12 @@ class AnimalGroup:
             df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.areas.units})" for col in df.columns}, inplace=True)
         return df
     
-    def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy, fill=True, inplace=True) -> None:
+    def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy, fill_nan=True, inplace=True) -> None:
         if not inplace:
-            return AnimalGroup(self.name, self.animals, brain_ontology=brain_ontology, fill_nan=fill)
+            return AnimalGroup(self.name, self.animals, brain_ontology=brain_ontology, fill_nan=fill_nan)
         else:
             for brain in self.animals:
-                brain.sort_by_ontology(brain_ontology, fill=fill, inplace=True)
+                brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=True)
             return self
     
     def get_animals(self) -> list[str]:
@@ -175,11 +175,6 @@ class AnimalGroup:
     def select_animal(self, animal_name: str) -> AnimalBrain:
         return next((brain for brain in self.animals if brain.name == animal_name))
 
-    def remove_smaller_subregions(self, *args, **kwargs) -> None:
-        for brain in self.animals:
-            brain.remove_smaller_subregions(*args, **kwargs)
-        self.mean = self._update_mean()
-
     def get_units(self, marker=None) -> str:
         if len(self.markers) == 1:
             marker = self.markers[0]
@@ -192,8 +187,8 @@ class AnimalGroup:
         save_csv(df, output_path, file_name, overwrite=overwrite, index_label=(df.columns.name, None))
 
     @staticmethod
-    def from_pandas(group_name, df: pd.DataFrame) -> Self:
-        animals = [AnimalBrain.from_pandas(animal_name, df.xs(animal_name, level=1)) for animal_name in df.index.unique(1)]
+    def from_pandas(df: pd.DataFrame, group_name: str) -> Self:
+        animals = [AnimalBrain.from_pandas(df.xs(animal_name, level=1), animal_name) for animal_name in df.index.unique(1)]
         return AnimalGroup(group_name, animals, fill_nan=False)
 
     @staticmethod
@@ -202,7 +197,7 @@ class AnimalGroup:
         df = pd.read_csv(os.path.join(root_dir, file_name), sep="\t", header=0, index_col=[0,1])
         df.columns.name = df.index.names[0]
         df.index.names = (None, None)
-        return AnimalGroup.from_pandas(group_name, df)
+        return AnimalGroup.from_pandas(df, group_name)
 
 """
 Created on Wed Mar  9 22:28:08 2022

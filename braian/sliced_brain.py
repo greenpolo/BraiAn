@@ -69,7 +69,7 @@ class SlicedBrain:
             An ontology against whose version the brain was aligned
         ch2marker
             A dictionary mapping QuPath channel names to markers.
-            If `overlapping_markers` is specified, `ch2marker` should be a [OrderedDict][].
+            If `overlapping_markers` is specified, `ch2marker` should be a [`OrderedDict`][collections.OrderedDict].
         overlapping_markers
             If double-positivity between two markers was computed with
             [`OverlappingDetections`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/OverlappingDetections.html),
@@ -155,7 +155,7 @@ class SlicedBrain:
         are_split = np.array([s.is_split for s in self._slices])
         assert are_split.all() or ~are_split.any(), "Slices from the same animal should either be ALL split between right/left hemisphere or not."
         self.is_split = are_split[0]
-        """Whether the data of the current `SlicedBrain` make a distinction between right and left hemisphere."""
+        """Whether the data of the current `SlicedBrain` makes a distinction between right and left hemisphere."""
 
     @property
     def name(self) -> str:
@@ -196,13 +196,13 @@ class SlicedBrain:
     @staticmethod
     def merge_hemispheres(sliced_brain: Self) -> Self:
         """
-        Creates a new `SlicedBrain` by from all merged [`BrainSlice`][braian.BrainSlice]
+        Creates a new `SlicedBrain` from all merged [`BrainSlice`][braian.BrainSlice]
         in `sliced_brain`.
 
         Parameters
         ----------
         sliced_brain
-            A sliced brain to merge
+            A sliced brain to merge.
 
         Returns
         -------
@@ -212,7 +212,7 @@ class SlicedBrain:
 
         See also
         --------
-        [`BrainSlice.`][braian.BrainSlice.merge_hemispheres]            
+        [`BrainSlice.merge_hemispheres`][braian.BrainSlice.merge_hemispheres]            
         """
         if not sliced_brain.is_split:
             return sliced_brain
