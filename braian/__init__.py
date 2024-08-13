@@ -20,7 +20,8 @@ from .animal_brain import *
 from .animal_group import *
 from .statistics import *
 from .utils import cache, save_csv, regions_to_plot, remote_dirs
-from .plot import *
+# from .plot import *
+# from braian.plot import *
 
 # from braian.connectome import *
 

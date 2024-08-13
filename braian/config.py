@@ -6,6 +6,7 @@ import toml
 from collections import OrderedDict, namedtuple
 from typing import Self
 
+import braian.plot as bap
 from braian.animal_brain import AnimalBrain
 from braian.animal_group import AnimalGroup
 from braian.brain_data import BrainData
@@ -186,7 +187,7 @@ class BraiAnConfig:
                     comparison_str = right_data.data_name
                 filename = self.make_filename(metric, common_str, comparison_str)
                 print(f"\t{filename}: ", end="")
-                right_data.plot(self.regions_to_plot,
+                bap.heatmap(right_data, self.regions_to_plot,
                             output_dir, filename, other=left_data,
                             cmin=cmin, cmax=cmax, centered_cmap=centered_cmap,
                             **kwargs)

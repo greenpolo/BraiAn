@@ -1,2 +1,2 @@
-from .plot import *
+from .generic import *
 from .heatmap import *
