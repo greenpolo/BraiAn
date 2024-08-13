@@ -229,7 +229,7 @@ class AnimalBrain:
         region
             The acronyms of the regions to exclude from the data.
         fill_nan
-            If True, instead of removing the regions completely, it fills their value to [`NaN`][np.nan].
+            If True, instead of removing the regions completely, it fills their value to [`NaN`][numpy.nan].
         """
         regions = (region, *regions)
         for data in self.markers_data.values():
@@ -246,7 +246,7 @@ class AnimalBrain:
         brain_ontology
             The ontology to which the current data was registered against.
         fill_nan
-            If True, it sets the value to [`NaN`][np.nan] for all the regions in
+            If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
             `brain_ontology` missing in the current `AnimalBrain`.
         inplace
             If True, it applies the sorting to the current instance.
@@ -274,7 +274,7 @@ class AnimalBrain:
         regions
             The acronyms of the regions to select from the data.
         fill_nan
-            If True, the regions missing from the current data are filled with [`NaN`][np.nan].
+            If True, the regions missing from the current data are filled with [`NaN`][numpy.nan].
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.
@@ -304,7 +304,7 @@ class AnimalBrain:
         brain_ontology
             The ontology to which the current data was registered against.
         fill_nan
-            If True, the regions missing from the current data are filled with [`NaN`][np.nan].
+            If True, the regions missing from the current data are filled with [`NaN`][numpy.nan].
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.

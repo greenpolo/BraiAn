@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
-
-SPDX-License-Identifier: CC-BY-4.0
--->
 # BraiAn documentation
 
 BraiAn is a versatile toolkit for whole-**brai**n quantitative **an**alysis of large datasets.

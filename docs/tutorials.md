@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
-
-SPDX-License-Identifier: CC-BY-4.0
--->
 This part of the project documentation focuses on a
 **learning-oriented** approach. You'll learn how to
 get started with the code in this project.
