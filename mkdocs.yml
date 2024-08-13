@@ -39,7 +39,9 @@ nav:
     - how-to-guides.md
     - Notebook page: notebook.ipynb
   - API Reference:
-    - braian: reference.md
+    - braian: api-braian.md
+    - braian.stats: api-stats.md
+    - braian.plot: api-plot.md
 exclude_docs:
   /resources/
 watch:
@@ -77,7 +79,9 @@ plugins:
 - multi-theme:
     additional_themes:
     - pages:
-      - reference.md
+      - api-braian.md
+      - api-stats.md
+      - api-plot.md
       theme:
         name: material
         custom_dir: docs/custom_theme/material
