@@ -1,3 +1,4 @@
+import braian.plot as bap
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
@@ -56,7 +57,7 @@ def draw_chord_plot(connectome: Connectome,
               annotations=extract_annotations(kwargs, pos=-0.07, step=-0.02)
               )
 
-    nodes = brain_ontology.draw_nodes(G, circle_layout, regions_size)
+    nodes = bap.draw_nodes(G, circle_layout, brain_ontology, regions_size)
     add_regions_acronyms(layout, G, circle_layout, regions_font_size)
     colorscale_min = connectome.r_cutoff if colorscale_min == "cutoff" else colorscale_min
     lines, edge_info = draw_edges(G, connectome.weight_str, circle_layout, max_edge_width, use_weighted_edge_widths,

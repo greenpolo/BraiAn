@@ -1,3 +1,4 @@
+import braian.plot as bap
 import igraph as ig
 import plotly.graph_objects as go
 
@@ -16,14 +17,14 @@ def draw_network_plot(connectome: Connectome,
     else:
         G = connectome.G
     graph_layout = layout_fun(G)
-    nodes_trace = brain_ontology.draw_nodes(G, graph_layout, 15, outline_size=6,
+    nodes_trace = bap.draw_nodes(G, graph_layout, 15, brain_ontology, outline_size=6,
                              use_centrality=use_centrality, centrality_metric=centrality_metric,
                              use_clustering=use_clustering)
     if use_centrality and centrality_metric in G.vs.attributes():
         nodes_trace.marker.colorscale = colorscale
         nodes_trace.marker.showscale = True
         nodes_trace.marker.colorbar=dict(title=centrality_metric, len=0.5, thickness=15)
-    edges_trace = brain_ontology.draw_edges(G, graph_layout, 2)
+    edges_trace = bap.draw_edges(G, graph_layout, 2)
     fig = go.Figure([edges_trace, nodes_trace],
                     layout=dict(
                         width=width, height=height,
