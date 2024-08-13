@@ -1,10 +1,13 @@
 import copy
 
+__all__ = ["deflect"]
+
 def keep_type(F, obj, attr: str): # a function decorator        
     # if the result of the wrapped function is of the same type as attr,
-    # it creates a copy of obj and set the attr to the new result
+    # it creates a copy of obj and set the attr to the new  
     attr_obj = obj.__dict__[attr]
     def wrapper(*args, inplace=False, **kwargs): # on wrapped function call
+        # if some of the arguments have the same type as the caller, deflect to use arg.<attr>
         args = [arg if type(arg) != type(obj) else arg.__dict__[attr] for arg in args]
         kwargs = {kw: arg if type(arg) != type(obj) else arg.__dict__[attr] for kw,arg in kwargs.items()}
         result = F(*args, **kwargs)
@@ -47,6 +50,30 @@ def deflect_call(target: str, op: str):
 def deflect(on_attribute: str,
             arithmetics=True,
             container=True):
+    """
+    Constructor for deflecting metaclasses. A class using the resulting metaclass will
+    deflect all access to unknown attributes to a _target_ attribute (i.e. `on_attribute`).
+    If the result of the deflected call has the same type as the target,
+    it creates a copy of the instance and with `on_attribute` substituted.\
+    All deflected functions expose `inplace` parameter (defaults to `False`) that,
+    if `True`, changes the target attribute instance with the result of the computation.
+
+    Parameters
+    ----------
+    on_attribute
+        The name of the attribute where to deflect all unknown attribute access.
+    arithmetics
+        Whether to deflect [arithmetic operations](https://docs.python.org/3.3/reference/datamodel.html#emulating-numeric-types)
+        or not.
+    container
+        Whether to deflect [container operations](https://docs.python.org/3.3/reference/datamodel.html#emulating-container-types)
+        or not.
+
+    Returns
+    -------
+    :
+        A metaclass.
+    """
     class Deflector(type):
         def __new__(meta, classname, supers, classdict):
             classdict["__getattr__"] = deflect_call(on_attribute, "__getattr__")
