@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Self
 from collections.abc import Iterable
 
-from braian.brain_data import is_split_left_right, extract_acronym, sort_by_ontology, UnkownBrainRegionsError
+from braian.brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnkownBrainRegionsError
 from braian.brain_hierarchy import AllenBrainHierarchy
 from braian.utils import search_file_or_simlink
 
@@ -77,6 +77,10 @@ class BrainSlice:
             The name of the marker visible in the correspondant `detected_channels`.
             It accepts the same number of markers as the number of `detected_channels`,
             if multiple detections were segmented from multiple channels.
+        *args
+            Other arguments are passed to [`BrainSlice`][braian.BrainSlice] constructor.
+        **kwargs
+            Other keyword arguments are passed to [`BrainSlice`][braian.BrainSlice] constructor.
 
         Returns
         -------
@@ -257,7 +261,7 @@ class BrainSlice:
         self.name: str = name
         """The name of the image that captured the section from which the data of the current `BrainSlice` are from."""
         self.data = data
-        self.is_split: bool = is_split_left_right(self.data.index)
+        self.is_split: bool = _is_split_left_right(self.data.index)
         """Whether the data of the current `BrainSlice` make a distinction between right and left hemisphere."""
         if is_split and not self.is_split:
             raise InvalidRegionsHemisphereError(file=self.name)
@@ -273,7 +277,7 @@ class BrainSlice:
         assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
         self.data = self.data[self.data["area"] > 0]
         if brain_ontology is not None:
-            self.data = sort_by_ontology(self.data, brain_ontology, fill=False)
+            self.data = _sort_by_ontology(self.data, brain_ontology, fill=False)
 
         self.markers_density: pd.DataFrame = self.__marker_density()
 

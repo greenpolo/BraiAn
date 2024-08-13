@@ -99,7 +99,22 @@ class AnimalGroup:
         return {marker: BrainData.mean(*[brain[marker] for brain in self.animals], name=self.name) for marker in self.markers}
 
     def combine(self, op, **kwargs) -> dict[str, BrainData]:
-        return {marker: BrainData.merge(*[brain[marker] for brain in self.animals], op=op, name=self.name, **kwargs) for marker in self.markers}
+        """
+        _summary_
+
+        Parameters
+        ----------
+        op
+            _description_
+        **kwargs
+            Other keyword arguments are passed to [`BrainData.reduce`][braian.BrainData.reduce].
+
+        Returns
+        -------
+        :
+            _description_
+        """
+        return {marker: BrainData.reduce(*[brain[marker] for brain in self.animals], op=op, name=self.name, **kwargs) for marker in self.markers}
 
     def to_pandas(self, marker=None, units=False) -> pd.DataFrame:
         if marker in self.markers:

@@ -178,7 +178,10 @@ class AnimalBrain:
 
     @property
     def mode(self) -> str:
-        """The name of the metric used to compute used to compute the data normalization."""
+        """
+        The name of the metric used to compute current data.
+        Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
+        """
         return self.markers_data[self.markers[0]].metric
 
     @property
@@ -295,8 +298,8 @@ class AnimalBrain:
 
     def select_from_ontology(self, brain_ontology: AllenBrainHierarchy, fill_nan: bool=False, inplace: bool=False) -> Self:
         """
-        Filters the data from a given brain_ontology, accordingly to a non-overlapping list of regions
-        previously selected from `brain_ontology`.\
+        Filters the data from a given ontology, accordingly to a non-overlapping list of regions
+        previously selected in `brain_ontology`.\
         It fails if no selection method was called on the ontology.
 
         Parameters
@@ -494,7 +497,7 @@ class AnimalBrain:
     @staticmethod
     def merge_hemispheres(animal_brain: Self) -> Self:
         """
-        Creates a new `AnimalBrain` by from `animal_brain`.
+        Creates a new `AnimalBrain` from `animal_brain` with no hemisphere distinction.
 
         Parameters
         ----------
