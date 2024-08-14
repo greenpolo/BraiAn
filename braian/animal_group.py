@@ -28,7 +28,7 @@ class AnimalGroup:
     def __init__(self, name: str, animals: Sequence[AnimalBrain], merge_hemispheres: bool=False,
                  brain_ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
         """
-        Creates an experimental cohort from a set of `AnimalBrain`.\
+        Creates an experimental cohort from a set of `AnimalBrain`.\\
         In order for a cohort to be valid, it must consist of brains with
         the same type of data (i.e. [metric][braian.AnimalBrain.mode]),
         the same [markers][braian.AnimalBrain.markers] and
@@ -56,7 +56,7 @@ class AnimalGroup:
         ------
         ValueError
             When there is no option to make sure that all animals of the cohort work on the same brain regions,
-            as `fill_nan=False`, `brain_ontology=None` and some animal misses at least one region compared to the rest.\
+            as `fill_nan=False`, `brain_ontology=None` and some animal misses at least one region compared to the rest.\\
             See [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list] or
             [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology] if you want to prepare
             the brains in advance.

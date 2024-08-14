@@ -145,7 +145,7 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
                          selected_regions: list[str], marker=None,
                          n_bootstrap=5000, fill_nan=True, seed=None) -> BrainData|dict[str,BrainData]:
     """
-    Computes [PLS][braian.stats.PLS] between two groups with the same markers.\
+    Computes [PLS][braian.stats.PLS] between two groups with the same markers.\\
     It estimates the standard error of the regions' saliences [by bootstrap][braian.stats.PLS.bootstrap_salience_scores].
 
     NOTE: it assumes that the respective latent variables of the two groups are generalisable

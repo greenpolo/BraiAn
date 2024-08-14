@@ -28,7 +28,7 @@ def extract_acronym(region_class: str) -> str:
     Returns
     -------
     :
-        The acronym of the corresponding brain region.\
+        The acronym of the corresponding brain region.\\
         If `region_class` has no hemisphere distinction, it returns a copy of `region_class`.
     """
     acronym = re.compile("[Left|Right]: (.+)").findall(region_class)
@@ -81,7 +81,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
               same_units=True,
               **kwargs) -> Self:
         """
-        Reduces two (or more) `BrainData` into a single one based on a given function.\
+        Reduces two (or more) `BrainData` into a single one based on a given function.\\
         It fails if the given data don't all have the same metric.
 
         Parameters
@@ -95,7 +95,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         op
             A function that maps `DataFrame` into `Series`. It must include an `axis` parameter.
         name
-            The name of the resulting BrainData.\
+            The name of the resulting BrainData.\\
             If not specified, it builds a name joining all given data names.
         op_name
             The name of the reduction function. If not specified, it uses `op` name.
@@ -198,7 +198,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             The units of measurment of the values in `data`.
         brain_ontology
             The ontology against which the extracted data was aligned.
-            It is used to check that all `data` is attributable to a region in the ontology and to sort it accordingly.\
+            It is used to check that all `data` is attributable to a region in the ontology and to sort it accordingly.\\
             If left empty, no check or sorting is performed.
         fill_nan
             If ontology is not `None`, it fills with [`NaN`][numpy.nan] the value of the regions in `ontology` and missing from `data`.
@@ -269,7 +269,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         Parameters
         ----------
         hemisphere
-            Anything between "left", "L", "right" and "R".\
+            Anything between "left", "L", "right" and "R".\\
             If the current `BrainData` is split, it defines for which hemisphere to retrieve the data.
 
         Returns
@@ -353,7 +353,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         brain_ontology
             The ontology to which the current data was registered against.
         fill
-            If a number, it sets the same value for all `brain_regions`.\
+            If a number, it sets the same value for all `brain_regions`.\\
             If a collection the same length as `brain_region`, it sets each brain region to the respective value in `fill`.
         overwrite
             If False, it fails if `brain_regions` contains region acronyms for which a value is already assigned.
@@ -431,7 +431,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                               *args, **kwargs) -> Self:
         """
         Filters the data from a given ontology, accordingly to a non-overlapping list of regions
-        previously selected in `brain_ontology`.\
+        previously selected in `brain_ontology`.\\
         It fails if no selection method was called on the ontology.
 
         Parameters

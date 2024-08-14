@@ -54,7 +54,7 @@ def deflect(on_attribute: str,
     Constructor for deflecting metaclasses. A class using the resulting metaclass will
     deflect all access to unknown attributes to a _target_ attribute (i.e. `on_attribute`).
     If the result of the deflected call has the same type as the target,
-    it creates a copy of the instance and with `on_attribute` substituted.\
+    it creates a copy of the instance and with `on_attribute` substituted.\\
     All deflected functions expose `inplace` parameter (defaults to `False`) that,
     if `True`, changes the target attribute instance with the result of the computation.
 

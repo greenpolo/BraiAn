@@ -303,7 +303,7 @@ class AnimalBrain:
     def select_from_ontology(self, brain_ontology: AllenBrainOntology, fill_nan: bool=False, inplace: bool=False) -> Self:
         """
         Filters the data from a given ontology, accordingly to a non-overlapping list of regions
-        previously selected in `brain_ontology`.\
+        previously selected in `brain_ontology`.\\
         It fails if no selection method was called on the ontology.
 
         Parameters
