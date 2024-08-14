@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import re
 from collections import OrderedDict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Self
 
@@ -49,7 +49,7 @@ class SlicedBrain:
                     animal_dir: str|Path,
                     brain_ontology: AllenBrainOntology,
                     ch2marker: dict[str,str]|OrderedDict[str,str],
-                    overlapping_markers: Iterable[int]=(),
+                    overlapping_markers: Sequence[int]=(),
                     exclude_parent_regions: bool=False,
                     results_subdir: str="results",
                     exclusions_subdir: str="regions_to_exclude"
@@ -278,7 +278,7 @@ def qupath_overlapping_classes(class1: str, class2: str) -> str:
 def overlapping_markers(marker1: str, marker2: str) -> str:
     return f"{marker1}+{marker2}"
 
-def qupath_class2overlap(ch2marker: OrderedDict[str,str], overlapping_tracers: Iterable[tuple[int,int]]) -> dict[str,str]:
+def qupath_class2overlap(ch2marker: OrderedDict[str,str], overlapping_tracers: Sequence[tuple[int,int]]) -> dict[str,str]:
     assert all([len(idx) == 2 for idx in overlapping_tracers]), "Overlapping marker analyisis is supported only between two markers!"
     ordered_channels = list(ch2marker.keys())
     overlapping_channels = [(ordered_channels[i1], ordered_channels[i2]) for i1,i2 in overlapping_tracers]

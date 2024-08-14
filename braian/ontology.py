@@ -675,7 +675,7 @@ class AllenBrainOntology:
         # parent_id = find_subtree(self.dict, key, value, "children")["parent_structure_id"]
         # return [area[key] for area in find_subtree(self.dict, "id", parent_id, "children")["children"]]
 
-    def get_parent_regions(self, regions:Iterable, key:str="acronym") -> dict:
+    def get_parent_regions(self, regions: Iterable, key: str="acronym") -> dict:
         """
         Finds, for each of the given brain regions, their parent region in the ontology
 
