@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import re
 
+from collections.abc import Sequence
 from enum import Enum, auto
 from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Generator, Self
 from braian.ontology import AllenBrainOntology
 from braian.sliced_brain import SlicedBrain, EmptyBrainError
 from braian.brain_data import BrainData
+from braian.utils import save_csv
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
 
@@ -164,7 +166,7 @@ class AnimalBrain:
         """
         assert len(markers_data) > 0 and areas is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the areas/volumes of each region"
         self.markers: tuple[str] = tuple(markers_data.keys())
-        """The name of the markers for which the current AnimalBrain has data."""
+        """The name of the markers for which the current `AnimalBrain` has data."""
         self.markers_data = markers_data
         self.areas: BrainData = areas
         """The data corresponding to the size of each brain region of the current AnimalBrain."""
@@ -239,36 +241,36 @@ class AnimalBrain:
             data.remove_region(*regions, inplace=True, fill_nan=fill_nan)
         self.areas.remove_region(*regions, inplace=True, fill_nan=fill_nan)
 
-    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
-                          fill_nan: bool=False, inplace: bool=False) -> Self:
+    def sort_by_ontology(self, ontology: AllenBrainOntology,
+                         fill_nan: bool=False, inplace: bool=False) -> Self:
         """
-        Sorts the data in depth-first order accordingly to `brain_ontology`.
+        Sorts the data in depth-first search order with respect to `ontology`'s hierarchy.
 
         Parameters
         ----------
-        brain_ontology
+        ontology
             The ontology to which the current data was registered against.
         fill_nan
             If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
-            `brain_ontology` missing in the current `AnimalBrain`.
+            `ontology` missing in the current `AnimalBrain`.
         inplace
             If True, it applies the sorting to the current instance.
 
         Returns
         -------
         :
-            A brain with data sorted accordingly to `brain_ontology`.
+            A brain with data sorted accordingly to `ontology`.
             If `inplace=True` it returns the same instance.
         """
-        markers_data = {marker: m_data.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
+        markers_data = {marker: m_data.sort_by_ontology(ontology, fill_nan=fill_nan, inplace=inplace)
                         for marker, m_data in self.markers_data.items()}
-        areas = self.areas.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
+        areas = self.areas.sort_by_ontology(ontology, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, areas=areas, raw=self.raw)
         else:
             return self
 
-    def select_from_list(self, regions: list[str], fill_nan: bool=False, inplace: bool=False) -> Self:
+    def select_from_list(self, regions: Sequence[str], fill_nan: bool=False, inplace: bool=False) -> Self:
         """
         Filters the data from a given list of regions.
 
@@ -388,26 +390,36 @@ class AnimalBrain:
         data.columns.name = str(self.mode)
         return data
 
-    def to_csv(self, output_path: str, sep=",") -> str:
+    def to_csv(self, output_path: Path|str, sep: str=",", overwrite: bool=False) -> str:
         """
-        Write the current `AnimalBrain` to a CSV file.
+        Write the current `AnimalBrain` to a comma-separated values (CSV) file in `output_path`.
 
         Parameters
         ----------
         output_path
-            The path to the saved CSV file.
+            Any valid string path is acceptable. It also accepts any [os.PathLike][].
         sep
             Character to treat as the delimiter.
+        overwrite
+            If True, it overwrite any conflicting file in `output_path`.
+
+        Returns
+        -------
+        :
+            The file path to the saved CSV file.
+
+        Raises
+        ------
+        FileExistsError
+            If `overwrite=False` and there is a conflicting file in `output_path`.
 
         See also
         --------
         [`from_csv`][braian.AnimalBrain.from_csv]
         """
-        os.makedirs(output_path, exist_ok=True)
-        mode_str = str(self.mode)
-        output_path = os.path.join(output_path, f"{self.name}_{mode_str}.csv")
-        data = self.to_pandas(units=True)
-        data.to_csv(output_path, sep=sep, mode="w", index_label=mode_str)
+        df = self.to_pandas(units=True)
+        file_name = f"{self.name}_{self.mode}.csv"
+        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=df.columns.name)
 
     @staticmethod
     def is_raw(mode: str) -> bool:
@@ -432,7 +444,7 @@ class AnimalBrain:
     @staticmethod
     def from_pandas(df: pd.DataFrame, animal_name: str) -> Self:
         """
-        Creates an instance of [`AnimalBrain`][braian.AnimalBrain] from a DataFrame.
+        Creates an instance of [`AnimalBrain`][braian.AnimalBrain] from a `DataFrame`.
 
         Parameters
         ----------
@@ -444,7 +456,7 @@ class AnimalBrain:
         Returns
         -------
         :
-            An instance of `AnimalBrain` that corresponds to the data in `df`
+            An instance of `AnimalBrain` that corresponds to the data in `df`.
 
         See also
         --------
@@ -468,7 +480,7 @@ class AnimalBrain:
         return AnimalBrain(markers_data=markers_data, areas=areas, raw=raw)
 
     @staticmethod
-    def from_csv(filepath: Path|str, name: str, sep=",") -> Self:
+    def from_csv(filepath: Path|str, name: str, sep: str=",") -> Self:
         """
         Reads a comma-separated values (CSV) file into `AnimalBrain`.
 
@@ -525,7 +537,7 @@ class AnimalBrain:
         brain.areas = brain.areas.merge_hemispheres()
         return brain
 
-def extract_name_and_units(ls) -> Generator[str, None, None]:
+def _extract_name_and_units(ls) -> Generator[str, None, None]:
     regex = r'(.+) \((.+)\)$'
     pattern = re.compile(regex)
     for s in ls:

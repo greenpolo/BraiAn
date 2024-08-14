@@ -55,7 +55,7 @@ class BraiAnConfig:
             return self.brains
 
         def to_group(self, brain_ontology: AllenBrainOntology, *args, **kwargs):
-            return AnimalGroup(self.name, self.brains, brain_ontology=brain_ontology, merge_hemispheres=True, *args, **kwargs)
+            return AnimalGroup(self.name, self.brains, ontology=brain_ontology, merge_hemispheres=True, *args, **kwargs)
 
         def _remove_small_regions(self, animal: SlicedBrain, threshold: float) -> None:
             for s in animal.slices:
@@ -112,7 +112,7 @@ class BraiAnConfig:
                 case "mean" | "avg":
                     self.group_redux = lambda animal_group, marker: animal_group.mean[marker]
                 # case "corr" | "correlation":
-                #     self.group_redux = lambda animal_group, marker: animal_group.markers_corr(*markers)
+                #     self.group_redux = lambda animal_group, marker: bas.markers_correlation(animal_group, *markers)
                 case "pls":
                     assert len(self.groups) == 2, "PLS from config file supports only two groups!"
                     n_permutations = kwargs["n_permutations"]
@@ -134,7 +134,7 @@ class BraiAnConfig:
 
         def apply(self):
             if "result" not in self.__dict__:
-                self.result = [AnimalGroup(group.name, group.brains, self.metric, brain_ontology=self.brain_ontology,
+                self.result = [AnimalGroup(group.name, group.brains, self.metric, ontology=self.brain_ontology,
                                 merge_hemispheres=True, **self.kwargs) for group in self.groups]
                 if self.markers is None:
                     self.markers = {m for group in self.result for m in group.markers}

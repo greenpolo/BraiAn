@@ -2,7 +2,7 @@ import itertools
 import numpy as np
 import pandas as pd
 import re
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Sequence
 from typing import Self, Callable
 from numbers import Number
 
@@ -93,7 +93,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         *others
             Any number of additional brain data to reduce.
         op
-            A function that maps `DataFrame` into `Series`. It must include an `axis` parameter.
+            A function that maps a `DataFrame` into a `Series`. It must include an `axis` parameter.
         name
             The name of the resulting BrainData.\\
             If not specified, it builds a name joining all given data names.
@@ -234,28 +234,28 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def __str__(self) -> str:
         return f"BrainData(name={self.data_name}, metric={self.metric})"
 
-    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
-                          fill_nan=False, inplace=False) -> Self:
+    def sort_by_ontology(self, ontology: AllenBrainOntology,
+                         fill_nan=False, inplace=False) -> Self:
         """
-        Sorts the data in depth-first order accordingly to `brain_ontology`.
+        Sorts the data in depth-first search order with respect to `ontology`'s hierarchy.
 
         Parameters
         ----------
-        brain_ontology
+        ontology
             The ontology to which the current data was registered against.
         fill_nan
             If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
-            `brain_ontology` missing in the current `AnimalBrain`.
+            `ontology` missing in the current `AnimalBrain`.
         inplace
             If True, it applies the sorting to the current instance.
 
         Returns
         -------
         :
-            Brain data sorted accordingly to `brain_ontology`.
+            Brain data sorted accordingly to `ontology`.
             If `inplace=True` it returns the same instance.
         """
-        data = _sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=np.nan)
+        data = _sort_by_ontology(self.data, ontology, fill=fill_nan, fill_value=np.nan)
         if not inplace:
             return BrainData(data, self.data_name, self.metric, self.units)
         else:
@@ -394,7 +394,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.data = data
             return self
 
-    def select_from_list(self, brain_regions: list[str], fill_nan=False, inplace=False) -> Self:
+    def select_from_list(self, brain_regions: Sequence[str], fill_nan=False, inplace=False) -> Self:
         """
         Filters the data from a given list of regions.
 

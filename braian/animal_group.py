@@ -1,11 +1,12 @@
-import copy
 import os
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+
 from collections.abc import Callable, Sequence
-from itertools import product
 from functools import reduce
+from itertools import product
+from pathlib import Path
 from typing import Self
 
 from braian.brain_data import BrainData
@@ -26,7 +27,7 @@ def _have_same_regions(animals: list[AnimalBrain]) -> bool:
 
 class AnimalGroup:
     def __init__(self, name: str, animals: Sequence[AnimalBrain], merge_hemispheres: bool=False,
-                 brain_ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
+                 ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
         """
         Creates an experimental cohort from a set of `AnimalBrain`.\\
         In order for a cohort to be valid, it must consist of brains with
@@ -42,21 +43,21 @@ class AnimalGroup:
             The animals part of the group.
         merge_hemispheres
             If True, it merges, for each region, the data from left/right hemispheres into a single value.
-        brain_ontology
+        ontology
             The ontology to which the brains' data was registered against.
-            If specified, it sorts the data in the depth-first search order with respect to the hierarchy.
+            If specified, it sorts the data in depth-first search order with respect to `ontology`'s hierarchy.
         fill_nan
             If True, it sets the value to [`NaN`][numpy.nan] for all the regions missing in the given `animals`.\\
             A region is missing if:
 
-            * it is in `brain_ontology`, when specified;
+            * it is in `ontology`, when specified;
             * or it is present in some animals but not all.
 
         Raises
         ------
         ValueError
             When there is no option to make sure that all animals of the cohort work on the same brain regions,
-            as `fill_nan=False`, `brain_ontology=None` and some animal misses at least one region compared to the rest.\\
+            as `fill_nan=False`, `ontology=None` and some animal misses at least one region compared to the rest.\\
             See [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list] or
             [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology] if you want to prepare
             the brains in advance.
@@ -72,8 +73,8 @@ class AnimalGroup:
         """
         self.name = name
         """The name of the group."""
-        # if not animals or not brain_ontology:
-        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AllenBrainOntology.")
+        # if not animals or not ontology:
+        #     raise ValueError("You must specify animals: list[AnimalBrain] and ontology: AllenBrainOntology.")
         assert len(animals) > 0, "A group must be made of at least one animal." # TODO: should we enforce a statistical signficant n? E.g. MIN=4
         _all_markers = {marker for brain in animals for marker in brain.markers}
         assert all(marker in brain.markers for marker in _all_markers for brain in animals), "All AnimalBrain in a group must have the same markers."
@@ -84,8 +85,8 @@ class AnimalGroup:
             merge = AnimalBrain.merge_hemispheres
         else:
             merge = lambda brain: brain
-        if brain_ontology is not None:
-            sort: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)
+        if ontology is not None:
+            sort: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.sort_by_ontology(ontology, fill_nan=fill_nan, inplace=False)
         elif fill_nan:
             regions = _common_regions(animals)
             sort: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.select_from_list(regions, fill_nan=True, inplace=False)
@@ -93,41 +94,61 @@ class AnimalGroup:
             sort = lambda brain: brain
         else:
             # now BrainGroup.regions, which returns the regions of the first animal, is correct
-            raise ValueError("Cannot set fill_nan=False and brain_ontology=None if all animals of the group don't have the same brain regions.")
+            raise ValueError("Cannot set fill_nan=False and ontology=None if all animals of the group don't have the same brain regions.")
         self._animals: list[AnimalBrain] = [sort(merge(brain)) for brain in animals] # brain |> merge |> sort -- OLD: brain |> merge |> analyse |> sort
         self._mean: dict[str, BrainData] = self._update_mean()
 
     @property
     def n(self) -> int:
+        """The size of the group."""
         return len(self._animals)
 
     @property
     def metric(self) -> str:
+        """The metric used to compute the brains' data."""
         return self._animals[0].mode
 
     @property
     def is_split(self) -> bool:
+        """Whether the data of the current `AnimalGroup` makes a distinction between right and left hemisphere."""
         return self._animals[0].is_split
 
     @property
     def markers(self) -> npt.NDArray[np.str_]:
+        """The name of the markers for which the current `AnimalGroup` has data."""
         return np.asarray(self._animals[0].markers)
 
     @property
+    def regions(self) -> list[str]:
+        """The list of region acronyms for which the current `AnimalGroup` has data."""
+        # NOTE: all animals of the group are expected to have the same regions!
+        #       This should be enforced during AnimalGroup construction
+        # if not _have_same_regions(animals):
+        #     # NOTE: if the animals of the AnimalGroup were not sorted by ontology, the order is not guaranteed to be significant
+        #     print(f"WARNING: animals of {self} don't have the same brain regions. "+\
+        #           "The order of the brain regions is not guaranteed to be significant. It's better to first call sort_by_ontology()")
+        #     return list(reduce(set.union, all_regions))
+        #     # return set(chain(*all_regions))
+        return self._animals[0].regions
+
+    @property
     def animals(self) -> list[AnimalBrain]:
+        """The brains making up the current group."""
         return list(self._animals)
 
     @property
     def mean(self) -> dict[str, BrainData]:
+        """The mean between each brain of the group, for each region."""
         return dict(self._mean)
 
-    def markers_corr(self, marker1: str, marker2: str, other: Self=None) -> BrainData:
-        if other is None:
-            other = self
-        else:
-            assert self.metric == other.metric
-        corr = self.to_pandas(marker1).corrwith(other.to_pandas(marker2), method="pearson", axis=1)
-        return BrainData(corr, self.name, str(self.metric)+f"-corr (n={self.n})", f"corr({marker1}, {marker2})")
+    def get_animals(self) -> list[str]:
+        """
+        Returns
+        -------
+        :
+            The names of the animals part of the current group.
+        """
+        return [brain.name for brain in self._animals]
 
     def __str__(self) -> str:
         return f"AnimalGroup('{self.name}', metric={self.metric}, n={self.n})"
@@ -135,25 +156,210 @@ class AnimalGroup:
     def _update_mean(self) -> dict[str, BrainData]:
         return {marker: BrainData.mean(*[brain[marker] for brain in self._animals], name=self.name) for marker in self.markers}
 
-    def combine(self, op, **kwargs) -> dict[str, BrainData]:
+    def reduce(self, op: Callable[[pd.DataFrame], pd.Series], **kwargs) -> dict[str, BrainData]:
         """
-        _summary_
+        Applies a reduction to all animals of the group, for each region
+        and for each marker.
 
         Parameters
         ----------
         op
-            _description_
+            A function that maps a `DataFrame` into a `Series`. It must include an `axis` parameter.
         **kwargs
             Other keyword arguments are passed to [`BrainData.reduce`][braian.BrainData.reduce].
 
         Returns
         -------
         :
-            _description_
+            Brain data for each marker of the group, result of the the folding.
         """
-        return {marker: BrainData.reduce(*[brain[marker] for brain in self._animals], op=op, name=self.name, **kwargs) for marker in self.markers}
+        return {marker: BrainData.reduce(
+                            *[brain[marker] for brain in self._animals],
+                            op=op, name=self.name, **kwargs
+                            ) for marker in self.markers}
 
-    def to_pandas(self, marker=None, units=False) -> pd.DataFrame:
+    def is_comparable(self, other: Self) -> bool:
+        """
+        Tests whether two `AnimalGroup` are comparable for an analysis,
+        i.e. they have the same markers, the same metric and both either operate on brains
+        hemisphere-aware or not.
+
+        Parameters
+        ----------
+        other
+            The other group to compare with the current one.
+
+        Returns
+        -------
+        :
+            True if the current group and `other` are comparable. False otherwise.
+        """
+        if not isinstance(other, AnimalGroup):
+            return False
+        return set(self.markers) == set(other.markers) and \
+                self.is_split == other.is_split and \
+                self.metric == other.metric # and \
+                # set(self.regions) == set(other.regions)
+
+    def select(self, regions: Sequence[str], fill_nan=False, inplace=False) -> Self:
+        """
+        Filters the data from a given list of regions.
+
+        Parameters
+        ----------
+        regions
+            The acronyms of the regions to select from the data.
+        fill_nan
+            If True, the regions missing from the current data are filled with [`NaN`][numpy.nan].
+            Otherwise, if the data from some regions are missing, they are ignored.
+        inplace
+            If True, it applies the filtering to the current instance.
+
+        Returns
+        -------
+        :
+            A group with data filtered accordingly to the given `regions`.
+            If `inplace=True` it returns the same instance.
+
+        See also
+        --------
+        [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
+        """
+        animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for brain in self._animals]
+        if not inplace:
+            # self.metric == animals.metric -> no self.metric.analyse(brain) is computed
+            return AnimalGroup(self.name, animals, ontology=None, fill_nan=False)
+        else:
+            self._animals = animals
+            self._mean = self._update_mean()
+            return self
+
+    def __getitem__(self, animal_name: str) -> AnimalBrain:
+        """
+
+        Parameters
+        ----------
+        animal_name
+            The name of an animal part of the group
+
+        Returns
+        -------
+        :
+            The corresponding `AnimalBrain` in the current group.
+
+        Raises
+        ------
+        TypeError
+            If `animal_name` is not a string.
+        KeyError
+            If no brain with `animal_name` was found in the group.
+        """
+        if not isinstance(animal_name, str):
+            raise TypeError("AnimalGroup animals are identified by strings")
+        try:
+            return next(brain for brain in self._animals if brain.name == animal_name)
+        except StopIteration:
+            raise KeyError(f"'{animal_name}'")
+
+    def get_units(self, marker: str|None=None) -> str:
+        """
+        Returns the units of measurment of a marker.
+
+        Parameters
+        ----------
+        marker
+            The marker to get the units for. It can be omitted, if the current brain has only one marker.
+
+        Returns
+        -------
+        :
+            A string representing the units of measurement of `marker`.
+        """
+        if len(self.markers) == 1:
+            marker = self.markers[0]
+        else:
+            assert marker in self.markers, f"Could not get units for marker '{marker}'!"
+        return self._animals[0].get_units(marker)
+
+    def sort_by_ontology(self, ontology: AllenBrainOntology,
+                         fill_nan=True, inplace=True) -> None:
+        """
+        Sorts the data in depth-first search order with respect to `ontology`'s hierarchy.
+
+        Parameters
+        ----------
+        ontology
+            The ontology to which the current data was registered against.
+        fill_nan
+            If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
+            `ontology` missing in the current `AnimalBrain`.
+        inplace
+            If True, it applies the sorting to the current instance.
+
+        Returns
+        -------
+        :
+            A brain with data sorted accordingly to `ontology`.
+            If `inplace=True` it returns the same instance.
+        """
+        if not inplace:
+            return AnimalGroup(self.name, self._animals, ontology=ontology, fill_nan=fill_nan)
+        else:
+            for brain in self._animals:
+                brain.sort_by_ontology(ontology, fill_nan=fill_nan, inplace=True)
+            return self
+
+    def merge_hemispheres(self, inplace=False) -> Self:
+        """
+        Creates a new `AnimalGroup` from the current instance with no hemisphere distinction.
+
+        Parameters
+        ----------
+        inplace
+            If True, it applies the sorting to the current instance.
+
+        Returns
+        -------
+        :
+            A new [`AnimalGroup`][braian.AnimalGroup] with no hemisphere distinction.
+            If `inplace=True` it returns the same instance.
+
+        See also
+        --------
+        [`AnimalBrain.merge_hemispheres`][braian.AnimalBrain.merge_hemispheres]
+        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
+        """
+        animals = [AnimalBrain.merge_hemispheres(brain) for brain in self._animals]
+        if not inplace:
+            return AnimalGroup(self.name, animals, ontology=None, fill_nan=False)
+        else:
+            self._animals = animals
+            self._mean = self._update_mean()
+            return self
+
+    def to_pandas(self, marker: str=None, units: bool=False) -> pd.DataFrame:
+        """
+        Constructs a `DataFrame` with data from the current group.
+
+        Parameters
+        ----------
+        marker
+            If specified, it includes data only from the given marker.
+        units
+            Whether to include the units of measurement in the `DataFrame` index.
+
+        Returns
+        -------
+        :
+            A  $m×n$ `DataFrame`.\\
+            If `marker` is specified, $m=\#regions$ and $n=\#brains$.\\
+            Otherwise, $m=\#regions⋅\#brains$ and $n=\#markers+1$, as it contains
+            the size of the regions as well.
+            In the latter case, the index of the `DataFrame` has two levels:
+            the acronyms of the regions and the name of the animal in the group.
+
+            If a region is missing in some animals, the corresponding row is [NaN][numpy.nan]-filled.
+        """
         if marker in self.markers:
             df = pd.concat({brain.name: brain[marker].data for brain in self._animals}, join="outer", axis=1)
             df.columns.name = str(self.metric)
@@ -175,78 +381,85 @@ class AnimalGroup:
             df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.areas.units})" for col in df.columns}, inplace=True)
         return df
 
-    def sort_by_ontology(self, brain_ontology: AllenBrainOntology, fill_nan=True, inplace=True) -> None:
-        if not inplace:
-            return AnimalGroup(self.name, self._animals, brain_ontology=brain_ontology, fill_nan=fill_nan)
-        else:
-            for brain in self._animals:
-                brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=True)
-            return self
+    def to_csv(self, output_path: Path|str, sep: str=",", overwrite: bool=False) -> str:
+        """
+        Write the current `AnimalGroup` to a comma-separated values (CSV) file in `output_path`.
 
-    def get_animals(self) -> list[str]:
-        return [brain.name for brain in self._animals]
+        Parameters
+        ----------
+        output_path
+            Any valid string path is acceptable. It also accepts any [os.PathLike][].
+        sep
+            Character to treat as the delimiter.
+        overwrite
+            If True, it overwrite any conflicting file in `output_path`.
 
-    @property
-    def regions(self) -> list[str]:
-        # NOTE: all animals of the group are expected to have the same regions!
-        # if not have_same_regions(animals):
-        #     # NOTE: if the animals of the AnimalGroup were not sorted by ontology, the order is not guaranteed to be significant
-        #     print(f"WARNING: animals of {self} don't have the same brain regions. "+\
-        #           "The order of the brain regions is not guaranteed to be significant. It's better to first call sort_by_ontology()")
-        #     return list(reduce(set.union, all_regions))
-        #     # return set(chain(*all_regions))
-        return self._animals[0].regions
+        Returns
+        -------
+        :
+            The file path to the saved CSV file.
+        
+        Raises
+        ------
+        FileExistsError
+            If `overwrite=False` and there is a conflicting file in `output_path`.
 
-    def merge_hemispheres(self, inplace=False) -> Self:
-        animals = [AnimalBrain.merge_hemispheres(brain) for brain in self._animals]
-        if not inplace:
-            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
-        else:
-            self._animals = animals
-            self._mean = self._update_mean()
-            return self
-
-    def is_comparable(self, other) -> bool:
-        if not isinstance(other, AnimalGroup):
-            return False
-        return set(self.markers) == set(other.markers) and \
-                self.is_split == other.is_split and \
-                self.metric == other.metric # and \
-                # set(self.regions) == set(other.regions)
-
-    def select(self, regions: list[str], fill_nan=False, inplace=False) -> Self:
-        animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for brain in self._animals]
-        if not inplace:
-            # self.metric == animals.metric -> no self.metric.analyse(brain) is computed
-            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
-        else:
-            self._animals = animals
-            self._mean = self._update_mean()
-            return self
-
-    def select_animal(self, animal_name: str) -> AnimalBrain:
-        return next((brain for brain in self._animals if brain.name == animal_name))
-
-    def get_units(self, marker=None) -> str:
-        if len(self.markers) == 1:
-            marker = self.markers[0]
-        else:
-            assert marker in self.markers, f"Could not get units for marker '{marker}'!"
-        return self._animals[0].get_units(marker)
-
-    def to_csv(self, output_path, file_name, overwrite=False) -> None:
+        See also
+        --------
+        [`from_csv`][braian.AnimalGroup.from_csv]
+        """
         df = self.to_pandas(units=True)
-        save_csv(df, output_path, file_name, overwrite=overwrite, index_label=(df.columns.name, None))
+        file_name = f"{self.name}_{self.metric}.csv"
+        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=(df.columns.name, None))
 
     @staticmethod
     def from_pandas(df: pd.DataFrame, group_name: str) -> Self:
+        """
+        Creates an instance of [`AnimalGroup`][braian.AnimalGroup] from a `DataFrame`.
+
+        Parameters
+        ----------
+        df
+            A [`to_pandas`][braian.AnimalGroup.to_pandas]-compatible `DataFrame`.
+        group_name
+            The name of the group associated to the data in `df`.
+
+        Returns
+        -------
+        :
+            An instance of `AnimalGroup` that corresponds to the data in `df`.
+
+        See also
+        --------
+        [`to_pandas`][braian.AnimalGroup.to_pandas]
+        """
         animals = [AnimalBrain.from_pandas(df.xs(animal_name, level=1), animal_name) for animal_name in df.index.unique(1)]
         return AnimalGroup(group_name, animals, fill_nan=False)
 
     @staticmethod
-    def from_csv(group_name, root_dir, file_name) -> Self:
-        # # read CSV
-        df = pd.read_csv(os.path.join(root_dir, file_name), sep="\t", header=0, index_col=[0,1])
+    def from_csv(filepath: Path|str, name: str, sep: str=",") -> Self:
+        """
+        Reads a comma-separated values (CSV) file into `AnimalGroup`.
+
+        Parameters
+        ----------
+        filepath
+            Any valid string path is acceptable. It also accepts any [os.PathLike][].
+        name
+            Name of the animal associated to the date.
+        sep
+            Character or regex pattern to treat as the delimiter.
+
+        Returns
+        -------
+        :
+            An instance of `AnimalGroup` that corresponds to the data in the CSV file
+
+        See also
+        --------
+        [`to_csv`][braian.AnimalGroup.to_csv]
+        """
+        df = pd.read_csv(filepath, sep=sep, header=0, index_col=[0,1])
         df.columns.name = df.index.names[0]
         df.index.names = (None, None)
-        return AnimalGroup.from_pandas(df, group_name)
+        return AnimalGroup.from_pandas(df, name)

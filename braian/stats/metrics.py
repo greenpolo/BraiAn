@@ -14,7 +14,9 @@ __all__ = ["density",
            "markers_similarity_index",
            "markers_overlap_coefficient",
            "markers_chance_level",
-           "markers_difference"]
+           "markers_difference",
+           "markers_correlation"
+]
 
 class BrainMetrics(enum.Enum):
     DENSITY = enum.auto()
@@ -225,3 +227,34 @@ def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> Animal
     diff.metric = "marker_difference"
     diff.units = f"{brain[marker1].units}-{brain[marker2].units}"
     return AnimalBrain(markers_data={f"{marker1}+{marker2}": diff}, areas=brain.areas, raw=False)
+
+def markers_correlation(group: AnimalGroup,
+                        marker1: str, marker2: str,
+                        other: AnimalGroup=None, method: str="pearson") -> BrainData:
+    """
+    _summary_
+
+    Parameters
+    ----------
+    group
+        _description_
+    marker1
+        _description_
+    marker2
+        _description_
+    other
+        _description_
+    method
+        Any method accepted by [`DataFrame.corrwith`][pandas.DataFrame.corrwith].
+
+    Returns
+    -------
+    :
+        _description_
+    """
+    if other is None:
+        other = group
+    else:
+        assert group.metric == other.metric, "Both groups must have the same metric."
+    corr = group.to_pandas(marker1).corrwith(other.to_pandas(marker2), method=method, axis=1)
+    return BrainData(corr, group.name, str(group.metric)+f"-corr (n={group.n})", f"corr({marker1}, {marker2})")

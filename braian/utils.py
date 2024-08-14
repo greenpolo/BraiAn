@@ -43,15 +43,18 @@ def search_file_or_simlink(file_path: str|Path) -> Path:
     except OSError:
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), file_path)
 
-def save_csv(df: pd.DataFrame, output_path: str, file_name:str, overwrite=False, sep="\t", decimal=".", **kwargs) -> None:
+def save_csv(df: pd.DataFrame, output_path: Path|str, file_name: str, overwrite=False, sep="\t", decimal=".", **kwargs) -> Path:
+    if not isinstance(output_path, os.PathLike):
+        output_path = Path(output_path)
     os.makedirs(output_path, exist_ok=True)
-    file_path = os.path.join(output_path, file_name)
+    file_path = output_path/file_name
     if os.path.exists(file_path):
         if not overwrite:
             raise FileExistsError(f"The file {file_name} already exists in {output_path}!")
         else:
-            print(f"WARNING: The file {file_name} already exists in {output_path}. Overwriting previous CSV!")
+            print(f"WARNING: The file {file_name} already exists in {output_path}. Overwriting!")
     df.to_csv(file_path, sep=sep, decimal=decimal, mode="w", **kwargs)
+    return file_path
 
 def regions_to_plot(pls=None, salience_threshold=None,
                     groups: list=None, normalization: str=None, low_threshold: float=0.0, top_threshold=np.inf) -> list[str]:
