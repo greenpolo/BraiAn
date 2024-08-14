@@ -3,7 +3,7 @@ import os
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from itertools import product
 from functools import reduce
 from typing import Self
@@ -25,15 +25,59 @@ def _have_same_regions(animals: list[AnimalBrain]) -> bool:
     return len(reduce(set.__and__, all_regions)) ==  len(regions)
 
 class AnimalGroup:
-    def __init__(self, name: str, animals: list[AnimalBrain], merge_hemispheres=False,
+    def __init__(self, name: str, animals: Sequence[AnimalBrain], merge_hemispheres: bool=False,
                  brain_ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
+        """
+        Creates an experimental cohort from a set of `AnimalBrain`.\
+        In order for a cohort to be valid, it must consist of brains with
+        the same type of data (i.e. [metric][braian.AnimalBrain.mode]),
+        the same [markers][braian.AnimalBrain.markers] and
+        the data must all be hemisphere-aware or not (i.e. [`AnimalBrain.is_split`][braian.AnimalBrain.is_split]).
+
+        Parameters
+        ----------
+        name
+            The name of the cohort.
+        animals
+            The animals part of the group.
+        merge_hemispheres
+            If True, it merges, for each region, the data from left/right hemispheres into a single value.
+        brain_ontology
+            The ontology to which the brains' data was registered against.
+            If specified, it sorts the data in the depth-first search order with respect to the hierarchy.
+        fill_nan
+            If True, it sets the value to [`NaN`][numpy.nan] for all the regions missing in the given `animals`.\\
+            A region is missing if:
+
+            * it is in `brain_ontology`, when specified;
+            * or it is present in some animals but not all.
+
+        Raises
+        ------
+        ValueError
+            When there is no option to make sure that all animals of the cohort work on the same brain regions,
+            as `fill_nan=False`, `brain_ontology=None` and some animal misses at least one region compared to the rest.\
+            See [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list] or
+            [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology] if you want to prepare
+            the brains in advance.
+
+        See also
+        --------
+        [`AnimalBrain.merge_hemispheres`][braian.AnimalBrain.merge_hemispheres]
+        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
+        [`AnimalBrain.sort_by_ontology`][braian.AnimalBrain.sort_by_ontology]
+        [`BrainData.sort_by_ontology`][braian.BrainData.sort_by_ontology]
+        [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list]
+        [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
+        """        
         self.name = name
         """The name of the group."""
         # if not animals or not brain_ontology:
         #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AllenBrainOntology.")
         assert len(animals) > 0, "A group must be made of at least one animal." # TODO: should we enforce a statistical signficant n? E.g. MIN=4
-        assert all([marker in animals[0].markers for brain in animals[1:] for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
-        assert all([brain.mode == animals[0].mode for brain in animals]), "All AnimalBrains of a group must be hava been processed the same way."
+        _all_markers = {marker for brain in animals for marker in brain.markers}
+        assert all(marker in brain.markers for marker in _all_markers for brain in animals), "All AnimalBrain in a group must have the same markers."
+        assert all(brain.mode == animals[0].mode for brain in animals[1:]), "All AnimalBrains in a group must be have the same metric."
         is_split = animals[0].is_split
         assert all(is_split == brain.is_split for brain in animals), "All AnimalBrains of a group must either have spit hemispheres or not."
         if is_split and merge_hemispheres:
@@ -50,7 +94,7 @@ class AnimalGroup:
         else:
             # now BrainGroup.regions, which returns the regions of the first animal, is correct
             raise ValueError("Cannot set fill_nan=False and brain_ontology=None if all animals of the group don't have the same brain regions.")
-        self._animals: list[AnimalBrain] = [sort(merge(brain)) for brain in animals] # brain |> merge |> analyse |> sort
+        self._animals: list[AnimalBrain] = [sort(merge(brain)) for brain in animals] # brain |> merge |> sort -- OLD: brain |> merge |> analyse |> sort
         self._mean: dict[str, BrainData] = self._update_mean()
 
     @property

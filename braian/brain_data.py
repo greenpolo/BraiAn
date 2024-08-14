@@ -237,7 +237,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
                           fill_nan=False, inplace=False) -> Self:
         """
-        Sorts the data in depth-first order accordingly to the associated `brain_ontology`.
+        Sorts the data in depth-first order accordingly to `brain_ontology`.
 
         Parameters
         ----------

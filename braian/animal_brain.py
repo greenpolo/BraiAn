@@ -242,7 +242,7 @@ class AnimalBrain:
     def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
                           fill_nan: bool=False, inplace: bool=False) -> Self:
         """
-        Sorts the data in depth-first order accordingly to the associated `brain_ontology`.
+        Sorts the data in depth-first order accordingly to `brain_ontology`.
 
         Parameters
         ----------
@@ -287,6 +287,10 @@ class AnimalBrain:
         :
             A brain with data filtered accordingly to the given `regions`.
             If `inplace=True` it returns the same instance.
+
+        See also
+        --------
+        [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
         """
         markers_data = {marker: m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
                         for marker, m_data in self.markers_data.items()}
@@ -317,8 +321,10 @@ class AnimalBrain:
         :
             A brain with data filtered accordingly to the given ontology selection.
             If `inplace=True` it returns the same instance.
+
         See also
         --------
+        [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list]
         [`AllenBrainOntology.get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
         [`AllenBrainOntology.unselect_all`][braian.AllenBrainOntology.unselect_all]
         [`AllenBrainOntology.add_to_selection`][braian.AllenBrainOntology.add_to_selection]
@@ -512,7 +518,7 @@ class AnimalBrain:
 
         See also
         --------
-        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]            
+        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
         """
         brain: AnimalBrain = copy.copy(animal_brain)
         brain.markers_data = {m: m_data.merge_hemispheres() for m, m_data in brain.markers_data.items()}
