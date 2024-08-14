@@ -7,6 +7,7 @@ from collections import OrderedDict, namedtuple
 from typing import Self
 
 import braian.plot as bap
+import braian.stats as bas
 from braian.animal_brain import AnimalBrain
 from braian.animal_group import AnimalGroup
 from braian.brain_data import BrainData
@@ -117,11 +118,12 @@ class BraiAnConfig:
                     n_permutations = kwargs["n_permutations"]
                     n_bootstrap = kwargs["n_bootstrap"]
                     self.group_redux = lambda groups, marker: \
-                        groups[0].pls_regions(groups[1],
-                                              self.regions_to_plot,
-                                              marker,
-                                              n_bootstrap,
-                                              fill_nan=True)
+                        bas.pls_regions_salience(groups[0],
+                                                 groups[1],
+                                                 self.regions_to_plot,
+                                                 marker,
+                                                 n_bootstrap,
+                                                 fill_nan=True)
                      # remove the kwargs that will be used in apply()
                     del kwargs["n_permutations"]
                     del kwargs["n_bootstrap"]

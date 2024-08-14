@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import random
 from plotly.subplots import make_subplots
 
+import braian.stats as bas
 from braian.utils import nrange
 from braian.sliced_brain import SlicedBrain
 from braian.animal_brain import AnimalBrain
@@ -369,7 +370,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         groups_df = [group.to_pandas(marker=marker).loc[selected_regions] for group in groups] # .loc sorts the DatFrame in selected_regions' order
         if pls_filtering:=len(groups) == 2:
             if markers_salience_scores is None:
-                salience_scores = groups[0].pls_regions(groups[1], selected_regions, marker=marker, fill_nan=True,
+                salience_scores = bas.pls_regions_salience(groups[0], groups[1], selected_regions, marker=marker, fill_nan=True,
                                                         n_bootstrap=pls_n_bootstrap, seed=pls_seed)
             else:
                 salience_scores =  markers_salience_scores[marker]
