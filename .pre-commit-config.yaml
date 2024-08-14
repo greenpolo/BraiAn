@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 repos:
--   repo: https://github.com/fsfe/reuse-tool
-    rev: v3.0.2
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v4.0.3
     hooks:
       - id: reuse

@@ -1,3 +1,4 @@
+# SPDX-FileContributor: Lukas van den Heuvel <https://github.com/lukasvandenheuvel>
 import numpy as np
 import pandas as pd
 import scipy.stats

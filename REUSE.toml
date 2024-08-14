@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+version = 1
+
+[[annotations]]
+SPDX-FileComment = "source"
+path = "braian/**/*.py"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Carlo Castoldi <carlo.castoldi@outlook.com>"
+SPDX-License-Identifier = "LGPL-3.0-or-later"
+
+[[annotations]]
+SPDX-FileComment = "logo"
+path = ["docs/assets/**", "docs/img/*"]
+precedence = "override"
+SPDX-FileCopyrightText = "2024 Carlo Castoldi <carlo.castoldi@outlook.com>"
+SPDX-License-Identifier = "CC-BY-NC-ND-4.0"
+
+[[annotations]]
+SPDX-FileComment = "documentation"
+path = ["docs/*.md", "docs/javascripts/*"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Carlo Castoldi <carlo.castoldi@outlook.com>"
+SPDX-License-Identifier = "CC-BY-4.0"
