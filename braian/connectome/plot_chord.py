@@ -4,12 +4,12 @@ import pandas as pd
 import numpy as np
 import igraph as ig
 
-from braian.brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
+from braian.ontology import AllenBrainOntology, UPPER_REGIONS
 from braian.connectome.connectome import Connectome
 from braian.connectome.plot import no_axis
 
 def draw_chord_plot(connectome: Connectome,
-                    brain_ontology: AllenBrainHierarchy,
+                    brain_ontology: AllenBrainOntology,
                     title="",
                     size=1500,
                     no_background=True,

@@ -13,7 +13,7 @@ __all__ = [
     "draw_nodes"
 ]
 
-def hierarchy(ontology: braian.AllenBrainHierarchy) -> go.Figure:
+def hierarchy(ontology: braian.AllenBrainOntology) -> go.Figure:
         """
         Plots the ontology as a tree.
 
@@ -87,7 +87,7 @@ def draw_edges(G: ig.Graph, layout: ig.Layout, width: int) -> go.Scatter:
 
     return edges_trace
 
-def draw_nodes(G: ig.Graph, layout: ig.Layout, ontology: braian.AllenBrainHierarchy,
+def draw_nodes(G: ig.Graph, layout: ig.Layout, ontology: braian.AllenBrainOntology,
                node_size: int, outline_size: float=0.5,
                use_centrality: bool=False, centrality_metric: str=None, use_clustering: bool=False,
                metrics: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={"degree": ig.VertexSeq.degree}
@@ -170,7 +170,7 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, ontology: braian.AllenBrainHierar
     )
     return nodes_trace
 
-def _nodes_hover_info(ontology: braian.AllenBrainHierarchy, G: ig.Graph,
+def _nodes_hover_info(ontology: braian.AllenBrainOntology, G: ig.Graph,
                      title_dict: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={}
                      ) -> tuple[npt.NDArray,str]:
     """

@@ -3,10 +3,10 @@ import igraph as ig
 import plotly.graph_objects as go
 
 from braian.connectome.connectome import Connectome
-from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.ontology import AllenBrainOntology
 
 def draw_network_plot(connectome: Connectome,
-                      layout_fun: ig.Layout, brain_ontology: AllenBrainHierarchy,
+                      layout_fun: ig.Layout, brain_ontology: AllenBrainOntology,
                       use_centrality=False, centrality_metric=None, colorscale="Plasma",
                       use_clustering=False, isolated_regions=False,
                       width=None, height=1000,

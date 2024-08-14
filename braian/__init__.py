@@ -12,7 +12,7 @@ match platform.system():
     case _:
         resolve_symlink = lambda path: os.path.realpath(path)
 
-from .brain_hierarchy import *
+from .ontology import *
 from .brain_slice import *
 from .sliced_brain import *
 from .brain_data import *

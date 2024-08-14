@@ -10,7 +10,7 @@ import braian.plot as bap
 from braian.animal_brain import AnimalBrain
 from braian.animal_group import AnimalGroup
 from braian.brain_data import BrainData
-from braian.brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS
+from braian.ontology import AllenBrainOntology, MAJOR_DIVISIONS
 from braian.sliced_brain import SlicedBrain
 from braian.utils import cache
 
@@ -53,7 +53,7 @@ class BraiAnConfig:
                 for sliced_brain in self.sliced_brains]
             return self.brains
         
-        def to_group(self, brain_ontology: AllenBrainHierarchy, *args, **kwargs):
+        def to_group(self, brain_ontology: AllenBrainOntology, *args, **kwargs):
             return AnimalGroup(self.name, self.brains, brain_ontology=brain_ontology, merge_hemispheres=True, *args, **kwargs)
         
         def _remove_small_regions(self, animal: SlicedBrain, threshold: float) -> None:
@@ -95,7 +95,7 @@ class BraiAnConfig:
         def __init__(self, id, group_reduction: str, metric: str,
                      min_area: float, regions_to_plot: list[str],
                      type: str, selected_groups, selected_markers, # list[GroupDirectory]
-                     brain_ontology: AllenBrainHierarchy, dir_name: str, **kwargs) -> None:
+                     brain_ontology: AllenBrainOntology, dir_name: str, **kwargs) -> None:
             self.id = id
             self.metric = metric
             self.min_area = min_area # TODO
@@ -224,7 +224,7 @@ class BraiAnConfig:
         self.data_path = data_path
         path_to_allen_json = os.path.join(self.data_path, "AllenMouseBrainOntology.json")
         cache(path_to_allen_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        self.brain_ontology = AllenBrainHierarchy(path_to_allen_json,
+        self.brain_ontology = AllenBrainOntology(path_to_allen_json,
                                                    self.config["atlas"]["excluded-branches"],
                                                    version=self.config["atlas"]["version"])
         self.groups = [BraiAnConfig.GroupDirectory(

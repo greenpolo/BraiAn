@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
-from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.ontology import AllenBrainOntology
 from braian.brain_slice import BrainSlice,\
                         BrainSliceFileError, \
                         ExcludedAllRegionsError, \
@@ -47,7 +47,7 @@ class SlicedBrain:
     @staticmethod
     def from_qupath(name: str,
                     animal_dir: str|Path,
-                    brain_ontology: AllenBrainHierarchy,
+                    brain_ontology: AllenBrainOntology,
                     ch2marker: dict[str,str]|OrderedDict[str,str],
                     overlapping_markers: Iterable[int]=(),
                     exclude_parent_regions: bool=False,

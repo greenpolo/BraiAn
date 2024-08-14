@@ -6,10 +6,10 @@ from scipy.stats import pearsonr
 from typing import Self
 from braian.connectome.connectome_adjacency import ConnectomeAdjacency
 from braian.animal_group import AnimalGroup
-from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.ontology import AllenBrainOntology
 
 class CrossCorrelation:
-    def __init__(self, animal_group: AnimalGroup, regions: list[str], brain_ontology: AllenBrainHierarchy,
+    def __init__(self, animal_group: AnimalGroup, regions: list[str], brain_ontology: AllenBrainOntology,
                  min_animals: int, name="", marker=None) -> None:
         assert not min_animals or (min_animals >= 2), "Invalid minimum number of animals needed for cross correlation. It must be >= 2."
         if marker is None:

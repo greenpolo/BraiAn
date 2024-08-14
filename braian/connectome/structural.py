@@ -5,11 +5,11 @@ import plotly.graph_objects as go
 
 from braian.connectome.connectome import Connectome
 from braian.connectome.connectome_adjacency import ConnectomeAdjacency
-from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.ontology import AllenBrainOntology
 
 class StructuralConnectome(Connectome):
     def __init__(self, normalized_connection_density_file: str,
-                 regions: list[str], brain_ontology: AllenBrainHierarchy,
+                 regions: list[str], brain_ontology: AllenBrainOntology,
                  mode="max", name="Allen's ST - normalized density",
                  log10_cutoff=-5, weighted=True,
                  isolated_vertices=True) -> None:
@@ -23,7 +23,7 @@ class StructuralConnectome(Connectome):
         self.__add_vertices_attributes(self.A)
 
     def __read_adjacency_matrix(self, normalized_connection_density_file: str,
-                                regions: list[str], brain_ontology: AllenBrainHierarchy,
+                                regions: list[str], brain_ontology: AllenBrainOntology,
                                 mode: str, name) -> ConnectomeAdjacency:
         normalized_connection_density = pd.read_csv(normalized_connection_density_file, index_col=0, header=[0,1])
         match mode:

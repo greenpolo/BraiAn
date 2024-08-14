@@ -4,7 +4,7 @@ import pandas as pd
 from typing import Self
 
 from braian.connectome.utils_bu import participation_coefficient
-from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.ontology import AllenBrainOntology
 
 class Connectome:
     def __init__(self, A: pd.DataFrame,
@@ -83,7 +83,7 @@ class Connectome:
         return Connectome(None, None, None, None,
                           name=self.name, weight_str=self.weight_str, graph=G)
     
-    def collapse_region(self, atlas: AllenBrainHierarchy, region_acronym: str) -> Self:
+    def collapse_region(self, atlas: AllenBrainOntology, region_acronym: str) -> Self:
         # returns a Connectome with all subrregions of region_acronym collapsed in one single node
         # NOTE: if connectome is weighted, the weights won't be retained
         all_subregions = atlas.list_all_subregions(region_acronym) # region_acronym included

@@ -5,7 +5,7 @@ from typing import Self
 from collections.abc import Iterable
 
 from braian.brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnkownBrainRegionsError
-from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.ontology import AllenBrainOntology
 from braian.utils import search_file_or_simlink
 
 __all__ = ["BrainSlice"]
@@ -223,7 +223,7 @@ class BrainSlice:
     #     return True
 
     def __init__(self, data: pd.DataFrame, animal:str, name: str, is_split: bool,
-                 area_units: str="µm2", brain_ontology: AllenBrainHierarchy|None=None) -> None:
+                 area_units: str="µm2", brain_ontology: AllenBrainOntology|None=None) -> None:
         """
         Creates a `BrainSlice` from a [`DataFrame`][pandas.DataFrame]. Each row representes the data
         of a single brain region, whose acronym is used as index. If the data was collected
@@ -287,7 +287,7 @@ class BrainSlice:
     
     def exclude_regions(self,
                         excluded_regions: Iterable[str],
-                        brain_ontology: AllenBrainHierarchy,
+                        brain_ontology: AllenBrainOntology,
                         exclude_parent_regions: bool):
         """
         Takes care of the regions to be excluded from the analysis.\\

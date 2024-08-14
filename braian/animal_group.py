@@ -8,7 +8,7 @@ from functools import reduce
 from typing import Self
 
 from braian.brain_data import BrainData
-from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.ontology import AllenBrainOntology
 from braian.animal_brain import AnimalBrain
 from braian.utils import save_csv
 
@@ -25,10 +25,10 @@ def have_same_regions(animals: list[AnimalBrain]) -> bool:
 
 class AnimalGroup:
     def __init__(self, name: str, animals: list[AnimalBrain], merge_hemispheres=False,
-                 brain_ontology: AllenBrainHierarchy=None, fill_nan: bool=True) -> None:
+                 brain_ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
         self.name = name
         # if not animals or not brain_ontology:
-        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AllenBrainHierarchy.")
+        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AllenBrainOntology.")
         self.n = len(animals)
         assert self.n > 0, "Inside the group there must be at least one animal."
         assert all([marker in animals[0].markers for brain in animals[1:] for marker in brain.markers]), "All AnimalBrain composing the group must use the same markers."
@@ -138,7 +138,7 @@ class AnimalGroup:
             df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.areas.units})" for col in df.columns}, inplace=True)
         return df
     
-    def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy, fill_nan=True, inplace=True) -> None:
+    def sort_by_ontology(self, brain_ontology: AllenBrainOntology, fill_nan=True, inplace=True) -> None:
         if not inplace:
             return AnimalGroup(self.name, self.animals, brain_ontology=brain_ontology, fill_nan=fill_nan)
         else:

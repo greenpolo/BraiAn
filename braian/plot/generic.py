@@ -12,7 +12,7 @@ from braian.sliced_brain import SlicedBrain
 from braian.animal_brain import AnimalBrain
 from braian.animal_group import AnimalGroup, PLS
 from braian.brain_data import BrainData
-from braian.brain_hierarchy import AllenBrainHierarchy, MAJOR_DIVISIONS, UPPER_REGIONS
+from braian.ontology import AllenBrainOntology, MAJOR_DIVISIONS, UPPER_REGIONS
 
 __all__ = [
     "plot_animal_group",
@@ -53,7 +53,7 @@ def plot_animal_group(group: AnimalGroup, selected_regions: list[str],
     fig.update_layout(legend=dict(tracegroupgap=0), scattermode="group")
     return fig
 
-def plot_pie(selected_regions: list[str], brain_ontology: AllenBrainHierarchy,
+def plot_pie(selected_regions: list[str], brain_ontology: AllenBrainOntology,
                 use_acronyms=True, hole=0.3, line_width=2, text_size=12):
     active_mjd = tuple(brain_ontology.get_areas_major_division(*selected_regions).values())
     mjd_occurrences = [(mjd, active_mjd.count(mjd)) for mjd in UPPER_REGIONS]
@@ -280,7 +280,7 @@ def plot_latent_variable(pls: PLS, of="X", height=800, width=800):
                 .update_xaxes(title="1", zerolinecolor="#f0f0f0", gridcolor="#f0f0f0")\
                 .update_yaxes(title="2", zerolinecolor="#f0f0f0", gridcolor="#f0f0f0", scaleanchor="x", scaleratio=1)
 
-def plot_salient_regions(salience_scores: pd.Series, brain_ontology: AllenBrainHierarchy,
+def plot_salient_regions(salience_scores: pd.Series, brain_ontology: AllenBrainOntology,
                             title=None, title_size=20,
                             axis_size=15, use_acronyms=True, use_acronyms_in_mjd=True,
                             mjd_opacity=0.5, width=300, thresholds=None,
@@ -338,7 +338,7 @@ def plot_salient_regions(salience_scores: pd.Series, brain_ontology: AllenBrainH
 def plot_gridgroups(groups: list[AnimalGroup],
                     selected_regions: list[str],
                     marker1: str, marker2: str=None,
-                    brain_ontology: AllenBrainHierarchy=None,
+                    brain_ontology: AllenBrainOntology=None,
                     pls_n_bootstrap: int=5000,
                     pls_threshold=None, pls_seed=None,
                     markers_salience_scores: dict[str, BrainData]=None,

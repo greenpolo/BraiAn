@@ -3,11 +3,11 @@ import pandas as pd
 import plotly.graph_objects as go
 import typing
 
-from braian.brain_hierarchy import AllenBrainHierarchy, UPPER_REGIONS
+from braian.ontology import AllenBrainOntology, UPPER_REGIONS
 
 # used both for Structural Connectome and Functional Connectome
 class ConnectomeAdjacency:
-    def __init__(self, A: pd.DataFrame, brain_onthology: AllenBrainHierarchy, name="", upper_regions: dict=None) -> None:
+    def __init__(self, A: pd.DataFrame, brain_onthology: AllenBrainOntology, name="", upper_regions: dict=None) -> None:
         if brain_onthology is not None:
             self.upper_regions = brain_onthology.get_areas_major_division(*A.index)
             self.upper_regions = {k: v if v is not None else "root" for (k,v) in self.upper_regions.items()}

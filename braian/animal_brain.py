@@ -9,7 +9,7 @@ from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
 from typing import Generator, Self
 
-from braian.brain_hierarchy import AllenBrainHierarchy
+from braian.ontology import AllenBrainOntology
 from braian.sliced_brain import SlicedBrain, EmptyBrainError
 from braian.brain_data import BrainData
 
@@ -239,7 +239,7 @@ class AnimalBrain:
             data.remove_region(*regions, inplace=True, fill_nan=fill_nan)
         self.areas.remove_region(*regions, inplace=True, fill_nan=fill_nan)
 
-    def sort_by_ontology(self, brain_ontology: AllenBrainHierarchy,
+    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
                           fill_nan: bool=False, inplace: bool=False) -> Self:
         """
         Sorts the data in depth-first order accordingly to the associated `brain_ontology`.
@@ -296,7 +296,7 @@ class AnimalBrain:
         else:
             return self
 
-    def select_from_ontology(self, brain_ontology: AllenBrainHierarchy, fill_nan: bool=False, inplace: bool=False) -> Self:
+    def select_from_ontology(self, brain_ontology: AllenBrainOntology, fill_nan: bool=False, inplace: bool=False) -> Self:
         """
         Filters the data from a given ontology, accordingly to a non-overlapping list of regions
         previously selected in `brain_ontology`.\
@@ -319,15 +319,15 @@ class AnimalBrain:
             If `inplace=True` it returns the same instance.
         See also
         --------
-        [`AllenBrainHierarchy.get_selected_regions`][braian.AllenBrainHierarchy.get_selected_regions]
-        [`AllenBrainHierarchy.unselect_all`][braian.AllenBrainHierarchy.unselect_all]
-        [`AllenBrainHierarchy.add_to_selection`][braian.AllenBrainHierarchy.add_to_selection]
-        [`AllenBrainHierarchy.select_at_depth`][braian.AllenBrainHierarchy.select_at_depth]
-        [`AllenBrainHierarchy.select_at_structural_level`][braian.AllenBrainHierarchy.select_at_structural_level]
-        [`AllenBrainHierarchy.select_leaves`][braian.AllenBrainHierarchy.select_leaves]
-        [`AllenBrainHierarchy.select_summary_structures`][braian.AllenBrainHierarchy.select_summary_structures]
-        [`AllenBrainHierarchy.select_regions`][braian.AllenBrainHierarchy.select_regions]
-        [`AllenBrainHierarchy.get_regions`][braian.AllenBrainHierarchy.get_regions]
+        [`AllenBrainOntology.get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
+        [`AllenBrainOntology.unselect_all`][braian.AllenBrainOntology.unselect_all]
+        [`AllenBrainOntology.add_to_selection`][braian.AllenBrainOntology.add_to_selection]
+        [`AllenBrainOntology.select_at_depth`][braian.AllenBrainOntology.select_at_depth]
+        [`AllenBrainOntology.select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
+        [`AllenBrainOntology.select_leaves`][braian.AllenBrainOntology.select_leaves]
+        [`AllenBrainOntology.select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
+        [`AllenBrainOntology.select_regions`][braian.AllenBrainOntology.select_regions]
+        [`AllenBrainOntology.get_regions`][braian.AllenBrainOntology.get_regions]
         """
         assert brain_ontology.has_selection(), "No selection found in the given ontology."
         selected_allen_regions = brain_ontology.get_selected_regions()
