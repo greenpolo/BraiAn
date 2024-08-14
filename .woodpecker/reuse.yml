@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2022 Free Software Foundation Europe e.V. <https://fsfe.org>
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+when:
+  - event: [pull_request, push, manual]
+    branch: master
+steps:
+  reuse:
+    image: fsfe/reuse:latest
+    commands:
+      - reuse lint
