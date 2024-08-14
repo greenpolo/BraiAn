@@ -3,6 +3,10 @@
 # SPDX-License-Identifier: CC0-1.0
 
 version = 1
+SPDX-PackageName = "BraiAn"
+SPDX-PackageSupplier = "Carlo Castoldi <carlo.castoldi@outlook.com>"
+SPDX-PackageDownloadLocation = "https://codeberg.org/SilvaLab/BraiAn"
+SPDX-PackageComment = ""
 
 [[annotations]]
 SPDX-FileComment = "source"
