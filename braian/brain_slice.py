@@ -48,7 +48,7 @@ class RegionsWithNoCountError(BrainSliceFileError):
         super().__init__(**kargs)
     def __str__(self) -> str:
         return f"There are {len(self.regions)} region(s) with no count of tracer '{self.tracer}' in file: {self.file_path}"
-class InvalidRegionsHemisphereError(BrainSliceFileError): 
+class InvalidRegionsHemisphereError(BrainSliceFileError):
     def __str__(self):
         return f"Slice {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
 class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
@@ -284,7 +284,7 @@ class BrainSlice:
     def get_markers(self) -> list[str]:
         return list(self.data.columns[self.data.columns != "area"])
 
-    
+
     def exclude_regions(self,
                         excluded_regions: Iterable[str],
                         brain_ontology: AllenBrainOntology,
@@ -366,7 +366,7 @@ class BrainSlice:
             self.markers_density = self.__marker_density()
         if len(self.data) == 0:
             raise ExcludedAllRegionsError(file=self.name)
-    
+
     def __area_µm2_to_mm2(self) -> None:
         self.data.area = self.data.area * 1e-06
 

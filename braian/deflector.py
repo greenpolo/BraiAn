@@ -2,9 +2,9 @@ import copy
 
 __all__ = ["deflect"]
 
-def keep_type(F, obj, attr: str): # a function decorator        
+def keep_type(F, obj, attr: str): # a function decorator
     # if the result of the wrapped function is of the same type as attr,
-    # it creates a copy of obj and set the attr to the new  
+    # it creates a copy of obj and set the attr to the new
     attr_obj = obj.__dict__[attr]
     def wrapper(*args, inplace=False, **kwargs): # on wrapped function call
         # if some of the arguments have the same type as the caller, deflect to use arg.<attr>
@@ -30,7 +30,7 @@ def find_in_object(obj, attr):
     raise TypeError(f"unsupported operand type(s) for {attr}")
 
 def deflect_call(target: str, op: str):
-    # most of arithmetic operation are redirected __getattr__ 
+    # most of arithmetic operation are redirected __getattr__
     def op_wrapper(obj, *args, **kwargs):
         if target not in obj.__dict__:
             raise AttributeError(f"'{type(obj)}' object has no attribute '{target}'")
@@ -44,7 +44,7 @@ def deflect_call(target: str, op: str):
             # other functions expect a result!
             deflected_fun = find_in_object(target_obj, op)
             return keep_type(deflected_fun, obj, target)(*args, **kwargs)
-            
+
     return op_wrapper
 
 def deflect(on_attribute: str,
@@ -80,7 +80,7 @@ def deflect(on_attribute: str,
             if arithmetics:
                 # from https://docs.python.org/3.3/reference/datamodel.html#emulating-numeric-types
                 for op in ["__add__", "__sub__", "__mul__", "__truediv__", "__floordiv__",
-                           "__mod__", "__divmod__", "__pow__", "__lshift__", "__rshift__", 
+                           "__mod__", "__divmod__", "__pow__", "__lshift__", "__rshift__",
                            "__and__", "__xor__", "__or__", "__neg__", "__pos__", "__abs__",
                            "__invert__"]:
                     classdict[op] = deflect_call(on_attribute, op)
@@ -97,7 +97,7 @@ if __name__ == "__main__":
             self.num = n
         def __repr__(self) -> str:
             return f"C(num={type(self.num)})"
-    
+
     class A_():
         def ciao(self):
             print("A_")

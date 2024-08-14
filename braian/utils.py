@@ -80,7 +80,7 @@ def remote_dirs(experiment_dir_name: str,
     match sys.platform:
         case "darwin":
             mnt_point = "/Volumes/Ricerca/"
-            
+
         case "linux":
             mnt_point = "/mnt/tenibre/"
             # mnt_point = "/run/user/1000/gvfs/smb-share:server=ich.techosp.it,share=ricerca/"

@@ -33,7 +33,7 @@ def extract_acronym(region_class: str) -> str:
     """
     acronym = re.compile("[Left|Right]: (.+)").findall(region_class)
     if len(acronym) == 0:
-        # the region's class didn't distinguish between left|right hemispheres 
+        # the region's class didn't distinguish between left|right hemispheres
         return str(region_class)
     return acronym[0]
 
@@ -119,7 +119,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         if op_name is None:
             op_name = op.__name__
         data: pd.Series = op(pd.concat([first.data, second.data, *[other.data for other in others]], axis=1), axis=1, **kwargs)
-        return BrainData(data, name, f"{first.metric}:{op_name} (n={len(others)+2})", first.units) 
+        return BrainData(data, name, f"{first.metric}:{op_name} (n={len(others)+2})", first.units)
 
     @staticmethod
     def mean(*data: Self, **kwargs) -> Self:
@@ -230,10 +230,10 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def regions(self) -> list[str]:
         """The list of region acronyms for which the current instance records data."""
         return list(self.data.index)
-    
+
     def __str__(self) -> str:
         return f"BrainData(name={self.data_name}, metric={self.metric})"
-    
+
     def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
                           fill_nan=False, inplace=False) -> Self:
         """
@@ -261,7 +261,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         else:
             self.data = data
             return self
-    
+
     def root(self, hemisphere: str=None) -> float:
         """
         Retrieves the value associated to the whole brain.
@@ -426,7 +426,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         else:
             self.data = data
             return self
-    
+
     def select_from_ontology(self, brain_ontology: AllenBrainOntology,
                               *args, **kwargs) -> Self:
         """
@@ -460,7 +460,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         selected_allen_regions = brain_ontology.get_selected_regions()
         selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
         return self.select_from_list(list(selectable_regions), *args, **kwargs)
-    
+
     def merge_hemispheres(self) -> Self:
         """
         Creates a new `BrainData` by merging the hemispheric data of the current instance.
@@ -469,7 +469,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         -------
         :
             A new [`BrainData`][braian.BrainData] with no hemisphere distinction.
-            If the caller is already merged, it return the same instance with no changes.      
+            If the caller is already merged, it return the same instance with no changes.
         """
         if self.is_split:
             return self

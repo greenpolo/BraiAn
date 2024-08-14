@@ -45,7 +45,7 @@ class Connectome:
         self.is_directed = directed
         mode = "directed" if directed else "lower"
         if not isolated_vertices:
-            # remove nodes/regions with no 
+            # remove nodes/regions with no
             A_binary = A != 0 if weighted else A
             is_not_isolated = np.maximum(A_binary, A_binary.T).any(axis=0)
             A = A.loc[is_not_isolated, is_not_isolated]
@@ -54,7 +54,7 @@ class Connectome:
             new_graph = ig.Graph.Weighted_Adjacency
         else:
             new_graph = ig.Graph.Adjacency
-        
+
         self.G: ig.Graph = new_graph(A, mode=mode, loops=False)
         self.vc = None
 
@@ -66,7 +66,7 @@ class Connectome:
             for node in cluster:
                 self.G.vs[node]["cluster"] = i
         return
-    
+
     def participation_coefficient(self, weights=None):
         if self.is_directed or (self.is_weighted and weights):
             raise NotImplementedError("This centrality metric is not yet implemented for this type of connectomic.")
@@ -82,7 +82,7 @@ class Connectome:
         G = self.G.subgraph_edges(v.incident(), delete_vertices=not isolated_vertices)
         return Connectome(None, None, None, None,
                           name=self.name, weight_str=self.weight_str, graph=G)
-    
+
     def collapse_region(self, atlas: AllenBrainOntology, region_acronym: str) -> Self:
         # returns a Connectome with all subrregions of region_acronym collapsed in one single node
         # NOTE: if connectome is weighted, the weights won't be retained

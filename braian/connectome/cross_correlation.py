@@ -34,7 +34,7 @@ class CrossCorrelation:
     def remove_insufficient_regions(self):
         self.r.remove_nan_regions()
         self.p.remove_nan_regions()
-    
+
     @staticmethod
     def regions_in_both_groups(cross1, cross2):
         return (~cross1.r.data.isna().all(axis=1)) & (~cross2.r.data.isna().all(axis=1))

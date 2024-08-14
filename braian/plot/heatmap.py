@@ -120,7 +120,7 @@ def plot_slice(position: int, heatmaps: list[bgh.Heatmap],
         if highlighted_regions is None:
             highlighted_regions = []
         add_projections(ax, heatmap, slicer, show_text, highlighted_regions)
-            
+
     if len(heatmaps) == 2:
         ax.axvline(x=sum(ax.get_xlim())/2, linestyle="--", color="black", lw=2)
 
@@ -192,7 +192,7 @@ class NormalizedColormap(mpl.colors.LinearSegmentedColormap,
         # super compatibility
         self.N = self.cmap.N
         self.colorbar_extend = self.cmap.colorbar_extend
-    
+
     def __call__(self, X, alpha=None, bytes=False):
         return mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cmap).to_rgba(X, alpha, bytes)
 

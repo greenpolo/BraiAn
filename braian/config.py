@@ -27,7 +27,7 @@ class BraiAnConfig:
             self.animal_names = animal_directories
             self.sliced_brains: list[SlicedBrain] = []  # filled in read()
             self.brains: list[AnimalBrain] = []         # filled in reduce_slices()
-        
+
         def read(self, path_to_group, threshold: float, remove_singles: bool,
                  *args, **kwargs) -> list[SlicedBrain]:
             for name in self.animal_names:
@@ -47,30 +47,30 @@ class BraiAnConfig:
                     self._remove_singles(sliced_brain)
                 self.sliced_brains.append(sliced_brain)
             return self.sliced_brains
-        
+
         def reduce_slices(self, metric: str) -> list[AnimalBrain]:
             self.brains = [
                 AnimalBrain.from_slices(sliced_brain, mode=metric, hemisphere_distinction=False)
                 for sliced_brain in self.sliced_brains]
             return self.brains
-        
+
         def to_group(self, brain_ontology: AllenBrainOntology, *args, **kwargs):
             return AnimalGroup(self.name, self.brains, brain_ontology=brain_ontology, merge_hemispheres=True, *args, **kwargs)
-        
+
         def _remove_small_regions(self, animal: SlicedBrain, threshold: float) -> None:
             for s in animal.slices:
                 # s._data = s.data
                 # TODO: currently there is no differentiation between real markers and overlapping markers.
                 # This bad workaround excludes all those markers having a '+' in the name.
                 s.data = s.data[s.data.area > threshold].copy(deep=True)
-        
+
         def _remove_singles(self, animal: SlicedBrain) -> None:
             for s in animal.slices:
                 # TODO: currently there is no differentiation between real markers and overlapping markers.
                 # This bad workaround excludes all those markers having a '+' in the name.
                 real_markers = [m for m in animal.markers if "+" not in m]
                 s.data = s.data[(s.data[real_markers] != 1).any(axis=1)].copy(deep=True)
-        
+
         # COMMENTED OUT because mkdocs complains and we don't need it anymore
         # @staticmethod
         # def _fix_overlap_detection_if_old_qpscript(sliced_brain: SlicedBrain):
@@ -91,7 +91,7 @@ class BraiAnConfig:
         #         sliced_brain.markers[i] = marker1
         #         overlap_i = next(i for i in range(len(sliced_brain.markers)) if sliced_brain.markers[i] == f"{marker1_diff}+{marker2}")
         #         sliced_brain.markers[overlap_i] = f"{marker1}+{marker2}"
-    
+
     class Comparison:
         def __init__(self, id, group_reduction: str, metric: str,
                      min_area: float, regions_to_plot: list[str],
@@ -129,9 +129,9 @@ class BraiAnConfig:
                     del kwargs["n_bootstrap"]
                 case _:
                     raise ValueError(f"[comparison.{self.id}] - Unknown '{group_reduction}' group reduction")
-            
+
             self.kwargs = kwargs
-        
+
         def apply(self):
             if "result" not in self.__dict__:
                 self.result = [AnimalGroup(group.name, group.brains, self.metric, brain_ontology=self.brain_ontology,
@@ -147,7 +147,7 @@ class BraiAnConfig:
         def is_commutative(self):
             # NOTE: also SIMILARITY_INDEX, DENSITY_DIFFERENCE and "correlation" are on markers
             return self.type == "groups" and self.group_reduction == "pls"
-        
+
         def to_braindata(self) -> dict[str, tuple[BrainData, ...]]:
             # group1.is_comparable(group2) should always be true
             if "braindata" in self.__dict__:
@@ -193,7 +193,7 @@ class BraiAnConfig:
                             output_dir, filename, other=left_data,
                             cmin=cmin, cmax=cmax, centered_cmap=centered_cmap,
                             **kwargs)
-        
+
         def make_filename(self, *ss: str):
             return "_".join((s.replace(' ', '_') for s in ss if s != ""))
 
@@ -201,7 +201,7 @@ class BraiAnConfig:
             metrics = list({d.metric.lower().split(" ")[0] for d in itertools.chain((data,), other_data) if d is not None})
             assert len(metrics) == 1, "You can't plot multiple BrainData of different metrics!"
             return metrics[0]
-        
+
         def _cmap_range(self, metric: str) -> tuple[bool, int, int]:
             if metric.endswith("-corr") or metric.startswith(str(BrainMetrics.DENSITY_DIFFERENCE)) or metric.startswith("pls_"):
                 centered_cmap = True
@@ -222,7 +222,7 @@ class BraiAnConfig:
                  ) -> None:
         with open(config_file, "r") as f:
             self.config = toml.load(f, _dict=OrderedDict)
-        
+
         self.data_path = data_path
         path_to_allen_json = os.path.join(self.data_path, "AllenMouseBrainOntology.json")
         cache(path_to_allen_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
@@ -237,7 +237,7 @@ class BraiAnConfig:
                           if group.startswith("group") and group[len("group"):].isdigit()
                       ]
         self.comparisons = self._read_comparisons()
-    
+
     def read_groups(self, path_to_groups) -> list[list[SlicedBrain]]:
         overlapping_tracers = [[v-1 for k,v in comp["parameters"].items() if k.startswith("marker")]
                                     for comp in self.config["comparison"].values()
@@ -261,11 +261,11 @@ class BraiAnConfig:
             )
             print(f"Imported all brain slices from {len(group_dir.animal_names)} animals of '{group_dir.name}' group.")
         return [g.sliced_brains for g in self.groups]
-    
+
     def reduce_slices(self):
         for group in self.groups:
             group.reduce_slices(self.config["brains"]["slices-aggregation-mode"])
-    
+
     def to_groups(self, *args, **kwargs):
         return [group_dir.to_group(self.brain_ontology, *args, **kwargs) for group_dir in self.groups]
 
@@ -303,10 +303,10 @@ class BraiAnConfig:
             else:
                 print(f"WARNING: comparison '{id}' has an unknown '{comp['type']}' type. Valid types are 'groups' and 'markers'")
         return result
-    
+
     def _imarker(self, i):
         return list(self.config["brains"]["markers"].values())[i-1]
-    
+
     # def remove_high_variation_regions(self, threshold: float):
     #     for group in self.groups:
     #         for animal_brain, slices in zip(groups_sum_brains[i], group_slices):
@@ -318,7 +318,7 @@ class BraiAnConfig:
     #             disperse_regions = cvars_data.index[(cvars_data > CVAR_THRESHOLD)[real_markers].any(axis=1)]
     #             print(f"removing {len(disperse_regions)}/{len(cvars_data)} dispersive regions from '{slices.name}'")
     #             animal_brain.remove_region(*disperse_regions)
-    
+
     def check_animal_region(self, animal_name: str, region_acronym: str, marker=None):
         try:
             sliced_brain: SlicedBrain = next(animal for group in self.groups for animal in group.sliced_brains if animal.name == animal_name)
@@ -343,7 +343,7 @@ class BraiAnConfig:
                 - S.D.: {marker_std[region_acronym]:.2f} {m}/mm²,
                 - Coefficient of Variation: {marker_avg[region_acronym]}
             """)
-    
+
     def check_animal_region_slices(self, animal_name: str, region_acronym: str):
         slices = []
         try:
@@ -359,4 +359,3 @@ class BraiAnConfig:
         except StopIteration:
             print(f"Can't find region '{region_acronym}' for animal '{animal_name}'")
         return pd.concat(slices, axis=1) if len(slices) != 0 else None
-        

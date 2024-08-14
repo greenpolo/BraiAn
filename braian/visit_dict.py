@@ -12,7 +12,7 @@ def pop_stack(s):
 def find_subtree(node, key, value, children_key):
     if key in node and node[key] == value:
         return node
-      
+
     to_visit = node[children_key]
     while len(to_visit) != 0:
         to_visit, child = pop_queue(to_visit)
@@ -106,7 +106,7 @@ def get_parents_where(tree, children_key, filter_fun, nodes_key):
     add_if_true = lambda parent,node: parents.__setitem__(node[nodes_key], parent) if filter_fun(parent,node) else None
     visit_parents(tree, children_key, add_if_true)
     return parents
-   
+
 def is_leaf(node, children_key):
     return len(node[children_key]) == 0
 

@@ -109,7 +109,7 @@ def _group_change(brain: AnimalBrain, group: AnimalGroup, metric, fun: callable,
     assert set(brain.markers) == set(group.markers), "Both AnimalBrain and AnimalGroup must have the same markers"
     # assert brain.mode == group.metric == BrainMetrics.DENSITY, f"Both AnimalBrain and AnimalGroup must be on {BrainMetrics.DENSITY}"
     # assert set(brain.regions) == set(group.regions), f"Both AnimalBrain and AnimalGroup must be on the same regions"
-    
+
     markers_data = dict()
     for marker,this in brain.markers_data.items():
         data = fun(this, group.mean[marker])

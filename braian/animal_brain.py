@@ -24,13 +24,13 @@ def coefficient_variation(x: np.ndarray) -> np.float64:
         else:
             return 0
     else: # compute it for each column of the DataFrame and return a Series
-        return x.apply(coefficient_variation, axis=0)   
+        return x.apply(coefficient_variation, axis=0)
 
 class SliceMetrics(Enum):
     r"""
     Enum of the metrics used to reduce region data from [`SlicedBrain`][braian.SlicedBrain]
     into a [`AnimalBrain`][braian.AnimalBrain].
-    
+
     Attributes
     ----------
     SUM
@@ -425,7 +425,7 @@ class AnimalBrain:
             True, if the given string is associated to a raw metric. Otherwise, False.
         """
         try:
-            return SliceMetrics(mode)._raw            
+            return SliceMetrics(mode)._raw
         except ValueError:
             return mode == BrainData.RAW_TYPE
 

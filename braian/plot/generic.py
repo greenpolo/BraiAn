@@ -120,7 +120,7 @@ def plot_cv_above_threshold(brain_ontology, *sliced_brains_groups: list[SlicedBr
             marker_color="lightsalmon",
             opacity=0.3,
             name=f"animals' N areas<br>above threshold",
-            
+
         ),
         secondary_y=True,
     )
@@ -129,7 +129,7 @@ def plot_cv_above_threshold(brain_ontology, *sliced_brains_groups: list[SlicedBr
 
     fig.update_layout(
         title = f"Slices' coefficient of variaton > {cv_threshold}",
-        
+
         xaxis = dict(
             tickmode = "array",
             tickvals = np.arange(0,len(brains_name)),
@@ -359,7 +359,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         nan_hmap = go.Heatmap(z=np.isnan(group_df).astype(int), x=group_df.columns, y=group_df.index, hoverinfo="skip", #hoverongaps=False, hovertemplate=heatmap_ht(marker),
                             showscale=False, colorscale=[[0, "rgba(0,0,0,0)"], [1, "silver"]])
         return hmap, nan_hmap
-    
+
     def markers_traces(groups: list[AnimalGroup], marker: str, groups_colours: list, plot_scatter: bool):
         for group in groups:
             assert marker in group.markers, f"Missing {marker} in {group}"
@@ -392,7 +392,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         _max_value = pd.concat((group.mean(axis=1)+group.sem(axis=1) for group in groups_df)).max()
         heatmap_group_seps = np.cumsum([group_df.shape[1] for group_df in groups_df[:-1]])-.5
         return heatmaps, heatmap_group_seps, bars, _max_value
-    
+
     def prepare_subplots(n_markers: int, bar_to_heatmap_ratio: float, gap_width: float, ) -> go.Figure:
         available_plot_width = (1-gap_width)/n_markers
         marker_ratio = bar_to_heatmap_ratio*available_plot_width
@@ -422,10 +422,10 @@ def plot_gridgroups(groups: list[AnimalGroup],
     if marker2 is None:
         fig = prepare_subplots(1, bar_to_heatmap_ratio, space_between_markers if brain_ontology is not None else 0)
         data_range = (0, _max_value if max_value is None else max_value)
-        
+
         major_divisions_subplot = 1
         units = f"{str(groups[0].metric)} [{groups[0].mean[marker1].units}]"
-        
+
         fig.add_traces(heatmaps, rows=1, cols=2)
         [fig.add_vline(x=x, line_color="white", row=1, col=2) for x in group_seps]
         fig.update_xaxes(tickangle=45, row=1, col=2)
@@ -436,7 +436,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         m2_heatmaps, m2_group_seps, m2_bars, m2_max_value = markers_traces(groups, marker2, groups_marker2_colours, plot_scatter)
         fig = prepare_subplots(2, bar_to_heatmap_ratio, space_between_markers)
         data_range = (0, max(m1_max_value, m2_max_value) if max_value is None else max_value)
-        
+
         # MARKER1 - left side
         units = f"{str(groups[0].metric)} [{groups[0].mean[marker1].units}]"
         fig.add_traces(m1_bars, rows=1, cols=1)
@@ -446,7 +446,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         fig.update_xaxes(tickangle=45,  row=1, col=2)
 
         major_divisions_subplot = 3
-        
+
         # MARKER2 - right side
         units = f"{str(groups[0].metric)} [{groups[0].mean[marker2].units}]"
         fig.add_traces(m2_heatmaps, rows=1, cols=4)
@@ -503,7 +503,7 @@ def bar_sample(df: pd.DataFrame, population_name: str,
         line_color = pd.Series(np.where(is_undefined, to_rgba(color, alpha_undefined), color), index=is_undefined.index)
     trace_name = f"{population_name} [{marker}]"
     base, length = ("y", "x") if orientation == "h" else ("x", "y")
-    bar = go.Bar(**{length: df.mean(axis=1), base: df.index, 
+    bar = go.Bar(**{length: df.mean(axis=1), base: df.index,
                     f"error_{length}": dict(type="data", array=df.sem(axis=1), thickness=1)},
                     marker=dict(line_color=line_color, line_width=1, color=fill_color), orientation=orientation,
                     hovertemplate=bar_ht(marker, metric, base, length), showlegend=False, offsetgroup=plot_hash,

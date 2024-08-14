@@ -114,7 +114,7 @@ def draw_edges(G: ig.Graph, weight_str: str, circle_layout: ig.Layout,
     if use_weighted_widths:
         edges_widths = get_edges_widths([e["weight"] for e in sorted_es], max=max_width) #The width is proportional to the weight
     if G.is_weighted():
-        edge_colors = [get_color(colorscale, min(max(e["weight"], colorscale_min), colorscale_max), 
+        edge_colors = [get_color(colorscale, min(max(e["weight"], colorscale_min), colorscale_max),
                                    min_loc=colorscale_min, max_loc=colorscale_max)
                         for e in sorted_es]
     else:
@@ -158,11 +158,11 @@ def add_colorbar(connectome: Connectome,
                 y=[None],
                 mode="markers",
                 marker=dict(
-                    colorscale=colorscale, 
+                    colorscale=colorscale,
                     showscale=True,
                     cmin=cmin,
                     cmax=cmax,
-                    colorbar=dict(title=connectome.weight_str, len=0.5, thickness=15), 
+                    colorbar=dict(title=connectome.weight_str, len=0.5, thickness=15),
                 ),
                 hoverinfo="none"
                 )
@@ -209,7 +209,7 @@ def draw_ideograms(layout, all_upper_regions, brain_ontology,
         layout.shapes = [*layout.shapes, make_ideo_shape(path, outline_color, ideo_colors[k])]
 
     return ideograms
-    
+
 
 
 #############
@@ -242,7 +242,7 @@ def deCasteljau(b,t):
     N=len(b)
     if(N<2):
         raise InvalidInputError("The control polygon must have at least two points")
-    a=np.copy(b) #shallow copy of the list of control points 
+    a=np.copy(b) #shallow copy of the list of control points
     for r in range(1,N):
         a[:N-r,:]=(1-t)*a[:N-r,:]+t*a[1:N-r+1,:]
     return a[0,:]
@@ -266,9 +266,9 @@ def get_color(colorscale_name, loc, min_loc=0, max_loc=1):
     # first parameter: Name of the property being validated
     # second parameter: a string, doesn't really matter in our use case
     cv = ColorscaleValidator("colorscale", "")
-    # colorscale will be a list of lists: [[loc1, "rgb1"], [loc2, "rgb2"], ...] 
+    # colorscale will be a list of lists: [[loc1, "rgb1"], [loc2, "rgb2"], ...]
     colorscale = cv.validate_coerce(colorscale_name)
-    
+
     if hasattr(loc, "__iter__"):
         return [get_continuous_color(colorscale, x) for x in loc]
     return get_continuous_color(colorscale, loc)
@@ -282,7 +282,7 @@ def get_continuous_color(colorscale, intermed):
 
     Plotly doesn't make the colorscales directly accessible in a common format.
     Some are ready to use:
-    
+
         colorscale = plotly.colors.PLOTLY_SCALES["Greens"]
 
     Others are just swatches that need to be constructed into a colorscale:
@@ -309,7 +309,7 @@ def get_continuous_color(colorscale, intermed):
         else:
             high_cutoff, high_color = cutoff, color
             break
-    
+
     if low_color.startswith("rgb"):
         pass
     elif low_color.startswith("#"):
@@ -327,7 +327,7 @@ def get_continuous_color(colorscale, intermed):
 # IDEOGRAMS UTILS
 PI = np.pi
 
-def moduloAB(x, a, b): #maps a real number onto the unit circle identified with 
+def moduloAB(x, a, b): #maps a real number onto the unit circle identified with
                        #the interval [a,b), b-a=2*PI
         if a>=b:
             raise ValueError('Incorrect interval ends')

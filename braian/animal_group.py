@@ -69,7 +69,7 @@ class AnimalGroup:
         [`BrainData.sort_by_ontology`][braian.BrainData.sort_by_ontology]
         [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list]
         [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
-        """        
+        """
         self.name = name
         """The name of the group."""
         # if not animals or not brain_ontology:
@@ -128,7 +128,7 @@ class AnimalGroup:
             assert self.metric == other.metric
         corr = self.to_pandas(marker1).corrwith(other.to_pandas(marker2), method="pearson", axis=1)
         return BrainData(corr, self.name, str(self.metric)+f"-corr (n={self.n})", f"corr({marker1}, {marker2})")
-    
+
     def __str__(self) -> str:
         return f"AnimalGroup('{self.name}', metric={self.metric}, n={self.n})"
 
@@ -174,7 +174,7 @@ class AnimalGroup:
             a = self._animals[0]
             df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.areas.units})" for col in df.columns}, inplace=True)
         return df
-    
+
     def sort_by_ontology(self, brain_ontology: AllenBrainOntology, fill_nan=True, inplace=True) -> None:
         if not inplace:
             return AnimalGroup(self.name, self._animals, brain_ontology=brain_ontology, fill_nan=fill_nan)
@@ -182,7 +182,7 @@ class AnimalGroup:
             for brain in self._animals:
                 brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=True)
             return self
-    
+
     def get_animals(self) -> list[str]:
         return [brain.name for brain in self._animals]
 
@@ -213,7 +213,7 @@ class AnimalGroup:
                 self.is_split == other.is_split and \
                 self.metric == other.metric # and \
                 # set(self.regions) == set(other.regions)
-    
+
     def select(self, regions: list[str], fill_nan=False, inplace=False) -> Self:
         animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for brain in self._animals]
         if not inplace:

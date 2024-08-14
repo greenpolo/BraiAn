@@ -41,7 +41,7 @@ class PrunedConnectomics(Connectome):
         # self.__add_edges_attribute("r-value", cc.r)
         self.__add_edges_attribute("p-value", cc.p)
         self.__add_edges_attribute("normalized connection density", sc.A)
-    
+
     def get_functional_neighbors_distances(self):
         # we don't make care about direction.
         # We take the minimum distance of the two directions
@@ -64,7 +64,7 @@ class PrunedConnectomics(Connectome):
             d = min(ds[source_id][target_id], ds[target_id][source_id])
             ds_pruned.append(d)
         return np.asarray(ds_pruned)
-    
+
     def get_fully_pruned_edges(self, sc: StructuralConnectome):
         # returns the list of edges (A -- B) that are no longer directly connected.
         # neither in (A -> B) nor in (A <- B)
@@ -83,7 +83,7 @@ class PrunedConnectomics(Connectome):
         for v in self.G.vs:
             v_name = v["name"]
             v["upper_region"] = M.upper_regions[v_name]
-    
+
     def __add_edges_attribute(self, attr: str, M: ConnectomeAdjacency):
         for e in self.G.es:
             e[attr] = M.data.loc[e.source_vertex["name"], e.target_vertex["name"]]

@@ -60,10 +60,10 @@ class PLS:
         self.u, self.s, self.v = self.partial_least_squares_correlation(self.X,self.Y)
         # self.u = pd.DataFrame(self.u, index=self.Y.columns)
         # self.v = pd.DataFrame(self.v, index=self.X.columns)
-        
+
         self.Lx = self.X @ self.v
         self.Ly = self.Y @ self.u
-        
+
         self.v_salience_scores = None
         self.u_salience_scores = None
         self.singular_values = None
@@ -108,7 +108,7 @@ class PLS:
 
     def randomly_permute_singular_values(self,num_permutations, seed=None):
         if seed is not None:
-            np.random.seed(seed)  
+            np.random.seed(seed)
         singular_values = np.expand_dims(np.zeros(self.s.shape), axis=0).repeat(num_permutations,axis=0)
         X_np = self.X.to_numpy()
         Y_np = self.Y.to_numpy()
@@ -116,18 +116,18 @@ class PLS:
         for i in range(num_permutations):
             random_index = np.arange(self.X.shape[0])
             np.random.shuffle(random_index)
-            
+
             #X_perm = X_np[random_index,:]
             Y_perm = Y_np[random_index,:]
-            
+
             if np.array_equal(Y_perm, Y_np):
                 continue
 
             u_random, singular_values[count,:], vh_random = self.partial_least_squares_correlation(X_np, Y_perm)
             count += 1
-            
+
         self.singular_values = singular_values[:count,:]
-    
+
     def test_null_hypothesis(self):
         n_permutations,_ = self.singular_values.shape
         return (self.singular_values > self.s).sum(axis=0)/n_permutations
@@ -147,7 +147,7 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
     """
     Computes [PLS][braian.stats.PLS] between two groups with the same markers.\
     It estimates the standard error of the regions' saliences [by bootstrap][braian.stats.PLS.bootstrap_salience_scores].
-    
+
     NOTE: it assumes that the respective latent variables of the two groups are generalisable
     by [permutation test][braian.stats.PLS.randomly_permute_singular_values]. If they were not,
     the resulting salience scores would not be reliable.

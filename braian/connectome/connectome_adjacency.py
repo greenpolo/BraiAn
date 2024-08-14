@@ -20,7 +20,7 @@ class ConnectomeAdjacency:
             self.__data_log10 = np.log10(self.data)
             self.__data_log10[self.data == 0] = np.NINF
         self.name = name
-    
+
     def mask(self, where: pd.DataFrame) -> typing.Self:
         if where.shape != self.data.shape:
             raise ValueError(f"Incompatible mask shape. Expected a {self.data.shape} shape, instead got a {where.shape} shape")
@@ -31,7 +31,7 @@ class ConnectomeAdjacency:
     def max(self, log=False):
         data = self.__data_log10[np.isfinite(self.__data_log10)] if log else self.data
         return np.nanmax(data, axis=None)
-    
+
     def min(self, log=False):
         data = self.__data_log10[np.isfinite(self.__data_log10)] if log else self.data
         return np.nanmin(data, axis=None)
@@ -49,7 +49,7 @@ class ConnectomeAdjacency:
             del self.upper_regions[region]
         self.data.dropna(axis=0, how="all", inplace=True)
         self.data.dropna(axis=1, how="all", inplace=True)
-    
+
     def _sort_by_upper_regions(self, A: pd.DataFrame):
         upper_regions_list = list(self.upper_regions.values())
         regions_i = sorted(range(len(A)), key=lambda i: UPPER_REGIONS.index(upper_regions_list[i]))

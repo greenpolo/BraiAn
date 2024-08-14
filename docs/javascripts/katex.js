@@ -1,4 +1,4 @@
-document$.subscribe(({ body }) => { 
+document$.subscribe(({ body }) => {
 
 
   renderMathInElement(body, {

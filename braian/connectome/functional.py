@@ -36,7 +36,7 @@ class FunctionalConnectome(Connectome):
             v_name = v["name"]
             v["is_undefined"] = M.data[v_name].isna().all()
             v["upper_region"] = M.upper_regions[v_name]
-    
+
     def __add_edges_attributes(self, cc: CrossCorrelation):
         for e in self.G.es:
             e["p-value"] = cc.p.data.loc[e.source_vertex["name"], e.target_vertex["name"]]

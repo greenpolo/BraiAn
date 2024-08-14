@@ -126,7 +126,7 @@ class SlicedBrain:
             else:
                 slices.append(slice)
         return SlicedBrain(name, slices, ch2marker.values())
-        
+
 
     def __init__(self, name: str, slices: Iterable[BrainSlice], markers: Iterable[str]) -> None:
         """
@@ -172,7 +172,7 @@ class SlicedBrain:
     def slices(self) -> tuple[BrainSlice]:
         """The list of slices making up the `SlicedBrain`."""
         return self._slices
-    
+
     def concat_slices(self, densities: bool=False) -> pd.DataFrame:
         """
         Combines all the [`BrainSlice`][braian.BrainSlice] making up the current
@@ -212,7 +212,7 @@ class SlicedBrain:
 
         See also
         --------
-        [`BrainSlice.merge_hemispheres`][braian.BrainSlice.merge_hemispheres]            
+        [`BrainSlice.merge_hemispheres`][braian.BrainSlice.merge_hemispheres]
         """
         if not sliced_brain.is_split:
             return sliced_brain
@@ -265,7 +265,7 @@ class SlicedBrain:
                 return "print"
             case _:
                 ValueError(f"Undercognized exception: {type(exception)}")
-    
+
 def get_image_names_in_folder(path: Path) -> list[str]:
     images = list({re.sub('_regions.txt[.lnk]*', '', file) for file in os.listdir(path)})
     # images = list({re.sub('_regions.csv[.lnk]*', '', file) for file in os.listdir(path)}) # csv_files

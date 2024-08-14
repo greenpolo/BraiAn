@@ -104,7 +104,7 @@ class AllenBrainOntology:
     def __get_unannoted_regions(self, version) -> tuple[list[str], str]:
         # alternative implementation: use annotation's nrrd file - https://help.brain-map.org/display/mousebrain/API#API-DownloadAtlas3-DReferenceModels
         # this way is not totally precise, because some masks files are present even if they're empty
-        # 
+        #
         # Regarding ccf_2022, little is known about future plans of publishing strucutral masks for resolutions lower than 10nm
         # https://community.brain-map.org/t/2022-ccfv3-mouse-atlas/2287
         match version:
@@ -144,7 +144,7 @@ class AllenBrainOntology:
             True, if a region identifiable by `r` exists in the ontoloy. False otherwise.
         """
         return find_subtree(self.dict, key, r, "children") is not None
-        
+
 
     def are_regions(self, a: Iterable, key: str="acronym") -> npt.NDArray:
         """
