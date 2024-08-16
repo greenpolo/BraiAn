@@ -112,7 +112,7 @@ class BraiAnConfig:
                 case "mean" | "avg":
                     self.group_redux = lambda animal_group, marker: animal_group.mean[marker]
                 # case "corr" | "correlation":
-                #     self.group_redux = lambda animal_group, marker: bas.markers_correlation(animal_group, *markers)
+                #     self.group_redux = lambda animal_group, marker: bas.markers_correlation(*markers, group=animal_group)
                 case "pls":
                     assert len(self.groups) == 2, "PLS from config file supports only two groups!"
                     n_permutations = kwargs["n_permutations"]

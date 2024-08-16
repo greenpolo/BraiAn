@@ -271,6 +271,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         hemisphere
             Anything between "left", "L", "right" and "R".\\
             If the current `BrainData` is split, it defines for which hemisphere to retrieve the data.
+            Otherwise, this parameter is ignored.
 
         Returns
         -------
