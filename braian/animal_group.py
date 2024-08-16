@@ -463,3 +463,42 @@ class AnimalGroup:
         df.columns.name = df.index.names[0]
         df.index.names = (None, None)
         return AnimalGroup.from_pandas(df, name)
+
+    @staticmethod
+    def to_prism(marker, ontology: AllenBrainOntology,
+                 group1: Self, group2: Self, *groups: Self) -> pd.DataFrame:
+        """
+        Prepares the marker data from multiple groups in a table structure that is convenient
+        to analyse with statistical applications such as Prism by GraphPad, JASP or OriginPro.
+
+        Parameters
+        ----------
+        marker
+            The marker used to compare all groups.
+        ontology
+            The ontology to which the groups' data was registered against.
+        group1
+            The first group to include in the export.
+        group2
+            The second group to include in the export.
+        *groups
+            Any other number of groups to include in the export.
+
+        Returns
+        -------
+        :
+            A `DataFrame` where rows are brain regions, columns are animals from each group.
+
+        Raises
+        ------
+        ValueError
+            If the given groups are not [comparable][braian.AnimalGroup.is_comparable].
+        """
+        groups = [group1, group2, *groups]
+        if not all(group1.is_comparable(g) for g in groups[1:]):
+            raise ValueError("The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)")
+        df = pd.concat({g.name: g.to_pandas(marker) for g in groups}, axis=1)
+        major_divisions = ontology.get_areas_major_division(*df.index)
+        df["major_divisions"] = [major_divisions[region] for region in df.index]
+        df.set_index("major_divisions", append=True, inplace=True)
+        return df
