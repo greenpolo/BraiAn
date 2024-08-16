@@ -14,7 +14,7 @@ from braian.ontology import AllenBrainOntology
 from braian.animal_brain import AnimalBrain
 from braian.utils import save_csv
 
-__all__ = ["AnimalGroup", "PLS"]
+__all__ = ["AnimalGroup"]
 
 def _common_regions(animals: list[AnimalBrain]) -> list[str]:
     all_regions = [set(brain.regions) for brain in animals]

@@ -11,7 +11,7 @@ import braian.stats as bas
 from braian.utils import nrange
 from braian.sliced_brain import SlicedBrain
 from braian.animal_brain import AnimalBrain
-from braian.animal_group import AnimalGroup, PLS
+from braian.animal_group import AnimalGroup
 from braian.brain_data import BrainData
 from braian.ontology import AllenBrainOntology, MAJOR_DIVISIONS, UPPER_REGIONS
 
@@ -219,7 +219,7 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
     )
     return fig
 
-def plot_permutation(pls: PLS, component=1) -> go.Figure:
+def plot_permutation(pls: bas.PLS, component=1) -> go.Figure:
     n,_ = pls.singular_values.shape
     experiment = pls.s[component-1]
     permutation = pls.singular_values
@@ -244,10 +244,10 @@ def plot_permutation(pls: PLS, component=1) -> go.Figure:
         )
     return fig
 
-def plot_groups_salience(pls: PLS, component=1):
+def plot_groups_salience(pls: bas.PLS, component=1):
     return go.Figure(go.Bar(x=pls.Y.columns, y=pls.u[:,component-1])).update_layout(title=f"Component {component}")
 
-def plot_latent_component(pls: PLS, component=1):
+def plot_latent_component(pls: bas.PLS, component=1):
     # from https://vgonzenbach.github.io/multivariate-cookbook/partial-least-squares-correlation.html#visualizing-latent-variables
     # seems useless to me, perhaps is for different types of PLS
     n_groups = pls.Y.shape[1]
@@ -265,7 +265,7 @@ def plot_latent_component(pls: PLS, component=1):
               .update_yaxes(title="Ly")\
               .update_xaxes(title="Lx")
 
-def plot_latent_variable(pls: PLS, of="X", height=800, width=800):
+def plot_latent_variable(pls: bas.PLS, of="X", height=800, width=800):
     # always plots first and second components
     # of=="X" -> plots the brain scores
     # of=="Y" -> plots the group scores
@@ -381,7 +381,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
             assert len(salience_scores) == len(groups_df[0]) and all(salience_scores.index == groups_df[0].index), \
                     f"The salience scores of the PLS on '{marker}' are on different regions/order. "+\
                     "Make sure to fill to NaN the scores for the regions missing in at least one animal."
-            threshold = PLS.norm_threshold(p=0.05, two_tailed=True) if pls_threshold is None else pls_threshold
+            threshold = bas.PLS.norm_threshold(p=0.05, two_tailed=True) if pls_threshold is None else pls_threshold
         # bar_sample() returns 2(+1) traces: a real one, one for the legend and, eventually, a scatter plot
         bars = [trace for group, group_df, group_colour in zip(groups, groups_df, groups_colours)
                       for trace in (bar_sample(group_df, group.name, metric, marker, group_colour, plot_scatter, plot_hash=group.name,
