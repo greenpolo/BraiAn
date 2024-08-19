@@ -220,9 +220,9 @@ def plot_region_density(region_name, *sliced_brains_groups, width=700, height=50
     return fig
 
 def plot_permutation(pls: bas.PLS, component=1) -> go.Figure:
-    n,_ = pls.singular_values.shape
-    experiment = pls.s[component-1]
-    permutation = pls.singular_values
+    n,_ = pls.s_sampling_distribution.shape
+    experiment = pls._s[component-1]
+    permutation = pls.s_sampling_distribution
     fig = go.Figure(data=[
             go.Histogram(x=permutation[:,component-1], nbinsx=10, name=f"Sampling distribution<br>under H0 ({n} permutations)")
         ])
@@ -245,7 +245,8 @@ def plot_permutation(pls: bas.PLS, component=1) -> go.Figure:
     return fig
 
 def plot_groups_salience(pls: bas.PLS, component=1):
-    return go.Figure(go.Bar(x=pls.Y.columns, y=pls.u[:,component-1])).update_layout(title=f"Component {component}")
+    return go.Figure(go.Bar(x=pls.u.columns, y=pls.u.iloc[:,component-1]))\
+                    .update_layout(title=f"Component {component}", xaxis_title="Groups")
 
 def plot_latent_component(pls: bas.PLS, component=1):
     # from https://vgonzenbach.github.io/multivariate-cookbook/partial-least-squares-correlation.html#visualizing-latent-variables
@@ -381,7 +382,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
             assert len(salience_scores) == len(groups_df[0]) and all(salience_scores.index == groups_df[0].index), \
                     f"The salience scores of the PLS on '{marker}' are on different regions/order. "+\
                     "Make sure to fill to NaN the scores for the regions missing in at least one animal."
-            threshold = bas.PLS.norm_threshold(p=0.05, two_tailed=True) if pls_threshold is None else pls_threshold
+            threshold = bas.PLS.to_zscore(p=0.05, two_tailed=True) if pls_threshold is None else pls_threshold
         # bar_sample() returns 2(+1) traces: a real one, one for the legend and, eventually, a scatter plot
         bars = [trace for group, group_df, group_colour in zip(groups, groups_df, groups_colours)
                       for trace in (bar_sample(group_df, group.name, metric, marker, group_colour, plot_scatter, plot_hash=group.name,
