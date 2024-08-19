@@ -48,8 +48,7 @@ class SlicedBrain:
     def from_qupath(name: str,
                     animal_dir: str|Path,
                     brain_ontology: AllenBrainOntology,
-                    ch2marker: dict[str,str]|OrderedDict[str,str],
-                    overlapping_markers: Sequence[int]=(),
+                    ch2marker: dict[str,str],
                     exclude_parent_regions: bool=False,
                     results_subdir: str="results",
                     exclusions_subdir: str="regions_to_exclude"
@@ -69,11 +68,6 @@ class SlicedBrain:
             An ontology against whose version the brain was aligned
         ch2marker
             A dictionary mapping QuPath channel names to markers.
-            If `overlapping_markers` is specified, `ch2marker` should be a [`OrderedDict`][collections.OrderedDict].
-        overlapping_markers
-            If double-positivity between two markers was computed with
-            [`OverlappingDetections`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/OverlappingDetections.html),
-            a tuple of the indices in `ch2marker` of the markers for which the double-positivity was computed.
         exclude_parent_regions
             `exclude_parent_regions` from [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions].
         results_subdir
@@ -95,15 +89,6 @@ class SlicedBrain:
         csv_slices_dir = animal_dir / results_subdir
         excluded_regions_dir = animal_dir / exclusions_subdir
         images = get_image_names_in_folder(csv_slices_dir)
-        if len(overlapping_markers) > 0:
-            assert len(overlapping_markers) == 2, "SlicedBrain currently supports overlapping at maximum between two markers from QuPath"
-            assert isinstance(ch2marker, OrderedDict), "'ch2marker' should be an OrderedDict if `overlapping_markers` is specified"
-            if len(ch2marker) >= 2 and len(overlapping_markers) > 0:
-                overlapping_channels = qupath_class2overlap(ch2marker, [overlapping_markers])
-                assert all([o not in ch2marker for o in overlapping_channels.keys()]), \
-                    f"You don't have to specify the columns of the overlapping detections in 'ch2marker'. "+\
-                        "Just specify the indices of the overlapping markers in 'overlapping_markers'."
-                ch2marker = copy.copy(ch2marker) | overlapping_channels # we copy the dict, or we modify the structure for the caller as well
         slices: list[BrainSlice] = []
         for image in images:
             results_file = os.path.join(csv_slices_dir, f"{image}_regions.txt")
@@ -115,7 +100,7 @@ class SlicedBrain:
                 # group analysis. Checking against the ontology for each slice would be too time consuming.
                 # We can do it afterwards, after the SlicedBrain is reduced to AnimalBrain
                 slice: BrainSlice = BrainSlice.from_qupath(results_file,
-                                               ch2marker.keys(), ch2marker.values(),
+                                               ch2marker,
                                                animal=name, name=image, is_split=True,
                                                area_units=SlicedBrain.__QUPATH_AREA_UNITS, brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
@@ -125,7 +110,8 @@ class SlicedBrain:
                 SlicedBrain.__handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)
             else:
                 slices.append(slice)
-        return SlicedBrain(name, slices, ch2marker.values())
+        markers = {marker for slice in slices for marker in slice.markers_density.columns}
+        return SlicedBrain(name, slices, markers)
 
 
     def __init__(self, name: str, slices: Iterable[BrainSlice], markers: Iterable[str]) -> None:
@@ -271,15 +257,3 @@ def get_image_names_in_folder(path: Path) -> list[str]:
     # images = list({re.sub('_regions.csv[.lnk]*', '', file) for file in os.listdir(path)}) # csv_files
     images.sort()
     return images
-
-def qupath_overlapping_classes(class1: str, class2: str) -> str:
-    return f"{class1}~{class2}"
-
-def overlapping_markers(marker1: str, marker2: str) -> str:
-    return f"{marker1}+{marker2}"
-
-def qupath_class2overlap(ch2marker: OrderedDict[str,str], overlapping_tracers: Sequence[tuple[int,int]]) -> dict[str,str]:
-    assert all([len(idx) == 2 for idx in overlapping_tracers]), "Overlapping marker analyisis is supported only between two markers!"
-    ordered_channels = list(ch2marker.keys())
-    overlapping_channels = [(ordered_channels[i1], ordered_channels[i2]) for i1,i2 in overlapping_tracers]
-    return {qupath_overlapping_classes(ch1, ch2): overlapping_markers(ch2marker[ch1], ch2marker[ch2]) for ch1, ch2 in overlapping_channels}

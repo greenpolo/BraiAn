@@ -1,8 +1,9 @@
 import os
 import pandas as pd
+import re
 from pathlib import Path
 from typing import Self
-from collections.abc import Iterable
+from collections.abc import Iterable, Generator
 
 from braian.brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnkownBrainRegionsError
 from braian.ontology import AllenBrainOntology
@@ -55,11 +56,14 @@ class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
     def __str__(self):
         return f"Exclusions for Slice {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
 
+def overlapping_markers(marker1: str, marker2: str) -> str:
+    return f"{marker1}+{marker2}"
+
 class BrainSlice:
     __QUPATH_AREA = "Area um^2"
 
     @staticmethod
-    def from_qupath(csv_file: str|Path, detected_channels: str|list[str], markers: str|list[str],
+    def from_qupath(csv_file: str|Path, ch2marker: dict[str,str],
                     *args, **kwargs) -> Self:
         """
         Creates a [`BrainSlice`][braian.BrainSlice] from a file exported with
@@ -70,13 +74,9 @@ class BrainSlice:
         ----------
         csv_file
             The path to file exported with [`AtlasManager.saveResults()`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AtlasManager.html#saveResults(java.util.List,java.io.File))
-        detected_channels
-            The name of the QuPath channel used to segment detections in each brain region.
-            It accepts more than one channel name if multiple detections were segmented from multiple channels.
-        markers
-            The name of the marker visible in the correspondant `detected_channels`.
-            It accepts the same number of markers as the number of `detected_channels`,
-            if multiple detections were segmented from multiple channels.
+        ch2marker
+            A dictionary mapping the QuPath channel names to markers.
+            A cell segmentation algorithm must have previously run on each of the given channels.
         *args
             Other arguments are passed to [`BrainSlice`][braian.BrainSlice] constructor.
         **kwargs
@@ -99,18 +99,20 @@ class BrainSlice:
         MissingResultsColumnError
             If `csv_file` is missing reporting the number of detection in at least one `detected_channels`.
         """
-        if isinstance(detected_channels, str):
-            detected_channels = [detected_channels]
-        detections_cols = [BrainSlice.__column_from_qupath_channel(ch) for ch in detected_channels]
-        if isinstance(markers, str):
-            markers = [markers]
-        assert len(detections_cols) == len(markers), f"The number of tracers ({len(detections_cols)}) differs from the number of markers ({len(markers)})"
+        cols2marker = {BrainSlice.__column_from_qupath_channel(ch): m for ch,m in ch2marker.items()}
         data = BrainSlice.__read_qupath_data(search_file_or_simlink(csv_file))
-        BrainSlice.__check_columns(data, [BrainSlice.__QUPATH_AREA, *detections_cols], csv_file)
-        data = pd.DataFrame(data, columns=[BrainSlice.__QUPATH_AREA, *detections_cols])
+        BrainSlice.__check_columns(data, [BrainSlice.__QUPATH_AREA, *cols2marker.keys()], csv_file)
+        for column, ch1, ch2 in BrainSlice.__find_overlapping_channels(data, cols2marker.keys()):
+            try:
+                m1 = ch2marker[ch1]
+                m2 = ch2marker[ch2]
+            except KeyError:
+                continue
+            cols2marker[column] = overlapping_markers(m1, m2)
+        data = pd.DataFrame(data, columns=[BrainSlice.__QUPATH_AREA, *cols2marker.keys()])
         # NOTE: not needed since qupath-extension-braian>=1.0.1
-        BrainSlice.__fix_nan_countings(data, detections_cols)
-        data.rename(columns={BrainSlice.__QUPATH_AREA: "area"} | dict(zip(detections_cols, markers)), inplace=True)
+        BrainSlice.__fix_nan_countings(data, cols2marker.keys())
+        data.rename(columns={BrainSlice.__QUPATH_AREA: "area"} | cols2marker, inplace=True)
         return BrainSlice(data, *args, **kwargs)
 
     @staticmethod
@@ -156,6 +158,21 @@ class BrainSlice:
             if column not in data.columns:
                 raise MissingResultsColumnError(file=csv_file, column=column)
         return True
+
+    @staticmethod
+    def __find_overlapping_channels(data: pd.DataFrame,
+                                    detections_cols: Iterable[str]) -> Generator[tuple[str], None, None]:
+        other_cols = [col for col in data.columns if col not in (*detections_cols, BrainSlice.__QUPATH_AREA)]
+        if len(other_cols) == 0:
+            return
+        for col_name in other_cols:
+            match = re.match(r"Num (.+)\~(.+)", col_name)
+            if match is None:
+                continue
+            overlapping_channels = match.groups()
+            if len(overlapping_channels) == 2:
+                yield (col_name, *overlapping_channels)
+        return
 
     @staticmethod
     def __fix_nan_countings(data, detection_columns):
