@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Self
 
 from braian.ontology import AllenBrainOntology
+from braian.brain_data import BrainData
 from braian.brain_slice import BrainSlice,\
                         BrainSliceFileError, \
                         ExcludedAllRegionsError, \
@@ -110,7 +111,15 @@ class SlicedBrain:
                 SlicedBrain.__handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)
             else:
                 slices.append(slice)
-        markers = {marker for slice in slices for marker in slice.markers_density.columns}
+        # DOES NOT PRESERVE ORDER
+        # markers = {marker for slice in slices for marker in slice.markers_density.columns}
+        # PRESERVES ORDER
+        # all_markers = np.array((marker for slice in slices for marker in slice.markers_density.columns))
+        # _, idx = np.unique(all_markers, return_index=True)
+        # markers = all_markers[np.sort(idx)]
+        # PRESERVES ORDER: FROM PYTHON 3.7+,
+        #                  due to dict implementation details! (i.e. not guaranteed)
+        markers = list(dict.fromkeys((marker for slice in slices for marker in slice.markers_density.columns)))
         return SlicedBrain(name, slices, markers)
 
 
@@ -146,7 +155,7 @@ class SlicedBrain:
     @property
     def name(self) -> str:
         """The name of the animal."""
-        return self._name
+        return str(self._name)
 
     @name.setter
     def name(self, value: str):
@@ -178,6 +187,24 @@ class SlicedBrain:
         return pd.concat([slice.data if not densities else
                           pd.concat((slice.data["area"], slice.markers_density), axis=1)
                           for slice in self._slices])
+
+    def count(self, brain_ontology: AllenBrainOntology=None) -> BrainData:
+        """
+        Counts the number of slices that contains data for each brain region.
+
+        Parameters
+        ----------
+        brain_ontology
+            If specified, it sorts and check the regions accordingly to the given atlas ontology.
+
+        Returns
+        -------
+        :
+            A `BrainData` with the number of slices per region.
+        """
+        all_slices = self.concat_slices()
+        count = all_slices.groupby(all_slices.index).count().iloc[:,0]
+        return BrainData(count, self._name, "count_slices", "#slices", brain_ontology=brain_ontology, fill_nan=False)
 
     @staticmethod
     def merge_hemispheres(sliced_brain: Self) -> Self:

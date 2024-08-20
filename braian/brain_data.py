@@ -474,9 +474,9 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             A new [`BrainData`][braian.BrainData] with no hemisphere distinction.
             If the caller is already merged, it return the same instance with no changes.
         """
-        if self.is_split:
+        if not self.is_split:
             return self
-        if self.metric not in ("sum", BrainData.RAW_TYPE):
+        if self.metric not in (BrainData.RAW_TYPE, "sum", "count_slices"):
             raise ValueError(f"Cannot properly merge '{self.metric}' BrainData from left/right hemispheres into a single region!")
         corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self.data.index]
         data = self.data.groupby(corresponding_region).sum(min_count=1)

@@ -92,12 +92,13 @@ def remote_dirs(experiment_dir_name: str,
             # mnt_point = "\\\\ich.techosp.it\\Ricerca\\"
         case _:
             raise Exception(f"Can't find the 'Ricerca' folder in the server for '{sys.platform}' operative system. Please report the developer (Carlo)!")
-    if not os.path.isdir(mnt_point):
+    mnt_point = Path(mnt_point)
+    if not mnt_point.is_dir():
         raise Exception(f"Could not read '{mnt_point}'. Please be sure you are connected to the server.")
     if is_collaboration_project:
-        data_root  =  os.path.join(mnt_point, "collaborations", collaboration_dir_name, "data", experiment_dir_name)
-        plots_root = os.path.join(mnt_point, "collaborations", collaboration_dir_name, "results", experiment_dir_name, "plots")
+        data_root  =  mnt_point/"collaborations"/collaboration_dir_name/"data"/experiment_dir_name
+        plots_root =  mnt_point/"collaborations"/collaboration_dir_name/"results"/experiment_dir_name/"plots"
     else:
-        data_root  =  os.path.join(mnt_point, "projects", "data", experiment_dir_name)
-        plots_root = os.path.join(mnt_point, "projects", "results", experiment_dir_name, "plots")
+        data_root  = mnt_point/"projects"/"data"/experiment_dir_name
+        plots_root = mnt_point/"projects"/"results"/experiment_dir_name/"plots"
     return data_root, plots_root

@@ -151,6 +151,9 @@ class AnimalGroup:
         """
         return [brain.name for brain in self._animals]
 
+    def __repr__(self):
+        return str(self)
+
     def __str__(self) -> str:
         return f"AnimalGroup('{self.name}', metric={self.metric}, n={self.n})"
 
