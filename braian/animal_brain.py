@@ -489,7 +489,7 @@ class AnimalBrain:
         filepath
             Any valid string path is acceptable. It also accepts any [os.PathLike][].
         name
-            Name of the animal associated to the date.
+            Name of the animal associated to the data.
         sep
             Character or regex pattern to treat as the delimiter.
 

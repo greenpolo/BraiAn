@@ -18,6 +18,7 @@ from .sliced_brain import *
 from .brain_data import *
 from .animal_brain import *
 from .animal_group import *
+from .project import *
 from .utils import cache, save_csv, regions_to_plot, remote_dirs
 # from .plot import *
 # from braian.plot import *

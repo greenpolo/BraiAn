@@ -3,18 +3,19 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from functools import reduce
 from itertools import product
 from pathlib import Path
 from typing import Self
 
+from braian.animal_brain import AnimalBrain, SliceMetrics
 from braian.brain_data import BrainData
 from braian.ontology import AllenBrainOntology
-from braian.animal_brain import AnimalBrain
+from braian.sliced_brain import SlicedBrain
 from braian.utils import save_csv
 
-__all__ = ["AnimalGroup"]
+__all__ = ["AnimalGroup", "SlicedGroup"]
 
 def _common_regions(animals: list[AnimalBrain]) -> list[str]:
     all_regions = [set(brain.regions) for brain in animals]
@@ -446,7 +447,7 @@ class AnimalGroup:
         filepath
             Any valid string path is acceptable. It also accepts any [os.PathLike][].
         name
-            Name of the animal associated to the date.
+            Name of the group associated to the data.
         sep
             Character or regex pattern to treat as the delimiter.
 
@@ -502,3 +503,38 @@ class AnimalGroup:
         df["major_divisions"] = [major_divisions[region] for region in df.index]
         df.set_index("major_divisions", append=True, inplace=True)
         return df
+
+class SlicedGroup:
+    def __init__(self, name: str, animals: Iterable[SlicedBrain],
+                 ontology: AllenBrainOntology) -> None:
+        self._name = str(name)
+        self._animals = tuple(animals)
+        self._ontology = ontology
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def animals(self) -> tuple[SlicedBrain]:
+        return self._animals
+
+    def to_group(self, metric: SliceMetrics, min_slices: int, fill_nan: bool) -> AnimalGroup:
+        brains = []
+        for sliced_brain in self._animals:
+            brain = AnimalBrain.from_slices(sliced_brain, metric, min_slices=min_slices)
+            brains.append(brain)
+        return AnimalGroup(self._name, brains, ontology=self._ontology, fill_nan=fill_nan)
+
+    @staticmethod
+    def from_qupath(name: str, brain_names: Iterable[str],
+                    ch2marker: dict[str,str],
+                    qupath_dir: Path|str,
+                    ontology: AllenBrainOntology,
+                    exclude_parents: bool) -> Self:
+        sliced_brains = []
+        for brain_name in brain_names:
+            sliced_brain = SlicedBrain.from_qupath(brain_name, qupath_dir/brain_name, ontology,
+                                                    ch2marker, exclude_parent_regions=exclude_parents)
+            sliced_brains.append(sliced_brain)
+        return SlicedGroup(name, sliced_brains, ontology)
