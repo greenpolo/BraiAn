@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+project:
+  name: "test"
+  output_dir: "BraiAn_output"
+
+atlas:
+  version: "CCFv3"
+  excluded-branches: ["retina", "VS", "grv", "fiber tracts", "CB"]
+
+groups:
+  HC: ["287HC", "342HC", "343HC", "346HC", "371HC"]
+  CTX: ["329CTX", "331CTX", "355CTX", "400CTX", "401CTX", "402CTX"]
+  FC: ["367FC", "368FC", "369FC", "426FC", "427FC", "428FC"]
+
+brains:
+  raw-metric: "sum"
+
+qupath:
+  dir: "QuPath_output"
+  min-slices: 0
+  exclude-parents: true
+  markers:
+    AF568: "cFos"
+    AF647: "Arc1"

@@ -184,7 +184,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def __init__(self, data: pd.Series, name: str, metric: str, units: str,
                  brain_ontology: AllenBrainOntology|None=None, fill_nan=False) -> None:
         """
-        This class is the base structure for managing any data that associates values to brain regions.
+        This class is the base structure for managing any data that associates values to brain regions.\
+        You can access its interanal representation through [`BrainData.data`][braian.BrainData.data].
 
         Parameters
         ----------
@@ -207,13 +208,14 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         --------
         [`sort_by_ontology`][braian.BrainData.sort_by_ontology]
         """
-        self.data = data.copy()
-        self.is_split = _is_split_left_right(self.data.index)
+        self.data: pd.Series = data.copy()
+        """The internal representation of the current brain data."""
+        self.is_split: bool = _is_split_left_right(self.data.index)
         """Whether the data of the current `BrainData` makes a distinction between right and left hemisphere."""
-        self.data_name = str(name) # data_name
+        self.data_name: str = str(name) # data_name
         """The name of the current `BrainData`."""
         self.data.name = self.data_name
-        self.metric = str(metric)
+        self.metric: str = str(metric)
         """The name of the metric used to compute the data.
         Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
         """

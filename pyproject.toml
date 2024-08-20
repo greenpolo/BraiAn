@@ -25,6 +25,7 @@ urllib3 = "^1.26.16"            # fix poetry+conda bug: https://github.com/pytho
 tables = "^3.9.2"               # fix problem with h5py installation
 pywin32 = {version = "^306", platform = "win32"}
 toml = "^0.10.2"                # used by BraiAnConfig to load TOML file into OrderedDict
+pyyaml = "^6.0.2"
 
 [tool.poetry.group.docs]
 optional = true
