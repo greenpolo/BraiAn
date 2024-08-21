@@ -33,8 +33,12 @@ nav:
 # - FAQ:
 #   - Frequent issues / Frequently asked questions: https://abba-documentation.readthedocs.io/en/latest/frequently_asked_questions.html
 # - BraiAn:
-- Home: index.md
-- Tutorials: tutorials.md
+- BraiAn: 
+  - Home: index.md
+  - Image analysis: braian-qupath.md
+  - Data analysis: braian-python.md
+- Tutorials:
+  - First tutorial: tutorials.md
 - How-to guides:
   - how-to-guides.md
   - read_qupath_data.ipynb
@@ -73,10 +77,9 @@ plugins:
     exclude:
       - "*.ipynb"
 - mkdocs-jupyter:
-    include_source: True
+    include_source: true
     include_requirejs: true # required by plotly
     execute: false
-    # theme: dark
 - progress
 - autorefs
 - multi-theme:
@@ -170,5 +173,6 @@ extra_javascript:
   - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
 
 extra_css:
+  - custom_theme/readthedocs/style.css
   - custom_theme/material/style.css
   - https://unpkg.com/katex@0/dist/katex.min.css

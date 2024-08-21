@@ -10,8 +10,8 @@ class ProjectDir:
 
 class BraiAnConfig:
     def __init__(self,
-                 cache_path: Path|str,
                  config_file: Path|str,
+                 cache_path: Path|str, # for now used only to load the ontology from. If it doesn't find it it also downloads it there (for allen ontologies).
                  ) -> None:
         if not isinstance(config_file, Path):
             config_file = Path(config_file)
@@ -47,9 +47,13 @@ class BraiAnConfig:
     def project_from_qupath(self, sliced: bool=False, fill_nan: bool=True) -> Project|SlicedProject:
         qupath = self.config["qupath"]
         qupath_dir = _resolve_dir(qupath["files"]["dirs"]["output"], relative=self.config_file.absolute().parent)
-        results_subir = qupath["files"]["dirs"]["results_subdir"]
+        results_subir = qupath["files"]["dirs"].get("results_subdir", ".")
+        if results_subir is None:
+            results_subir = "." 
         results_suffix = qupath["files"]["suffix"]["results"]
-        exclusions_subdir = qupath["files"]["dirs"]["exclusions_subdir"]
+        exclusions_subdir = qupath["files"]["dirs"].get("exclusions_subdir", ".")
+        if exclusions_subdir is None:
+            exclusions_subdir = "."
         exclusions_suffix = qupath["files"]["suffix"]["exclusions"]
         markers = qupath["files"]["markers"]
         

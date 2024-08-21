@@ -1,0 +1,14 @@
+/*
+SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
+
+SPDX-License-Identifier: LGPL-3.0-or-later
+*/
+
+/* hide jupyter notebooks input/output numbers */
+.jp-InputPrompt {
+  display: none !important;
+}
+  
+.jp-OutputPrompt {
+  display: none !important;
+}
