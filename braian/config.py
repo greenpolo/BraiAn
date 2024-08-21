@@ -41,7 +41,7 @@ class BraiAnConfig:
         if self._brain_ontology is None:
             self.read_atlas_ontology()
         return Project.from_brain_csv(self.project_name, group2brains, metric,
-                                      self.output_dir, sep, ontology=self._brain_ontology,
+                                      self.output_dir, sep, brain_ontology=self._brain_ontology,
                                       fill_nan=fill_nan)
 
     def project_from_qupath(self, sliced: bool=False, fill_nan: bool=True) -> Project|SlicedProject:

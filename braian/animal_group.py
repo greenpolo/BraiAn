@@ -28,7 +28,7 @@ def _have_same_regions(animals: list[AnimalBrain]) -> bool:
 
 class AnimalGroup:
     def __init__(self, name: str, animals: Sequence[AnimalBrain], merge_hemispheres: bool=False,
-                 ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
+                 brain_ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
         """
         Creates an experimental cohort from a set of `AnimalBrain`.\\
         In order for a cohort to be valid, it must consist of brains with
@@ -44,21 +44,21 @@ class AnimalGroup:
             The animals part of the group.
         merge_hemispheres
             If True, it merges, for each region, the data from left/right hemispheres into a single value.
-        ontology
+        brain_ontology
             The ontology to which the brains' data was registered against.
-            If specified, it sorts the data in depth-first search order with respect to `ontology`'s hierarchy.
+            If specified, it sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
         fill_nan
             If True, it sets the value to [`NaN`][numpy.nan] for all the regions missing in the given `animals`.\\
             A region is missing if:
 
-            * it is in `ontology`, when specified;
+            * it is in `brain_ontology`, when specified;
             * or it is present in some animals but not all.
 
         Raises
         ------
         ValueError
             When there is no option to make sure that all animals of the cohort work on the same brain regions,
-            as `fill_nan=False`, `ontology=None` and some animal misses at least one region compared to the rest.\\
+            as `fill_nan=False`, `brain_ontology=None` and some animal misses at least one region compared to the rest.\\
             See [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list] or
             [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology] if you want to prepare
             the brains in advance.
@@ -74,8 +74,8 @@ class AnimalGroup:
         """
         self.name = name
         """The name of the group."""
-        # if not animals or not ontology:
-        #     raise ValueError("You must specify animals: list[AnimalBrain] and ontology: AllenBrainOntology.")
+        # if not animals or not brain_ontology:
+        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AllenBrainOntology.")
         assert len(animals) > 0, "A group must be made of at least one animal." # TODO: should we enforce a statistical signficant n? E.g. MIN=4
         _all_markers = {marker for brain in animals for marker in brain.markers}
         assert all(marker in brain.markers for marker in _all_markers for brain in animals), "All AnimalBrain in a group must have the same markers."
@@ -86,8 +86,8 @@ class AnimalGroup:
             merge = AnimalBrain.merge_hemispheres
         else:
             merge = lambda brain: brain
-        if ontology is not None:
-            sort: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.sort_by_ontology(ontology, fill_nan=fill_nan, inplace=False)
+        if brain_ontology is not None:
+            sort: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)
         elif fill_nan:
             regions = _common_regions(animals)
             sort: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.select_from_list(regions, fill_nan=True, inplace=False)
@@ -95,7 +95,7 @@ class AnimalGroup:
             sort = lambda brain: brain
         else:
             # now BrainGroup.regions, which returns the regions of the first animal, is correct
-            raise ValueError("Cannot set fill_nan=False and ontology=None if all animals of the group don't have the same brain regions.")
+            raise ValueError("Cannot set fill_nan=False and brain_ontology=None if all animals of the group don't have the same brain regions.")
         self._animals: list[AnimalBrain] = [sort(merge(brain)) for brain in animals] # brain |> merge |> sort -- OLD: brain |> merge |> analyse |> sort
         self._mean: dict[str, BrainData] = self._update_mean()
 
@@ -232,7 +232,7 @@ class AnimalGroup:
         animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for brain in self._animals]
         if not inplace:
             # self.metric == animals.metric -> no self.metric.analyse(brain) is computed
-            return AnimalGroup(self.name, animals, ontology=None, fill_nan=False)
+            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
         else:
             self._animals = animals
             self._mean = self._update_mean()
@@ -285,32 +285,32 @@ class AnimalGroup:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
         return self._animals[0].get_units(marker)
 
-    def sort_by_ontology(self, ontology: AllenBrainOntology,
+    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
                          fill_nan=True, inplace=True) -> None:
         """
-        Sorts the data in depth-first search order with respect to `ontology`'s hierarchy.
+        Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
 
         Parameters
         ----------
-        ontology
+        brain_ontology
             The ontology to which the current data was registered against.
         fill_nan
             If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
-            `ontology` missing in the current `AnimalBrain`.
+            `brain_ontology` missing in the current `AnimalBrain`.
         inplace
             If True, it applies the sorting to the current instance.
 
         Returns
         -------
         :
-            A brain with data sorted accordingly to `ontology`.
+            A brain with data sorted accordingly to `brain_ontology`.
             If `inplace=True` it returns the same instance.
         """
         if not inplace:
-            return AnimalGroup(self.name, self._animals, ontology=ontology, fill_nan=fill_nan)
+            return AnimalGroup(self.name, self._animals, brain_ontology=brain_ontology, fill_nan=fill_nan)
         else:
             for brain in self._animals:
-                brain.sort_by_ontology(ontology, fill_nan=fill_nan, inplace=True)
+                brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=True)
             return self
 
     def merge_hemispheres(self, inplace=False) -> Self:
@@ -335,7 +335,7 @@ class AnimalGroup:
         """
         animals = [AnimalBrain.merge_hemispheres(brain) for brain in self._animals]
         if not inplace:
-            return AnimalGroup(self.name, animals, ontology=None, fill_nan=False)
+            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
         else:
             self._animals = animals
             self._mean = self._update_mean()
@@ -469,7 +469,7 @@ class AnimalGroup:
         return AnimalGroup.from_pandas(df, name)
 
     @staticmethod
-    def to_prism(marker, ontology: AllenBrainOntology,
+    def to_prism(marker, brain_ontology: AllenBrainOntology,
                  group1: Self, group2: Self, *groups: Self) -> pd.DataFrame:
         """
         Prepares the marker data from multiple groups in a table structure that is convenient
@@ -479,7 +479,7 @@ class AnimalGroup:
         ----------
         marker
             The marker used to compare all groups.
-        ontology
+        brain_ontology
             The ontology to which the groups' data was registered against.
         group1
             The first group to include in the export.
@@ -502,17 +502,17 @@ class AnimalGroup:
         if not all(group1.is_comparable(g) for g in groups[1:]):
             raise ValueError("The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)")
         df = pd.concat({g.name: g.to_pandas(marker) for g in groups}, axis=1)
-        major_divisions = ontology.get_areas_major_division(*df.index)
+        major_divisions = brain_ontology.get_areas_major_division(*df.index)
         df["major_divisions"] = [major_divisions[region] for region in df.index]
         df.set_index("major_divisions", append=True, inplace=True)
         return df
 
 class SlicedGroup:
     def __init__(self, name: str, animals: Iterable[SlicedBrain],
-                 ontology: AllenBrainOntology) -> None:
+                 brain_ontology: AllenBrainOntology) -> None:
         self._name = str(name)
         self._animals = tuple(animals)
-        self._ontology = ontology
+        self._brain_ontology = brain_ontology
 
     @property
     def name(self) -> str:
@@ -527,13 +527,13 @@ class SlicedGroup:
         for sliced_brain in self._animals:
             brain = AnimalBrain.from_slices(sliced_brain, metric, min_slices=min_slices)
             brains.append(brain)
-        return AnimalGroup(self._name, brains, ontology=self._ontology, fill_nan=fill_nan)
+        return AnimalGroup(self._name, brains, brain_ontology=self._brain_ontology, fill_nan=fill_nan)
 
     @staticmethod
     def from_qupath(name: str, brain_names: Iterable[str],
                     ch2marker: dict[str,str],
                     qupath_dir: Path|str,
-                    ontology: AllenBrainOntology,
+                    brain_ontology: AllenBrainOntology,
                     exclude_parents: bool,
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
@@ -541,9 +541,9 @@ class SlicedGroup:
                     exclusions_suffix: str="_regions_to_exclude.txt") -> Self:
         sliced_brains = []
         for brain_name in brain_names:
-            sliced_brain = SlicedBrain.from_qupath(brain_name, qupath_dir/brain_name, ontology,
+            sliced_brain = SlicedBrain.from_qupath(brain_name, qupath_dir/brain_name, brain_ontology,
                                                    ch2marker, exclude_parents,
                                                    results_subdir, results_suffix,
                                                    exclusions_subdir, exclusions_suffix)
             sliced_brains.append(sliced_brain)
-        return SlicedGroup(name, sliced_brains, ontology)
+        return SlicedGroup(name, sliced_brains, brain_ontology)

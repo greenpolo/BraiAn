@@ -241,30 +241,30 @@ class AnimalBrain:
             data.remove_region(*regions, inplace=True, fill_nan=fill_nan)
         self.areas.remove_region(*regions, inplace=True, fill_nan=fill_nan)
 
-    def sort_by_ontology(self, ontology: AllenBrainOntology,
+    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
                          fill_nan: bool=False, inplace: bool=False) -> Self:
         """
-        Sorts the data in depth-first search order with respect to `ontology`'s hierarchy.
+        Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
 
         Parameters
         ----------
-        ontology
+        brain_ontology
             The ontology to which the current data was registered against.
         fill_nan
             If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
-            `ontology` missing in the current `AnimalBrain`.
+            `brain_ontology` missing in the current `AnimalBrain`.
         inplace
             If True, it applies the sorting to the current instance.
 
         Returns
         -------
         :
-            A brain with data sorted accordingly to `ontology`.
+            A brain with data sorted accordingly to `brain_ontology`.
             If `inplace=True` it returns the same instance.
         """
-        markers_data = {marker: m_data.sort_by_ontology(ontology, fill_nan=fill_nan, inplace=inplace)
+        markers_data = {marker: m_data.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
                         for marker, m_data in self.markers_data.items()}
-        areas = self.areas.sort_by_ontology(ontology, fill_nan=fill_nan, inplace=inplace)
+        areas = self.areas.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, areas=areas, raw=self.raw)
         else:

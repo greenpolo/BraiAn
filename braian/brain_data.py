@@ -236,28 +236,28 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def __str__(self) -> str:
         return f"BrainData(name={self.data_name}, metric={self.metric})"
 
-    def sort_by_ontology(self, ontology: AllenBrainOntology,
+    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
                          fill_nan=False, inplace=False) -> Self:
         """
-        Sorts the data in depth-first search order with respect to `ontology`'s hierarchy.
+        Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
 
         Parameters
         ----------
-        ontology
+        brain_ontology
             The ontology to which the current data was registered against.
         fill_nan
             If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
-            `ontology` missing in the current `AnimalBrain`.
+            `brain_ontology` missing in the current `AnimalBrain`.
         inplace
             If True, it applies the sorting to the current instance.
 
         Returns
         -------
         :
-            Brain data sorted accordingly to `ontology`.
+            Brain data sorted accordingly to `brain_ontology`.
             If `inplace=True` it returns the same instance.
         """
-        data = _sort_by_ontology(self.data, ontology, fill=fill_nan, fill_value=np.nan)
+        data = _sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=np.nan)
         if not inplace:
             return BrainData(data, self.data_name, self.metric, self.units)
         else:

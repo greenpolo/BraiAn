@@ -13,7 +13,7 @@ __all__ = [
     "draw_nodes"
 ]
 
-def hierarchy(ontology: braian.AllenBrainOntology) -> go.Figure:
+def hierarchy(brain_ontology: braian.AllenBrainOntology) -> go.Figure:
         """
         Plots the ontology as a tree.
 
@@ -22,10 +22,10 @@ def hierarchy(ontology: braian.AllenBrainOntology) -> go.Figure:
         :
             A plotly Figure
         """
-        G: ig.Graph = ontology.to_igraph()
+        G: ig.Graph = brain_ontology.to_igraph()
         graph_layout = G.layout_reingold_tilford(mode="in", root=[0])
         edges_trace = draw_edges(G, graph_layout, width=0.5)
-        nodes_trace = draw_nodes(G, graph_layout, ontology, node_size=5, metrics={"Subregions": lambda vs: np.asarray(vs.degree())-1})
+        nodes_trace = draw_nodes(G, graph_layout, brain_ontology, node_size=5, metrics={"Subregions": lambda vs: np.asarray(vs.degree())-1})
         nodes_trace.marker.line = dict(color="black", width=0.25)
         plot_layout = go.Layout(
             title="Allen's brain region hierarchy",
@@ -87,7 +87,7 @@ def draw_edges(G: ig.Graph, layout: ig.Layout, width: int) -> go.Scatter:
 
     return edges_trace
 
-def draw_nodes(G: ig.Graph, layout: ig.Layout, ontology: braian.AllenBrainOntology,
+def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: braian.AllenBrainOntology,
                node_size: int, outline_size: float=0.5,
                use_centrality: bool=False, centrality_metric: str=None, use_clustering: bool=False,
                metrics: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={"degree": ig.VertexSeq.degree}
@@ -101,6 +101,8 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, ontology: braian.AllenBrainOntolo
         A graph
     layout
         The layout used to position the nodes of the graph `G`
+    brain_ontology
+        TODO: missing
     node_size
         The size of the region nodes
     outline_size
@@ -130,7 +132,7 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, ontology: braian.AllenBrainOntolo
     ValueError
         If `use_clustering=True`, but the vertices of `G` have no `cluster` attribute
     """
-    colors = ontology.get_region_colors()
+    colors = brain_ontology.get_region_colors()
     nodes_color = []
     outlines_color = []
     if use_clustering:
@@ -154,7 +156,7 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, ontology: braian.AllenBrainOntolo
         nodes_color.append(node_color)
         outlines_color.append(outline_color)
 
-    customdata, hovertemplate = _nodes_hover_info(ontology, G, title_dict=metrics)
+    customdata, hovertemplate = _nodes_hover_info(brain_ontology, G, title_dict=metrics)
     nodes_trace = go.Scatter(
         x=[coord[0] for coord in layout.coords],
         y=[coord[1] for coord in layout.coords],
@@ -170,7 +172,7 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, ontology: braian.AllenBrainOntolo
     )
     return nodes_trace
 
-def _nodes_hover_info(ontology: braian.AllenBrainOntology, G: ig.Graph,
+def _nodes_hover_info(brain_ontology: braian.AllenBrainOntology, G: ig.Graph,
                      title_dict: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={}
                      ) -> tuple[npt.NDArray,str]:
     """
@@ -182,6 +184,8 @@ def _nodes_hover_info(ontology: braian.AllenBrainOntology, G: ig.Graph,
 
     Parameters
     ----------
+    brain_ontology
+        TODO: missing
     G
         A graph with N vertices
     title_dict
@@ -203,7 +207,7 @@ def _nodes_hover_info(ontology: braian.AllenBrainOntology, G: ig.Graph,
             case "name":
                 customdata.extend((
                     G.vs["name"],
-                    [ontology.full_name[acronym] for acronym in G.vs["name"]]
+                    [brain_ontology.full_name[acronym] for acronym in G.vs["name"]]
                 ))
                 hovertemplates.extend((
                     f"Region: <b>%{{customdata[{i}]}}</b>",
@@ -213,7 +217,7 @@ def _nodes_hover_info(ontology: braian.AllenBrainOntology, G: ig.Graph,
             case "upper_region":
                 customdata.extend((
                     G.vs["upper_region"],
-                    [ontology.full_name[acronym] for acronym in G.vs["upper_region"]]
+                    [brain_ontology.full_name[acronym] for acronym in G.vs["upper_region"]]
                 ))
                 hovertemplates.append(f"Major Division: %{{customdata[{i}]}} (%{{customdata[{i+1}]}})")
                 i += 2
