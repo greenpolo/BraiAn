@@ -534,10 +534,16 @@ class SlicedGroup:
                     ch2marker: dict[str,str],
                     qupath_dir: Path|str,
                     ontology: AllenBrainOntology,
-                    exclude_parents: bool) -> Self:
+                    exclude_parents: bool,
+                    results_subdir: str="results",
+                    results_suffix: str="_regions.tsv",
+                    exclusions_subdir: str="regions_to_exclude",
+                    exclusions_suffix: str="_regions_to_exclude.txt") -> Self:
         sliced_brains = []
         for brain_name in brain_names:
             sliced_brain = SlicedBrain.from_qupath(brain_name, qupath_dir/brain_name, ontology,
-                                                    ch2marker, exclude_parent_regions=exclude_parents)
+                                                   ch2marker, exclude_parents,
+                                                   results_subdir, results_suffix,
+                                                   exclusions_subdir, exclusions_suffix)
             sliced_brains.append(sliced_brain)
         return SlicedGroup(name, sliced_brains, ontology)

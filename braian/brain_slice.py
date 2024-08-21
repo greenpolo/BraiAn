@@ -23,7 +23,8 @@ class BrainSliceFileError(Exception):
         super().__init__(*args)
 class ExcludedRegionsNotFoundError(BrainSliceFileError):
     def __str__(self):
-        return f"Could not read the expected regions_to_exclude: {self.file_path}"
+        return f"Could not read the expected regions to exclude: {self.file_path}. "+\
+                "Make sure it has the following naming scheme: '<IDENTIFIER><SUFFIX>.<EXTENSION>'"
 class ExcludedAllRegionsError(BrainSliceFileError):
     def __str__(self):
         return f"The corresponding regions_to_exclude excludes everything: {self.file_path}"
@@ -73,7 +74,8 @@ class BrainSlice:
         Parameters
         ----------
         csv_file
-            The path to file exported with [`AtlasManager.saveResults()`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AtlasManager.html#saveResults(java.util.List,java.io.File))
+            The path to file exported with [`AtlasManager.saveResults()`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AtlasManager.html#saveResults(java.util.List,java.io.File)).
+            If it ends with ".csv", it treats the file as a comma-separated table. Otherwise, it assuems it is tab-separated.
         ch2marker
             A dictionary mapping the QuPath channel names to markers.
             A cell segmentation algorithm must have previously run on each of the given channels.
@@ -120,9 +122,10 @@ class BrainSlice:
         return f"Num {channel}"
 
     @staticmethod
-    def __read_qupath_data(csv_file: str) -> pd.DataFrame:
+    def __read_qupath_data(csv_file: Path|str) -> pd.DataFrame:
+        sep = "," if str(csv_file).lower().endswith(".csv") else "\t"
         try:
-            data = pd.read_csv(csv_file, sep="\t").drop_duplicates()
+            data = pd.read_csv(csv_file, sep=sep).drop_duplicates()
         except Exception as e:
             if os.stat(csv_file).st_size == 0:
                 raise EmptyResultsError(file=csv_file)

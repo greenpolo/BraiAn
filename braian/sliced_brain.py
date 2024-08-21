@@ -52,12 +52,19 @@ class SlicedBrain:
                     ch2marker: dict[str,str],
                     exclude_parent_regions: bool=False,
                     results_subdir: str="results",
-                    exclusions_subdir: str="regions_to_exclude"
+                    results_suffix: str="_regions.txt",
+                    exclusions_subdir: str="regions_to_exclude",
+                    exclusions_suffix: str="_regions_to_exclude.txt"
                     ) -> Self:
         """
         Creates a [`SlicedBrain`][braian.SlicedBrain] from all the per-image files exported with
         [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian)
-        inside `animal_dir`.
+        inside `animal_dir`.\
+        It assumes that cell counts and exclusions files have the following naming structure:
+        `<IDENTIFIER><SUFFIX>.<EXTENSION>`. The _identifier_ must be common in files relatives
+        to the same image. The _suffix_ must be common to files of the same kind (i.e. cell counts
+        or exclusions). The _extension_ [defines][braian.BrainSlice.from_qupath] whether the table
+        is comma-separated or tab-separated.
 
         Parameters
         ----------
@@ -72,9 +79,15 @@ class SlicedBrain:
         exclude_parent_regions
             `exclude_parent_regions` from [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions].
         results_subdir
-            The name of the subfolder in `animal_dir` that contains all cell counts of each brain section.
+            The name of the subfolder in `animal_dir` that contains all cell counts files of each brain section.\\
+            It can be `None` if no subfolder is used.
+        results_suffix
+            The suffix used to identify cell counts files saved in `results_subdir`. It includes the file extension.
         exclusions_subdir
-            The name of the subfolder in `animal_dir` that contains all regions to exclude from further analysis of each brain section.
+            The name of the subfolder in `animal_dir` that contains all regions to exclude from further analysis of each brain section.\\
+            It can be `None` if no subfolder is used.
+        exclusions_suffix
+            The suffix used to identify exclusion files saved in `results_subdir`. It includes the file extension.
 
         Returns
         -------
@@ -83,17 +96,18 @@ class SlicedBrain:
 
         See also
         --------
+        [`BrainSlice.from_qupath`][braian.BrainSlice.from_qupath]
         [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions]
         """
         if not isinstance(animal_dir, Path):
             animal_dir = Path(animal_dir)
-        csv_slices_dir = animal_dir / results_subdir
-        excluded_regions_dir = animal_dir / exclusions_subdir
-        images = get_image_names_in_folder(csv_slices_dir)
+        csv_slices_dir = animal_dir / results_subdir if results_subdir is not None else animal_dir
+        excluded_regions_dir = animal_dir / exclusions_subdir if exclusions_subdir is not None else animal_dir
+        images = get_image_names_in_folder(csv_slices_dir, results_suffix)
         slices: list[BrainSlice] = []
         for image in images:
-            results_file = os.path.join(csv_slices_dir, f"{image}_regions.txt")
-            excluded_regions_file = os.path.join(excluded_regions_dir, f"{image}_regions_to_exclude.txt")
+            results_file = csv_slices_dir/(image+results_suffix)
+            excluded_regions_file = excluded_regions_dir/(image+exclusions_suffix)
             try:
                 # Setting brain_ontology=None, we don't check that the data corresponds to real brain regions
                 # we post-pone the check later in the analysis for performance reasons.
@@ -279,8 +293,9 @@ class SlicedBrain:
             case _:
                 ValueError(f"Undercognized exception: {type(exception)}")
 
-def get_image_names_in_folder(path: Path) -> list[str]:
-    images = list({re.sub('_regions.txt[.lnk]*', '', file) for file in os.listdir(path)})
-    # images = list({re.sub('_regions.csv[.lnk]*', '', file) for file in os.listdir(path)}) # csv_files
+def get_image_names_in_folder(path: Path, exclusions_suffix: str) -> list[str]:
+    assert path.is_dir()
+    match = re.escape(exclusions_suffix)+r"[.lnk]*$" # allow for windows symlink as well
+    images = list({re.sub(match, "", file.name) for file in path.iterdir() if file.is_file()})
     images.sort()
     return images
