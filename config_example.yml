@@ -19,9 +19,16 @@ brains:
   raw-metric: "sum"
 
 qupath:
-  dir: "data/QuPath_output"
-  min-slices: 0
+  files:
+    dirs:
+      output: "data/QuPath_output"
+      results_subdir: "results"
+      exclusions_subdir: "regions_to_exclude"
+    suffix:
+      results: "_regions.txt"
+      exclusions: "_regions_to_exclude.txt"
+    markers:
+      AF568: "cFos"
+      AF647: "Arc1"
   exclude-parents: true
-  markers:
-    AF568: "cFos"
-    AF647: "Arc1"
+  min-slices: 0

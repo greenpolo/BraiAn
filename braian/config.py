@@ -45,20 +45,30 @@ class BraiAnConfig:
                                       fill_nan=fill_nan)
 
     def project_from_qupath(self, sliced: bool=False, fill_nan: bool=True) -> Project|SlicedProject:
-        qupath_dir = _resolve_dir(self.config["qupath"]["dir"], relative=self.config_file.absolute().parent)
-        markers = self.config["qupath"]["markers"]
-        exclude_parents = self.config["qupath"]["exclude-parents"]
+        qupath = self.config["qupath"]
+        qupath_dir = _resolve_dir(qupath["files"]["dirs"]["output"], relative=self.config_file.absolute().parent)
+        results_subir = qupath["files"]["dirs"]["results_subdir"]
+        results_suffix = qupath["files"]["suffix"]["results"]
+        exclusions_subdir = qupath["files"]["dirs"]["exclusions_subdir"]
+        exclusions_suffix = qupath["files"]["suffix"]["exclusions"]
+        markers = qupath["files"]["markers"]
+        
+        exclude_parents = qupath["exclude-parents"]
+        min_slices = qupath["min-slices"]
         group2brains: dict[str,str] = self.config["groups"]
         groups = []
         if self._brain_ontology is None:
             self.read_atlas_ontology()
         for g_name, brain_names in group2brains.items():
-            group = SlicedGroup.from_qupath(g_name, brain_names, markers, qupath_dir, self._brain_ontology, exclude_parents)
+            group = SlicedGroup.from_qupath(g_name, brain_names, markers,
+                                            qupath_dir, self._brain_ontology, exclude_parents,
+                                            results_subir, results_suffix,
+                                            exclusions_subdir, exclusions_suffix)
             groups.append(group)
 
         sliced_pj = SlicedProject(self.project_name, *groups)
         return sliced_pj if sliced else sliced_pj.to_project(self.config["brains"]["raw-metric"],
-                                                             self.config["qupath"]["min-slices"],
+                                                             min_slices,
                                                              fill_nan)
 
     def project_from_sliced(self, sliced_pj: SlicedProject, fill_nan: bool) -> Project:
