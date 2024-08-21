@@ -1,10 +1,8 @@
-import os
-import pandas as pd
 import yaml
 from pathlib import Path
 
-from braian import AllenBrainOntology, AnimalBrain, Project, SlicedBrain, SlicedGroup, SlicedProject
-from braian.utils import cache
+from braian import AllenBrainOntology, AnimalBrain, Project, SlicedGroup, SlicedProject
+import braian.utils
 
 class ProjectDir:
     def __init__(self) -> None:
@@ -12,7 +10,7 @@ class ProjectDir:
 
 class BraiAnConfig:
     def __init__(self,
-                 data_path: Path|str,
+                 cache_path: Path|str,
                  config_file: Path|str,
                  ) -> None:
         if not isinstance(config_file, Path):
@@ -21,14 +19,18 @@ class BraiAnConfig:
         with open(self.config_file, "r") as f:
             self.config = yaml.safe_load(f)
 
-        self.data_path = data_path
-        path_to_allen_json = os.path.join(self.data_path, "AllenMouseBrainOntology.json")
-        cache(path_to_allen_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        self.brain_ontology = AllenBrainOntology(path_to_allen_json,
-                                                   self.config["atlas"]["excluded-branches"],
-                                                   version=self.config["atlas"]["version"])
+        self.cache_path = Path(cache_path)
         self.project_name = self.config["project"]["name"]
         self.output_dir = _resolve_dir(self.config["project"]["output_dir"], relative=self.config_file.absolute().parent)
+        self._brain_ontology: AllenBrainOntology = None
+
+    def read_atlas_ontology(self):
+        cached_allen_json = self.cache_path/"AllenMouseBrainOntology.json"
+        braian.utils.cache(cached_allen_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+        self._brain_ontology = AllenBrainOntology(cached_allen_json,
+                                                 self.config["atlas"]["excluded-branches"],
+                                                 version=self.config["atlas"]["version"])
+        return self._brain_ontology
 
     def project_from_csv(self, sep=",", from_brains: bool=False, fill_nan: bool=True) -> Project:
         metric = self.config["brains"]["raw-metric"]
@@ -36,8 +38,10 @@ class BraiAnConfig:
         group2brains: dict[str,str] = self.config["groups"]
         if not from_brains:
             return Project.from_group_csv(self.project_name, group2brains.keys(), metric, self.output_dir, sep)
+        if self._brain_ontology is None:
+            self.read_atlas_ontology()
         return Project.from_brain_csv(self.project_name, group2brains, metric,
-                                      self.output_dir, sep, ontology=self.brain_ontology,
+                                      self.output_dir, sep, ontology=self._brain_ontology,
                                       fill_nan=fill_nan)
 
     def project_from_qupath(self, sliced: bool=False, fill_nan: bool=True) -> Project|SlicedProject:
@@ -46,8 +50,10 @@ class BraiAnConfig:
         exclude_parents = self.config["qupath"]["exclude-parents"]
         group2brains: dict[str,str] = self.config["groups"]
         groups = []
+        if self._brain_ontology is None:
+            self.read_atlas_ontology()
         for g_name, brain_names in group2brains.items():
-            group = SlicedGroup.from_qupath(g_name, brain_names, markers, qupath_dir, self.brain_ontology, exclude_parents)
+            group = SlicedGroup.from_qupath(g_name, brain_names, markers, qupath_dir, self._brain_ontology, exclude_parents)
             groups.append(group)
 
         sliced_pj = SlicedProject(self.project_name, *groups)
