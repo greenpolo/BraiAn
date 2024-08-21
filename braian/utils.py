@@ -77,9 +77,9 @@ def get_indices_where(where):
     rows = where.index[where.any(axis=1)]
     return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]
 
-def remote_dirs(experiment_dir_name: str,
+def remote_dirs(experiment_dir_name: Path|str,
                 is_collaboration_project: bool,
-                collaboration_dir_name: str) -> tuple[str,str]:
+                collaboration_dir_name: Path|str) -> tuple[Path,Path]:
     match sys.platform:
         case "darwin":
             mnt_point = "/Volumes/Ricerca/"

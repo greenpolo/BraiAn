@@ -174,7 +174,7 @@ class PLS:
         Randomly shuffles to which group each brain is part of, and uses this _permutation
         sample_ to compute the mean-centered task PLSC. This process is repeated `n` times.\
 
-        The resulting [_sampling distribution_][`braian.stats.PLS.s_sampling_distribution]
+        The resulting [_sampling distribution_][braian.stats.PLS.s_sampling_distribution]
         of the singular values can then be used to generalize the results (i.e. salient scores)
         of current PLS as a [null hypothesis test][braian.stats.PLS.test_null_hypothesis].
 
@@ -338,7 +338,7 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
     component
         The n-th component (or [latent variable][braian.stats.PLS.Lx]) of the salience scores.
     fill_nan
-        Whether to fill with [NaN][np.nan] the scores of those regions for which the salience is not
+        Whether to fill with [NaN][numpy.nan] the scores of those regions for which the salience is not
         computable (e.g. if brain data is missing in at least one brain of the groups).
     seed
         A random seed.

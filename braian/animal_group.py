@@ -356,8 +356,8 @@ class AnimalGroup:
         -------
         :
             A  $m×n$ `DataFrame`.\\
-            If `marker` is specified, $m=\#regions$ and $n=\#brains$.\\
-            Otherwise, $m=\#regions⋅\#brains$ and $n=\#markers+1$, as it contains
+            If `marker` is specified, $m=\\#regions$ and $n=\\#brains$.\\
+            Otherwise, $m=\\#regions⋅\\#brains$ and $n=\\#markers+1$, as it contains
             the size of the regions as well.
             In the latter case, the index of the `DataFrame` has two levels:
             the acronyms of the regions and the name of the animal in the group.
