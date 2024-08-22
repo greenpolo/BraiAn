@@ -6,14 +6,19 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # ![braian logo](docs/assets/logo/network.svg) BraiAn
 <!--mkdocs-start-->
-## Prerequisites
+<!--install-start-->
+## Installation
+_Soon on PyPI._
+<!--install-end-->
+
+<!--build-start-->
+## Building
+### Prerequisites
 * [python=>3.11](https://www.python.org/downloads/):
   you can use [conda](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [pyenv](https://github.com/pyenv/pyenv)/[pyenv-win](https://pyenv-win.github.io/pyenv-win/#installation) to manage the correct version
 
 * [Poetry](https://python-poetry.org/docs/#installation): for dependency management
 
-
-## Installation Guide
 ### Step 1: Set-up an environment for BraiAn
 Create and activate a new `python=>3.11` environment.
 
@@ -42,6 +47,7 @@ $ git clone https://codeberg.org/SilvaLab/BraiAn.git /path/to/BraiAn
 With the environment set and Poetry installed:
 ```bash
 (braian_env) cd /path/to/BraiAn
-(braian_env) poetry install
+(braian_env) poetry install # --with docs, if building the documentation is of your interest
 ```
+<!--build-end-->
 <!--mkdocs-end-->

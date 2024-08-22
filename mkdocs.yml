@@ -37,18 +37,23 @@ nav:
   - Home: index.md
   - Image analysis: braian-qupath.md
   - Data analysis: braian-python.md
+  - License & Acknowledgements: acknowledgements.md
 - Tutorials:
-  - First tutorial: tutorials.md
-- How-to guides:
-  - how-to-guides.md
+  - Run image analysis
   - read_qupath_data.ipynb
+  - analysis_group.ipynb
+  - analysis_marker.ipynb
+- How-to guides:
+  - Bonus:
+    - Run scripts faster: light-script-runner.md
 - API Reference:
+  - BraiAn - QP extension: https://carlocastoldi.github.io/qupath-extension-braian/docs/
   - braian: api-braian.md
   - braian.stats: api-stats.md
   - braian.plot: api-plot.md
   - braian.config: api-config.md
 - See also:
-  - Atlas registration with ABBA: https://go.epfl.ch/qr/abba
+  - Atlas registration with ABBA: https://go.epfl.ch/abba
 exclude_docs:
   /resources/
 watch:
@@ -71,6 +76,7 @@ theme:
 
 plugins:
 - search
+# - open-in-new-tab # does not work with readthedocs
 - include-markdown:
     opening_tag: "{%"
     closing_tag: "%}"
@@ -88,6 +94,7 @@ plugins:
       - api-braian.md
       - api-stats.md
       - api-plot.md
+      - api-config.md
       theme:
         name: material
         custom_dir: docs/custom_theme/material
@@ -103,6 +110,8 @@ plugins:
         locale: en
         favicon: img/favicon.ico
         logo: assets/logo/dark/horizontal.svg
+#         features:
+#         - navigation.instant
 - mkdocstrings:
     default_handler: python
     custom_templates: docs/custom_theme
