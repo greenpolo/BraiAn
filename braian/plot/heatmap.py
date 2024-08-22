@@ -1,12 +1,12 @@
 from braian import BrainData
 from braian.deflector import deflect
+from pathlib import Path
 
 import brainglobe_heatmap as bgh
 import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 
 __all__ = [
     "heatmap",
@@ -15,7 +15,7 @@ __all__ = [
 
 def heatmap(bd: BrainData,
             brain_regions: list[str],
-            output_path: str, filename: str,
+            output_path: Path|str, filename: str,
             n=10, depth=None,
             hem_highlighted_regions: list[list[str]]=None,
             cmin=None, ccenter=0, cmax=None, cmaps="magma_r",
@@ -81,7 +81,9 @@ def heatmap(bd: BrainData,
     else:
         max_depth = heatmaps[0].scene.atlas.shape_um[bgh.slicer.get_ax_idx(orientation)]
         depths = depth if depth is not None else np.linspace(1500, max_depth-1700, n, dtype=int)
-        os.makedirs(output_path, mode=0o777, exist_ok=True)
+        if not isinstance(output_path, Path):
+            output_path = Path(output_path)
+        output_path.mkdir(mode=0o777, parents=True, exist_ok=True)
         print("depths: ", end="")
         for position in depths:
             if position < 0 or position > max_depth:
@@ -93,7 +95,7 @@ def heatmap(bd: BrainData,
             f,ax = plot_slice(position, heatmaps, data_names, hems, orientation, title, units,
                               show_text, hem_highlighted_regions, xrange, yrange, ticks, ticks_labels)
 
-            plot_filepath = os.path.join(output_path, filename+f"_{position:05.0f}.svg")
+            plot_filepath = output_path/(filename+f"_{position:05.0f}.svg")
             f.savefig(plot_filepath)
             plt.close(f)
         print()

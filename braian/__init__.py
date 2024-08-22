@@ -1,4 +1,3 @@
-import os
 import platform
 
 from pathlib import Path
@@ -7,10 +6,10 @@ match platform.system():
     case "Windows":
         import win32com.client
         shell = win32com.client.Dispatch("WScript.Shell")
-        def resolve_symlink(path: str|Path):
+        def resolve_symlink(path: Path):
             return shell.CreateShortCut(path).Targetpath if path.endswith(".lnk") else path
     case _:
-        resolve_symlink = lambda path: os.path.realpath(path)
+        resolve_symlink = lambda path: path.resolve(strict=True)
 
 from .ontology import *
 from .brain_slice import *

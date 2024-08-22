@@ -10,12 +10,14 @@ from pathlib import Path
 
 from braian import resolve_symlink
 
-def cache(filepath, url):
-    if os.path.exists(filepath):
+def cache(filepath: Path|str, url):
+    if not isinstance(filepath, Path):
+        filepath = Path(filepath)
+    if filepath.exists():
         return
     resp = requests.get(url)
-    dir_path = os.path.dirname(os.path.realpath(filepath))
-    os.makedirs(dir_path, exist_ok=True)
+    filepath.resolve(strict=False).parent\
+            .mkdir(parents=True, exist_ok=True)
     with open(filepath, "wb") as f:
         f.write(resp.content)
 
@@ -44,11 +46,11 @@ def search_file_or_simlink(file_path: str|Path) -> Path:
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), file_path)
 
 def save_csv(df: pd.DataFrame, output_path: Path|str, file_name: str, overwrite=False, sep="\t", decimal=".", **kwargs) -> Path:
-    if not isinstance(output_path, os.PathLike):
+    if not isinstance(output_path, Path):
         output_path = Path(output_path)
-    os.makedirs(output_path, exist_ok=True)
+    output_path.mkdir(parents=True, exist_ok=True)
     file_path = output_path/file_name
-    if os.path.exists(file_path):
+    if file_path.exists():
         if not overwrite:
             raise FileExistsError(f"The file {file_name} already exists in {output_path}!")
         else:

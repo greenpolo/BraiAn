@@ -1,10 +1,8 @@
 import copy
 import numpy as np
-import os
 import pandas as pd
 import re
-from collections import OrderedDict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
@@ -249,14 +247,14 @@ class SlicedBrain:
         return brain
 
     @staticmethod
-    def __handle_brainslice_error(exception, mode, name, results_file, regions_to_exclude_file):
+    def __handle_brainslice_error(exception, mode, name, results_file: Path, regions_to_exclude_file: Path):
         assert issubclass(type(exception), BrainSliceFileError), ""
         match mode:
             case "delete":
                 print(f"Animal '{name}' -", exception, "\nRemoving the corresponding result and regions_to_exclude files.")
-                os.remove(results_file)
-                if type(exception) != ExcludedRegionsNotFoundError:
-                    os.remove(regions_to_exclude_file)
+                results_file.unlink()
+                if not isinstance(exception, ExcludedRegionsNotFoundError):
+                    regions_to_exclude_file.unlink()
             case "error":
                 raise exception
             case "print":
@@ -294,7 +292,7 @@ class SlicedBrain:
                 ValueError(f"Undercognized exception: {type(exception)}")
 
 def get_image_names_in_folder(path: Path, exclusions_suffix: str) -> list[str]:
-    assert path.is_dir()
+    assert path.is_dir(), f"'{str(path)}' is not an existing directory."
     match = re.escape(exclusions_suffix)+r"[.lnk]*$" # allow for windows symlink as well
     images = list({re.sub(match, "", file.name) for file in path.iterdir() if file.is_file()})
     images.sort()

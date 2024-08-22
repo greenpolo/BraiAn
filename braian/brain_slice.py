@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 import re
 from pathlib import Path
@@ -122,12 +121,12 @@ class BrainSlice:
         return f"Num {channel}"
 
     @staticmethod
-    def __read_qupath_data(csv_file: Path|str) -> pd.DataFrame:
-        sep = "," if str(csv_file).lower().endswith(".csv") else "\t"
+    def __read_qupath_data(csv_file: Path) -> pd.DataFrame:
+        sep = "," if csv_file.suffix.lower() == ".csv" else "\t"
         try:
             data = pd.read_csv(csv_file, sep=sep).drop_duplicates()
         except Exception as e:
-            if os.stat(csv_file).st_size == 0:
+            if csv_file.stat().st_size == 0:
                 raise EmptyResultsError(file=csv_file)
             else:
                 raise InvalidResultsError(file=csv_file)
