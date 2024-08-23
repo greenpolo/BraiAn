@@ -827,7 +827,7 @@ class AllenBrainOntology:
             acronym = parent
         return path
 
-    def get_areas_major_division(self, acronym: str, *acronyms: str) -> OrderedDict[str, str]:
+    def get_corresponding_md(self, acronym: str, *acronyms: str) -> OrderedDict[str, str]:
         """
         Finds the corresponding major division for each on the the `acronyms`.
         The returned dictionary is sorted in depth-first-search order.

@@ -501,7 +501,7 @@ class AnimalGroup:
         if not all(group1.is_comparable(g) for g in groups[1:]):
             raise ValueError("The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)")
         df = pd.concat({g.name: g.to_pandas(marker) for g in groups}, axis=1)
-        major_divisions = brain_ontology.get_areas_major_division(*df.index)
+        major_divisions = brain_ontology.get_corresponding_md(*df.index)
         df["major_divisions"] = [major_divisions[region] for region in df.index]
         df.set_index("major_divisions", append=True, inplace=True)
         return df

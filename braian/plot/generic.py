@@ -57,7 +57,7 @@ def plot_animal_group(group: AnimalGroup, selected_regions: list[str],
 
 def plot_pie(selected_regions: list[str], brain_ontology: AllenBrainOntology,
                 use_acronyms=True, hole=0.3, line_width=2, text_size=12):
-    active_mjd = tuple(brain_ontology.get_areas_major_division(*selected_regions).values())
+    active_mjd = tuple(brain_ontology.get_corresponding_md(*selected_regions).values())
     mjd_occurrences = [(mjd, active_mjd.count(mjd)) for mjd in UPPER_REGIONS]
     allen_colours = brain_ontology.get_region_colors()
     fig = go.Figure(
@@ -249,23 +249,23 @@ def plot_groups_salience(pls: bas.PLS, component=1):
     return go.Figure(go.Bar(x=pls.u.columns, y=pls.u.iloc[:,component-1]))\
                     .update_layout(title=f"Component {component}", xaxis_title="Groups")
 
-def plot_latent_component(pls: bas.PLS, component=1):
-    # from https://vgonzenbach.github.io/multivariate-cookbook/partial-least-squares-correlation.html#visualizing-latent-variables
-    # seems useless to me, perhaps is for different types of PLS
-    n_groups = pls.Y.shape[1]
-    scatters = []
-    for i in range(n_groups):
-        group_i = pls.Lx.index.str.endswith(str(i))
-        group_scatter = go.Scatter(x=pls.Lx.loc[group_i, component-1],
-                                   y=pls.Ly.loc[group_i, component-1],
-                                   mode="markers+text", textposition="top center",
-                                   text=pls.Lx.loc[group_i].index, name=pls.Y.columns[i]
-        )
-        scatters.append(group_scatter)
-    fig = go.Figure(scatters)
-    return fig.update_layout(title=f"Component {component}")\
-              .update_yaxes(title="Ly")\
-              .update_xaxes(title="Lx")
+# def plot_latent_component(pls: bas.PLS, component=1):
+#     # from https://vgonzenbach.github.io/multivariate-cookbook/partial-least-squares-correlation.html#visualizing-latent-variables
+#     # seems useless to me, perhaps is for different types of PLS
+#     n_groups = pls.Y.shape[1]
+#     scatters = []
+#     for i in range(n_groups):
+#         group_i = pls.Lx.index.str.endswith(str(i))
+#         group_scatter = go.Scatter(x=pls.Lx.loc[group_i, component-1],
+#                                    y=pls.Ly.loc[group_i, component-1],
+#                                    mode="markers+text", textposition="top center",
+#                                    text=pls.Lx.loc[group_i].index, name=pls.Y.columns[i]
+#         )
+#         scatters.append(group_scatter)
+#     fig = go.Figure(scatters)
+#     return fig.update_layout(title=f"Component {component}")\
+#               .update_yaxes(title="Ly")\
+#               .update_xaxes(title="Lx")
 
 def plot_latent_variable(pls: bas.PLS, of="X", height=800, width=800):
     # always plots first and second components
@@ -288,7 +288,7 @@ def plot_salient_regions(salience_scores: pd.Series, brain_ontology: AllenBrainO
                             axis_size=15, use_acronyms=True, use_acronyms_in_mjd=True,
                             mjd_opacity=0.5, width=300, thresholds=None,
                             barheight=30, bargap=0.3, bargroupgap=0.0):#, height=500):
-    active_mjd = tuple(brain_ontology.get_areas_major_division(*salience_scores.index).values())
+    active_mjd = tuple(brain_ontology.get_corresponding_md(*salience_scores.index).values())
     allen_colours = brain_ontology.get_region_colors()
     fig = go.Figure([
         go.Bar(
@@ -413,7 +413,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
 
     if brain_ontology is not None:
         groups = [group.sort_by_ontology(brain_ontology, fill_nan=True, inplace=False) for group in groups]
-        regions_mjd = brain_ontology.get_areas_major_division(*selected_regions)
+        regions_mjd = brain_ontology.get_corresponding_md(*selected_regions)
         selected_regions = list(regions_mjd.keys())
     # elif len(groups) > 1:
     #     assert all(set(groups[0].regions) == set(group.regions) for group in in groups[1:])

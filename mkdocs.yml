@@ -38,14 +38,14 @@ nav:
   - Image analysis: braian-qupath.md
   - Data analysis: braian-python.md
   - License & Acknowledgements: acknowledgements.md
+  - Bonus:
+    - Run scripts faster: light-script-runner.md # make image.sc forum post point here instead
 - Tutorials:
   - Run image analysis
   - read_qupath_data.ipynb
   - analysis_group.ipynb
   - analysis_marker.ipynb
-- How-to guides:
-  - Bonus:
-    - Run scripts faster: light-script-runner.md
+# - How-to guides:
 - API Reference:
   - BraiAn - QP extension: https://carlocastoldi.github.io/qupath-extension-braian/docs/
   - braian: api-braian.md

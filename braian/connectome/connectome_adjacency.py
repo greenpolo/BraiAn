@@ -9,7 +9,7 @@ from braian.ontology import AllenBrainOntology, UPPER_REGIONS
 class ConnectomeAdjacency:
     def __init__(self, A: pd.DataFrame, brain_onthology: AllenBrainOntology, name="", upper_regions: dict=None) -> None:
         if brain_onthology is not None:
-            self.upper_regions = brain_onthology.get_areas_major_division(*A.index)
+            self.upper_regions = brain_onthology.get_corresponding_md(*A.index)
             self.upper_regions = {k: v if v is not None else "root" for (k,v) in self.upper_regions.items()}
         elif upper_regions is not None:
             self.upper_regions = upper_regions
