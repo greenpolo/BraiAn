@@ -1,3 +1,5 @@
+License & Acknowledgements
+
 BraiAn is open-source software, available under the [GNU Lesser General Public License v3.0](https://codeberg.org/SilvaLab/BraiAn/src/branch/master/LICENSES/LGPL-3.0-or-later.txt) and [GNU Affero General Public License](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/LICENSES/AGPL-3.0-or-later.txt). For more info, check out BraiAn git repositories of both [BraiAn for QuPath](https://github.com/carlocastoldi/qupath-extension-braian) and [braian-python](https://codeberg.org/SilvaLab/BraiAn).
 
 All original content in the BraiAn documentation you’re reading now is shared under a Creative Commons attribution license. You’re free to reuse it, but we’d ask that you attribute the source – and preferably include a link to this website, so that people know where to find the latest version.\
