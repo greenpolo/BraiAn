@@ -19,10 +19,13 @@ _ETA_: September 2024
 
 ## Contributing
 
-I decided to publish the BraiAn pipeline (i.e. this QuPath extension and the subsequent [python library](https://codeberg.org/SilvaLab/BraiAn)) with the most libre licence possible because I find maximum value in learning from others
-and sharing my own—small—knowledge.
+We decided to publish the BraiAn pipeline with the most libre licence possible because we find maximum value in learning from others
+and sharing our own—small—knowledge.
 
-We, developers in neuroscience, are islands that often work alone and frequently end up reinventing the wheel rather then spending time finding, pickup up and adapting the work that somebody on the other side of the world did with no intention to publish. For this reason I spent a great amount of my personal time making this extension as usable, extensible, and long-lasting as I could. And yet, I know it could be better, that there could be bugs, unforeseen scenarios and missing features.
+We, developers in neuroscience, are islands that often work alone and frequently end up reinventing the wheel rather then spending time finding, pickup up and adapting the work that somebody, from the other side of the world, did with no intention to publish. For this reason we spent a great amount of our personal time making the modules as usable, extensible, and long-lasting as we could. And yet, we know it could be better, that there could be bugs, unforeseen scenarios and missing features.
 
-For this reason I hope that if you find my work useful, you will find time and will to contribute back upstream with
-issues, PRs, documentation, tests, feature requests... _Any_ activity makes me happy!
+For this reason we hope that, _if you find our work useful_, you will find time and will to contribute back upstream with issues, PRs, documentation, tests, feature requests... _Any_ activity makes us happy!\
+Repositories:
+
+* _BraiAn for QuPath_: [https://github.com/carlocastoldi/qupath-extension-braian](https://github.com/carlocastoldi/qupath-extension-braian)
+* `braian` library: [https://codeberg.org/SilvaLab/BraiAn](https://codeberg.org/SilvaLab/BraiAn)

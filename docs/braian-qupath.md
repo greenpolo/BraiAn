@@ -45,7 +45,7 @@ All the brain section images of the same animal should be collected into a singl
 
 ### Configuration file
 
-BraiAn for QuPath can use a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file to apply a consistent behaviour across all projects (i.e. animals). The file is meant to be placed either in a QuPath project folder or in its parent directory (e.g. `QuPath_projects/`), depending on whether its parameter are meant for a specific project or multiple ones.
+BraiAn for QuPath can use a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file to apply a consistent behaviour across all projects (i.e. animals) and runs. The file is meant to be placed either in a QuPath project folder or in its parent directory (e.g. `QuPath_projects/`), depending on whether its parameter are meant for a specific project or multiple ones.
 
 For a detailed explanation on how to format such file and understanding what each parameters does we suggest to look at [this example YAML file](https://raw.githubusercontent.com/carlocastoldi/qupath-extension-braian/master/BraiAn.yml).
 
