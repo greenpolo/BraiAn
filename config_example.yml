@@ -29,6 +29,6 @@ qupath:
       exclusions: "_regions_to_exclude.txt"
     markers:
       AF568: "cFos"
-      AF647: "Arc1"
+      AF647: "Arc"
   exclude-parents: true
   min-slices: 0

@@ -73,12 +73,14 @@ class BraiAnConfig:
         sliced_pj = SlicedProject(self.project_name, *groups)
         return sliced_pj if sliced else sliced_pj.to_project(self.config["brains"]["raw-metric"],
                                                              min_slices,
-                                                             fill_nan)
+                                                             densities=False, # raw matrics will never be a density
+                                                             fill_nan=fill_nan)
 
     def project_from_sliced(self, sliced_pj: SlicedProject, fill_nan: bool) -> Project:
         return sliced_pj.to_project(self.config["brains"]["raw-metric"],
                                     self.config["qupath"]["min-slices"],
-                                    fill_nan)
+                                    densities=False, # raw matrics will never be a density
+                                    fill_nan=fill_nan)
         
 
 def _resolve_dir(path: Path|str, relative: Path|str) -> Path:

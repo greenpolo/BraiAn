@@ -521,10 +521,10 @@ class SlicedGroup:
     def animals(self) -> tuple[SlicedBrain]:
         return self._animals
 
-    def to_group(self, metric: SliceMetrics, min_slices: int, fill_nan: bool) -> AnimalGroup:
+    def to_group(self, metric: SliceMetrics, min_slices: int, densities: bool, fill_nan: bool) -> AnimalGroup:
         brains = []
         for sliced_brain in self._animals:
-            brain = AnimalBrain.from_slices(sliced_brain, metric, min_slices=min_slices)
+            brain = AnimalBrain.from_slices(sliced_brain, metric, min_slices=min_slices, densities=densities)
             brains.append(brain)
         return AnimalGroup(self._name, brains, brain_ontology=self._brain_ontology, fill_nan=fill_nan)
 

@@ -72,8 +72,8 @@ class SlicedProject:
                 return g
         raise AttributeError(f"Uknown group named '{name.lower()}'")
 
-    def to_project(self, metric: SliceMetrics, min_slices: int, fill_nan: bool) -> Project:
-        groups = [g.to_group(metric, min_slices, fill_nan) for g in self._groups]
+    def to_project(self, metric: SliceMetrics, min_slices: int, densities: bool, fill_nan: bool) -> Project:
+        groups = [g.to_group(metric, min_slices, densities, fill_nan) for g in self._groups]
         return Project(self.name, *groups)
 
     def __contains__(self, animal_name: str) -> bool:
