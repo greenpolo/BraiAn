@@ -119,7 +119,12 @@ class AllenBrainOntology:
             case _:
                 raise ValueError(f"Unrecognised '{version}' version")
         url = f"http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/{annotation_version}/structure_masks/structure_masks_10"
-        soup = BeautifulSoup(requests.get(url).content, "html.parser")
+        try:
+            site_content = requests.get(url).content
+        except requests.ConnectionError as e:
+            print(f"WARNING: could not remove unannoted regions from {annotation_version} ontology")
+            return [], None
+        soup = BeautifulSoup(site_content, "html.parser")
         if annotation_version == "ccf_2022":
             regions_w_annotation = [int(link["href"][:-len(".nii.gz")].split("_")[0]) for link in soup.select('a[href*=".nii.gz"]')]
         else:
