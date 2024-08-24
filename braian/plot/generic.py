@@ -23,7 +23,7 @@ __all__ = [
     "plot_region_density",
     "plot_permutation",
     "plot_groups_salience",
-    "plot_latent_component",
+    #"plot_latent_component",
     "plot_latent_variable",
     "plot_salient_regions",
     "plot_gridgroups",
@@ -246,7 +246,7 @@ def plot_permutation(pls: bas.PLS, component=1) -> go.Figure:
     return fig
 
 def plot_groups_salience(pls: bas.PLS, component=1):
-    return go.Figure(go.Bar(x=pls.u.columns, y=pls.u.iloc[:,component-1]))\
+    return go.Figure(go.Bar(x=pls.u.index, y=pls.u.iloc[:,component-1]))\
                     .update_layout(title=f"Component {component}", xaxis_title="Groups")
 
 # def plot_latent_component(pls: bas.PLS, component=1):

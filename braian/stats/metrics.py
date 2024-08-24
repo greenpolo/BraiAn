@@ -212,7 +212,7 @@ def fold_change(brain: AnimalBrain, group: AnimalGroup) -> AnimalBrain:
     --------
     [`diff_change`][braian.stats.diff_change]
     """
-    return _group_change(brain, group, BrainMetrics.FOLD_CHANGE, lambda animal,group: animal/group, "/")
+    return _group_change(brain, group, "fold_change", lambda animal,group: animal/group, "/")
 
 def diff_change(brain: AnimalBrain, group: AnimalGroup) -> AnimalBrain:
     """
@@ -234,7 +234,7 @@ def diff_change(brain: AnimalBrain, group: AnimalGroup) -> AnimalBrain:
     --------
     [`fold_change`][braian.stats.fold_change]
     """
-    return _group_change(brain, group, BrainMetrics.DIFF_CHANGE, lambda animal,group: animal-group, "-")
+    return _group_change(brain, group, "diff_change", lambda animal,group: animal-group, "-")
 
 def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     r"""

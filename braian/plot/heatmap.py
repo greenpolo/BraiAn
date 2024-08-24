@@ -15,7 +15,7 @@ __all__ = [
 
 def heatmap(bd: BrainData,
             brain_regions: list[str],
-            output_path: Path|str, filename: str,
+            output_path: Path|str=None, filename: str=None,
             n=10, depth=None,
             hem_highlighted_regions: list[list[str]]=None,
             cmin=None, ccenter=0, cmax=None, cmaps="magma_r",
@@ -77,14 +77,12 @@ def heatmap(bd: BrainData,
     if depth is not None and isinstance(depth, (int, float, np.number)):
         fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units,
                              show_text, hem_highlighted_regions, xrange, yrange, ticks, ticks_labels)
+        plt.close(fig)
         return fig
     else:
         max_depth = heatmaps[0].scene.atlas.shape_um[bgh.slicer.get_ax_idx(orientation)]
         depths = depth if depth is not None else np.linspace(1500, max_depth-1700, n, dtype=int)
-        if not isinstance(output_path, Path):
-            output_path = Path(output_path)
-        output_path.mkdir(mode=0o777, parents=True, exist_ok=True)
-        print("depths: ", end="")
+        figures = dict()
         for position in depths:
             if position < 0 or position > max_depth:
                 continue
@@ -92,14 +90,21 @@ def heatmap(bd: BrainData,
             # horizontal: 1500-6300
             # sagittal: 1500-9700
             print(f"{position:.2f}", end="  ")
-            f,ax = plot_slice(position, heatmaps, data_names, hems, orientation, title, units,
+            fig,ax = plot_slice(position, heatmaps, data_names, hems, orientation, title, units,
                               show_text, hem_highlighted_regions, xrange, yrange, ticks, ticks_labels)
 
-            plot_filepath = output_path/(filename+f"_{position:05.0f}.svg")
-            f.savefig(plot_filepath)
-            plt.close(f)
+            figures[position] = fig
+            plt.close(fig)
         print()
-        return
+
+        if output_path is not None:
+            if not isinstance(output_path, Path):
+                output_path = Path(output_path)
+            output_path.mkdir(mode=0o777, parents=True, exist_ok=True)
+            for position,fig in figures.items():
+                plot_filepath = output_path/(filename+f"_{position:05.0f}.svg")
+                fig.savefig(plot_filepath)
+        return figures
 
 def heatmap_range(heatmap: bgh.Heatmap):
     shape_um = np.array(heatmap.scene.atlas.shape_um)
