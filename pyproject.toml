@@ -41,6 +41,7 @@ mkdocs-include-markdown-plugin = "^6.1.1"
 mkdocs-multi-theme-plugin = {git = "https://github.com/carlocastoldi/mkdocs-multi-theme-plugin.git", rev = "master"}
 markdown-katex = "^202406.1035"
 mkdocs-open-in-new-tab = "^1.0.3"
+markdown-captions = "^2.1.2"
 
 [build-system]
 requires = ["poetry-core"]

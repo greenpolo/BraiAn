@@ -172,6 +172,7 @@ plugins:
 
 markdown_extensions:
   - admonition
+  - markdown_captions
   - pymdownx.escapeall:
       hardbreak: true
   - pymdownx.arithmatex:

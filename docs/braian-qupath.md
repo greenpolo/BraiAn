@@ -54,7 +54,7 @@ For a detailed explanation on how to format such file and understanding what eac
 The extension lets you select the annotations in which to compute the cell detection on the desired image channels. This selection can be controlled passing the name of the annotations' classification.\
 Effectively, this may lead to regions that overlap or detections of different image channels colliding in the same area.
 
-![Example of annotations in QuPath using BraiAn](img/qupath_annotations.png "Example of annotations in QuPath using BraiAn")
+![**_Figure 1_**: Example of annotations in QuPath using BraiAn](img/qupath_annotations.png "Example of annotations in QuPath using BraiAn")
 
 In order to handle this complexity, BraiAn uses what we call "_detection containers_". They are annotations specific to an image channel placed, in QuPath hierarchy, under a selected annotation and they _contain_ all detection computed on a specific channel. If two containers of the same channel overlap, only the detection from one of the two will be kept to avoid having double the cells.
 
@@ -73,7 +73,7 @@ For it to be read by BraiAn, copy it in the same location where the YAML configu
 
 Sometimes we would like to discard some parts of a section—be it for problems with the tissue, imaging or registration to an atlas—but we would still like to keep some portions!
 
-In this case you can draw an annotation over the desired portion to exclude from the analysis, making sure that it completely covers the atlas annotations below. This can be done using the Polygon tool or duplicating an atlas annotation (Shift+D) and [classifying them](https://qupath.readthedocs.io/en/stable/docs/concepts/objects.html#classification) with the ad-hoc QuPath classificat·on for the _exclusion_ annotations: "Exclude".
+In this case you can draw an annotation over the desired portion to exclude from the analysis, making sure that it completely covers the atlas annotations below. This can be done using the Polygon tool or duplicating an atlas annotation (Shift+D) and [classifying them](https://qupath.readthedocs.io/en/stable/docs/concepts/objects.html#classification) with the ad-hoc QuPath classificat·on for the _exclusion_ annotations: "Exclude" (see _Fig. 1_).
 
 !!! warning
 
