@@ -76,7 +76,7 @@ theme:
 
 plugins:
 - search
-# - open-in-new-tab # does not work with readthedocs
+- open-in-new-tab # does not work with readthedocs
 - include-markdown:
     opening_tag: "{%"
     closing_tag: "%}"
