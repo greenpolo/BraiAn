@@ -32,6 +32,23 @@ Just like [BraiAn for QuPath](braian-qupath.md#configuration-file), `braian` can
 
 For a detailed explanation on how to format such file and understanding what each parameters does we suggest to look at [this example YAML file](https://codeberg.org/SilvaLab/BraiAn/raw/branch/master/config_example.yml).
 
+### Prebaked analysis
+
+Examples of available analysis functions are:
+
+* [braian.stats.PLS][]
+* [braian.stats.density][]
+* [braian.stats.percentage][]
+* [braian.stats.relative_density][]
+* [braian.stats.fold_change][]
+* [braian.stats.diff_change][]
+* [braian.stats.markers_overlap][]
+* [braian.stats.markers_jaccard_index][]
+* [braian.stats.markers_similarity_index][]
+* [braian.stats.markers_overlap_coefficient][]
+* [braian.stats.markers_difference][]
+* [braian.stats.markers_correlation][]
+
 {%
     include-markdown "../README.md"
     start="<!--build-start-->"
