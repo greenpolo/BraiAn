@@ -64,7 +64,7 @@ In order to handle this complexity, BraiAn uses what we call "_detection contain
 
 ### Classifiers
 
-When you can't find parameters that are satisfying for all sections and animals of the groups, you might want to try applying an object classifier that filters out the detections that are not satisfying. In such a case, the detection should first be computed permissive parameters that don't miss ~any positive cell; even at the cost of having a high number of false detection: it will be the classifier job to filter them out.
+When you can't find parameters to automaticall segment your markers that are satisfying for all sections and animals of the groups, you might want to try applying an object classifier that filters out the detections that are not correct. In this case, the detection should first be computed with highly permissive parameters that don't miss ~any positive cell; even at the cost of having a high number of false detection: it will be the classifier job to filter them out.
 
 If you don't know how to create an object classifier in QuPath, we suggest you to read [the official tutorial](https://qupath.readthedocs.io/en/stable/docs/tutorials/cell_classification.html#train-a-cell-classifier-based-on-annotations). Once the classifier is sufficiently accurate, you can save it and QuPath will create a `.json` file in `<QUPATH_PROJECT>/classifiers/object_classifiers/`.\
 For it to be read by BraiAn, copy it in the same location where the YAML configuration file is.
