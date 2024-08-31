@@ -1,6 +1,6 @@
-# BraiAn for QuPath (BraiAnDetect)
+_# BraiAn for QuPath
 
-The first module, named BraiAnDetect, consists of a [QuPath](https://qupath.github.io/) extension for image analysis of serial brain sections across many animals. If is designed for multichannel cell segmentation across large and variable datasets and ensures consistency in image analysis across large datasets. This module leverages QuPath’s built-in algorithms to provide a multi-channel, whole-brain optimised object detection pipeline. BraiAnDetect features options for refining signal quantification, including machine learning-based object classification, region specific cell segmentation, multiple marker co-expression analysis and an interface for selective exclusion of damaged tissue portions. 
+The first module of BraiAn, also known as _BraiAnDetect_, consists of a [QuPath](https://qupath.github.io/) extension for image analysis of serial brain sections across many animals. It is designed for multichannel cell segmentation across large and variable datasets and ensures consistency in image analysis across large datasets. This module leverages QuPath's built-in algorithms to provide a multi-channel, whole-brain optimised object detection pipeline. BraiAnDetect features options for refining signal quantification, including machine learning-based object classification, region specific cell segmentation, multiple marker co-expression algorithms and an interface for selective exclusion of damaged tissue portions. 
 
 It works best if coupled with [`qupath-extension-abba`](https://github.com/biop/qupath-extension-abba) for importing whole-brain atlas registrations from [ABBA](https://go.epfl.ch/abba) as annotations.
 
@@ -94,7 +94,7 @@ Once you installed the extension, you can load example scripts by clicking on th
 
 The very same ones can also be checked out from the [official repository](https://github.com/carlocastoldi/qupath-extension-braian/tree/master/src/main/resources/scripts):
 
-* [compute_classify_overlap_export_exclude_detections.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy): this script reads the YAML configuration file and applies all of its parameters. SAY MORE HERE!
+* [compute_classify_overlap_export_exclude_detections.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy): this script reads the YAML configuration file and applies all of its parameters. <!-- SAY MORE HERE! -->
 * [find_threshold.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/find_threshold.groovy): suggests a threshold to apply with WatershedCellDetection algorithm by choosing a local maximum from the image's histogram.
 * [run_script_for_multiple_projects.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/run_script_for_multiple_projects.groovy): helps running a script for multiple project at once. It is compatible with the [LightScriptRunner](light-script-runner.md).
 

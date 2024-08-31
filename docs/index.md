@@ -1,7 +1,7 @@
 # BraiAn documentation
 
 BraiAn is a collection of two toolkits for whole-**brai**n quantitative **an**alysis of histological data from large datasets.
-We designed it for the analysis of whole-brain data derived from serial 2D sections previously aligned to a 3D reference atlas (for example using ABBA). The idea is to simplify signal quantification, data analysis and data visualisation of large datasets typically obtained in whole-brain imaging experiments. One of the first projects in which we applied BraiAn consisted of quantifying the expression of three different immediate eraly genes (cFos, Arc and NPAS4) to asssess neural activation patterns following learning. (see _TODO:CIT_). Analysis of this experimental dataset is going to be used here as an example.\ 
+We designed it for the analysis of whole-brain data derived from serial 2D sections previously aligned to a 3D reference atlas (for example using ABBA). The idea is to simplify signal quantification, data analysis and data visualisation of large datasets typically obtained in whole-brain imaging experiments. One of the first projects in which we applied BraiAn consisted of quantifying the expression of three different immediate eraly genes (cFos, Arc and NPAS4) to assess neural activation patterns following learning. (see _TODO:CIT_). Analysis of this experimental dataset is going to be used here as examples.\ 
 This site contains the project documentation for both its modules:
 
 * [_BraiAn for QuPath_](braian-qupath.md), an extension for image analysis; and
