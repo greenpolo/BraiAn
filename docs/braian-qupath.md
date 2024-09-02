@@ -1,4 +1,4 @@
-_# BraiAn for QuPath
+# BraiAn for QuPath
 
 The first module of BraiAn, also known as _BraiAnDetect_, consists of a [QuPath](https://qupath.github.io/) extension for image analysis of serial brain sections across many animals. It is designed for multichannel cell segmentation across large and variable datasets and ensures consistency in image analysis across large datasets. This module leverages QuPath's built-in algorithms to provide a multi-channel, whole-brain optimised object detection pipeline. BraiAnDetect features options for refining signal quantification, including machine learning-based object classification, region specific cell segmentation, multiple marker co-expression algorithms and an interface for selective exclusion of damaged tissue portions. 
 
@@ -12,10 +12,10 @@ Its core idea is to move the input image analysis parameters used to analyse mul
 
 The extensions exposes a proper library [API](https://carlocastoldi.github.io/qupath-extension-braian/docs/). Here are some examples. It allows you to:
 
-- work with image [channel histograms](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/ChannelHistogram.html)
-- compute and manage [detections](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AbstractDetections.html) separately for each image channel
-- apply different [classifiers](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/PartialClassifier.html) on different subsets of detections
-- _quickly_ find all detections that are double—or triple/multiple—positive, thanks to [`BoundingBoxHierarchy`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/BoundingBoxHierarchy.html)
+- multi-channel automatic object segmentation (e.g. [cell detections](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AbstractDetections.html))
+- machine-learning-based [object classification](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/PartialClassifier.html) (e.g. apply custom classifiers on different detection types).
+- co-localization analysis (i.e. _quickly_ find all detections that are double—or triple/multiple—positive, through [`BoundingBoxHierarchy`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/BoundingBoxHierarchy.html))
+- fine tune image analysis using [channel histograms](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/ChannelHistogram.html)
 - tag certain brain regions to be excluded from further analysis due to tissue, imaging or alignment problems
 - export to file the quantification results (number of detections/double+ found in each brain region)
 - export to file a list of regions flagged to be excluded
@@ -31,20 +31,40 @@ Any new available release of the extension should be notified on QuPath startup,
 
 ## Getting started
 
-This extension does not currently expose any user-friendly interface, but it mostly offers a set of functions and [example scripts](#prebaked-scripts) that should be easily modifiable from someone with little programming knowledge.
+This extension does not currently expose any user-friendly interface, but it mostly offers a set of functions and [prebaked scripts](#prebaked-scripts) that should be easily modifiable from someone with little programming knowledge.
 
 !!! abstract "Citation"
 
     Please, if you use any module of BraiAn or code here shown, follow our [citation guide](index.md#how-to-cite-braian)!
 
-However, before running any script using this extension, we need to describe how BraiAn works and its assumptions.
+### Prebaked scripts
 
+Once you installed the extension, you can load prebaked scripts by clicking on the top menu: `Extensions ‣ BraiAn ‣ scripts`.
+
+The very same ones can also be checked out from the [official repository](https://github.com/carlocastoldi/qupath-extension-braian/tree/master/src/main/resources/scripts):
+
+* [compute_classify_overlap_export_exclude_detections.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy): this script reads the YAML configuration file and applies all of its parameters. <!-- SAY MORE HERE! -->
+* [find_threshold.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/find_threshold.groovy): suggests a threshold to apply with WatershedCellDetection algorithm by choosing a local maximum from the image's histogram.
+* [run_script_for_multiple_projects.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/run_script_for_multiple_projects.groovy): helps running a script for multiple project at once. It is compatible with the [LightScriptRunner](light-script-runner.md).
+
+
+However, before running any script using this extension, we need to describe how BraiAn works and its assumptions.
+ 
 ### Project arrangement
 
 All the brain section images of the same animal should be collected into a single QuPath project. If there are multiple animals, one should create a project for each one of them and save the respective project folders in the same directory (e.g. `QuPath_projects/`).
 
+<!--
 ### Cell Detections
+RUN POSITIVE DETECTIONS FROM QUPATH https://qupath.readthedocs.io/en/stable/docs/tutorials/cell_detection.html#run-positive-cell-detection
+
+extracts parameters from quPath's interface and reads them from the configuration file for reproducibility. <-- link to paragraph
+
+Per image-channel fine tuning of such parameters is required and  BraiAn can help.
+
+------
 The first thing with BraiAn detect is segmenting positive objects (typically cells but can be nuclei, spines, axon terminals,...) for each channel. EXPLAIN THIS. ADD HERE THE SCRIPT RUNNING THE DETECTIONS
+-->
 
 ### Classifiers
 
@@ -87,16 +107,6 @@ If you want to make sure that you excluded all brain regions you wanted from an 
 ### Output
 
 [`AtlasManager.saveResults()`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AtlasManager.html#saveResults(java.util.List,java.io.File)) and [`AtlasManager.saveExcludedRegions()`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AtlasManager.html#saveExcludedRegions(java.io.File)) will export the data from cell counts and exclusions to a file for each image.
-
-### Prebaked scripts
-
-Once you installed the extension, you can load example scripts by clicking on the top menu: `Extensions ‣ BraiAn ‣ scripts`.
-
-The very same ones can also be checked out from the [official repository](https://github.com/carlocastoldi/qupath-extension-braian/tree/master/src/main/resources/scripts):
-
-* [compute_classify_overlap_export_exclude_detections.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy): this script reads the YAML configuration file and applies all of its parameters. <!-- SAY MORE HERE! -->
-* [find_threshold.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/find_threshold.groovy): suggests a threshold to apply with WatershedCellDetection algorithm by choosing a local maximum from the image's histogram.
-* [run_script_for_multiple_projects.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/run_script_for_multiple_projects.groovy): helps running a script for multiple project at once. It is compatible with the [LightScriptRunner](light-script-runner.md).
 
 ## Building
 

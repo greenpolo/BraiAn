@@ -41,7 +41,7 @@ nav:
   - Bonus:
     - Run scripts faster: light-script-runner.md # make image.sc forum post point here instead
 - Tutorials:
-  - Run image analysis
+#  - Run image analysis
   - read_qupath_data.ipynb
   - analysis_group.ipynb
   - analysis_marker.ipynb

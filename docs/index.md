@@ -1,14 +1,16 @@
-# BraiAn documentation
+# BraiAn
 
 BraiAn is a collection of two toolkits for whole-**brai**n quantitative **an**alysis of histological data from large datasets.
 We designed it for the analysis of whole-brain data derived from serial 2D sections previously aligned to a 3D reference atlas (for example using ABBA). The idea is to simplify signal quantification, data analysis and data visualisation of large datasets typically obtained in whole-brain imaging experiments. One of the first projects in which we applied BraiAn consisted of quantifying the expression of three different immediate eraly genes (cFos, Arc and NPAS4) to assess neural activation patterns following learning. (see _TODO:CIT_). Analysis of this experimental dataset is going to be used here as examples.\ 
 This site contains the project documentation for both its modules:
 
-* [_BraiAn for QuPath_](braian-qupath.md), an extension for image analysis; and
-* [`braian`](braian-python.md), a Python library for navigation, analysis and visualisation of the obtained whole-brain data.
+* [BraiAnDetect](), an extension for QuPath for image analysis; and
+* [BraiAnalyse](braian-python.md), a Python library (`braian`) for navigation, analysis and visualisation of the obtained whole-brain data.
 
 YSK: BraiAn's name stands for _**Brai**n **An**alysis_.\
 I suggest you to listen to "[Brianstorm](https://en.wikipedia.org/wiki/Brianstorm)" by Arctic Monkey while working with BraiAn ;)
+
+<!-- INSERT 3D ATLAS+DETECTION & interactive plot -->
 
 ## How to cite BraiAn
 
