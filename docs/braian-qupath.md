@@ -81,12 +81,12 @@ For a detailed explanation on how to format such file and understanding what eac
 
 ### Detection containers
 
-The extension lets you select the annotations in which to compute the cell detection on the desired image channels. This selection can be controlled passing the name of the annotations' classification.\
-Effectively, this may lead to regions that overlap or detections of different image channels colliding in the same area.
+Managing large numbers of detections that have been computed across many brain regions and channels can be challenging. BraiAnDetect is designed to facilitate this step and prevent classical errors (such as detections computed over overlapping annotations or detections of different image channels colliding in the same area). To handle annotations derived from multiple channels, BraiAnDetect uses what we call "_detection containers_". "_detection containers_" are QuPath annotations that _contain_ detections computed on each specific channel and belong (in QuPath annotation hierarchy) to the parent annotation containing all detections. If two containers of the same channel overlap, only the detection from one of the two will be kept to avoid having double the cells. In addition, BraiAnDetect allows you, for each channel, to select a specific subset of annotations in which any image analysis algorithm is run. This allows you for example to run (https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AbstractDetections.html) using different parameters for different subsets of brain regions. This is done setting different classes to each annotations subset.\
+
 
 ![**_Figure 1_**: Example of annotations in QuPath using BraiAn](img/qupath_annotations.png "Example of annotations in QuPath using BraiAn")
 
-In order to handle this complexity, BraiAn uses what we call "_detection containers_". They are annotations specific to an image channel placed, in QuPath hierarchy, under a selected annotation and they _contain_ all detection computed on a specific channel. If two containers of the same channel overlap, only the detection from one of the two will be kept to avoid having double the cells.
+
 
 !!! warning
 
