@@ -6,14 +6,14 @@ project:
   name: "example"
   output_dir: "data/BraiAn_output"
 
-atlas:
-  version: "CCFv3"
-  excluded-branches: ["retina", "VS", "grv", "fiber tracts", "CB"]
-
 groups:
   HC: ["287HC", "342HC", "343HC", "346HC", "371HC"]
   CTX: ["329CTX", "331CTX", "355CTX", "400CTX", "401CTX", "402CTX"]
   FC: ["367FC", "368FC", "369FC", "426FC", "427FC", "428FC"]
+
+atlas:
+  version: "v3"
+  excluded-branches: ["retina", "VS", "grv", "fiber tracts", "CB"]
 
 brains:
   raw-metric: "sum"
