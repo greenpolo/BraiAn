@@ -1,7 +1,7 @@
 # BraiAn
 
 BraiAn is a collection of two toolkits for whole-**brai**n quantitative **an**alysis of histological data from large datasets.
-We designed it for the analysis of whole-brain data derived from serial 2D sections previously aligned to a 3D reference atlas (for example using ABBA). The idea is to simplify signal quantification, data analysis and data visualisation of large datasets typically obtained in whole-brain imaging experiments. One of the first projects in which we applied BraiAn consisted of quantifying the expression of three different immediate eraly genes (cFos, Arc and NPAS4) to assess neural activation patterns following learning. (see _TODO:CIT_). Analysis of this experimental dataset is going to be used here as examples.\ 
+We designed it for the analysis of whole-brain data derived from serial 2D sections previously aligned to a 3D reference atlas (for example using ABBA). The idea is to simplify signal quantification, data analysis and data visualisation of large datasets typically obtained in whole-brain imaging experiments. One of the first projects in which we applied BraiAn consisted of quantifying the expression of three different immediate eraly genes (cFos, Arc and NPAS4) to assess neural activation patterns following learning. (see [_Chiaruttini, Castoldi et al. 2024_](https://doi.org/10.1101/2024.09.06.611625)). Analysis of this experimental dataset is going to be used here as examples.\ 
 This site contains the project documentation for both its modules:
 
 * [BraiAnDetect](), an extension for QuPath for image analysis; and
@@ -14,10 +14,11 @@ I suggest you to listen to "[Brianstorm](https://en.wikipedia.org/wiki/Brianstor
 
 ## How to cite BraiAn
 
-**Soon.**
+If you use BraiAn in your work, please cite the paper below, currently in pre-print:
 
-Keep an eye on this website or [ABBA](https://go.epfl.ch/abba)'s!\
-_ETA_: September 2024
+!!! important "Reference"
+    Chiaruttini, N., Castoldi, C. et al. **ABBA, a novel tool for whole-brain mapping, reveals brain-wide differences in immediate early genes induction following learning**. _bioRxiv_ (2024).\
+    [https://doi.org/10.1101/2024.09.06.611625](https://doi.org/10.1101/2024.09.06.611625)
 
 ## Contributing
 

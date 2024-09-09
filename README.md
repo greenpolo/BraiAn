@@ -11,6 +11,12 @@ SPDX-License-Identifier: CC-BY-4.0
 _Soon on PyPI._
 <!--install-end-->
 
+## Citing
+If you use BraiAn in your work, please cite the paper below, currently in pre-print:
+
+> Chiaruttini, N., Castoldi, C. et al. **ABBA, a novel tool for whole-brain mapping, reveals brain-wide differences in immediate early genes induction following learning**. _bioRxiv_ (2024).\
+> [https://doi.org/10.1101/2024.09.06.611625](https://doi.org/10.1101/2024.09.06.611625)
+
 <!--build-start-->
 ## Building
 ### Prerequisites
