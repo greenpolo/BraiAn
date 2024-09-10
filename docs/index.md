@@ -7,10 +7,12 @@ This site contains the project documentation for both its modules:
 * [BraiAnDetect](), an extension for QuPath for image analysis; and
 * [BraiAnalyse](braian-python.md), a Python library (`braian`) for navigation, analysis and visualisation of the obtained whole-brain data.
 
+![](img/3d_brain.png)
+
 YSK: BraiAn's name stands for _**Brai**n **An**alysis_.\
 I suggest you to listen to "[Brianstorm](https://en.wikipedia.org/wiki/Brianstorm)" by Arctic Monkey while working with BraiAn ;)
 
-<!-- INSERT 3D ATLAS+DETECTION & interactive plot -->
+{% include "resources/gridplot_cfos_density_st_lvl_6.html" recursive=false %}
 
 ## How to cite BraiAn
 
