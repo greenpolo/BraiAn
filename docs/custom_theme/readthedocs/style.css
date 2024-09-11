@@ -12,3 +12,39 @@ SPDX-License-Identifier: LGPL-3.0-or-later
 .jp-OutputPrompt {
   display: none !important;
 }
+
+/* copy codeblocks to clipboard */
+.clipboard {
+  position: relative;
+  display: block;
+  float: right;
+  right: 70px;
+  top: 4px;
+  line-height: 0px;
+  width: 0px;
+  font: 11px system-ui,sans-serif;
+  cursor: default;
+}
+
+.clipboard .btn-clipboard {
+  border: none !important;
+  background-color: transparent !important;
+  outline: none
+}
+
+.notice {
+  margin-right: 5px;
+  visibility: hidden;
+  width: 50px;
+}
+
+.show {
+  visibility: visible;
+}
+
+.clipboard-copy-icon {
+  width: 15px;
+  padding: 2px 0;
+  color: #57606a;
+  vertical-align: text-bottom;
+}

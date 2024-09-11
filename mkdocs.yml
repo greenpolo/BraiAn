@@ -32,8 +32,7 @@ nav:
 #   - ABBA state file and registration formats: https://abba-documentation.readthedocs.io/en/latest/explanation/registration_storage.html
 # - FAQ:
 #   - Frequent issues / Frequently asked questions: https://abba-documentation.readthedocs.io/en/latest/frequently_asked_questions.html
-# - BraiAn:
-- BraiAn: 
+- BraiAn:
   - Home: index.md
   - Image analysis: braian-qupath.md
   - Data analysis: braian-python.md
@@ -179,9 +178,13 @@ markdown_extensions:
       generic: true
 
 extra_javascript:
+  # LaTeX rendering
   - javascripts/katex.js
   - https://unpkg.com/katex@0/dist/katex.min.js
   - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
+  # copy codeblocks to clipboard
+  - javascripts/copy-codeblocks.js
+  - https://unpkg.com/clipboard@2.0.11/dist/clipboard.js
 
 extra_css:
   - custom_theme/readthedocs/style.css
