@@ -84,7 +84,7 @@ For a detailed explanation on how to format such file and understanding what eac
 Managing large numbers of detections that have been computed across many brain regions and channels can be challenging. BraiAnDetect is designed to facilitate this step and prevent classical errors (such as detections computed over overlapping annotations or detections of different image channels colliding in the same area). To handle annotations derived from multiple channels, BraiAnDetect uses what we call "_detection containers_". "_detection containers_" are QuPath annotations that _contain_ detections computed on each specific channel and belong (in QuPath annotation hierarchy) to the parent annotation containing all detections. If two containers of the same channel overlap, only the detection from one of the two will be kept to avoid having double the cells. In addition, BraiAnDetect allows you, for each channel, to select a specific subset of annotations in which any image analysis algorithm is run. This allows you for example to run (https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AbstractDetections.html) using different parameters for different subsets of brain regions. This is done setting different classes to each annotations subset.\
 
 
-![**_Figure 1_**: Example of annotations in QuPath using BraiAn](img/qupath_annotations.png "Example of annotations in QuPath using BraiAn")
+![**_Figure 1_**: Example of annotations in QuPath using BraiAn](resources/braian_qupath/qupath_annotations.png "Example of annotations in QuPath using BraiAn")
 
 
 

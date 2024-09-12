@@ -26,19 +26,19 @@ SPDX-License-Identifier: LGPL-3.0-or-later
   cursor: default;
 }
 
-.clipboard .btn-clipboard {
+.btn-clipboard {
   border: none !important;
   background-color: transparent !important;
   outline: none
 }
 
-.notice {
+span.notice {
   margin-right: 5px;
   visibility: hidden;
   width: 50px;
 }
 
-.show {
+span.notice.show {
   visibility: visible;
 }
 
@@ -47,4 +47,18 @@ SPDX-License-Identifier: LGPL-3.0-or-later
   padding: 2px 0;
   color: #57606a;
   vertical-align: text-bottom;
+}
+
+/* code snippets title */
+.snippet span.filename {
+  background-color: #f5f5f5;
+  border-bottom: .05rem solid #00000012;
+  border-top-left-radius: .1rem;
+  border-top-right-radius: .1rem;
+  display: flow-root;
+  font-size: .85em;
+  font-weight: 700;
+  margin-top: 1em;
+  padding: .6617647059em 1.1764705882em;
+  position: relative;
 }

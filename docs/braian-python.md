@@ -54,9 +54,3 @@ Examples of available whole-brain statistical analysis provided by braian are:
     start="<!--build-start-->"
     end="<!--build-end-->"
 %}
-
-<!--
-{% include "resources/allen_ontology.html" recursive=false %}
-
-{% include "resources/gridplot_cfos_vs_Arc1_density_summary_structures.html" recursive=false %}
--->

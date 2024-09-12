@@ -40,7 +40,7 @@ nav:
   - Bonus:
     - Run scripts faster: light-script-runner.md # make image.sc forum post point here instead
 - Tutorials:
-#  - Run image analysis
+  - Multi-channel image analysis: image_analysis.md
   - read_qupath_data.ipynb
   - analysis_group.ipynb
   - analysis_marker.ipynb
@@ -53,8 +53,6 @@ nav:
   - braian.config: api-config.md
 - See also:
   - Atlas registration with ABBA: https://go.epfl.ch/abba
-exclude_docs:
-  /resources/
 watch:
 - braian
 
@@ -62,6 +60,11 @@ theme:
   # name: material
   # custom_dir: docs/custom_theme/material
   name: readthedocs
+  highlightjs: true
+  hljs_languages:
+    - yaml
+    - groovy
+  hljs_style: vs
   include_homepage_in_sidebar: true
   prev_next_buttons_location: bottom
   navigation_depth: 4
