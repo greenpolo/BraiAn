@@ -33,7 +33,7 @@ First we read a file named `BraiAn.yml`. It searches it in the QuPath projects's
 var config = ProjectsConfig.read("BraiAn.yml")
 ```
 
-![**_Figure 1_**: Folder organization for an experiment managed by QuPath and BraiAnDetect](resources/image_analysis/folder_organization.png)
+![**_Figure 1_**: Folder organization for an experiment managed by QuPath and BraiAnDetect](resources/image-analysis/folder_organization.png)
 
 ## Region of interests
 
@@ -104,7 +104,7 @@ for(ChannelDetectionsConfig detectionsConfig in config.channelDetections) {
 Sometimes it is hard to determine the best threshold used by QuPath's watershed algorithm for the a whole brain. Lots of factors may play a role in each section image (section size, section quality, acquisition, density,...), making it a daunting task to fine tune the threshold to the best value, for each of them.\
 For this reason BraiAnDetect offers an interface for automatically choosing a threshold based on the intensity histogram derived from the corresponding image.
 
-![**_Figure 2_**: Histograms in QuPath's GUI](resources/image_analysis/qupath_histogram.png)
+![**_Figure 2_**: Histograms in QuPath's GUI](resources/image-analysis/qupath_histogram.png)
 
 In order to apply this automatic-threshold, you specify a couple of `histogramThreshold` parameters in the configuration file, and BraiAn will replace any value in `threshold` with the one computed from the image histogram.
 
@@ -171,4 +171,4 @@ fig = go.Figure([
     template="simple_white"
 ).update_xaxes(title="#pixels", range=(0,len(h)))
 ```
-{% include "resources/image_analysis/auto_threshold.html" recursive=false %}
+{% include "resources/image-analysis/auto_threshold.html" recursive=false %}
