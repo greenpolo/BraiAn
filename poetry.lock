@@ -1710,21 +1710,6 @@ rtd = ["jupyter_sphinx", "mdit-py-plugins", "myst-parser", "pyyaml", "sphinx", "
 testing = ["coverage", "pytest", "pytest-cov", "pytest-regressions"]
 
 [[package]]
-name = "markdown-katex"
-version = "202406.1035"
-description = "katex extension for Python Markdown"
-optional = false
-python-versions = ">=2.7"
-files = [
-    {file = "markdown-katex-202406.1035.tar.gz", hash = "sha256:e82f7bf9a8536451da8f01768d847516fa1827feb17140b8eaa0bea9826bdab0"},
-    {file = "markdown_katex-202406.1035-py2.py3-none-any.whl", hash = "sha256:c1713e85854ddecb641ad96243a8b6cd67367bf1bf8d39b43b3680d7f2b1884d"},
-]
-
-[package.dependencies]
-Markdown = {version = ">=3.0", markers = "python_version >= \"3.6\""}
-setuptools = "*"
-
-[[package]]
 name = "markupsafe"
 version = "2.1.5"
 description = "Safely add untrusted strings to HTML/XML markup."
@@ -3840,22 +3825,6 @@ doc = ["jupyterlite-pyodide-kernel", "jupyterlite-sphinx (>=0.13.1)", "jupytext"
 test = ["Cython", "array-api-strict (>=2.0)", "asv", "gmpy2", "hypothesis (>=6.30)", "meson", "mpmath", "ninja", "pooch", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-umfpack", "threadpoolctl"]
 
 [[package]]
-name = "setuptools"
-version = "73.0.1"
-description = "Easily download, build, install, upgrade, and uninstall Python packages"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "setuptools-73.0.1-py3-none-any.whl", hash = "sha256:b208925fcb9f7af924ed2dc04708ea89791e24bde0d3020b27df0e116088b34e"},
-    {file = "setuptools-73.0.1.tar.gz", hash = "sha256:d59a3e788ab7e012ab2c4baed1b376da6366883ee20d7a5fc426816e3d7b1193"},
-]
-
-[package.extras]
-core = ["importlib-metadata (>=6)", "importlib-resources (>=5.10.2)", "jaraco.text (>=3.7)", "more-itertools (>=8.8)", "packaging (>=24)", "platformdirs (>=2.6.2)", "tomli (>=2.0.1)", "wheel (>=0.43.0)"]
-doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "pyproject-hooks (!=1.1)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (>=1,<2)", "sphinx-reredirects", "sphinxcontrib-towncrier", "towncrier (<24.7)"]
-test = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "importlib-metadata", "ini2toml[lite] (>=0.14)", "jaraco.develop (>=7.21)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "jaraco.test", "mypy (==1.11.*)", "packaging (>=23.2)", "pip (>=19.1)", "pyproject-hooks (!=1.1)", "pytest (>=6,!=8.1.*)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-home (>=0.5)", "pytest-mypy", "pytest-perf", "pytest-ruff (<0.4)", "pytest-ruff (>=0.2.1)", "pytest-ruff (>=0.3.2)", "pytest-subprocess", "pytest-timeout", "pytest-xdist (>=3)", "tomli", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel (>=0.44.0)"]
-
-[[package]]
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -4341,4 +4310,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<4"
-content-hash = "9cd8840c61adfb7eea3279fbf2bbcf84cc7c7abc0084fcdc40ccc9f4aa3ff294"
+content-hash = "73f8ea7abf7b4c7d63f7d813f9c0ad6fbcee3022456f85be1f6fc2e404f7df2e"
