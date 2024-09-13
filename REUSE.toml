@@ -24,7 +24,7 @@ SPDX-License-Identifier = "CC-BY-NC-ND-4.0"
 
 [[annotations]]
 SPDX-FileComment = "documentation"
-path = ["docs/*.md", "docs/javascripts/*"]
+path = ["docs/*.md", "docs/*.ipynb", "docs/javascripts/*.js", "docs/resources/**/*.png", "docs/resources/**/*.html"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2024 Carlo Castoldi <carlo.castoldi@outlook.com>"
 SPDX-License-Identifier = "CC-BY-4.0"
