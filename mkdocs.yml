@@ -41,6 +41,7 @@ nav:
     - Run scripts faster: light-script-runner.md # make image.sc forum post point here instead
 - Tutorials:
   - Multi-channel image analysis: image-analysis.md
+  - object-classifiers.md
   - read_qupath_data.ipynb
   - analysis_group.ipynb
   - analysis_marker.ipynb
