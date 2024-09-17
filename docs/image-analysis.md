@@ -173,7 +173,8 @@ fig = go.Figure([
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
     template="simple_white"
-).update_xaxes(title="#pixels", range=(0,len(h)))
+).update_xaxes(title="#pixels", range=(0,len(h)))\
+.update_yaxes(type="log", range=[0,4])
 ```
 {% include "resources/image-analysis/auto_threshold.html" recursive=false %}
 
