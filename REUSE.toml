@@ -17,7 +17,7 @@ SPDX-License-Identifier = "LGPL-3.0-or-later"
 
 [[annotations]]
 SPDX-FileComment = "logo"
-path = ["docs/assets/**", "docs/img/*"]
+path = ["docs/assets/**", "docs/resources/favicon.svg"]
 precedence = "override"
 SPDX-FileCopyrightText = "2024 Carlo Castoldi <carlo.castoldi@outlook.com>"
 SPDX-License-Identifier = "CC-BY-NC-ND-4.0"

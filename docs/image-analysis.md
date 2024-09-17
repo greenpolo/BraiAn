@@ -1,6 +1,5 @@
 # Multi-channel image analysis
-<!-- create classifier -->
-<!-- run scripts faster -->
+
 With this tutorial we will guide you into:
 
 * reading a configuration file of BraiAnDetect
