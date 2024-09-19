@@ -255,13 +255,13 @@ qt = ["qtpy", "superqt"]
 
 [[package]]
 name = "brainrender"
-version = "2.1.12"
+version = "2.1.13"
 description = "Visualisation and exploration of brain atlases and other anatomical data"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "brainrender-2.1.12-py3-none-any.whl", hash = "sha256:bc33034bc05d0b4d9631272eda5b79048bf467a87199cf8ab5ada4ef4df2ef27"},
-    {file = "brainrender-2.1.12.tar.gz", hash = "sha256:0c9c91bbd9d02317aa3ffe8ba8cd75f0351adc491ad9960d26d186d38737f4cb"},
+    {file = "brainrender-2.1.13-py3-none-any.whl", hash = "sha256:9da885f40d7d4fbd38aea56c64f1f8d5d85adbb5a28dc89ae1e569aeb1e3ba05"},
+    {file = "brainrender-2.1.13.tar.gz", hash = "sha256:bb33e422ce713a96f24400444810eac048125b2887d136ad1640f7323e907ef4"},
 ]
 
 [package.dependencies]
@@ -269,7 +269,6 @@ brainglobe-atlasapi = ">=2.0.1"
 brainglobe-space = ">=1.0.0"
 brainglobe-utils = ">=0.5.0"
 h5py = "*"
-imio = "*"
 k3d = "*"
 loguru = "*"
 morphapi = ">=0.2.1"
@@ -285,7 +284,7 @@ tables = "*"
 vedo = ">=2024.5.2"
 
 [package.extras]
-dev = ["black", "coverage", "imio", "mypy", "pre-commit", "pytest", "pytest-cov", "ruff", "setuptools-scm", "tox"]
+dev = ["black", "coverage", "mypy", "pre-commit", "pytest", "pytest-cov", "ruff", "setuptools-scm", "tox"]
 nb = ["jupyter", "k3d"]
 
 [[package]]
@@ -1098,32 +1097,6 @@ pyav = ["av"]
 rawpy = ["numpy (>2)", "rawpy"]
 test = ["fsspec[github]", "pytest", "pytest-cov"]
 tifffile = ["tifffile"]
-
-[[package]]
-name = "imio"
-version = "0.3.1"
-description = "Loading and saving of image data."
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "imio-0.3.1-py3-none-any.whl", hash = "sha256:d88b938d1f1a9583e7e9efe91b8266dbe7fc533f4d1734acd9539b9381c20dd1"},
-    {file = "imio-0.3.1.tar.gz", hash = "sha256:d200f918b86dac17ec00b563a8eb7abc936f6d3d10dce0cef1b0296d5e74bf65"},
-]
-
-[package.dependencies]
-brainglobe-utils = {version = "*", extras = ["slurmio"]}
-natsort = "*"
-nibabel = ">=2.1.0"
-numpy = "*"
-psutil = "*"
-pyarrow = "*"
-pynrrd = "*"
-scikit-image = "*"
-tifffile = "*"
-tqdm = "*"
-
-[package.extras]
-dev = ["black", "pre-commit", "pytest", "pytest-cov"]
 
 [[package]]
 name = "importlib-metadata"
@@ -2490,24 +2463,6 @@ typing = ["tox"]
 zstd = ["pyzstd (>=0.14.3)"]
 
 [[package]]
-name = "nptyping"
-version = "2.0.1"
-description = "Type hints for NumPy."
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "nptyping-2.0.1-py3-none-any.whl", hash = "sha256:0fc5c4d76c65e12a77e750b9e2701dab6468d00926c8c4f383867bd70598a532"},
-]
-
-[package.dependencies]
-numpy = ">=1.20.0"
-
-[package.extras]
-build = ["codecov (>=2.1.0)", "invoke (>=1.6.0)", "pip-tools (>=6.5.0)"]
-dev = ["autoflake", "beartype (<0.10.0)", "beartype (>=0.10.0)", "black", "codecov (>=2.1.0)", "coverage", "invoke (>=1.6.0)", "isort", "mypy", "pip-tools (>=6.5.0)", "pylint", "setuptools", "typeguard", "wheel"]
-qa = ["autoflake", "beartype (<0.10.0)", "beartype (>=0.10.0)", "black", "coverage", "isort", "mypy", "pylint", "setuptools", "typeguard", "wheel"]
-
-[[package]]
 name = "numba"
 version = "0.60.0"
 description = "compiling Python code using LLVM"
@@ -3157,22 +3112,6 @@ pyyaml = "*"
 
 [package.extras]
 extra = ["pygments (>=2.12)"]
-
-[[package]]
-name = "pynrrd"
-version = "1.0.0"
-description = "Pure python module for reading and writing NRRD files."
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "pynrrd-1.0.0-py2.py3-none-any.whl", hash = "sha256:65e5a61920d2f01ecf321eb41b0472940e181e4ba5e8a32f01ef5499d4192db5"},
-    {file = "pynrrd-1.0.0.tar.gz", hash = "sha256:4eb4caba03fbca1b832114515e748336cb67bce70c7f3ae36bfa2e135fc990d2"},
-]
-
-[package.dependencies]
-nptyping = "*"
-numpy = ">=1.11.1"
-typing-extensions = "*"
 
 [[package]]
 name = "pyparsing"
