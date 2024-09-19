@@ -18,7 +18,7 @@ class ConnectomeAdjacency:
         self.data = self._sort_by_upper_regions(A)
         with np.errstate(divide="ignore", invalid="ignore"):
             self.__data_log10 = np.log10(self.data)
-            self.__data_log10[self.data == 0] = np.NINF
+            self.__data_log10[self.data == 0] = -np.inf
         self.name = name
 
     def mask(self, where: pd.DataFrame) -> typing.Self:
