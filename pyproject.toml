@@ -31,13 +31,13 @@ pyyaml = "^6.0.2"
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-black = "^24.4.2"
+black = "^24.8.0"
 mkdocs = {git = "https://github.com/carlocastoldi/mkdocs.git", rev = "on-template"}
-mkdocstrings = {extras = ["python"], version = "^0.25.1"}
+mkdocstrings = {extras = ["python"], version = "^0.26.1"}
 mkdocs-plugin-progress = "^1.2.0"
-mkdocs-material = "^9.5.25"
-mkdocs-jupyter = "^0.24.7"
-mkdocs-include-markdown-plugin = "^6.1.1"
+mkdocs-material = "^9.5.35"
+mkdocs-jupyter = "^0.25.0"
+mkdocs-include-markdown-plugin = "^6.2.2"
 mkdocs-multi-theme-plugin = {git = "https://github.com/carlocastoldi/mkdocs-multi-theme-plugin.git", rev = "master"}
 mkdocs-open-in-new-tab = "^1.0.3"
 markdown-captions = "^2.1.2"
