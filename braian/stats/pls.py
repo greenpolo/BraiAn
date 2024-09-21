@@ -312,7 +312,8 @@ class PLS:
 def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
                          selected_regions: list[str], marker: str=None,
                          n_bootstrap: int=5000, component: int=1,
-                         fill_nan=True, seed=None) -> BrainData|dict[str,BrainData]:
+                         fill_nan=True, seed=None,
+                         test_h0=True, p_value=0.05, n_permutation: int=5000) -> BrainData|dict[str,BrainData]:
     """
     Computes [PLS][braian.stats.PLS] between two groups with the same markers.\\
     It estimates the standard error of the regions' saliences [by bootstrap][braian.stats.PLS.bootstrap_salience_scores].
@@ -354,8 +355,12 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
     salience_scores = dict()
     for m in markers:
         pls = PLS(selected_regions, group1, group2, marker=m)
-        # pls.random_permutation(PLS_N_PERMUTATION, seed=seed)
-        # p = pls.test_null_hypothesis()[0]
+        if test_h0:
+            pls.random_permutation(n_permutation, seed=seed)
+            p = pls.test_null_hypothesis()[component-1]
+            if p > p_value:
+                print(f"WARNING: H0 test is {p}>{p_value} on component {component}! "+\
+                      " Make sure to consider this when using the corresponding salience scores.")
         pls.bootstrap_salience_scores(n=n_bootstrap, seed=seed)
         v = pls.v_salience_scores[component-1].copy()
         if fill_nan:
