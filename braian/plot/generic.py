@@ -14,7 +14,7 @@ from braian.animal_brain import AnimalBrain, SliceMetrics
 from braian.animal_group import AnimalGroup
 from braian.brain_data import BrainData
 from braian.ontology import AllenBrainOntology, MAJOR_DIVISIONS, UPPER_REGIONS
-from braian.project import SlicedProject
+from braian.experiment import SlicedExperiment
 
 __all__ = [
     "plot_animal_group",
@@ -76,14 +76,14 @@ def plot_pie(selected_regions: list[str], brain_ontology: AllenBrainOntology,
                     ))
     return fig
 
-def plot_cv_above_threshold(brain_ontology, project: SlicedProject, cv_threshold=1, width=700, height=500) -> go.Figure:
+def plot_cv_above_threshold(brain_ontology, experiment: SlicedExperiment, cv_threshold=1, width=700, height=500) -> go.Figure:
     # fig = go.Figure()
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    brains_name = [f"{brain.name} ({marker})" for group in project.groups for brain in group.animals for marker in brain.markers]
-    group_lengths = [len(group.animals)*len(group.animals[0].markers) for group in project.groups] # assumes all animals of a group have the same markers
+    brains_name = [f"{brain.name} ({marker})" for group in experiment.groups for brain in group.animals for marker in brain.markers]
+    group_lengths = [len(group.animals)*len(group.animals[0].markers) for group in experiment.groups] # assumes all animals of a group have the same markers
     n_brains_before_group = np.cumsum(group_lengths)
     n_areas_above_thr = []
-    for n_group, group in enumerate(project.groups):
+    for n_group, group in enumerate(experiment.groups):
         n_brains_before = n_brains_before_group[n_group-1] if n_group > 0 else 0
         group_cvar_brains: list[AnimalBrain] = [AnimalBrain.from_slices(sliced_brain, mode=SliceMetrics.CVAR, hemisphere_distinction=False, densities=True) for sliced_brain in group.animals]
         group_cvar_brains = [brain.select_from_ontology(brain_ontology) for brain in group_cvar_brains]
@@ -150,15 +150,15 @@ def plot_cv_above_threshold(brain_ontology, project: SlicedProject, cv_threshold
     )
     return fig
 
-def plot_region_density(region_name, project: SlicedProject, width=700, height=500) -> go.Figure:
+def plot_region_density(region_name, experiment: SlicedExperiment, width=700, height=500) -> go.Figure:
     summed_brains = []
     colors = []
 
     fig = go.Figure()
-    brains_name = [f"{brain.name} ({marker})" for group in project.groups for brain in group.animals for marker in brain.markers]
-    group_lengths = [len(group.animals)*len(group.animals[0].markers) for group in project.groups] # assumes all animals of a group have the same markers
+    brains_name = [f"{brain.name} ({marker})" for group in experiment.groups for brain in group.animals for marker in brain.markers]
+    group_lengths = [len(group.animals)*len(group.animals[0].markers) for group in experiment.groups] # assumes all animals of a group have the same markers
     n_brains_before_group = np.cumsum(group_lengths)
-    for i, group in enumerate(project.groups):
+    for i, group in enumerate(experiment.groups):
         n_brains_before = n_brains_before_group[i-1] if i > 0 else np.int64(0)
         group_summed_brains = [AnimalBrain.from_slices(sliced_brain, hemisphere_distinction=False) for sliced_brain in group.animals]
         summed_brains.extend(group_summed_brains)

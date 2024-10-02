@@ -1,12 +1,8 @@
 import yaml
 from pathlib import Path
 
-from braian import AllenBrainOntology, AnimalBrain, Project, SlicedGroup, SlicedProject
+from braian import AllenBrainOntology, AnimalBrain, Experiment, SlicedGroup, SlicedExperiment
 import braian.utils
-
-class ProjectDir:
-    def __init__(self) -> None:
-        pass
 
 class BraiAnConfig:
     def __init__(self,
@@ -20,8 +16,8 @@ class BraiAnConfig:
             self.config = yaml.safe_load(f)
 
         self.cache_path = Path(cache_path)
-        self.project_name = self.config["project"]["name"]
-        self.output_dir = _resolve_dir(self.config["project"]["output_dir"], relative=self.config_file.absolute().parent)
+        self.experiment_name = self.config["experiment"]["name"]
+        self.output_dir = _resolve_dir(self.config["experiment"]["output_dir"], relative=self.config_file.absolute().parent)
         self._brain_ontology: AllenBrainOntology = None
 
     def read_atlas_ontology(self):
@@ -32,19 +28,19 @@ class BraiAnConfig:
                                                  version=self.config["atlas"]["version"])
         return self._brain_ontology
 
-    def project_from_csv(self, sep=",", from_brains: bool=False, fill_nan: bool=True) -> Project:
+    def experiment_from_csv(self, sep=",", from_brains: bool=False, fill_nan: bool=True) -> Experiment:
         metric = self.config["brains"]["raw-metric"]
         assert AnimalBrain.is_raw(metric), f"Configuration files should specify raw metrics only, not '{metric}'"
         group2brains: dict[str,str] = self.config["groups"]
         if not from_brains:
-            return Project.from_group_csv(self.project_name, group2brains.keys(), metric, self.output_dir, sep)
+            return Experiment.from_group_csv(self.experiment_name, group2brains.keys(), metric, self.output_dir, sep)
         if self._brain_ontology is None:
             self.read_atlas_ontology()
-        return Project.from_brain_csv(self.project_name, group2brains, metric,
+        return Experiment.from_brain_csv(self.experiment_name, group2brains, metric,
                                       self.output_dir, sep, brain_ontology=self._brain_ontology,
                                       fill_nan=fill_nan)
 
-    def project_from_qupath(self, sliced: bool=False, fill_nan: bool=True) -> Project|SlicedProject:
+    def experiment_from_qupath(self, sliced: bool=False, fill_nan: bool=True) -> Experiment|SlicedExperiment:
         qupath = self.config["qupath"]
         qupath_dir = _resolve_dir(qupath["files"]["dirs"]["output"], relative=self.config_file.absolute().parent)
         results_subir = qupath["files"]["dirs"].get("results_subdir", ".")
@@ -70,14 +66,14 @@ class BraiAnConfig:
                                             exclusions_subdir, exclusions_suffix)
             groups.append(group)
 
-        sliced_pj = SlicedProject(self.project_name, *groups)
-        return sliced_pj if sliced else sliced_pj.to_project(self.config["brains"]["raw-metric"],
+        sliced_pj = SlicedExperiment(self.experiment_name, *groups)
+        return sliced_pj if sliced else sliced_pj.to_experiment(self.config["brains"]["raw-metric"],
                                                              min_slices,
                                                              densities=False, # raw matrics will never be a density
                                                              fill_nan=fill_nan)
 
-    def project_from_sliced(self, sliced_pj: SlicedProject, fill_nan: bool) -> Project:
-        return sliced_pj.to_project(self.config["brains"]["raw-metric"],
+    def experiment_from_sliced(self, sliced_pj: SlicedExperiment, fill_nan: bool) -> Experiment:
+        return sliced_pj.to_experiment(self.config["brains"]["raw-metric"],
                                     self.config["qupath"]["min-slices"],
                                     densities=False, # raw matrics will never be a density
                                     fill_nan=fill_nan)

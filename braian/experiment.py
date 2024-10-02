@@ -3,9 +3,9 @@ from braian import AnimalBrain, AnimalGroup, SlicedBrain, SlicedGroup, SliceMetr
 from pathlib import Path
 from typing import Any, Self
 
-__all__ = ["Project", "SlicedProject"]
+__all__ = ["Experiment", "SlicedExperiment"]
 
-class Project:
+class Experiment:
     def __init__(self, name: str, group1: AnimalGroup, group2: AnimalGroup,
                  *groups: AnimalGroup) -> None:
         self._name = str(name)
@@ -34,7 +34,7 @@ class Project:
         for name in group_names:
             group = AnimalGroup.from_csv(basedir/f"{name}_{metric}.csv", name, sep)
             groups.append(group)
-        return Project(name, *groups)
+        return Experiment(name, *groups)
 
     @staticmethod
     def from_brain_csv(name: str, group2brains: dict[str,Iterable[str]],
@@ -50,9 +50,9 @@ class Project:
                 brains.append(brain)
             group = AnimalGroup(name, brains, **kwargs)
             groups.append(group)
-        return Project(name, *groups)
+        return Experiment(name, *groups)
 
-class SlicedProject:
+class SlicedExperiment:
     def __init__(self, name: str, group1: SlicedGroup, group2: SlicedGroup,
                  *groups: Iterable[SlicedGroup]) -> None:
         self._name: str = str(name)
@@ -72,9 +72,9 @@ class SlicedProject:
                 return g
         raise AttributeError(f"Uknown group named '{name.lower()}'")
 
-    def to_project(self, metric: SliceMetrics, min_slices: int, densities: bool, fill_nan: bool) -> Project:
+    def to_experiment(self, metric: SliceMetrics, min_slices: int, densities: bool, fill_nan: bool) -> Experiment:
         groups = [g.to_group(metric, min_slices, densities, fill_nan) for g in self._groups]
-        return Project(self.name, *groups)
+        return Experiment(self.name, *groups)
 
     def __contains__(self, animal_name: str) -> bool:
         """
@@ -86,7 +86,7 @@ class SlicedProject:
         Returns
         -------
         :
-            True, if current project contains an animal with `animal_name`. False otherwise.
+            True, if current experiment contains an animal with `animal_name`. False otherwise.
         """
         return any(brain.name == animal_name for group in self.groups for brain in group.animals)
 
@@ -96,22 +96,22 @@ class SlicedProject:
         Parameters
         ----------
         animal_name
-            The name of an animal part of the project
+            The name of an animal part of the experiment
 
         Returns
         -------
         :
-            The corresponding `AnimalBrain` in the current project.
+            The corresponding `AnimalBrain` in the current experiment.
 
         Raises
         ------
         TypeError
             If `animal_name` is not a string.
         KeyError
-            If no brain with `animal_name` was found in the project.
+            If no brain with `animal_name` was found in the experiment.
         """
         if not isinstance(animal_name, str):
-            raise TypeError("SliceProject animals are identified by strings")
+            raise TypeError("SlicedExperiment animals are identified by strings")
         try:
             return next(brain for group in self.groups for brain in group.animals if brain.name == animal_name)
         except StopIteration:

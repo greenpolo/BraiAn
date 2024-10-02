@@ -284,7 +284,7 @@ class PLS:
         :
             The list of brain regions, along with the relative score, that have a salience above `threshold`.
         """
-        assert 1 <= component < self.v_salience_scores.shape[1], "The 'component' can't be lower than 1."
+        assert 1 <= component < self.v_salience_scores.shape[1]+1, "The 'component' can't be lower than 1."
         return self.v_salience_scores[component-1][self.v_salience_scores[component-1].abs() > threshold]
 
     @staticmethod

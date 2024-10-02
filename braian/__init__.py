@@ -18,7 +18,7 @@ from .sliced_brain import *
 from .brain_data import *
 from .animal_brain import *
 from .animal_group import *
-from .project import *
+from .experiment import *
 
 del ontology
 del brain_slice
@@ -26,7 +26,7 @@ del sliced_brain
 del brain_data
 del animal_brain
 del animal_group
-del project
+del experiment
 
 # from .utils import cache, save_csv, regions_to_plot, remote_dirs
 # from .plot import *
