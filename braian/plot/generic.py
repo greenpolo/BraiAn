@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.colors as plc
 import plotly.graph_objects as go
 import random
+from collections.abc import Iterable
 from plotly.subplots import make_subplots
 
 import braian.stats as bas
@@ -17,7 +18,7 @@ from braian.ontology import AllenBrainOntology, MAJOR_DIVISIONS, UPPER_REGIONS
 from braian.experiment import SlicedExperiment
 
 __all__ = [
-    "plot_animal_group",
+    "group",
     "plot_pie",
     "plot_cv_above_threshold",
     "plot_region_density",
@@ -31,23 +32,66 @@ __all__ = [
     "to_rgba"
 ]
 
-def plot_animal_group(group: AnimalGroup, selected_regions: list[str],
-                        animal_size: int, *markers: str, colors=[],
-                        orientation="h", plot_hash=None):
+def group(group: AnimalGroup, selected_regions: list[str]|np.ndarray[str],
+          *markers: str, colors:Iterable=[],
+          orientation: str="h", check_regions: bool=True) -> go.Figure:
+    """
+    Scatter plot of `AnimalGroup` data in the selected brain regions.
+
+    Parameters
+    ----------
+    group
+        The data of a cohort to plot.
+    selected_regions
+        A list of the brain regions picked to plot.
+    *markers
+        The marker(s) to plot the data of. If not specified, it plots all markers in `group`.
+    colors
+        The list of colours used to identify each marker.
+    orientation
+        'h' for horizontal scatter plots; 'v' for vertical scatter plots.
+    check_regions
+        If False, it does not check whether `group` contains all `selected_regions`.
+        If data for a region is missing, it will display an empty scatter.
+
+    Returns
+    -------
+    :
+        A plotly figure.
+
+    Raises
+    ------
+    ValueError
+        If `group` has data split between left and right hemisphere.
+    ValueError
+        If you didn't specify a colour for one of the markers chosen to display.
+    KeyError
+        If at least one region in `selected_regions` is missing from `group`.
+    """
+    if group.is_split:
+        raise ValueError("The given AnimalGroup should not have hemisphere distinction!")
     if len(markers) == 0:
         markers = group.markers
-    if not isinstance(colors, list):
-        colors = [colors]
+    if not isinstance(colors, Iterable) and not isinstance(colors, str):
+        colors = (colors,)
     if len(colors) < len(markers):
         raise ValueError(f"You must provide at least {len(markers)} colors. One for each marker!")
-    if not plot_hash:
-        plot_hash = group.name
-    data = [trace for marker,color in zip(markers,colors) for trace in
-            bar_sample(group.to_pandas(marker=marker).loc[selected_regions],
-                group.name, str(group.metric), marker=marker,
-                color=color, plot_scatter=True,
-                orientation=orientation, plot_hash=plot_hash)
-            ]
+
+    data = []
+    for marker, color in zip(markers, colors):
+        marker_df = group.to_pandas(marker=marker)
+        if check_regions:
+            try:
+                selected_data: pd.DataFrame = marker_df.loc[selected_regions]
+            except KeyError as e:
+                raise KeyError("Could not find data for all selected brain regions.")
+        else:
+            selected_data: pd.DataFrame = marker_df.reindex(selected_regions)
+        traces: tuple[go.Trace] = bar_sample(selected_data,
+                                             group.name, str(group.metric), marker=marker,
+                                             color=color, plot_scatter=True,
+                                             orientation=orientation, plot_hash=None) # None -> bars are not overlapped
+        data.extend(traces)
     fig = go.Figure(data=data)
     if orientation == "h":
         fig.update_xaxes(side="top")
@@ -173,7 +217,7 @@ def plot_region_density(region_name, experiment: SlicedExperiment, width=700, he
                         density = slice.data.loc[region_name, marker] / slice.data.loc[region_name, "area"]
                         # density = slice.data.loc[region_name, marker]
                     except KeyError as e:
-                        print(f"WARNING: Could not find the data for marker '{marker}' in '{region_name}' region for image '{slice.name}' of {slice.animal}")
+                        # print(f"WARNING: Could not find the data for marker '{marker}' in '{region_name}' region for image '{slice.name}' of {slice.animal}")
                         continue
                     slices_density.append(density)
                 fig.add_trace(
