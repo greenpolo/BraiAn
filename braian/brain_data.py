@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import re
 from collections.abc import Collection, Iterable, Sequence
+import pandas.api.types as pdt
+import pandas.arrays as pda
 from typing import Self, Callable
 from numbers import Number
 
@@ -56,6 +58,9 @@ def _split_index(regions: Iterable[str]) -> list[str]:
     """
     return [": ".join(t) for t in itertools.product(("Left", "Right"), regions)]
 
+def _has_non_nullable_int_array(data: pd.DataFrame|pd.Series):
+    return pdt.is_integer_dtype(data.dtype) and not isinstance(data.values, pda.IntegerArray)
+
 def _sort_by_ontology(data: pd.DataFrame|pd.Series,
                       brain_ontology: AllenBrainOntology,
                       fill=False, fill_value=np.nan) -> pd.DataFrame|pd.Series:
@@ -71,7 +76,10 @@ def _sort_by_ontology(data: pd.DataFrame|pd.Series,
         all_regions = np.array(all_regions)
         all_regions = all_regions[np.isin(all_regions, data.index)]
     # NOTE: if fill_value=np.nan -> converts dtype to float
-    return data.reindex(all_regions, copy=False, fill_value=fill_value)
+    sorted = data.reindex(all_regions, copy=False, fill_value=fill_value)
+    if _has_non_nullable_int_array(data):
+        sorted = sorted.convert_dtypes() # if possible, convert to Int64 arrays with pd.NA support
+    return sorted
 
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
     @staticmethod
@@ -335,9 +343,12 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             If `inplace=True` it returns the same instance.
         """
         data = self.data.copy() if not inplace else self.data
+        convert_dtypes = _has_non_nullable_int_array(data)
         regions = [region, *regions]
         if fill_nan:
             data[regions] = np.nan
+            if convert_dtypes:
+                data = data.convert_dtypes()
         else:
             data = data[data.index.isin(regions)]
         return self if inplace else BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
@@ -420,6 +431,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         """
         if fill_nan:
             data = self.data.reindex(index=brain_regions, fill_value=np.nan)
+            if _has_non_nullable_int_array(self.data):
+                data = data.convert_dtypes()
         elif not (unknown_regions:=np.isin(brain_regions, self.data.index)).all():
             unknown_regions = np.array(brain_regions)[~unknown_regions]
             raise ValueError(f"Can't find some regions in {self}: '"+"', '".join(unknown_regions)+"'!")

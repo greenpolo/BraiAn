@@ -86,7 +86,11 @@ class AnimalGroup:
         else:
             merge = lambda brain: brain
         if brain_ontology is not None:
-            sort: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)
+            regions = _common_regions(animals)
+            def sort(brain: AnimalBrain) -> AnimalBrain:
+                brain = brain.select_from_list(regions, fill_nan=True, inplace=False)
+                brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=True)
+                return brain
         elif fill_nan:
             regions = _common_regions(animals)
             sort: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.select_from_list(regions, fill_nan=True, inplace=False)

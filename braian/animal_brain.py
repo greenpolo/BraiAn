@@ -472,6 +472,8 @@ class AnimalBrain:
             # extracts name and units from the column's name. E.g. 'area (mm²)' -> ('area', 'mm²')
             matches = re.findall(pattern, column)
             name, units = matches[0] if len(matches) == 1 else (column, None)
+            # convert to nullable type, if possible
+            data = data.convert_dtypes()
             if name == "area":
                 areas = BrainData(data, animal_name, mode, units)
             else: # it's a marker
