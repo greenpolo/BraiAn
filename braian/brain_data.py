@@ -75,7 +75,7 @@ def _sort_by_ontology(data: pd.DataFrame|pd.Series,
 
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
     @staticmethod
-    def reduce(first: Self, second: Self, *others: Self,
+    def reduce(first: Self, *others: Self,
               op: Callable[[pd.DataFrame],pd.Series]=pd.DataFrame.mean,
               name=None, op_name=None,
               same_units=True,
@@ -88,8 +88,6 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         ----------
         first
             The first data to reduce.
-        second
-            The second data to reduce.
         *others
             Any number of additional brain data to reduce.
         op
@@ -109,17 +107,17 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         :
             A new `BrainData` result of the reduction of all the given data.
         """
-        assert first.metric == second.metric and all([first.metric == other.metric for other in others]),\
-            f"Merging must be done between BrainData of the same metric, instead got {[first.metric, second.metric, *[other.metric for other in others]]}!"
+        assert all([first.metric == other.metric for other in others]),\
+            f"Merging must be done between BrainData of the same metric, instead got {[first.metric, *[other.metric for other in others]]}!"
         if same_units:
-            assert first.units == second.units and all([first.units == other.units for other in others]),\
-                f"Merging must be done between BrainData of the same units, {[first.units, second.units, *[other.units for other in others]]}!"
+            assert all([first.units == other.units for other in others]),\
+                f"Merging must be done between BrainData of the same units, {[first.units, *[other.units for other in others]]}!"
         if name is None:
-            name = ":".join([first.data_name, second.data_name, *[other.data_name for other in others]])
+            name = ":".join([first.data_name, *[other.data_name for other in others]])
         if op_name is None:
             op_name = op.__name__
-        data: pd.Series = op(pd.concat([first.data, second.data, *[other.data for other in others]], axis=1), axis=1, **kwargs)
-        return BrainData(data, name, f"{first.metric}:{op_name} (n={len(others)+2})", first.units)
+        data: pd.Series = op(pd.concat([first.data, *[other.data for other in others]], axis=1), axis=1, **kwargs)
+        return BrainData(data, name, f"{first.metric}:{op_name} (n={len(others)+1})", first.units)
 
     @staticmethod
     def mean(*data: Self, **kwargs) -> Self:
@@ -138,6 +136,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         :
             The mean of all `data`.
         """
+        assert len(data) > 0, "You must provide at least one BrainData object."
         return BrainData.reduce(*data, op=pd.DataFrame.mean, same_units=True, **kwargs)
 
     @staticmethod
@@ -157,6 +156,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         :
             The minimum value of all `data`.
         """
+        assert len(data) > 0, "You must provide at least one BrainData object."
         return BrainData.reduce(*data, op=pd.DataFrame.min, same_units=False, **kwargs)
 
     @staticmethod
@@ -176,6 +176,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         :
             The maximum value of all `data`.
         """
+        assert len(data) > 0, "You must provide at least one BrainData object."
         return BrainData.reduce(*data, op=pd.DataFrame.max, same_units=False, **kwargs)
 
     RAW_TYPE: str = "raw"
@@ -417,11 +418,11 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             A brain data filtered accordingly to the given `brain_regions`.
             If `inplace=True` it returns the same instance.
         """
-        if not (unknown_regions:=np.isin(brain_regions, self.data.index)).all():
-            unknown_regions = np.array(brain_regions)[~unknown_regions]
-            raise ValueError(f"Can't find some regions in {self}: '"+"', '".join(unknown_regions)+"'!")
         if fill_nan:
             data = self.data.reindex(index=brain_regions, fill_value=np.nan)
+        elif not (unknown_regions:=np.isin(brain_regions, self.data.index)).all():
+            unknown_regions = np.array(brain_regions)[~unknown_regions]
+            raise ValueError(f"Can't find some regions in {self}: '"+"', '".join(unknown_regions)+"'!")
         else:
             data = self.data[self.data.index.isin(brain_regions)]
         if not inplace:

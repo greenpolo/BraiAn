@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.colors as plc
 import plotly.graph_objects as go
 import random
-from collections.abc import Iterable, Collection
+from collections.abc import Iterable, Collection, Sequence
 from plotly.subplots import make_subplots
 
 import braian.stats as bas
@@ -15,12 +15,12 @@ from braian.animal_brain import AnimalBrain, SliceMetrics
 from braian.animal_group import AnimalGroup
 from braian.brain_data import BrainData
 from braian.ontology import AllenBrainOntology, MAJOR_DIVISIONS, UPPER_REGIONS
-from braian.experiment import SlicedExperiment
+from braian.experiment import Experiment, SlicedExperiment
 
 __all__ = [
     "group",
     "pie_ontology",
-    "plot_cv_above_threshold",
+    "above_threshold",
     "plot_region_density",
     "plot_permutation",
     "plot_groups_salience",
@@ -147,72 +147,93 @@ def pie_ontology(brain_ontology: AllenBrainOntology, selected_regions: Collectio
                     ))
     return fig
 
-def plot_cv_above_threshold(brain_ontology, experiment: SlicedExperiment, cv_threshold=1, width=700, height=500) -> go.Figure:
-    # fig = go.Figure()
+def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], threshold: float,
+                    regions: Sequence[str],
+                    width: int=700, height: int=500) -> go.Figure:
+    """
+    Scatter plot of the regions above a threshold. Usually used together
+    with [SliceMetrics.CVAR][braian.SliceMetrics].
+
+    Parameters
+    ----------
+    brains
+        The brains from where to get the data.
+    threshold
+        The threshold above which a brain region is displayed.
+    regions
+        The names of the brain regions to filter from.
+    width
+        The width of the plot.
+    height
+        The height of the plot.
+
+    Returns
+    -------
+    :
+        A Plotly figure.
+    """
+    if isinstance(brains, AnimalGroup):
+        metric = brains.metric
+        groups = (brains,)
+    elif isinstance(brains, Experiment):
+        metric = brains.groups[0].metric
+        groups = brains.groups
+    else:
+        metric = brains[0].mode
+        groups = (brains,)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    brains_name = [f"{brain.name} ({marker})" for group in experiment.groups for brain in group.animals for marker in brain.markers]
-    group_lengths = [len(group.animals)*len(group.animals[0].markers) for group in experiment.groups] # assumes all animals of a group have the same markers
-    n_brains_before_group = np.cumsum(group_lengths)
-    n_areas_above_thr = []
-    for n_group, group in enumerate(experiment.groups):
-        n_brains_before = n_brains_before_group[n_group-1] if n_group > 0 else 0
-        group_cvar_brains: list[AnimalBrain] = [AnimalBrain.from_slices(sliced_brain, mode=SliceMetrics.CVAR, hemisphere_distinction=False, densities=True) for sliced_brain in group.animals]
-        group_cvar_brains = [brain.select_from_ontology(brain_ontology) for brain in group_cvar_brains]
 
-        for n_brain, cvars in enumerate(group_cvar_brains):
-            # Scatterplot (animals)
-            for n_marker, marker_cvar in enumerate(cvars.markers):
-                marker_cvar_filter = cvars[marker_cvar].data > cv_threshold
-                n_areas_above_thr.append(marker_cvar_filter.sum())
-                fig.add_trace(
-                    go.Scatter(
-                        mode = "markers",
-                        y = cvars[marker_cvar].data[marker_cvar_filter],
-                        x = [n_brains_before+(len(group.animals[0].markers)*n_brain)+n_marker]*marker_cvar_filter.sum(),
-                        text = cvars[marker_cvar].data.index[marker_cvar_filter],
-                        opacity=0.7,
-                        marker=dict(
-                            size=7,
-                            color=plc.DEFAULT_PLOTLY_COLORS[n_group],
-                            line=dict(
-                                color="rgb(0,0,0)",
-                                width=1
-                            )
-                        ),
-                        name="Regions' coefficient<br>of variation",
-                        legendgroup=f"regions-cv-{n_group}",
-                        showlegend=n_brain+n_marker==0
-                    )
-                )
+    for i, group in enumerate(groups):
 
-    fig.add_trace(
-        go.Bar(
-            # x=list(range(len(n_areas_above_thr))),
-            y=n_areas_above_thr,
-            marker_color="lightsalmon",
-            opacity=0.3,
-            name=f"animals' N areas<br>above threshold",
+        n_above = dict()
+        regions_above = dict()
 
-        ),
-        secondary_y=True,
-    )
-    # reoder the data: barplot below!
-    fig.data = (fig.data[-1], *fig.data[:-1])
+        for brain in group.animals:
+            for marker in brain.markers:
+                brain_data = brain.to_pandas(units=False)[marker].reindex(regions)
+                above = brain_data > threshold
+                label = f"{brain.name} ({marker})"
+                n_above[label] = above.sum()
+                regions_above[label] = brain_data[above]
 
+        fig.add_trace(
+            go.Bar(
+                x=list(n_above.keys()),
+                y=list(n_above.values()),
+                marker_color="lightsalmon",
+                opacity=0.3,
+                showlegend=i==0,
+                legendgroup="#above",
+                name=f"#regions above {threshold}",
+            ),
+            secondary_y=True,
+        )
+        fig.add_trace(
+            go.Scatter(x=list(itertools.chain(*[[k]*len(v) for k,v in regions_above.items()])),
+                       y=list(itertools.chain(*[v.values for v in regions_above.values()])),
+                       text=list(itertools.chain(*[v.index for v in regions_above.values()])),
+                       opacity=0.7,
+                       marker=dict(
+                           size=7,
+                           color=plc.DEFAULT_PLOTLY_COLORS[i],
+                           line=dict(
+                               color="rgb(0,0,0)",
+                               width=1
+                           )
+                       ),
+                       name=group.name,
+                       legendgroup=i,
+                       mode="markers")
+        )
     fig.update_layout(
-        title = f"Slices' coefficient of variaton > {cv_threshold}",
+        title = f"{metric} > {threshold}",
 
-        xaxis = dict(
-            tickmode = "array",
-            tickvals = np.arange(0,len(brains_name)),
-            ticktext = brains_name
-        ),
         yaxis=dict(
-            title = "Regions' CV",
+            title=metric,
             gridcolor="#d8d8d8",
         ),
         yaxis2=dict(
-            title = f"#regions with CV > {cv_threshold}",
+            title=f"#regions above {threshold}",
             griddash="dot",
             gridcolor="#d8d8d8",
         ),

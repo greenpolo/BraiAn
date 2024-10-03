@@ -1,5 +1,5 @@
-from collections.abc import Iterable
-from braian import AnimalBrain, AnimalGroup, SlicedBrain, SlicedGroup, SliceMetrics
+from collections.abc import Iterable, Callable
+from braian import AllenBrainOntology, AnimalBrain, AnimalGroup, SlicedBrain, SlicedGroup, SliceMetrics
 from pathlib import Path
 from typing import Any, Self
 
@@ -24,6 +24,10 @@ class Experiment:
             if g.name.lower() == name.lower():
                 return g
         raise AttributeError(f"Uknown group named '{name.lower()}'")
+
+    def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
+              brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> Self:
+        return Experiment(self._name, *[g.apply(f, brain_ontology, fill_nan) for g in self._groups])
 
     @staticmethod
     def from_group_csv(name: str, group_names: Iterable[str],
@@ -72,8 +76,10 @@ class SlicedExperiment:
                 return g
         raise AttributeError(f"Uknown group named '{name.lower()}'")
 
-    def to_experiment(self, metric: SliceMetrics, min_slices: int, densities: bool, fill_nan: bool) -> Experiment:
-        groups = [g.to_group(metric, min_slices, densities, fill_nan) for g in self._groups]
+    def to_experiment(self, metric: SliceMetrics,
+                      min_slices: int, densities: bool,
+                      hemisphere_distinction: bool, validate: bool) -> Experiment:
+        groups = [g.to_group(metric, min_slices, densities, hemisphere_distinction, validate) for g in self._groups]
         return Experiment(self.name, *groups)
 
     def __contains__(self, animal_name: str) -> bool:

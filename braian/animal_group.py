@@ -26,7 +26,7 @@ def _have_same_regions(animals: list[AnimalBrain]) -> bool:
     return len(reduce(set.__and__, all_regions)) ==  len(regions)
 
 class AnimalGroup:
-    def __init__(self, name: str, animals: Sequence[AnimalBrain], merge_hemispheres: bool=False,
+    def __init__(self, name: str, animals: Sequence[AnimalBrain], hemisphere_distinction: bool=True,
                  brain_ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
         """
         Creates an experimental cohort from a set of `AnimalBrain`.\\
@@ -41,8 +41,8 @@ class AnimalGroup:
             The name of the cohort.
         animals
             The animals part of the group.
-        merge_hemispheres
-            If True, it merges, for each region, the data from left/right hemispheres into a single value.
+        hemisphere_distinction
+            If False, it merges, for each region, the data from left/right hemispheres into a single value.
         brain_ontology
             The ontology to which the brains' data was registered against.
             If specified, it sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
@@ -81,7 +81,7 @@ class AnimalGroup:
         assert all(brain.mode == animals[0].mode for brain in animals[1:]), "All AnimalBrains in a group must be have the same metric."
         is_split = animals[0].is_split
         assert all(is_split == brain.is_split for brain in animals), "All AnimalBrains of a group must either have spit hemispheres or not."
-        if is_split and merge_hemispheres:
+        if is_split and not hemisphere_distinction:
             merge = AnimalBrain.merge_hemispheres
         else:
             merge = lambda brain: brain
@@ -263,6 +263,14 @@ class AnimalGroup:
             return next(brain for brain in self._animals if brain.name == animal_name)
         except StopIteration:
             raise KeyError(f"'{animal_name}'")
+
+    def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
+              brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> Self:
+        return AnimalGroup(self.name,
+                           [f(a) for a in self._animals],
+                           hemisphere_distinction=False,
+                           brain_ontology=brain_ontology,
+                           fill_nan=fill_nan)
 
     def get_units(self, marker: str|None=None) -> str:
         """
@@ -521,12 +529,15 @@ class SlicedGroup:
     def animals(self) -> tuple[SlicedBrain]:
         return self._animals
 
-    def to_group(self, metric: SliceMetrics, min_slices: int, densities: bool, fill_nan: bool) -> AnimalGroup:
+    def to_group(self, metric: SliceMetrics,
+                 min_slices: int, densities: bool,
+                 hemisphere_distinction: bool, validate: bool) -> AnimalGroup:
         brains = []
         for sliced_brain in self._animals:
-            brain = AnimalBrain.from_slices(sliced_brain, metric, min_slices=min_slices, densities=densities)
+            brain = AnimalBrain.from_slices(sliced_brain, metric, min_slices=min_slices, hemisphere_distinction=hemisphere_distinction, densities=densities)
             brains.append(brain)
-        return AnimalGroup(self._name, brains, brain_ontology=self._brain_ontology, fill_nan=fill_nan)
+        ontology = self._brain_ontology if validate else None
+        return AnimalGroup(self._name, brains, hemisphere_distinction=True, brain_ontology=ontology, fill_nan=not validate)
 
     @staticmethod
     def from_qupath(name: str, brain_names: Iterable[str],

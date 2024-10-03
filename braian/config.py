@@ -40,7 +40,7 @@ class BraiAnConfig:
                                       self.output_dir, sep, brain_ontology=self._brain_ontology,
                                       fill_nan=fill_nan)
 
-    def experiment_from_qupath(self, sliced: bool=False, fill_nan: bool=True) -> Experiment|SlicedExperiment:
+    def experiment_from_qupath(self, sliced: bool=False, validate: bool=True) -> Experiment|SlicedExperiment:
         qupath = self.config["qupath"]
         qupath_dir = _resolve_dir(qupath["files"]["dirs"]["output"], relative=self.config_file.absolute().parent)
         results_subir = qupath["files"]["dirs"].get("results_subdir", ".")
@@ -70,13 +70,15 @@ class BraiAnConfig:
         return sliced_pj if sliced else sliced_pj.to_experiment(self.config["brains"]["raw-metric"],
                                                              min_slices,
                                                              densities=False, # raw matrics will never be a density
-                                                             fill_nan=fill_nan)
+                                                             hemisphere_distinction=True,
+                                                             validate=validate)
 
-    def experiment_from_sliced(self, sliced_pj: SlicedExperiment, fill_nan: bool) -> Experiment:
+    def experiment_from_sliced(self, sliced_pj: SlicedExperiment, validate: bool=True) -> Experiment:
         return sliced_pj.to_experiment(self.config["brains"]["raw-metric"],
                                     self.config["qupath"]["min-slices"],
                                     densities=False, # raw matrics will never be a density
-                                    fill_nan=fill_nan)
+                                    hemisphere_distinction=True,
+                                    validate=validate)
         
 
 def _resolve_dir(path: Path|str, relative: Path|str) -> Path:
