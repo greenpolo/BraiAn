@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.colors as plc
 import plotly.graph_objects as go
 import random
-from collections.abc import Iterable
+from collections.abc import Iterable, Collection
 from plotly.subplots import make_subplots
 
 import braian.stats as bas
@@ -19,7 +19,7 @@ from braian.experiment import SlicedExperiment
 
 __all__ = [
     "group",
-    "plot_pie",
+    "pie_ontology",
     "plot_cv_above_threshold",
     "plot_region_density",
     "plot_permutation",
@@ -57,7 +57,7 @@ def group(group: AnimalGroup, selected_regions: list[str]|np.ndarray[str],
     Returns
     -------
     :
-        A plotly figure.
+        A Plotly figure.
 
     Raises
     ------
@@ -99,8 +99,35 @@ def group(group: AnimalGroup, selected_regions: list[str]|np.ndarray[str],
     fig.update_layout(legend=dict(tracegroupgap=0), scattermode="group")
     return fig
 
-def plot_pie(selected_regions: list[str], brain_ontology: AllenBrainOntology,
-                use_acronyms=True, hole=0.3, line_width=2, text_size=12):
+def pie_ontology(brain_ontology: AllenBrainOntology, selected_regions: Collection[str],
+        use_acronyms: bool=True, hole: float=0.3, line_width: float=2, text_size: float=12) -> go.Figure:
+    """
+    Pie plot of the major divisions weighted on the number of corresponding selected subregions.
+
+    Parameters
+    ----------
+    brain_ontology
+        The brain region ontology used to gather the hierarchy of brain regions.
+    selected_regions
+        The selected subregions counted by major division.
+    use_acronyms
+        If True, it displays brain region names as acronyms. If False, it uses their full name.
+    hole
+        The size of the hole in the pie chart. Must be between 0 and 1. 
+    line_width
+        The thickness of pie's slices.
+    text_size
+        The size of the brain region names.
+
+    Returns
+    -------
+    :
+        A Plotly figure.
+
+    See also
+    --------
+    [braian.AllenBrainOntology.get_corresponding_md][]
+    """
     active_mjd = tuple(brain_ontology.get_corresponding_md(*selected_regions).values())
     mjd_occurrences = [(mjd, active_mjd.count(mjd)) for mjd in UPPER_REGIONS]
     allen_colours = brain_ontology.get_region_colors()
