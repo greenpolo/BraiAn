@@ -240,6 +240,12 @@ class AnimalBrain:
             data.remove_region(*regions, inplace=True, fill_nan=fill_nan)
         self.areas.remove_region(*regions, inplace=True, fill_nan=fill_nan)
 
+    def remove_missing(self) -> None:
+        """
+        Removes the regions for which there is no data about the size.
+        """
+        self.remove_region(*self.areas.missing_regions(), fill_nan=False)
+
     def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
                          fill_nan: bool=False, inplace: bool=False) -> Self:
         """

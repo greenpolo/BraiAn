@@ -350,8 +350,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             if convert_dtypes:
                 data = data.convert_dtypes()
         else:
-            data = data[data.index.isin(regions)]
-        return self if inplace else BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
+            data = data[~data.index.isin(regions)]
+        
+        if inplace:
+            self.data = data
+            return self
+        else:
+            return braian.BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
 
     def set_regions(self, brain_regions: Collection[str],
                     brain_ontology: AllenBrainOntology,
@@ -408,6 +413,17 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         else:
             self.data = data
             return self
+
+    def missing_regions(self) -> list[str]:
+        """
+        Return the acronyms of the brain regions with missing data.
+
+        Returns
+        -------
+        :
+            The acronyms of the brain regions with missing data.
+        """
+        return list(self.data[self.data.isna()].index)
 
     def select_from_list(self, brain_regions: Sequence[str], fill_nan=False, inplace=False) -> Self:
         """

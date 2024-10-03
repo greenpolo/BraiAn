@@ -450,7 +450,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         hmap = go.Heatmap(z=group_df, x=group_df.columns, y=group_df.index, hoverongaps=False, coloraxis="coloraxis", hovertemplate=heatmap_ht(marker, metric))
         if not group_df.isna().any(axis=None):
             return (hmap,)
-        nan_hmap = go.Heatmap(z=np.isnan(group_df).astype(int), x=group_df.columns, y=group_df.index, hoverinfo="skip", #hoverongaps=False, hovertemplate=heatmap_ht(marker),
+        nan_hmap = go.Heatmap(z=pd.isna(group_df).astype(int), x=group_df.columns, y=group_df.index, hoverinfo="skip", #hoverongaps=False, hovertemplate=heatmap_ht(marker),
                             showscale=False, colorscale=[[0, "rgba(0,0,0,0)"], [1, "silver"]])
         return hmap, nan_hmap
 

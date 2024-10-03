@@ -35,6 +35,9 @@ class AnimalGroup:
         the same [markers][braian.AnimalBrain.markers] and
         the data must all be hemisphere-aware or not (i.e. [`AnimalBrain.is_split`][braian.AnimalBrain.is_split]).
 
+        Data for regions missing in one animal but present in others will be always
+        filled with [`NaN`][numpy.nan].
+
         Parameters
         ----------
         name
@@ -47,20 +50,8 @@ class AnimalGroup:
             The ontology to which the brains' data was registered against.
             If specified, it sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
         fill_nan
-            If True, it sets the value to [`NaN`][numpy.nan] for all the regions missing in the given `animals`.\\
-            A region is missing if:
-
-            * it is in `brain_ontology`, when specified;
-            * or it is present in some animals but not all.
-
-        Raises
-        ------
-        ValueError
-            When there is no option to make sure that all animals of the cohort work on the same brain regions,
-            as `fill_nan=False`, `brain_ontology=None` and some animal misses at least one region compared to the rest.\\
-            See [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list] or
-            [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology] if you want to prepare
-            the brains in advance.
+            If True, it sets the value to [`NaN`][numpy.nan] for all the regions missing
+            from the data but present in `brain_ontology`.
 
         See also
         --------
@@ -81,25 +72,25 @@ class AnimalGroup:
         assert all(brain.mode == animals[0].mode for brain in animals[1:]), "All AnimalBrains in a group must be have the same metric."
         is_split = animals[0].is_split
         assert all(is_split == brain.is_split for brain in animals), "All AnimalBrains of a group must either have spit hemispheres or not."
+
         if is_split and not hemisphere_distinction:
             merge = AnimalBrain.merge_hemispheres
         else:
             merge = lambda brain: brain
-        if brain_ontology is not None:
+
+        if _have_same_regions(animals):
+            fill = lambda brain: brain
+        else:
             regions = _common_regions(animals)
-            def sort(brain: AnimalBrain) -> AnimalBrain:
-                brain = brain.select_from_list(regions, fill_nan=True, inplace=False)
-                brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=True)
-                return brain
-        elif fill_nan:
-            regions = _common_regions(animals)
-            sort: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.select_from_list(regions, fill_nan=True, inplace=False)
-        elif _have_same_regions(animals):
+            fill: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.select_from_list(regions, fill_nan=True, inplace=False)
+
+        if brain_ontology is None:
             sort = lambda brain: brain
         else:
-            # now BrainGroup.regions, which returns the regions of the first animal, is correct
-            raise ValueError("Cannot set fill_nan=False and brain_ontology=None if all animals of the group don't have the same brain regions.")
-        self._animals: list[AnimalBrain] = [sort(merge(brain)) for brain in animals] # brain |> merge |> sort -- OLD: brain |> merge |> analyse |> sort
+            def sort(brain: AnimalBrain) -> AnimalBrain:
+                return brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)
+
+        self._animals: list[AnimalBrain] = [sort(fill(merge(brain))) for brain in animals] # brain |> merge |> fill |> sort -- OLD: brain |> merge |> analyse |> sort
         self._mean: dict[str, BrainData] = self._update_mean()
 
     @property
