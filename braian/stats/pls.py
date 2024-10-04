@@ -339,7 +339,7 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
     component
         The n-th component (or [latent variable][braian.stats.PLS.Lx]) of the salience scores.
     fill_nan
-        Whether to fill with [NaN][numpy.nan] the scores of those regions for which the salience is not
+        Whether to fill with [`NA`][pandas.NA] the scores of those regions for which the salience is not
         computable (e.g. if brain data is missing in at least one brain of the groups).
     seed
         A random seed.

@@ -91,7 +91,7 @@ class AllenBrainOntology:
 
         Examples
         --------
-        >>> braian.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+        >>> braian.utils.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
         >>> brain_ontology = braian.AllenBrainOntology("ontology.json", [])
         >>> brain_ontology.direct_subregions["ACA"]
         ["ACAv", "ACAd"]                                    # dorsal and ventral part
@@ -212,7 +212,7 @@ class AllenBrainOntology:
 
         Examples
         --------
-        >>> braian.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+        >>> braian.utils.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
         >>> brain_ontology = braian.AllenBrainOntology("ontology.json", [])
         >>> sorted(brain_ontology.minimimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY']))
         ['BS', 'CB']

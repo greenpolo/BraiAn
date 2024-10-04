@@ -233,7 +233,7 @@ class AnimalBrain:
         region
             The acronyms of the regions to exclude from the data.
         fill_nan
-            If True, instead of removing the regions completely, it fills their value to [`NaN`][numpy.nan].
+            If True, instead of removing the regions completely, it fills their value to [`NA`][pandas.NA].
         """
         regions = (region, *regions)
         for data in self.markers_data.values():
@@ -256,7 +256,7 @@ class AnimalBrain:
         brain_ontology
             The ontology to which the current data was registered against.
         fill_nan
-            If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
+            If True, it sets the value to [`NA`][pandas.NA] for all the regions in
             `brain_ontology` missing in the current `AnimalBrain`.
         inplace
             If True, it applies the sorting to the current instance.
@@ -284,7 +284,7 @@ class AnimalBrain:
         regions
             The acronyms of the regions to select from the data.
         fill_nan
-            If True, the regions missing from the current data are filled with [`NaN`][numpy.nan].
+            If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.
@@ -318,7 +318,7 @@ class AnimalBrain:
         brain_ontology
             The ontology to which the current data was registered against.
         fill_nan
-            If True, the regions missing from the current data are filled with [`NaN`][numpy.nan].
+            If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.
@@ -478,8 +478,6 @@ class AnimalBrain:
             # extracts name and units from the column's name. E.g. 'area (mm²)' -> ('area', 'mm²')
             matches = re.findall(pattern, column)
             name, units = matches[0] if len(matches) == 1 else (column, None)
-            # convert to nullable type, if possible
-            data = data.convert_dtypes()
             if name == "area":
                 areas = BrainData(data, animal_name, mode, units)
             else: # it's a marker

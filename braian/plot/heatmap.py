@@ -58,7 +58,7 @@ def heatmap(bd: BrainData,
 
     heatmaps = [
         bgh.Heatmap(
-            d.data.to_dict(),
+            {k: np.nan if v is None else v for k,v in d.to_dict().items()}, # if d has pd.NA, it converts them to None which is unsupported by bgh
             position=None,
             orientation=orientation,
             title=title or d.metric,

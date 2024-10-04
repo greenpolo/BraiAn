@@ -3,8 +3,6 @@ import numpy as np
 import pandas as pd
 import re
 from collections.abc import Collection, Iterable, Sequence
-import pandas.api.types as pdt
-import pandas.arrays as pda
 from typing import Self, Callable
 from numbers import Number
 
@@ -58,9 +56,6 @@ def _split_index(regions: Iterable[str]) -> list[str]:
     """
     return [": ".join(t) for t in itertools.product(("Left", "Right"), regions)]
 
-def _has_non_nullable_int_array(data: pd.DataFrame|pd.Series):
-    return pdt.is_integer_dtype(data.dtype) and not isinstance(data.values, pda.IntegerArray)
-
 def _sort_by_ontology(data: pd.DataFrame|pd.Series,
                       brain_ontology: AllenBrainOntology,
                       fill=False, fill_value=np.nan) -> pd.DataFrame|pd.Series:
@@ -77,8 +72,6 @@ def _sort_by_ontology(data: pd.DataFrame|pd.Series,
         all_regions = all_regions[np.isin(all_regions, data.index)]
     # NOTE: if fill_value=np.nan -> converts dtype to float
     sorted = data.reindex(all_regions, copy=False, fill_value=fill_value)
-    if _has_non_nullable_int_array(data):
-        sorted = sorted.convert_dtypes() # if possible, convert to Int64 arrays with pd.NA support
     return sorted
 
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
@@ -211,13 +204,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             It is used to check that all `data` is attributable to a region in the ontology and to sort it accordingly.\\
             If left empty, no check or sorting is performed.
         fill_nan
-            If ontology is not `None`, it fills with [`NaN`][numpy.nan] the value of the regions in `ontology` and missing from `data`.
+            If ontology is not `None`, it fills with [`NA`][pandas.NA] the value of the regions in `ontology` and missing from `data`.
 
         See also
         --------
         [`sort_by_ontology`][braian.BrainData.sort_by_ontology]
-        """
-        self.data: pd.Series = data.copy()
+        """        # convert to nullable type
+        self.data: pd.Series = data.copy().convert_dtypes()
         """The internal representation of the current brain data."""
         self.is_split: bool = _is_split_left_right(self.data.index)
         """Whether the data of the current `BrainData` makes a distinction between right and left hemisphere."""
@@ -255,7 +248,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         brain_ontology
             The ontology to which the current data was registered against.
         fill_nan
-            If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
+            If True, it sets the value to [`NaN`][pandas.NA] for all the regions in
             `brain_ontology` missing in the current `AnimalBrain`.
         inplace
             If True, it applies the sorting to the current instance.
@@ -266,7 +259,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             Brain data sorted accordingly to `brain_ontology`.
             If `inplace=True` it returns the same instance.
         """
-        data = _sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=np.nan)
+        data = _sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA)\
+                # .convert_dtypes() # no need to convert to IntXXArray/FloatXXArray as self.data should already be
         if not inplace:
             return BrainData(data, self.data_name, self.metric, self.units)
         else:
@@ -334,7 +328,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         inplace
             If True, it removes the region(s) from the current instance.
         fill_nan
-            If True, instead of removing the region(s), it sets their value to [NaN][numpy.nan]
+            If True, instead of removing the region(s), it sets their value to [`NA`][pandas.NA]
 
         Returns
         -------
@@ -343,12 +337,9 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             If `inplace=True` it returns the same instance.
         """
         data = self.data.copy() if not inplace else self.data
-        convert_dtypes = _has_non_nullable_int_array(data)
         regions = [region, *regions]
         if fill_nan:
-            data[regions] = np.nan
-            if convert_dtypes:
-                data = data.convert_dtypes()
+            data[regions] = pd.NA
         else:
             data = data[~data.index.isin(regions)]
         
@@ -360,7 +351,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
 
     def set_regions(self, brain_regions: Collection[str],
                     brain_ontology: AllenBrainOntology,
-                    fill: Number|Collection[Number]=np.nan,
+                    fill: Number|Collection[Number]=pd.NA,
                     overwrite: bool=False, inplace: bool=False) -> Self:
         """
         Assign a new value to the given `brain_regions`. It checks that each of the given
@@ -398,7 +389,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             if len(fill) != len(brain_regions):
                 raise ValueError("'fill' argument requires a collection of the same length as 'brain_regions'")
         else:
-            assert isinstance(fill, (int, float, np.number)), "'fill' argument must either be a collection or a number"
+            assert pd.isna(fill) or isinstance(fill, (int, float, np.number)), "'fill' argument must either be a collection or a number"
             fill = itertools.repeat(fill)
         if not all(are_regions := brain_ontology.are_regions(brain_regions, "acronym")):
             unknown_regions = brain_regions[~are_regions]
@@ -434,7 +425,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         brain_regions
             The acronyms of the regions to select from the data.
         fill_nan
-            If True, the regions missing from the current data are filled with [`NaN`][numpy.nan].
+            If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.
@@ -446,9 +437,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             If `inplace=True` it returns the same instance.
         """
         if fill_nan:
-            data = self.data.reindex(index=brain_regions, fill_value=np.nan)
-            if _has_non_nullable_int_array(self.data):
-                data = data.convert_dtypes()
+            data = self.data.reindex(index=brain_regions, fill_value=pd.NA)
         elif not (unknown_regions:=np.isin(brain_regions, self.data.index)).all():
             unknown_regions = np.array(brain_regions)[~unknown_regions]
             raise ValueError(f"Can't find some regions in {self}: '"+"', '".join(unknown_regions)+"'!")

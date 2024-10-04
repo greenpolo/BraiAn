@@ -36,7 +36,7 @@ class AnimalGroup:
         the data must all be hemisphere-aware or not (i.e. [`AnimalBrain.is_split`][braian.AnimalBrain.is_split]).
 
         Data for regions missing in one animal but present in others will be always
-        filled with [`NaN`][numpy.nan].
+        filled with [`NA`][pandas.NA].
 
         Parameters
         ----------
@@ -50,7 +50,7 @@ class AnimalGroup:
             The ontology to which the brains' data was registered against.
             If specified, it sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
         fill_nan
-            If True, it sets the value to [`NaN`][numpy.nan] for all the regions missing
+            If True, it sets the value to [`NA`][pandas.NA] for all the regions missing
             from the data but present in `brain_ontology`.
 
         See also
@@ -152,7 +152,10 @@ class AnimalGroup:
         return f"AnimalGroup('{self.name}', metric={self.metric}, n={self.n})"
 
     def _update_mean(self) -> dict[str, BrainData]:
-        return {marker: BrainData.mean(*[brain[marker] for brain in self._animals], name=self.name) for marker in self.markers}
+        # NOTE: skipna=True does not work with FloatingArrays (what BrainData uses)
+        #       https://github.com/pandas-dev/pandas/issues/59965
+        return {marker: BrainData.mean(*[brain[marker] for brain in self._animals], name=self.name, skipna=True)
+                for marker in self.markers}
 
     def reduce(self, op: Callable[[pd.DataFrame], pd.Series], **kwargs) -> dict[str, BrainData]:
         """
@@ -208,7 +211,7 @@ class AnimalGroup:
         regions
             The acronyms of the regions to select from the data.
         fill_nan
-            If True, the regions missing from the current data are filled with [`NaN`][numpy.nan].
+            If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.
@@ -297,7 +300,7 @@ class AnimalGroup:
         brain_ontology
             The ontology to which the current data was registered against.
         fill_nan
-            If True, it sets the value to [`NaN`][numpy.nan] for all the regions in
+            If True, it sets the value to [`NA`][pandas.NA] for all the regions in
             `brain_ontology` missing in the current `AnimalBrain`.
         inplace
             If True, it applies the sorting to the current instance.
@@ -364,7 +367,7 @@ class AnimalGroup:
             In the latter case, the index of the `DataFrame` has two levels:
             the acronyms of the regions and the name of the animal in the group.
 
-            If a region is missing in some animals, the corresponding row is [NaN][numpy.nan]-filled.
+            If a region is missing in some animals, the corresponding row is [`NA`][pandas.NA]-filled.
         """
         if marker in self.markers:
             df = pd.concat({brain.name: brain[marker].data for brain in self._animals}, join="outer", axis=1)

@@ -5,6 +5,10 @@ from braian.animal_brain import AnimalBrain
 from braian.animal_group import AnimalGroup
 from collections.abc import Callable
 
+# NOTE: some arithmetic operations (e.g. division by zero) are not correctly converted to pd.NA,
+# which results in having BrainData filled with np.nan.
+# https://github.com/pandas-dev/pandas/issues/59961
+
 __all__ = ["density",
            "percentage",
            "relative_density",
