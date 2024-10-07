@@ -2059,13 +2059,13 @@ resolved_reference = "78926291f6c24b3fd4ff4aa76e4cc3982dbad1d6"
 
 [[package]]
 name = "mkdocs-open-in-new-tab"
-version = "1.0.5"
+version = "1.0.6"
 description = "MkDocs plugin to open outgoing links and PDFs in new tab."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "mkdocs_open_in_new_tab-1.0.5-py3-none-any.whl", hash = "sha256:82114617f8fcd43859e7151bddf05950cc27dcc8682bc82c001ffec37353f344"},
-    {file = "mkdocs_open_in_new_tab-1.0.5.tar.gz", hash = "sha256:319c8a394d6a1d079b1524177c0256559bf5f8d1aa0ea32c28d80dc308962193"},
+    {file = "mkdocs_open_in_new_tab-1.0.6-py3-none-any.whl", hash = "sha256:c188d311b882567dd300b629ef7aa0d7835b4781216ab147a9111bf686ac9221"},
+    {file = "mkdocs_open_in_new_tab-1.0.6.tar.gz", hash = "sha256:dd4389b04cc9029697e2398a3ddf1c47ff2ee7f4307112f691cf98ccf148d185"},
 ]
 
 [package.dependencies]
@@ -4010,13 +4010,13 @@ test = ["pytest", "ruff"]
 
 [[package]]
 name = "toolz"
-version = "0.12.1"
+version = "1.0.0"
 description = "List processing tools and functional utilities"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "toolz-0.12.1-py3-none-any.whl", hash = "sha256:d22731364c07d72eea0a0ad45bafb2c2937ab6fd38a3507bf55eae8744aa7d85"},
-    {file = "toolz-0.12.1.tar.gz", hash = "sha256:ecca342664893f177a13dac0e6b41cbd8ac25a358e5f215316d43e2100224f4d"},
+    {file = "toolz-1.0.0-py3-none-any.whl", hash = "sha256:292c8f1c4e7516bf9086f8850935c799a874039c8bcf959d47b600e4c44a6236"},
+    {file = "toolz-1.0.0.tar.gz", hash = "sha256:2c86e3d9a04798ac556793bced838816296a2f085017664e4995cb40a1047a02"},
 ]
 
 [[package]]
@@ -4325,4 +4325,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<4"
-content-hash = "728896cb36742761ce690f94a91dc9f6f3b63b8702cb2f05d661e77e2c57ba74"
+content-hash = "a7548da01c85f23384fd1dd493859a126e4dcf4a2080b92caacff2274406f698"

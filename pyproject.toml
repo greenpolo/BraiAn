@@ -38,7 +38,7 @@ mkdocs-material = "^9.5.35"
 mkdocs-jupyter = "^0.25.0"
 mkdocs-include-markdown-plugin = "^6.2.2"
 mkdocs-multi-theme-plugin = {git = "https://github.com/carlocastoldi/mkdocs-multi-theme-plugin.git", rev = "master"}
-mkdocs-open-in-new-tab = "^1.0.3"
+mkdocs-open-in-new-tab = "^1.0.6"
 markdown-captions = "^2.1.2"
 
 [build-system]
