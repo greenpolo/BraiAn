@@ -527,6 +527,19 @@ class SlicedGroup:
     def animals(self) -> tuple[SlicedBrain]:
         return self._animals
 
+    @property
+    def n(self) -> int:
+        return len(self._animals)
+
+    def get_animals(self) -> list[str]:
+        """
+        Returns
+        -------
+        :
+            The names of the animals part of the current group.
+        """
+        return [brain.name for brain in self._animals]
+
     def to_group(self, metric: SliceMetrics,
                  min_slices: int, densities: bool,
                  hemisphere_distinction: bool, validate: bool) -> AnimalGroup:
