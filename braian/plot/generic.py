@@ -434,7 +434,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
                     selected_regions: list[str],
                     marker1: str, marker2: str=None,
                     brain_ontology: AllenBrainOntology=None,
-                    pls_n_bootstrap: int=5000,
+                    pls_n_bootstrap: int=5000, pls_n_permutation: int=5000,
                     pls_threshold=None, pls_seed=None,
                     markers_salience_scores: dict[str, BrainData]=None,
                     height: int=None, width: int=None, plot_scatter=True,
@@ -465,7 +465,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
         if pls_filtering:=len(groups) == 2:
             if markers_salience_scores is None:
                 salience_scores = bas.pls_regions_salience(groups[0], groups[1], selected_regions, marker=marker, fill_nan=True,
-                                                        n_bootstrap=pls_n_bootstrap, seed=pls_seed)
+                                                        n_bootstrap=pls_n_bootstrap, n_permutation=pls_n_permutation, seed=pls_seed)
             else:
                 salience_scores =  markers_salience_scores[marker]
             if brain_ontology is not None:
