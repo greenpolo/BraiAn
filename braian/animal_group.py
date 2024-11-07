@@ -661,7 +661,7 @@ class SlicedGroup:
 
         See also
         --------
-        [AnimalBrain.from_slices()][braian.AnimalBrain.from_slices]
+        [`AnimalBrain.from_slices`][braian.AnimalBrain.from_slices]
         """
         brains = []
         for sliced_brain in self._animals:
