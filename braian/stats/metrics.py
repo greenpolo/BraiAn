@@ -68,7 +68,7 @@ class BrainMetrics(enum.Enum):
 
 def _enforce_rawdata(brain: AnimalBrain):
     if not brain.raw:
-        raise ValueError(f"This metric cannot be computed for AnimalBrains whose data is not raw (mode={brain.mode}).")
+        raise ValueError(f"This metric cannot be computed for AnimalBrains whose data is not raw (metric={brain.metric}).")
 
 def density(brain: AnimalBrain) -> AnimalBrain:
     r"""
@@ -184,14 +184,14 @@ def _group_change(brain: AnimalBrain, group: AnimalGroup,
                   symbol: str) -> AnimalBrain:
     assert brain.is_split == group.is_split, "Both AnimalBrain and AnimalGroup must either have the hemispheres split or not"
     assert set(brain.markers) == set(group.markers), "Both AnimalBrain and AnimalGroup must have the same markers"
-    # assert brain.mode == group.metric == BrainMetrics.DENSITY, f"Both AnimalBrain and AnimalGroup must be on {BrainMetrics.DENSITY}"
+    # assert brain.metric == group.metric == BrainMetrics.DENSITY, f"Both AnimalBrain and AnimalGroup must be on {BrainMetrics.DENSITY}"
     # assert set(brain.regions) == set(group.regions), f"Both AnimalBrain and AnimalGroup must be on the same regions"
 
     markers_data = dict()
     for marker,this in brain.markers_data.items():
         data = fun(this, group.mean[marker])
         data.metric = str(metric)
-        data.units = f"{marker} {str(brain.mode)}{symbol}{group.name} {str(group.metric)}"
+        data.units = f"{marker} {str(brain.metric)}{symbol}{group.name} {str(group.metric)}"
         markers_data[marker] = data
     return AnimalBrain(markers_data=markers_data, areas=brain.areas, raw=False)
 

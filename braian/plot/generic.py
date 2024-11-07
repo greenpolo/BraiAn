@@ -227,7 +227,7 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], thresh
         groups       = tuple(g.animals for g in brains.groups)
         groups_names = tuple(g.name for g in brains.groups)
     else:
-        metric = brains[0].mode
+        metric = brains[0].metric
         groups = (brains,)
         groups_names = (None,)
     fig = make_subplots(specs=[[{"secondary_y": True}]])

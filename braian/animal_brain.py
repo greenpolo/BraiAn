@@ -99,7 +99,7 @@ class SliceMetrics(Enum):
 class AnimalBrain:
     @staticmethod
     def from_slices(sliced_brain: SlicedBrain,
-                    mode: SliceMetrics|str=SliceMetrics.SUM, min_slices: int=0,
+                    metric: SliceMetrics|str=SliceMetrics.SUM, min_slices: int=0,
                     hemisphere_distinction: bool=True, densities: bool=False) -> Self:
         """
         Crates a cohesive [`AnimalBrain`][braian.AnimalBrain] from data coming from brain sections.
@@ -108,7 +108,7 @@ class AnimalBrain:
         ----------
         sliced_brain
             A sectioned brain.
-        mode
+        metric
             The metric used to reduce sections data from the same region into a single value.
         min_slices
             The minimum number of sections for a reduction to be valid.
@@ -135,13 +135,13 @@ class AnimalBrain:
 
         name = sliced_brain.name
         markers = copy.copy(sliced_brain.markers)
-        mode = SliceMetrics(mode)
+        metric = SliceMetrics(metric)
         if len(sliced_brain.slices) < min_slices:
             raise EmptyBrainError(sliced_brain.name)
-        redux, raw = mode(sliced_brain, min_slices, densities=densities)
+        redux, raw = metric(sliced_brain, min_slices, densities=densities)
         if redux.shape[0] == 0:
             raise EmptyBrainError(sliced_brain.name)
-        metric = f"{str(mode)}_densities" if densities else str(mode)
+        metric = f"{str(metric)}_densities" if densities else str(metric)
         areas = BrainData(redux["area"], name=name, metric=metric, units="mm²")
         markers_data = {
             m: BrainData(redux[m], name=name, metric=metric, units=m)
@@ -172,13 +172,13 @@ class AnimalBrain:
         self.raw: bool = raw
         """Whether the data can be considered _raw_ (e.g., contains simple cell positive counts) or not."""
         assert all([m.data_name == self.name for m in markers_data.values()]), "All markers' BrainData must be from the same animal!"
-        assert all([m.metric == self.mode for m in markers_data.values()]), "All markers' BrainData must have the same metric!"
+        assert all([m.metric == self.metric for m in markers_data.values()]), "All markers' BrainData must have the same metric!"
         assert all([m.is_split == self.is_split for m in markers_data.values()]), "Markers' BrainData must either all have split hemispheres or none!"
         assert self.is_split == areas.is_split, "Markers' and areas' BrainData must either both have split hemispheres or none!"
         return
 
     @property
-    def mode(self) -> str:
+    def metric(self) -> str:
         """
         The name of the metric used to compute current data.
         Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
@@ -205,7 +205,7 @@ class AnimalBrain:
         return str(self)
 
     def __str__(self):
-        return f"AnimalBrain(name='{self.name}', mode={self.mode}, markers={list(self.markers)})"
+        return f"AnimalBrain(name='{self.name}', metric={self.metric}, markers={list(self.markers)})"
 
     def __getitem__(self, marker: str):
         """
@@ -392,7 +392,7 @@ class AnimalBrain:
         """
         data = pd.concat({f"area ({self.areas.units})" if units else "area": self.areas.data,
                           **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self.markers_data.items()}}, axis=1)
-        data.columns.name = str(self.mode)
+        data.columns.name = str(self.metric)
         return data
 
     def to_csv(self, output_path: Path|str, sep: str=",", overwrite: bool=False) -> str:
@@ -423,17 +423,17 @@ class AnimalBrain:
         [`from_csv`][braian.AnimalBrain.from_csv]
         """
         df = self.to_pandas(units=True)
-        file_name = f"{self.name}_{self.mode}.csv"
+        file_name = f"{self.name}_{self.metric}.csv"
         return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=df.columns.name)
 
     @staticmethod
-    def is_raw(mode: str) -> bool:
+    def is_raw(metric: str) -> bool:
         """
         Test whether the given string can be associated to a raw metric or not.
 
         Parameters
         ----------
-        mode
+        metric
             A string representing the name of a metric.
 
         Returns
@@ -442,9 +442,9 @@ class AnimalBrain:
             True, if the given string is associated to a raw metric. Otherwise, False.
         """
         try:
-            return SliceMetrics(mode)._raw
+            return SliceMetrics(metric)._raw
         except ValueError:
-            return mode == BrainData.RAW_TYPE
+            return metric == BrainData.RAW_TYPE
 
     @staticmethod
     def from_pandas(df: pd.DataFrame, animal_name: str) -> Self:
@@ -467,9 +467,9 @@ class AnimalBrain:
         --------
         [`to_pandas`][braian.AnimalBrain.to_pandas]
         """
-        if type(mode:=df.columns.name) != str:
-            mode = str(df.columns.name)
-        raw = AnimalBrain.is_raw(mode)
+        if type(metric:=df.columns.name) != str:
+            metric = str(df.columns.name)
+        raw = AnimalBrain.is_raw(metric)
         markers_data = dict()
         areas = None
         regex = r'(.+) \((.+)\)$'
@@ -479,9 +479,9 @@ class AnimalBrain:
             matches = re.findall(pattern, column)
             name, units = matches[0] if len(matches) == 1 else (column, None)
             if name == "area":
-                areas = BrainData(data, animal_name, mode, units)
+                areas = BrainData(data, animal_name, metric, units)
             else: # it's a marker
-                markers_data[name] = BrainData(data, animal_name, mode, units)
+                markers_data[name] = BrainData(data, animal_name, metric, units)
         return AnimalBrain(markers_data=markers_data, areas=areas, raw=raw)
 
     @staticmethod
@@ -508,7 +508,7 @@ class AnimalBrain:
         [`to_csv`][braian.AnimalBrain.to_csv]
         """
         # read CSV
-        # filename = f"{name}.csv" if mode is None else f"{name}_{str(mode)}.csv"
+        # filename = f"{name}.csv" if metric is None else f"{name}_{str(metric)}.csv"
         df = pd.read_csv(filepath, sep=sep, header=0, index_col=0)
         if df.index.name == "Class":
             # is old csv

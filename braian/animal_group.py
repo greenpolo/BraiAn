@@ -31,7 +31,7 @@ class AnimalGroup:
         """
         Creates an experimental cohort from a set of `AnimalBrain`.\\
         In order for a cohort to be valid, it must consist of brains with
-        the same type of data (i.e. [metric][braian.AnimalBrain.mode]),
+        the same type of data (i.e. [metric][braian.AnimalBrain.metric]),
         the same [markers][braian.AnimalBrain.markers] and
         the data must all be hemisphere-aware or not (i.e. [`AnimalBrain.is_split`][braian.AnimalBrain.is_split]).
 
@@ -69,7 +69,7 @@ class AnimalGroup:
         assert len(animals) > 0, "A group must be made of at least one animal." # TODO: should we enforce a statistical signficant n? E.g. MIN=4
         _all_markers = {marker for brain in animals for marker in brain.markers}
         assert all(marker in brain.markers for marker in _all_markers for brain in animals), "All AnimalBrain in a group must have the same markers."
-        assert all(brain.mode == animals[0].mode for brain in animals[1:]), "All AnimalBrains in a group must be have the same metric."
+        assert all(brain.metric == animals[0].metric for brain in animals[1:]), "All AnimalBrains in a group must be have the same metric."
         is_split = animals[0].is_split
         assert all(is_split == brain.is_split for brain in animals), "All AnimalBrains of a group must either have spit hemispheres or not."
 
@@ -101,7 +101,7 @@ class AnimalGroup:
     @property
     def metric(self) -> str:
         """The metric used to compute the brains' data."""
-        return self._animals[0].mode
+        return self._animals[0].metric
 
     @property
     def is_split(self) -> bool:
@@ -264,6 +264,25 @@ class AnimalGroup:
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> Self:
+        """
+        Applies a function to each animal of the group and creates a new `AnimalGroup`.
+        Especially useful when applying some sort of metric to the brain data.
+
+        Parameters
+        ----------
+        f
+            A function that maps an `AnimalBrain` into another `AnimalBrain`.
+        brain_ontology
+            The ontology to which the brains' data was registered against.\\
+            If specified, it sorts the data in depth-first search order with respect to brain_ontology's hierarchy.
+        fill_nan
+            If True, it sets the value to [`NA`][pandas.NA] for all the regions missing from the data but present in `brain_ontology`.
+
+        Returns
+        -------
+        :
+            A group with the data of each animal changed accordingly to `f`.
+        """
         return AnimalGroup(self.name,
                            [f(a) for a in self._animals],
                            hemisphere_distinction=False,
