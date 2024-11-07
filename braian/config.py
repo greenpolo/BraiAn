@@ -60,8 +60,8 @@ class BraiAnConfig:
         if self._brain_ontology is None:
             self.read_atlas_ontology()
         for g_name, brain_names in group2brains.items():
-            group = SlicedGroup.from_qupath(g_name, brain_names, markers,
-                                            qupath_dir, self._brain_ontology, exclude_parents,
+            group = SlicedGroup.from_qupath(g_name, brain_names, qupath_dir,
+                                            self._brain_ontology, markers, exclude_parents,
                                             results_subir, results_suffix,
                                             exclusions_subdir, exclusions_suffix)
             groups.append(group)

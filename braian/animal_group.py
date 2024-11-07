@@ -513,53 +513,54 @@ class AnimalGroup:
         return df
 
 class SlicedGroup:
-    def __init__(self, name: str, animals: Iterable[SlicedBrain],
-                 brain_ontology: AllenBrainOntology) -> None:
-        self._name = str(name)
-        self._animals = tuple(animals)
-        self._brain_ontology = brain_ontology
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def animals(self) -> tuple[SlicedBrain]:
-        return self._animals
-
-    @property
-    def n(self) -> int:
-        return len(self._animals)
-
-    def get_animals(self) -> list[str]:
-        """
-        Returns
-        -------
-        :
-            The names of the animals part of the current group.
-        """
-        return [brain.name for brain in self._animals]
-
-    def to_group(self, metric: SliceMetrics,
-                 min_slices: int, densities: bool,
-                 hemisphere_distinction: bool, validate: bool) -> AnimalGroup:
-        brains = []
-        for sliced_brain in self._animals:
-            brain = AnimalBrain.from_slices(sliced_brain, metric, min_slices=min_slices, hemisphere_distinction=hemisphere_distinction, densities=densities)
-            brains.append(brain)
-        ontology = self._brain_ontology if validate else None
-        return AnimalGroup(self._name, brains, hemisphere_distinction=True, brain_ontology=ontology, fill_nan=not validate)
-
     @staticmethod
     def from_qupath(name: str, brain_names: Iterable[str],
-                    ch2marker: dict[str,str],
                     qupath_dir: Path|str,
                     brain_ontology: AllenBrainOntology,
+                    ch2marker: dict[str,str],
                     exclude_parents: bool,
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
                     exclusions_suffix: str="_regions_to_exclude.txt") -> Self:
+        """
+        Creates an experimental cohort from the section files exported with QuPath. 
+
+        Parameters
+        ----------
+        name
+            The name of the cohort.
+        brain_names
+            The names of the animals part of the group.
+        qupath_dir
+            The path to where all the reports of the brains' sections were saved from QuPath.
+        brain_ontology
+            An ontology against whose version the brains were aligned.
+        ch2marker
+            A dictionary mapping QuPath channel names to markers.
+        exclude_parents
+            `exclude_parent_regions` from [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions].
+        results_subdir
+            The name of the subfolder in `qupath_dir/brain_name` that contains all cell counts files of each brain section.\\
+            It can be `None` if no subfolder is used.
+        results_suffix
+            The suffix used to identify cell counts files saved in `results_subdir`. It includes the file extension.
+        exclusions_subdir
+            The name of the subfolder in `qupath_dir/brain_name` that contains all regions to exclude from further
+            analysis of each brain section.\\
+            It can be `None` if no subfolder is used.
+        exclusions_suffix
+            The suffix used to identify exclusion files saved in `results_subdir`. It includes the file extension.
+
+        Returns
+        -------
+        :
+            A group made of sliced brain data.
+
+        See also
+        --------
+        [`SlicedBrain.from_qupath`][braian.SlicedBrain.from_qupath]
+        """
         sliced_brains = []
         for brain_name in brain_names:
             sliced_brain = SlicedBrain.from_qupath(brain_name, qupath_dir/brain_name, brain_ontology,
@@ -568,3 +569,84 @@ class SlicedGroup:
                                                    exclusions_subdir, exclusions_suffix)
             sliced_brains.append(sliced_brain)
         return SlicedGroup(name, sliced_brains, brain_ontology)
+
+    def __init__(self, name: str, animals: Iterable[SlicedBrain],
+                 brain_ontology: AllenBrainOntology) -> None:
+        """
+        Creates an experimental cohort from a set of `SlicedBrain`.\\
+        It is meant to help keeping organised raw data coming multiple sections per-animal.
+
+        Parameters
+        ----------
+        name
+            The name of the cohort.
+        animals
+            The animals part of the group.
+        brain_ontology
+            The ontology to which the brains' data was registered against.
+        """
+        self._name = str(name)
+        self._animals = tuple(animals)
+        self._brain_ontology = brain_ontology
+
+    @property
+    def name(self) -> str:
+        """The name of the sliced group."""
+        return self._name
+
+    @property
+    def animals(self) -> tuple[SlicedBrain]:
+        """The brains making up the current sliced group."""
+        return self._animals
+
+    @property
+    def n(self) -> int:
+        """The size of the sliced group."""
+        return len(self._animals)
+
+    def get_animals(self) -> list[str]:
+        """
+        Returns
+        -------
+        :
+            The names of the animals part of the current sliced group.
+        """
+        return [brain.name for brain in self._animals]
+
+    def to_group(self, metric: SliceMetrics,
+                 min_slices: int, densities: bool,
+                 hemisphere_distinction: bool, validate: bool) -> AnimalGroup:
+        """
+        Aggrecates the data from all sections of each [`SlicedBrain`][braian.SlicedBrain]
+        into [`AnimalBrain`][braian.AnimalBrain] and organises them into the corresponding
+        [`AnimalGroup`][braian.AnimalGroup].
+
+        Parameters
+        ----------
+        metric
+            The metric used to reduce sections data from the same region into a single value.
+        min_slices
+            The minimum number of sections for a reduction to be valid. If a region has not enough sections, it will disappear from the dataset.
+        densities
+            If True, it computes the reduction on the section density (i.e., marker/area) instead of doing it on the raw cell counts.
+        hemisphere_distinction
+            If False, it merges, for each region, the data from left/right hemispheres into a single value.
+        validate
+            If True, it validates each region in each brain, checking that they are
+            present in the brain region ontology against which the brains were alligned.
+
+        Returns
+        -------
+        :
+            A group with the values from sections of the same animals aggregated.
+
+        See also
+        --------
+        [AnimalBrain.from_slices()][braian.AnimalBrain.from_slices]
+        """
+        brains = []
+        for sliced_brain in self._animals:
+            brain = AnimalBrain.from_slices(sliced_brain, metric, min_slices=min_slices, hemisphere_distinction=hemisphere_distinction, densities=densities)
+            brains.append(brain)
+        ontology = self._brain_ontology if validate else None
+        return AnimalGroup(self._name, brains, hemisphere_distinction=True, brain_ontology=ontology, fill_nan=not validate)

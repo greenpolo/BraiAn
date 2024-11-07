@@ -50,7 +50,7 @@ class SlicedBrain:
                     ch2marker: dict[str,str],
                     exclude_parent_regions: bool=False,
                     results_subdir: str="results",
-                    results_suffix: str="_regions.txt",
+                    results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
                     exclusions_suffix: str="_regions_to_exclude.txt"
                     ) -> Self:
@@ -69,9 +69,9 @@ class SlicedBrain:
         name
             The name of the animal.
         animal_dir
-            The path to where all brain sections' reports from QuPath were saved. Both per-region results and exclusions.
+            The path to where all the reports of the brain sections were saved from QuPath. Both per-region results and exclusions.
         brain_ontology
-            An ontology against whose version the brain was aligned
+            An ontology against whose version the brain was aligned.
         ch2marker
             A dictionary mapping QuPath channel names to markers.
         exclude_parent_regions

@@ -27,7 +27,7 @@ def permutation(pls: bas.PLS, component: int=1) -> go.Figure:
     
     See also
     --------
-    [`PLS.n_components()`][braian.stats.PLS.n_components]
+    [`PLS.n_components`][braian.stats.PLS.n_components]
     """
     n,_ = pls.s_sampling_distribution.shape
     assert 1 <= component < pls.n_components(), f"'component' must be between 1 and {pls.n_components()}."
@@ -72,7 +72,7 @@ def groups_salience(pls: bas.PLS, component: int=1) -> go.Figure:
     
     See also
     --------
-    [`PLS.n_components()`][braian.stats.PLS.n_components]
+    [`PLS.n_components`][braian.stats.PLS.n_components]
     """
     assert 1 <= component < pls.n_components(), f"'component' must be between 1 and {pls.n_components()}."
     return go.Figure(go.Bar(x=pls.u.index, y=pls.u.iloc[:,component-1]))\
