@@ -299,23 +299,55 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             raise ValueError(f"No data for '{acronym}' in {self}!")
         return self.data[acronym]
 
-    def min(self) -> float:
+    def min(self, skipna: bool=True, skiinf: bool=False) -> float:
         """
+        Parameters
+        ----------
+        skipna
+            If True, it does not consider [`NA`][pandas.NA] values.
+        skiinf
+            If True, it does not consider infinite values.
+
         Returns
         -------
         :
             The smallest value in the current `BrainData`.
         """
-        return self.data[self.data != np.inf].min()
+        # TODO: skipna does not work in current pandas
+        #       https://github.com/pandas-dev/pandas/issues/59965
+        # return self.data[self.data != np.inf].min(skipna=skipna)
+        if skipna:
+            data = self.data[~np.isnan(self.data)]
+        else:
+            data = self.data
+        if skiinf:
+            data = data[data != np.inf]
+        return data.min()
 
-    def max(self) -> float:
+    def max(self, skipna: bool=True, skiinf: bool=False) -> float:
         """
+        Parameters
+        ----------
+        skipna
+            If True, it does not consider [`NA`][pandas.NA] values.
+        skiinf
+            If True, it does not consider infinite values.
+
         Returns
         -------
         :
             The biggest value in the current `BrainData`.
         """
-        return self.data[self.data != np.inf].max()
+        # TODO: skipna does not work in current pandas
+        #       https://github.com/pandas-dev/pandas/issues/59965
+        # return self.data[self.data != np.inf].max(skipna=skipna)
+        if skipna:
+            data = self.data[~np.isnan(self.data)]
+        else:
+            data = self.data
+        if skiinf:
+            data = data[data != np.inf]
+        return data.max(skipna=skipna)
 
     def remove_region(self, region: str, *regions: str, inplace: bool=False, fill_nan: bool=False) -> Self:
         """
