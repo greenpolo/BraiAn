@@ -12,7 +12,7 @@ import braian.stats as bas
 from braian.utils import nrange
 from braian.sliced_brain import SlicedBrain
 from braian.animal_brain import AnimalBrain, SliceMetrics
-from braian.animal_group import AnimalGroup
+from braian.animal_group import AnimalGroup, SlicedGroup
 from braian.brain_data import BrainData
 from braian.ontology import AllenBrainOntology, MAJOR_DIVISIONS, UPPER_REGIONS
 from braian.experiment import Experiment, SlicedExperiment
@@ -21,7 +21,7 @@ __all__ = [
     "group",
     "pie_ontology",
     "above_threshold",
-    "plot_region_density",
+    "slice_density",
     "plot_permutation",
     "plot_groups_salience",
     #"plot_latent_component",
@@ -174,21 +174,24 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], thresh
     """
     if isinstance(brains, AnimalGroup):
         metric = brains.metric
-        groups = (brains,)
+        groups = (brains.animals,)
+        groups_names = (brains.name,)
     elif isinstance(brains, Experiment):
         metric = brains.groups[0].metric
-        groups = brains.groups
+        groups       = tuple(g.animals for g in brains.groups)
+        groups_names = tuple(g.name for g in brains.groups)
     else:
         metric = brains[0].mode
         groups = (brains,)
+        groups_names = (None,)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    for i, group in enumerate(groups):
+    for i, (group,group_name) in enumerate(zip(groups,groups_names)):
 
         n_above = dict()
         regions_above = dict()
 
-        for brain in group.animals:
+        for brain in group:
             for marker in brain.markers:
                 brain_data = brain.to_pandas(units=False)[marker].reindex(regions)
                 above = brain_data > threshold
@@ -208,22 +211,22 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], thresh
             ),
             secondary_y=True,
         )
-        fig.add_trace(
-            go.Scatter(x=list(itertools.chain(*[[k]*len(v) for k,v in regions_above.items()])),
-                       y=list(itertools.chain(*[v.values for v in regions_above.values()])),
-                       text=list(itertools.chain(*[v.index for v in regions_above.values()])),
-                       opacity=0.7,
-                       marker=dict(
-                           size=7,
-                           color=plc.DEFAULT_PLOTLY_COLORS[i],
-                           line=dict(
-                               color="rgb(0,0,0)",
-                               width=1
-                           )
-                       ),
-                       name=group.name,
-                       legendgroup=i,
-                       mode="markers")
+        fig.add_scatter(
+            x=list(itertools.chain(*[[k]*len(v) for k,v in regions_above.items()])),
+            y=list(itertools.chain(*[v.values for v in regions_above.values()])),
+            text=list(itertools.chain(*[v.index for v in regions_above.values()])),
+            opacity=0.7,
+            marker=dict(
+                size=7,
+                color=plc.DEFAULT_PLOTLY_COLORS[i],
+                line=dict(
+                    color="rgb(0,0,0)",
+                    width=1
+                )
+            ),
+            name=group_name,
+            legendgroup=i,
+            mode="markers"
         )
     fig.update_layout(
         title = f"{metric} > {threshold}",
@@ -242,67 +245,86 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], thresh
     )
     return fig
 
-def plot_region_density(region_name, experiment: SlicedExperiment, width=700, height=500) -> go.Figure:
-    summed_brains = []
-    colors = []
+def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
+                        regions: Collection, width: int=700, height: int=500) -> go.Figure:
+    """
+    Scatter plot of the sections' density.
+
+    Parameters
+    ----------
+    brains
+        The brains from where to get the data.
+    regions
+        The regions to plot. If the data of `brains` is split between left and right hemisphere,
+        you can pass, for example, both "Left: Isocortex" and "Right: Isocortex".
+    width
+        The width of the plot.
+    height
+        The height of the plot.
+
+    Returns
+    -------
+    :
+        A Plotly figure.
+    """
+    if isinstance(brains, SlicedGroup):
+        groups = (brains.animals,)
+        groups_names = (brains.name,)
+    elif isinstance(brains, SlicedExperiment):
+        groups       = tuple(g.animals for g in brains.groups)
+        groups_names = tuple(g.name for g in brains.groups)
+    else:
+        groups = (brains,)
+        groups_names = (None,)
 
     fig = go.Figure()
-    brains_name = [f"{brain.name} ({marker})" for group in experiment.groups for brain in group.animals for marker in brain.markers]
-    group_lengths = [len(group.animals)*len(group.animals[0].markers) for group in experiment.groups] # assumes all animals of a group have the same markers
-    n_brains_before_group = np.cumsum(group_lengths)
-    for i, group in enumerate(experiment.groups):
-        n_brains_before = n_brains_before_group[i-1] if i > 0 else np.int64(0)
-        group_summed_brains = [AnimalBrain.from_slices(sliced_brain, hemisphere_distinction=False) for sliced_brain in group.animals]
-        summed_brains.extend(group_summed_brains)
-        colors.extend([plc.DEFAULT_PLOTLY_COLORS[i]]*len(group.animals)*len(group.animals[0].markers))
-        for j, sliced_brain in enumerate(group.animals):
-            sliced_brain = SlicedBrain.merge_hemispheres(sliced_brain)
-            for m, marker in enumerate(sliced_brain.markers):
-                n_brain = n_brains_before+(len(group.animals[0].markers)*j)+m
-                slices_density = []
-                for slice in sliced_brain.slices:
-                    try:
-                        density = slice.data.loc[region_name, marker] / slice.data.loc[region_name, "area"]
-                        # density = slice.data.loc[region_name, marker]
-                    except KeyError as e:
-                        # print(f"WARNING: Could not find the data for marker '{marker}' in '{region_name}' region for image '{slice.name}' of {slice.animal}")
-                        continue
-                    slices_density.append(density)
-                fig.add_trace(
-                    go.Scatter(
-                        mode = "markers",
-                        y = slices_density,
-                        x = [n_brain] * len(slices_density),
-                        text = [f"{slice.name} ({marker})" for slice in sliced_brain.slices],
-                        name = f"image's markers density",
-                        opacity=0.7,
-                        marker=dict(
-                            size=7,
-                            color=plc.DEFAULT_PLOTLY_COLORS[i],
-                            line=dict(
-                                color="rgb(0,0,0)",
-                                width=1
-                            )
-                        ),
-                        legendgroup="slices-roots",
-                        showlegend=bool(n_brain==0),
-                    )
-                )
-    fig.add_trace(
-        go.Bar(
-            y=[brain[marker][region_name] / brain.areas[region_name] for brain in summed_brains for marker in brain.markers],
-            marker_color=colors,
-            name=f"animal's markers density"
-        )
-    )
+    regions = ["Right: root", "Left: root"]
+    for i, (group, group_name) in enumerate(zip(groups,groups_names)):
+        brain_densities = []
+        brain_densities_mean = dict()
+        for brain in group:
+            region_densities = {(slice,marker): slice.markers_density.loc[region, marker]
+                                for slice in brain.slices
+                                for marker in brain.markers
+                                for region in regions
+                                if region in slice.markers_density.index}
+            if len(region_densities) == 0:
+                continue
+            brain_densities.append(region_densities)
+            for marker in brain.markers:
+                brain_densities_mean[f"{brain.name} ({marker})"] = np.mean([density for (s,m),density in region_densities.items() if m == marker])
 
+        xs = [f"{slice.animal} ({marker})" for region_densities in brain_densities for slice,marker in region_densities.keys()]
+        texts =                [slice.name for region_densities in brain_densities for slice,_      in region_densities.keys()]
+
+        fig.add_bar(
+                x=list(brain_densities_mean.keys()),
+                y=list(brain_densities_mean.values()),
+                # text=texts,
+                marker_color=plc.DEFAULT_PLOTLY_COLORS[i],
+                # opacity=0.3,
+                # showlegend=i==0,
+                # legendgroup="#above",
+                name=f"{group_name} - mean"
+        )
+        fig.add_scatter(
+                x=xs,
+                y=[slice_density for region_densities in brain_densities for slice_density in region_densities.values()],
+                text=texts,
+                opacity=0.7,
+                marker=dict(
+                    size=7,
+                    color=plc.DEFAULT_PLOTLY_COLORS[i],
+                    line=dict(
+                        color="rgb(0,0,0)",
+                        width=1
+                    )
+                ),
+                name=f"{group_name} - slices",
+                mode="markers"
+        )
     fig.update_layout(
-        title = f"Markers' density in '{region_name}'",
-        xaxis = dict(
-            tickmode = "array",
-            tickvals = np.arange(len(brains_name)),
-            ticktext = brains_name
-        ),
+        title = f"density in {list(regions)}",
         yaxis = dict(
             title = f"marker/mm²"
         ),

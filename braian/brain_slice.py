@@ -300,7 +300,9 @@ class BrainSlice:
 
         self.markers_density: pd.DataFrame = self.__marker_density()
 
-    def get_markers(self) -> list[str]:
+    @property
+    def markers(self) -> list[str]:
+        """The name of the markers for which the current `BrainSlice` has data."""
         return list(self.data.columns[self.data.columns != "area"])
 
 
@@ -390,7 +392,7 @@ class BrainSlice:
         self.data.area = self.data.area * 1e-06
 
     def __marker_density(self) -> pd.DataFrame:
-        return self.data[self.get_markers()].div(self.data["area"], axis=0)
+        return self.data[self.markers].div(self.data["area"], axis=0)
 
     @staticmethod
     def merge_hemispheres(slice: Self) -> Self:
