@@ -169,6 +169,19 @@ class PLS:
         u, s, vh = np.linalg.svd(R, full_matrices=False) # self.X, retrieved from AnimalGroup, must have no NaN [dropna(how='any')]. If it does the PLS cannot be computed in the other regions as well
         return u, s, vh.T
 
+    def n_components(self) -> int:
+        """
+        Returns the number of components of the current PLS.
+        The number of components is determined by the number of group/marker compararisons of the PLS.
+        For example, if the current `PLS` is comparing just two groups, it has only 1 component.
+
+        Returns
+        -------
+        :
+            The maximum number of components of the current PLS.
+        """
+        return self.v.shape[1]+1
+
     def random_permutation(self, n: int, seed: Number=None):
         """
         Randomly shuffles to which group each brain is part of, and uses this _permutation
@@ -284,7 +297,7 @@ class PLS:
         :
             The list of brain regions, along with the relative score, that have a salience above `threshold`.
         """
-        assert 1 <= component < self.v_salience_scores.shape[1]+1, "The 'component' can't be lower than 1."
+        assert 1 <= component < self.n_components(), f"The 'component' must be between 1 and {self.n_components()}."
         return self.v_salience_scores[component-1][self.v_salience_scores[component-1].abs() > threshold]
 
     @staticmethod
@@ -350,11 +363,12 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
         A `BrainData` of the regions salience scores based on `marker` activity.\
         If `marker=None` and the groups have multiple markers, it returns a dictionary
         mapping each marker into the respective regions salience.
-    """
+    """    
     markers = group1.markers if marker is None else (marker,)
     salience_scores = dict()
     for m in markers:
         pls = PLS(selected_regions, group1, group2, marker=m)
+        assert 1 <= component < pls.n_components(), f"The 'component' must be between 1 and {pls.n_components()}."
         if test_h0:
             pls.random_permutation(n_permutation, seed=seed)
             p = pls.test_null_hypothesis()[component-1]

@@ -5,15 +5,36 @@ import plotly.graph_objects as go
 from braian.ontology import AllenBrainOntology, UPPER_REGIONS
 
 __all__ = [
-    "plot_permutation",
+    "permutation",
     "plot_groups_salience",
     #"plot_latent_component",
     "plot_latent_variable",
     "plot_salient_regions",
 ]
 
-def plot_permutation(pls: bas.PLS, component=1) -> go.Figure:
+def permutation(pls: bas.PLS, component=1) -> go.Figure:
+    """
+    Plots the result of [`PLS.random_permutation()`][braian.stats.PLS.random_permutation].
+    It shows how much the product of the given partial least square analysis is a result of pure chance.
+
+    Parameters
+    ----------
+    pls
+        An instance of a mean-centered task partial least square analysis.
+    component
+        The component of the PLS for which to plot the permutation.
+
+    Returns
+    -------
+    :
+        A Plotly figure.
+    
+    See also
+    --------
+    [`PLS.n_components()`][braian.stats.PLS.n_components]
+    """
     n,_ = pls.s_sampling_distribution.shape
+    assert 1 <= component < pls.n_components(), f"'component' must be between 1 and {pls.n_components()}."
     experiment = pls._s[component-1]
     permutation = pls.s_sampling_distribution
     fig = go.Figure(data=[
