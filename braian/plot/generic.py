@@ -22,6 +22,7 @@ __all__ = [
     "pie_ontology",
     "above_threshold",
     "slice_density",
+    "region_scores",
 ]
 
 def to_rgba(color: str, alpha) -> str:
@@ -152,7 +153,7 @@ def pie_ontology(brain_ontology: AllenBrainOntology, selected_regions: Collectio
     Parameters
     ----------
     brain_ontology
-        The brain region ontology used to gather the hierarchy of brain regions.
+        The brain region ontology used to gather the major divisions of each brain area.
     selected_regions
         The selected subregions counted by major division.
     use_acronyms
@@ -376,5 +377,96 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
 #        hovermode="x unified",
         width=width, height=height,
         template="none"
+    )
+    return fig
+
+
+def region_scores(scores: pd.Series, brain_ontology: AllenBrainOntology,
+                  title: str=None, title_size: int=20,
+                  regions_size: int=15, use_acronyms: bool=True, use_acronyms_in_mjd: bool=True,
+                  mjd_opacity: float=0.5, thresholds: float|Collection[float]=None, width: int=800,
+                  barheight:float=30, bargap: float=0.3, bargroupgap: float=0.0): #, height=500):
+    """
+    Bar plot of the given regions' scores, visually grouped by the major divisions of the given `brain_ontology`.
+
+    Parameters
+    ----------
+    scores
+        A series of scores for each brain region, where each brain region is represented by its acronym and it is the index of the scores.
+    brain_ontology
+        The brain region ontology used to gather the major divisions of each brain area.
+    title
+        The title of the plot.
+    title_size
+        The size of the title.
+    regions_size
+        The size of each brain region name.
+    use_acronyms
+        If True, it uses the acronym of the brain regions instead of their full name.
+    use_acronyms_in_mjd
+        If True, it uses the acronym of the major divisions instead of their full name.
+    mjd_opacity
+        The amount of opacity used for the background of bar plot, delimiting each major division.
+    thresholds
+        If specified, it plots a vertical dotted line at the given value.
+    width
+        The width of the plot.
+
+    Returns
+    -------
+    :
+        A Plotly figure.
+
+    See also
+    --------
+    [braian.AllenBrainOntology.get_corresponding_md][]
+    """
+    active_mjd = tuple(brain_ontology.get_corresponding_md(*scores.index).values())
+    allen_colours = brain_ontology.get_region_colors()
+    fig = go.Figure([
+        go.Bar(
+            x=scores,
+            y=[
+                [mjd.upper() if use_acronyms_in_mjd else brain_ontology.full_name[mjd].upper() for mjd in active_mjd],
+                scores.index if use_acronyms else [brain_ontology.full_name[r] for r in scores.index]
+            ],
+            marker_color=[allen_colours[r] for r in scores.index],
+            orientation="h"
+        )
+    ])
+    y0 = -0.5
+    for mjd in UPPER_REGIONS:
+        n = active_mjd.count(mjd)
+        if n == 0:
+            continue
+        fig.add_hrect(y0=y0, y1=y0+n, fillcolor=allen_colours[mjd], line_width=0, opacity=mjd_opacity, layer="below")
+        y0 += n
+    if thresholds is not None:
+        if isinstance(thresholds, float):
+            thresholds = (thresholds,)
+        for threshold in thresholds:
+            fig.add_vline(threshold, opacity=1, line=dict(width=2, dash="dash", color="black"))
+            fig.add_vline(-threshold, opacity=1, line=dict(width=2, dash="dash", color="black"))
+
+    fig.update_layout(
+        title=dict(
+            text=title,
+            font=dict(size=title_size)
+        ),
+        width=width, height=barheight*(len(active_mjd)+1), # height,
+        bargap=bargap,
+        bargroupgap=bargroupgap,
+        xaxis=dict(
+            title = "Salience score",
+            tickfont=dict(size=regions_size)
+        ),
+        yaxis=dict(
+            autorange="reversed",
+            dtick=1,
+            tickfont=dict(size=regions_size)
+        ),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        template="simple_white"
     )
     return fig

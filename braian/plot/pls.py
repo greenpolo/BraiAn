@@ -1,18 +1,14 @@
 import braian.stats as bas
-import pandas as pd
 import plotly.graph_objects as go
-
-from braian.ontology import AllenBrainOntology, UPPER_REGIONS
 
 __all__ = [
     "permutation",
-    "plot_groups_salience",
+    "groups_salience",
     #"plot_latent_component",
-    "plot_latent_variable",
-    "plot_salient_regions",
+    "latent_variable",
 ]
 
-def permutation(pls: bas.PLS, component=1) -> go.Figure:
+def permutation(pls: bas.PLS, component: int=1) -> go.Figure:
     """
     Plots the result of [`PLS.random_permutation()`][braian.stats.PLS.random_permutation].
     It shows how much the product of the given partial least square analysis is a result of pure chance.
@@ -58,7 +54,27 @@ def permutation(pls: bas.PLS, component=1) -> go.Figure:
         )
     return fig
 
-def plot_groups_salience(pls: bas.PLS, component=1):
+def groups_salience(pls: bas.PLS, component: int=1) -> go.Figure:
+    """
+    Bar plot of the salience scores of each group in the [`PLS`][braian.stats.PLS].
+
+    Parameters
+    ----------
+    pls
+        An instance of a mean-centered task partial least square analysis.
+    component
+        The component of the PLS for which to plot the permutation.
+
+    Returns
+    -------
+    :
+        A Plotly figure.
+    
+    See also
+    --------
+    [`PLS.n_components()`][braian.stats.PLS.n_components]
+    """
+    assert 1 <= component < pls.n_components(), f"'component' must be between 1 and {pls.n_components()}."
     return go.Figure(go.Bar(x=pls.u.index, y=pls.u.iloc[:,component-1]))\
                     .update_layout(title=f"Component {component}", xaxis_title="Groups")
 
@@ -80,10 +96,30 @@ def plot_groups_salience(pls: bas.PLS, component=1):
 #               .update_yaxes(title="Ly")\
 #               .update_xaxes(title="Lx")
 
-def plot_latent_variable(pls: bas.PLS, of="X", height=800, width=800):
-    # always plots first and second components
-    # of=="X" -> plots the brain scores
-    # of=="Y" -> plots the group scores
+def latent_variable(pls: bas.PLS, of: str="X", width: int=800, height: int=800) -> go.Figure:
+    """
+    PCA-like plot of [_brain scores_][braian.stats.PLS.Lx] or [_group scores_][braian.stats.PLS.Ly] of a PLS.
+    This might help see how animals or groups are discernable from each other.
+    
+    It always plots the first component on the x-axis and the second component on the y-axis.
+
+    Parameters
+    ----------
+    pls
+        An instance of a mean-centered task partial least square analysis.
+    of
+        If "X", it plots the [_brain scores_][braian.stats.PLS.Lx].
+        If "Y", it plots the [_group scores_][braian.stats.PLS.Ly].
+    width
+        The width of the plot.
+    height
+        The height of the plot.
+
+    Returns
+    -------
+    :
+        A Plotly figure.
+    """
     assert of.lower() in ("x", "y"), "You must choose whether to plot latent variables of X (brain scores) or of Y (group scores)"
     latent_variables = pls.Lx if of.lower() == "x" else pls.Ly
     fig = go.Figure([go.Scatter(x=latent_variables[0][pls.Y.iloc[:,i]], y=latent_variables[1][pls.Y.iloc[:,i]],
@@ -95,58 +131,3 @@ def plot_latent_variable(pls: bas.PLS, of="X", height=800, width=800):
     return fig.update_layout(template = "none", height=height, width=width)\
                 .update_xaxes(title="1", zerolinecolor="#f0f0f0", gridcolor="#f0f0f0")\
                 .update_yaxes(title="2", zerolinecolor="#f0f0f0", gridcolor="#f0f0f0", scaleanchor="x", scaleratio=1)
-
-def plot_salient_regions(salience_scores: pd.Series, brain_ontology: AllenBrainOntology,
-                            title=None, title_size=20,
-                            axis_size=15, use_acronyms=True, use_acronyms_in_mjd=True,
-                            mjd_opacity=0.5, width=300, thresholds=None,
-                            barheight=30, bargap=0.3, bargroupgap=0.0):#, height=500):
-    active_mjd = tuple(brain_ontology.get_corresponding_md(*salience_scores.index).values())
-    allen_colours = brain_ontology.get_region_colors()
-    fig = go.Figure([
-        go.Bar(
-            x=salience_scores,
-            y=[
-                [mjd.upper() if use_acronyms_in_mjd else brain_ontology.full_name[mjd].upper() for mjd in active_mjd],
-                salience_scores.index if use_acronyms else [brain_ontology.full_name[r] for r in salience_scores.index]
-            ],
-            marker_color=[allen_colours[r] for r in salience_scores.index],
-            orientation="h"
-        )
-    ])
-    y0 = -0.5
-    for mjd in UPPER_REGIONS:
-        n = active_mjd.count(mjd)
-        if n == 0:
-            continue
-        fig.add_hrect(y0=y0, y1=y0+n, fillcolor=allen_colours[mjd], line_width=0, opacity=mjd_opacity, layer="below")
-        y0 += n
-    if thresholds is not None:
-        if isinstance(thresholds, float):
-            thresholds = (thresholds,)
-        for threshold in thresholds:
-            fig.add_vline(threshold, opacity=1, line=dict(width=2, dash="dash", color="black"))
-            fig.add_vline(-threshold, opacity=1, line=dict(width=2, dash="dash", color="black"))
-
-    fig.update_layout(
-        title=dict(
-            text=title,
-            font=dict(size=title_size)
-        ),
-        width=width, height=barheight*(len(active_mjd)+1), # height,
-        bargap=bargap,
-        bargroupgap=bargroupgap,
-        xaxis=dict(
-            title = "Salience score",
-            tickfont=dict(size=axis_size)
-        ),
-        yaxis=dict(
-            autorange="reversed",
-            dtick=1,
-            tickfont=dict(size=axis_size)
-        ),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        template="simple_white"
-    )
-    return fig
