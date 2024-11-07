@@ -6,28 +6,82 @@ import plotly.graph_objects as go
 
 from braian.animal_group import AnimalGroup
 from braian.brain_data import BrainData
-from braian.plot.generic import to_rgba
+from braian.experiment import Experiment
+from braian.plot.generic import bar_sample
 from braian.ontology import AllenBrainOntology
+from collections.abc import Collection, Sequence
 from plotly.subplots import make_subplots
 
 __all__ = [
-    "plot_gridgroups",
-    "to_rgba"
+    "xmas_tree",
 ]
 
-def plot_gridgroups(groups: list[AnimalGroup],
-                    selected_regions: list[str],
-                    marker1: str, marker2: str=None,
-                    brain_ontology: AllenBrainOntology=None,
-                    pls_n_bootstrap: int=5000, pls_n_permutation: int=5000,
-                    pls_threshold=None, pls_seed=None,
-                    markers_salience_scores: dict[str, BrainData]=None,
-                    height: int=None, width: int=None, plot_scatter=True,
-                    barplot_width: float=0.7, space_between_markers: float=0.02,
-                    groups_marker1_colours=["LightCoral", "SandyBrown"],
-                    groups_marker2_colours=["IndianRed", "Orange"],
-                    max_value=None,
-                    color_heatmap="deep_r") -> go.Figure:
+def xmas_tree(groups: Experiment|Collection[AnimalGroup],
+              selected_regions: Collection[str],
+              marker1: str, marker2: str=None,
+              brain_ontology: AllenBrainOntology=None,
+              pls_n_bootstrap: int=None, pls_n_permutation: int=None,
+              pls_threshold: float=None, pls_seed: int=None,
+              markers_salience_scores: dict[str, BrainData]=None,
+              height: int=None, width: int=None, plot_scatter: bool=True,
+              barplot_width: float=0.7, space_between_markers: float=0.02,
+              groups_marker1_colours: Sequence=["LightCoral", "SandyBrown"],
+              groups_marker2_colours: Sequence=["IndianRed", "Orange"],
+              max_value: int=None,
+              color_heatmap: str="deep_r") -> go.Figure:
+    """
+    Plots the XMasTree of the given data. This is a visualisation of whole-brain data from multiple groups
+    in a way that is comprehensive and complete.
+
+    The data is divided in two main plots: a heatmap (the trunk) and a scatter plot (the leaves and the xmas baubles).
+    Both are aligned on the y-axis so that each row represents the data for a brain region.
+
+    Parameters
+    ----------
+    groups
+        The groups to display in the plot.
+    selected_regions
+        _description_
+    marker1
+        _description_
+    marker2
+        _description_
+    brain_ontology
+        _description_
+    pls_n_bootstrap
+        _description_
+    pls_n_permutation
+        _description_
+    pls_threshold
+        _description_
+    pls_seed
+        _description_
+    markers_salience_scores
+        _description_
+    height
+        _description_
+    width
+        _description_
+    plot_scatter
+        _description_
+    barplot_width
+        _description_
+    space_between_markers
+        _description_
+    groups_marker1_colours
+        _description_
+    groups_marker2_colours
+        _description_
+    max_value
+        _description_
+    color_heatmap
+        _description_
+
+    Returns
+    -------
+    :
+        _description_
+    """
     def heatmap_ht(marker, metric):
         return "animal: %{x}<br>region: %{y}<br>"+marker+" "+metric+": %{z:.2f}<extra></extra>"
 
@@ -47,7 +101,7 @@ def plot_gridgroups(groups: list[AnimalGroup],
             assert str(group.metric) == metric, f"Expected metric for {group} is '{metric}'"
         assert len(groups_colours) >= len(groups), f"{marker}: You must provide a colour for each group!"
         groups_df = [group.to_pandas(marker=marker).loc[selected_regions] for group in groups] # .loc sorts the DatFrame in selected_regions' order
-        if pls_filtering:=len(groups) == 2:
+        if pls_filtering:=len(groups) == 2 and pls_n_bootstrap is not None and pls_n_permutation is not None:
             if markers_salience_scores is None:
                 salience_scores = bas.pls_regions_salience(groups[0], groups[1], selected_regions, marker=marker, fill_nan=True,
                                                         n_bootstrap=pls_n_bootstrap, n_permutation=pls_n_permutation, seed=pls_seed)
@@ -84,6 +138,8 @@ def plot_gridgroups(groups: list[AnimalGroup],
         fig = make_subplots(rows=1, cols=(2*n_markers)+1, horizontal_spacing=0, column_widths=column_widths, shared_yaxes=True)
         return fig
 
+    if isinstance(groups, Experiment):
+        groups = tuple(g for g in groups.groups)
     assert barplot_width < 1 and barplot_width > 0, "Expecting 0 < barplot_width < 1"
     assert len(groups) >= 1, "You must provide at least one group!"
     # NOTE: if the groups have the same animals (i.e. same name), the heatmaps overlap
