@@ -13,7 +13,7 @@ packages = [{include = "braian"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4"
-python-igraph = "^0.11.6"
+python-igraph = "^0.11.8"
 numpy = "^2.0.2"                # for 2.1.1 wait for numba 0.61: https://github.com/numba/numba/issues/9708
 numba = ">=0.60"                # must pin numba to 0.60 in order to update to numpy 2.0
 pandas = "^2.2.2"
@@ -32,13 +32,13 @@ optional = true
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = {git = "https://github.com/carlocastoldi/mkdocs.git", rev = "on-template"}
-mkdocstrings = {extras = ["python"], version = "^0.26.1"}
+mkdocstrings = {extras = ["python"], version = "^0.26.2"}
 mkdocs-plugin-progress = "^1.2.0"
-mkdocs-material = "^9.5.35"
-mkdocs-jupyter = "^0.25.0"
+mkdocs-material = "^9.5.44"
+mkdocs-jupyter = "^0.25.1"
 mkdocs-include-markdown-plugin = "^6.2.2"
 mkdocs-multi-theme-plugin = {git = "https://github.com/carlocastoldi/mkdocs-multi-theme-plugin.git", rev = "master"}
-mkdocs-open-in-new-tab = "^1.0.6"
+mkdocs-open-in-new-tab = "^1.0.7"
 markdown-captions = "^2.1.2"
 
 [build-system]
