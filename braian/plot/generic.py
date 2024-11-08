@@ -324,7 +324,6 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
         groups_names = (None,)
 
     fig = go.Figure()
-    regions = ["Right: root", "Left: root"]
     for i, (group, group_name) in enumerate(zip(groups,groups_names)):
         brain_densities = []
         brain_densities_mean = dict()
