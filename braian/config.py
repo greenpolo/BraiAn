@@ -86,7 +86,7 @@ class BraiAnConfig:
                                                  version=self.config["atlas"]["version"])
         return self._brain_ontology
 
-    def experiment_from_csv(self, sep=",", from_brains: bool=False, fill_nan: bool=True) -> Experiment:
+    def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True) -> Experiment:
         metric = self.config["brains"]["raw-metric"]
         assert AnimalBrain.is_raw(metric), f"Configuration files should specify raw metrics only, not '{metric}'"
         group2brains: dict[str,str] = self.config["groups"]
@@ -103,7 +103,7 @@ class BraiAnConfig:
         Reads all the slice data exported to files with BraiAn's QuPath extension,
         and organises them into braian data structure used to identify an experiment.
 
-        If [`read_atlas_ontology()`][[braian.config.BraiAnConfig.read_atlas_ontology]
+        If [`read_atlas_ontology()`][braian.config.BraiAnConfig.read_atlas_ontology]
         was not called previously, it reads the ontology.
 
         Parameters

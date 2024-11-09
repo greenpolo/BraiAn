@@ -113,7 +113,7 @@ class SlicedExperiment:
     def __init__(self, name: str, group1: SlicedGroup, group2: SlicedGroup,
                  *groups: Iterable[SlicedGroup]) -> None:
         """
-        Creates an experiment from the data of two or more [`SlicedGroups`][braian.SlicedGroups].
+        Creates an experiment from the data of two or more [`SlicedGroups`][braian.SlicedGroup].
 
         Parameters
         ----------
