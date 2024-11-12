@@ -58,19 +58,6 @@ def save_csv(df: pd.DataFrame, output_path: Path|str, file_name: str, overwrite=
     df.to_csv(file_path, sep=sep, decimal=decimal, mode="w", **kwargs)
     return file_path
 
-def regions_to_plot(pls=None, salience_threshold=None,
-                    groups: list=None, normalization: str=None, low_threshold: float=0.0, top_threshold=np.inf) -> list[str]:
-    assert all((len(group.markers) == 1 for group in groups)), "Multiple markers not supported"
-    if pls is not None and salience_threshold is not None:
-        salience_scores = pls.above_threshold(salience_threshold)
-        return list(salience_scores.index)
-    elif groups is not None and normalization is not None \
-        and low_threshold is not None and top_threshold is not None:
-        groups_means = [group.mean[group.markers[0]] for group in groups]
-        mean_sum = sum(groups_means)
-        return mean_sum[(mean_sum > low_threshold) & (mean_sum < top_threshold) & (mean_sum.notnull())].sort_values().index.to_list()
-    raise ValueError("You must specify either the ('pls', 'salience_threshold') or ('groups', 'normalization', 'low_threshold') parameters.")
-
 def nrange(bottom, top, n):
     step = (abs(bottom)+abs(top))/(n-1)
     return np.arange(bottom, top+step, step)
@@ -79,7 +66,7 @@ def get_indices_where(where):
     rows = where.index[where.any(axis=1)]
     return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]
 
-def remote_dirs(experiment_dir_name: Path|str,
+def silvalab_remote_dirs(experiment_dir_name: Path|str,
                 is_collaboration_project: bool,
                 collaboration_dir_name: Path|str) -> tuple[Path,Path]:
     match sys.platform:
@@ -90,7 +77,8 @@ def remote_dirs(experiment_dir_name: Path|str,
             mnt_point = "/mnt/tenibre/"
             # mnt_point = "/run/user/1000/gvfs/smb-share:server=ich.techosp.it,share=ricerca/"
         case "win32":
-            mnt_point = r"\\sshfs\bs@tenibre.ipmc.cnrs.fr!2222\bs\ ".strip()
+            mnt_point = r"\\TENIBRE\bs\ ".strip()
+            # mnt_point = r"\\sshfs\bs@tenibre.ipmc.cnrs.fr!2222\bs\ ".strip()
             # mnt_point = "\\\\ich.techosp.it\\Ricerca\\"
         case _:
             raise Exception(f"Can't find the 'Ricerca' folder in the server for '{sys.platform}' operative system. Please report the developer (Carlo)!")
