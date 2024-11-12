@@ -170,7 +170,7 @@ class AllenBrainOntology:
         assert isinstance(a, Iterable), f"Expected a '{Iterable}' but get '{type(a)}'"
         a = list(a)
         s = set(a)
-        is_region = np.full_like(a, False)
+        is_region = np.full_like(a, False, dtype=bool)
         def check_region(node, depth):
             id = node[key]
             if id in s:
@@ -847,13 +847,21 @@ class AllenBrainOntology:
         Returns
         -------
         :
-            An OrderedDict mapping <region acronym>→<major division>
+            An OrderedDict mapping $\\text{region acronym}→\\text{major division}$
+
+        Raises
+        ------
+        ValueError
+            If it can't find some of the given `acronym` in the ontology.
         """
         def get_region_mjd(node: dict, depth: int):
             if node["major_division"]:
                 get_region_mjd.curr_mjd = node["acronym"]
             if node["acronym"] in (acronym, *acronyms):
                 get_region_mjd.res[node["acronym"]] = get_region_mjd.curr_mjd
+        acronyms = (acronym, *acronyms)
+        if not all(is_region:=self.are_regions(acronyms)):
+            raise ValueError(f"Some given regions are not recognised as part of the ontology: {np.asarray(acronyms)[~is_region]}")
         get_region_mjd.curr_mjd = None
         get_region_mjd.res = OrderedDict()
         visit_dfs(self.dict, "children", get_region_mjd)
