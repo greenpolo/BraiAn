@@ -4,9 +4,9 @@ BraiAnalyse a modular Python library for the easy navigation, visualisation, and
 
 Its aim is to give you a framework to build your own analysis, typically comparing multiple markers across groups of animals across the entire brain. It provides statistical tools optimized for whole-brain analysis of multiple markers allowing the identification  of the whole-brain sets of regions that differ between groups and visualising data in interactive and informative plots.
 
-!!! warning "Alpha Software"
+!!! warning "Beta Software"
 
-    `braian`, while already being a capable and extensible library, is still under development. Some functionalities might expose non-intuitive interfaces, others could be outright buggy. For this reason, we still consider it in alpha stage.\
+    `braian`, while already being a capable and extensible library, is still under development. Some functionalities might expose non-intuitive interfaces, others could be outright buggy. For this reason, we still consider it in beta stage.\
     If you encounter any problem, we strongly encourage to [let us know](https://codeberg.org/SilvaLab/BraiAn/issues) so that we can work together on improving BraiAn!
 
 {%
