@@ -5,7 +5,7 @@
 [tool.poetry]
 name = "braian"
 version = "1.0.1"
-description = "A python library for whole-brain analysis"
+description = "A python library for easy navigation, visualisation, and analysis of whole-brain quantification data."
 authors = ["Carlo Castoldi <carlo.castoldi@outlook.com>"]
 license = "LGPL-3.0-or-later"
 readme = "README.md"
