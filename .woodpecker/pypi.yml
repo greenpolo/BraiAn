@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2022 Free Software Foundation Europe e.V. <https://fsfe.org>
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+when:
+  - event: [release, manual]
+    branch: master
+steps:
+  publish:
+    image: python:3.11-buster
+    environment:
+      POETRY_NO_INTERACTION: 1
+      POETRY_VIRTUALENVS_CREATE: 0
+      POETRY_CACHE_DIR: /tmp/poetry_cache
+    commands:
+      - python -m pip install --upgrade pip --root-user-action=ignore
+      - python -m pip install poetry==1.8.3 --root-user-action=ignore
+      - poetry publish --build && rm -rf $POETRY_CACHE_DIR
+    secrets: [ POETRY_PYPI_TOKEN_PYPI ]
