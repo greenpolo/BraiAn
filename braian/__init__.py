@@ -27,11 +27,3 @@ del brain_data
 del animal_brain
 del animal_group
 del experiment
-
-# from .utils import cache, save_csv, regions_to_plot, remote_dirs
-# from .plot import *
-# from braian.plot import *
-
-# from braian.connectome import *
-
-# from .config import BraiAnConfig

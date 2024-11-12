@@ -13,6 +13,3 @@ docs/BraiAn_output/
 docs/QuPath_output/
 .vscode/
 .DS_Store
-**/*.png
-**/*.svg
-**/*.json
