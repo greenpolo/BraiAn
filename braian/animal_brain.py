@@ -273,6 +273,8 @@ class AnimalBrain:
         if not inplace:
             return AnimalBrain(markers_data=markers_data, areas=areas, raw=self.raw)
         else:
+            self.markers_data = markers_data
+            self.areas = areas
             return self
 
     def select_from_list(self, regions: Sequence[str], fill_nan: bool=False, inplace: bool=False) -> Self:
