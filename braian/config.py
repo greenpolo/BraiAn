@@ -154,7 +154,10 @@ class BraiAnConfig:
         sliced_exp = SlicedExperiment(self.experiment_name, *groups)
         return sliced_exp if sliced else self.experiment_from_sliced(sliced_exp, validate=validate)
 
-    def experiment_from_sliced(self, sliced_exp: SlicedExperiment, validate: bool=True) -> Experiment:
+    def experiment_from_sliced(self,
+                               sliced_exp: SlicedExperiment,
+                               hemisphere_distinction: bool=True,
+                               validate: bool=True) -> Experiment:
         """
         It reduces, for each brain of a sliced experiment, the data of every brain region into a single value
         accordingly to the method specified in the configuration file.
@@ -175,7 +178,7 @@ class BraiAnConfig:
         return sliced_exp.to_experiment(self.config["brains"]["raw-metric"],
                                     self.config["qupath"]["min-slices"],
                                     densities=False, # raw matrics will never be a density
-                                    hemisphere_distinction=True,
+                                    hemisphere_distinction=hemisphere_distinction,
                                     validate=validate)
         
 

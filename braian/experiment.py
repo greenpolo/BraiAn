@@ -87,6 +87,7 @@ class Experiment:
         raise AttributeError(f"Uknown group named '{name.lower()}'")
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
+              hemisphere_distinction: bool=True,
               brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> Self:
         """
         Applies a function to each animal of the groups of the experiment and creates a new `Experiment`.
@@ -107,7 +108,12 @@ class Experiment:
         :
             An experiment with the data of each animal changed accordingly to `f`.
         """
-        return Experiment(self._name, *[g.apply(f, brain_ontology, fill_nan) for g in self._groups])
+        groups = [
+            g.apply(f,
+                    hemisphere_distinction=hemisphere_distinction,
+                    brain_ontology=brain_ontology, fill_nan=fill_nan)
+            for g in self._groups]
+        return Experiment(self._name, *groups)
 
 class SlicedExperiment:
     def __init__(self, name: str, group1: SlicedGroup, group2: SlicedGroup,

@@ -263,6 +263,7 @@ class AnimalGroup:
             raise KeyError(f"'{animal_name}'")
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
+              hemisphere_distinction: bool=True,
               brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> Self:
         """
         Applies a function to each animal of the group and creates a new `AnimalGroup`.
@@ -285,7 +286,7 @@ class AnimalGroup:
         """
         return AnimalGroup(self.name,
                            [f(a) for a in self._animals],
-                           hemisphere_distinction=False,
+                           hemisphere_distinction=hemisphere_distinction,
                            brain_ontology=brain_ontology,
                            fill_nan=fill_nan)
 
