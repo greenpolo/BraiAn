@@ -351,14 +351,14 @@ class AnimalGroup:
         -------
         :
             A new [`AnimalGroup`][braian.AnimalGroup] with no hemisphere distinction.
-            If `inplace=True` it returns the same instance.
+            If `inplace=True` it modifies and returns the same instance.
 
         See also
         --------
         [`AnimalBrain.merge_hemispheres`][braian.AnimalBrain.merge_hemispheres]
         [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
         """
-        animals = [AnimalBrain.merge_hemispheres(brain) for brain in self._animals]
+        animals = [brain.merge_hemispheres() for brain in self._animals]
         if not inplace:
             return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
         else:

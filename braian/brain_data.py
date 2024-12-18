@@ -379,7 +379,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.data = data
             return self
         else:
-            return braian.BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
+            return BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
 
     def set_regions(self, brain_regions: Collection[str],
                     brain_ontology: AllenBrainOntology,

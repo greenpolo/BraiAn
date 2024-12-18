@@ -372,6 +372,33 @@ class AnimalBrain:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
         return self.markers_data[marker].units
 
+
+    def merge_hemispheres(self) -> Self:
+        """
+        Creates a new `AnimalBrain` from the current instance with no hemisphere distinction.
+
+        Parameters
+        ----------
+        inplace
+            If True, it applies the sorting to the current instance.
+
+        Returns
+        -------
+        :
+            A new [`AnimalBrain`][braian.AnimalBrain] with no hemisphere distinction.
+            If it is already merged, it return the same instance with no changes.
+
+        See also
+        --------
+        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
+        """
+        if not self.is_split:
+            return self
+        brain: AnimalBrain = copy.copy(self)
+        brain.markers_data = {m: m_data.merge_hemispheres() for m, m_data in brain.markers_data.items()}
+        brain.areas = brain.areas.merge_hemispheres()
+        return brain
+
     def to_pandas(self, units: bool=False) -> pd.DataFrame:
         """
         Converts the current `AnimalBrain` to a DataFrame. T
@@ -518,31 +545,6 @@ class AnimalBrain:
         df.columns.name = df.index.name
         df.index.name = None
         return AnimalBrain.from_pandas(df, name)
-
-    @staticmethod
-    def merge_hemispheres(animal_brain: Self) -> Self:
-        """
-        Creates a new `AnimalBrain` from `animal_brain` with no hemisphere distinction.
-
-        Parameters
-        ----------
-        animal_brain
-            A brain to merge.
-
-        Returns
-        -------
-        :
-            A new [`AnimalBrain`][braian.AnimalBrain] with no hemisphere distinction.
-            If `animal_brain` is already merged, it return the same instance with no changes.
-
-        See also
-        --------
-        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
-        """
-        brain: AnimalBrain = copy.copy(animal_brain)
-        brain.markers_data = {m: m_data.merge_hemispheres() for m, m_data in brain.markers_data.items()}
-        brain.areas = brain.areas.merge_hemispheres()
-        return brain
 
 def _extract_name_and_units(ls) -> Generator[str, None, None]:
     regex = r'(.+) \((.+)\)$'
