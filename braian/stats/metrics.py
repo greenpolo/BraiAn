@@ -96,11 +96,11 @@ def density(brain: AnimalBrain) -> AnimalBrain:
     _enforce_rawdata(brain)
     markers_data = dict()
     for marker in brain.markers:
-        data = brain[marker] / brain.areas
+        data = brain[marker] / brain.sizes
         data.metric = "density"
-        data.units = f"{marker}/{brain.areas.units}"
+        data.units = f"{marker}/{brain.sizes.units}"
         markers_data[marker] = data
-    return AnimalBrain(markers_data=markers_data, areas=brain.areas, raw=False)
+    return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
 
 def percentage(brain: AnimalBrain) -> AnimalBrain:
     r"""
@@ -138,7 +138,7 @@ def percentage(brain: AnimalBrain) -> AnimalBrain:
         data.metric = "percentage"
         data.units = f"{marker}/{marker} in root"
         markers_data[marker] = data
-    return AnimalBrain(markers_data=markers_data, areas=brain.areas, raw=False)
+    return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
 
 def relative_density(brain: AnimalBrain) -> AnimalBrain:
     r"""
@@ -171,13 +171,13 @@ def relative_density(brain: AnimalBrain) -> AnimalBrain:
         hems = (None,)
     markers_data = dict()
     for marker in brain.markers:
-        brainwide_area = sum((brain.areas.root(hem) for hem in hems))
+        brainwide_area = sum((brain.sizes.root(hem) for hem in hems))
         brainwide_cell_counts = sum((brain[marker].root(hem) for hem in hems))
-        data = (brain[marker] / brain.areas) / (brainwide_cell_counts / brainwide_area)
+        data = (brain[marker] / brain.sizes) / (brainwide_cell_counts / brainwide_area)
         data.metric = "relative_density"
         data.units = f"{marker} density/root {marker} density"
         markers_data[marker] = data
-    return AnimalBrain(markers_data=markers_data, areas=brain.areas, raw=False)
+    return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
 
 def _group_change(brain: AnimalBrain, group: AnimalGroup,
                   metric: str, fun: Callable[[BrainData,BrainData],BrainData],
@@ -193,7 +193,7 @@ def _group_change(brain: AnimalBrain, group: AnimalGroup,
         data.metric = str(metric)
         data.units = f"{marker} {str(brain.metric)}{symbol}{group.name} {str(group.metric)}"
         markers_data[marker] = data
-    return AnimalBrain(markers_data=markers_data, areas=brain.areas, raw=False)
+    return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
 
 def fold_change(brain: AnimalBrain, group: AnimalGroup) -> AnimalBrain:
     """
@@ -290,7 +290,7 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
         overlaps[m] = (brain[both] / brain[m]).clip(upper=1)
         overlaps[m].metric = "overlaps"
         overlaps[m].units = f"({marker1}+{marker2})/{m}"
-    return AnimalBrain(markers_data=overlaps, areas=brain.areas, raw=False)
+    return AnimalBrain(markers_data=overlaps, sizes=brain.sizes, raw=False)
 
 def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     r"""
@@ -336,7 +336,7 @@ def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> Ani
     similarities = brain[overlapping] / (brain[marker1]+brain[marker2]-brain[overlapping])
     similarities.metric = "jaccard_index"
     similarities.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
-    return AnimalBrain(markers_data={overlapping: similarities}, areas=brain.areas, raw=False)
+    return AnimalBrain(markers_data={overlapping: similarities}, sizes=brain.sizes, raw=False)
 
 def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     # computes an index of normalized similarity we developed
@@ -384,12 +384,12 @@ def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> 
     except StopIteration as e:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     # NOT normalized in (0,1)
-    # similarities = brain[overlapping] / (brain[marker1]*brain[marker2]) * brain.areas
+    # similarities = brain[overlapping] / (brain[marker1]*brain[marker2]) * brain.sizes
     # NORMALIZED
     similarities = brain[overlapping]**2 / (brain[marker1]*brain[marker2])
     similarities.metric = "similarity_index"
     similarities.units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
-    return AnimalBrain(markers_data={overlapping: similarities}, areas=brain.areas, raw=False)
+    return AnimalBrain(markers_data={overlapping: similarities}, sizes=brain.sizes, raw=False)
 
 def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     r"""
@@ -436,7 +436,7 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
     overlap_coeffs = brain[overlapping] / BrainData.minimum(brain[marker1], brain[marker2])
     overlap_coeffs.metric = "overlap_coefficient"
     overlap_coeffs.units = f"({marker1}∩{marker2})/min({marker1},{marker2})"
-    return AnimalBrain(markers_data={overlapping: overlap_coeffs}, areas=brain.areas, raw=False)
+    return AnimalBrain(markers_data={overlapping: overlap_coeffs}, sizes=brain.sizes, raw=False)
 
 # def markers_chance_level(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
 #     # This chance level is good only if the used for the fold change.
@@ -463,7 +463,7 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
 #     chance_level = brain[overlapping] / (brain[marker1]*brain[marker2])
 #     chance_level.metric = "chance_level"
 #     chance_level.units = f"({marker1}∩{marker2})/({marker1}×{marker2})"
-#     return AnimalBrain(markers_data={overlapping: chance_level}, areas=brain.areas, raw=False)
+#     return AnimalBrain(markers_data={overlapping: chance_level}, areas=brain.sizes, raw=False)
 
 def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     """
@@ -489,7 +489,7 @@ def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> Animal
     diff = brain[marker1] - brain[marker2]
     diff.metric = "marker_difference"
     diff.units = f"{brain[marker1].units}-{brain[marker2].units}"
-    return AnimalBrain(markers_data={f"{marker1}+{marker2}": diff}, areas=brain.areas, raw=False)
+    return AnimalBrain(markers_data={f"{marker1}+{marker2}": diff}, sizes=brain.sizes, raw=False)
 
 def markers_correlation(marker1: str, marker2: str,
                         group: AnimalGroup, other: AnimalGroup=None,

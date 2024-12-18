@@ -396,7 +396,7 @@ class AnimalGroup:
                 a = self._animals[0]
                 df.rename(columns={marker: f"{marker} ({a[marker].units})"}, inplace=True)
             return df
-        df = {"area": pd.concat({brain.name: brain.areas.data for brain in self._animals}, join="outer", axis=0)}
+        df = {"area": pd.concat({brain.name: brain.sizes.data for brain in self._animals}, join="outer", axis=0)}
         for marker in self.markers:
             all_animals = pd.concat({brain.name: brain[marker].data for brain in self._animals}, join="outer", axis=0)
             df[marker] = all_animals
@@ -407,7 +407,7 @@ class AnimalGroup:
         df.columns.name = str(self.metric)
         if units:
             a = self._animals[0]
-            df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.areas.units})" for col in df.columns}, inplace=True)
+            df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.sizes.units})" for col in df.columns}, inplace=True)
         return df
 
     def to_csv(self, output_path: Path|str, sep: str=",", overwrite: bool=False) -> str:
