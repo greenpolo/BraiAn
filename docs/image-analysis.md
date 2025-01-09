@@ -213,21 +213,40 @@ if ((control = config.getControlChannel()).isPresent() ) {
 ```
 ## Region exclusions
 
+![**_Figure 3_**: A brain section in QuPath with exclusion annotation drawn.](resources/image-analysis/exclusions.png)
+
 Sometimes we would like to discard some parts of a section—be it for problems with the tissue, imaging or registration to an atlas—but we would still like to keep some portions!\
-BraiAn allows you to define which portion of the image you want to _exclude_. In order to do so you have to draw shapes that **completely** cover the brain regions you intend to remove and assign them the `"Exclude"` [QuPath classification](https://qupath.readthedocs.io/en/stable/docs/concepts/objects.html#classification). If you don't have it, create it.
+BraiAn allows you to define which regions to _exclude_ from the aligned brain section.
+You can appoint these regions by **completely** covering them with ad-hoc annotations—i.e. they can't be an annotation imported by ABBA—and [classified](https://qupath.readthedocs.io/en/stable/docs/concepts/objects.html#classification) with `"Exclude"`.
+If you don't have it, create it.
 
-In order to create these _exclusion_ annotations, we suggest you:
+There are two ways to create these _exclusion_ annotations:
 
-* use the closed polygon tool (`P`);
-* use the brush tool (`B`)
-* duplicate (`Shift+D`) a brain region annotation
+1. by drawing them over the regions to exclude;
+2. by duplicating the annotations of the regions to exclude.
+
+!!! tip
+    If you want to be sure that you selected all the brain regions that you intended to exclude, you can click on `Extensions ‣ BraiAn ‣ Show regions currently excluded`.
+
+!!! tip
+    When working on the exclusions, we highly suggest you to [lock](https://qupath.readthedocs.io/en/stable/docs/starting/annotating.html#locking-unlocking) the brain annotations to avoid disrupting the hierarchy by mistake.
+
+### Drawn exclusions
+
+You can draw an annotation around the region you want to exclude using the closed polygon tool (`P`) or the brush tool (`B`).
+The resulting annotation should contain all the boundaries of the region to be excluded.\
+This means that the shapes should completely cover the brain regions; adjecent regions won't be affected if portions of their annotation fall within the exclusion annotation.
+
+### Duplicated exclusions
+
+You can duplicate a brain region annotation by selecting it and pressing `Shift+D` in QuPath.
+The duplicated shape—i.e. the one to be classified as `"Exclude"`—will be positioned outside of the atlas ontology, in the _Hierarchy_ tab (see _Fig. 3_).\
+Mind that the `"Root"` annotation (with capital 'R') containing all brain regions imported with ABBA is **not** a brain region itself.
+If you want to exclude the whole section, you should duplicate the `"root"` annotation(s) (with lower 'r'), children of `"Root"`; if you split between right and left hemispheres, you will have to duplicate & exclude both the left and right `"root"` annotations.
 
 !!! information
-    If you accidentally changed the classification of a brain region imported with ABBA, you have to create a new classification with the correct identifier of the region (i.e. the acronym or the id, with or without hemisphere distinction).
-
-![**_Figure 3_**: A brain section on QuPath with exclusion annotation drawn.](resources/image-analysis/exclusions.png)
-
-If you want to be sure that you selected all the brain regions that you intended to exclude, you can click on `Extensions ‣ BraiAn ‣ Show regions currently excluded`.
+    If you accidentally changed the classification of a brain region imported with ABBA, you have to create a new classification with the correct identifier of the region (i.e. the acronym or the id, with or without hemisphere distinction).\
+    Alternatively, you can re-import the brain region annotations using ABBA extension.
 
 ## Export segmentation results
 
