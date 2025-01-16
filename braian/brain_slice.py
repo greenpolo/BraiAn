@@ -125,7 +125,7 @@ class BrainSlice:
         sep = "," if csv_file.suffix.lower() == ".csv" else "\t"
         try:
             data = pd.read_csv(csv_file, sep=sep).drop_duplicates()
-        except Exception as e:
+        except Exception:
             if csv_file.stat().st_size == 0:
                 raise EmptyResultsError(file=csv_file)
             else:

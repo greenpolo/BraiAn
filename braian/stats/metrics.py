@@ -282,7 +282,7 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
     try:
         both = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
-    except StopIteration as e:
+    except StopIteration:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     overlaps = dict()
     for m in (marker1, marker2):
@@ -331,7 +331,7 @@ def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> Ani
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
     try:
         overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
-    except StopIteration as e:
+    except StopIteration:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     similarities = brain[overlapping] / (brain[marker1]+brain[marker2]-brain[overlapping])
     similarities.metric = "jaccard_index"
@@ -381,7 +381,7 @@ def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> 
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
     try:
         overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
-    except StopIteration as e:
+    except StopIteration:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     # NOT normalized in (0,1)
     # similarities = brain[overlapping] / (brain[marker1]*brain[marker2]) * brain.sizes
@@ -431,7 +431,7 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
     try:
         overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
-    except StopIteration as e:
+    except StopIteration:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     overlap_coeffs = brain[overlapping] / BrainData.minimum(brain[marker1], brain[marker2])
     overlap_coeffs.metric = "overlap_coefficient"

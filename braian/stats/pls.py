@@ -146,7 +146,7 @@ class PLS:
         The normalised [v scores][braian.stats.PLS.v] with bootstrapping.
         """
         if self._v_salience_scores is None:
-            raise ValueError(f"Region scores are not yet normalized. Call bootstrap_salience_scores first.")
+            raise ValueError("Region scores are not yet normalized. Call bootstrap_salience_scores first.")
         return self._v_salience_scores
 
     @property
@@ -155,7 +155,7 @@ class PLS:
         The normalised [u scores][braian.stats.PLS.u] with bootstrapping.
         """
         if self._u_salience_scores is None:
-            raise ValueError(f"Group scores are not yet normalized. Call bootstrap_salience_scores first.")
+            raise ValueError("Group scores are not yet normalized. Call bootstrap_salience_scores first.")
         return self._u_salience_scores
 
     def _mean_centered_task(self, X: pd.DataFrame, Y: pd.DataFrame) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
@@ -200,7 +200,7 @@ class PLS:
         """
         if seed is not None:
             np.random.seed(seed)
-        singular_values = s = np.zeros((n, *self._s.shape))
+        singular_values = np.zeros((n, *self._s.shape))
         X_np = self.X.to_numpy()
         Y_np = self.Y.to_numpy()
         count = 0

@@ -8,10 +8,10 @@ def keep_type(F, obj, attr: str): # a function decorator
     attr_obj = obj.__dict__[attr]
     def wrapper(*args, inplace=False, **kwargs): # on wrapped function call
         # if some of the arguments have the same type as the caller, deflect to use arg.<attr>
-        args = [arg if type(arg) != type(obj) else arg.__dict__[attr] for arg in args]
-        kwargs = {kw: arg if type(arg) != type(obj) else arg.__dict__[attr] for kw,arg in kwargs.items()}
+        args = [arg if type(arg) != type(obj) else arg.__dict__[attr] for arg in args]  # noqa: E721
+        kwargs = {kw: arg if type(arg) != type(obj) else arg.__dict__[attr] for kw,arg in kwargs.items()}  # noqa: E721
         result = F(*args, **kwargs)
-        if type(result) == type(attr_obj):
+        if type(result) == type(attr_obj):  # noqa: E721
             if inplace:
                 obj.__setattr__(attr, result)
                 return obj
@@ -123,13 +123,13 @@ if __name__ == "__main__":
     print(a, type(a), a.num)
     # >>> C(num=<class 'numpy.ndarray'>) <class '__main__.C'> [3.1 4.1 5.1]
     c_ = C(np.array([1,2,3]))
-    print(f"c_ is (c_ + 1):", c_ is (c + 1))
+    print("c_ is (c_ + 1):", c_ is (c + 1))
     # >>> c_ is (c_ + 1): False
-    print(f"c_ is (c_.__add__(1, inplace=True)):", c_ is (c_.__add__(1, inplace=True)))
+    print("c_ is (c_.__add__(1, inplace=True)):", c_ is (c_.__add__(1, inplace=True)))
     # >>> c_ is (c_.__add__(1, inplace=True)): True
-    print(f"c_ is (c_.clip(max=3)):", c_ is (c_.clip(max=3)))
+    print("c_ is (c_.clip(max=3)):", c_ is (c_.clip(max=3)))
     # >>> c_ is (c_.clip(max=3)): False
-    print(f"c_ is (c_.clip(max=3, inplace=True)):", c_ is (c_.clip(max=3, inplace=True)))
+    print("c_ is (c_.clip(max=3, inplace=True)):", c_ is (c_.clip(max=3, inplace=True)))
     # >>> c_ is (c_.clip(max=3, inplace=True)): True
     print("c_.num:", c_.num)
     # >>> c_.num: [2 3 3]

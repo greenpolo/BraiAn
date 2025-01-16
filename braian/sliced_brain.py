@@ -38,7 +38,8 @@ MODE_MissingResultsColumnError = "print"
 MODE_InvalidRegionsHemisphereError = "print"
 MODE_InvalidExcludedRegionsHemisphereError = "print"
 
-class EmptyBrainError(Exception): pass
+class EmptyBrainError(Exception):
+    pass
 
 class SlicedBrain:
     __QUPATH_AREA_UNITS = "µm2"

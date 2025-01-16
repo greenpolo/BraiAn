@@ -138,9 +138,9 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: braian.AllenBrain
     if use_clustering:
         if "cluster" not in G.vs.attributes():
             raise ValueError("No clustering is made on the provided connectome")
-        get_outline_color = lambda v: DEFAULT_PLOTLY_COLORS[v["cluster"] % len(DEFAULT_PLOTLY_COLORS)]
+        get_outline_color = lambda v: DEFAULT_PLOTLY_COLORS[v["cluster"] % len(DEFAULT_PLOTLY_COLORS)]  # noqa: E731
     else:
-        get_outline_color = lambda v: colors[v["name"]]
+        get_outline_color = lambda v: colors[v["name"]]  # noqa: E731
     if use_centrality and (centrality_metric is None or centrality_metric not in G.vs.attributes()):
         raise ValueError("If you want to plot the centrality, you must also specify a nodes' attribute in 'centrality_metric'")
     for v in G.vs:

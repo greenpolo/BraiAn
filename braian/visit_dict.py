@@ -86,7 +86,8 @@ def del_attribute(tree, children_key, attr_name, visit=visit_bfs):
 
 def get_where(tree, children_key, filter_fun, visit=visit_bfs) -> list[dict]:
     nodes = []
-    add_if_true = lambda node,depth: nodes.append(node) if filter_fun(node,depth) else None
+    def add_if_true(node, depth):
+        return nodes.append(node) if filter_fun(node, depth) else None
     visit(tree, children_key, add_if_true)
     return nodes
 
@@ -103,7 +104,8 @@ def visit_parents(tree, children_key, fun, visit=visit_bfs):
 
 def get_parents_where(tree, children_key, filter_fun, nodes_key):
     parents = dict()
-    add_if_true = lambda parent,node: parents.__setitem__(node[nodes_key], parent) if filter_fun(parent,node) else None
+    def add_if_true(parent, node):
+        return parents.__setitem__(node[nodes_key], parent) if filter_fun(parent, node) else None
     visit_parents(tree, children_key, add_if_true)
     return parents
 

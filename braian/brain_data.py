@@ -13,7 +13,7 @@ __all__ = ["BrainData"]
 
 class UnkownBrainRegionsError(Exception):
     def __init__(self, unknown_regions: Iterable[str]):
-        super().__init__(f"The following regions are unknown to the given brain ontology: '"+"', '".join(unknown_regions)+"'")
+        super().__init__("The following regions are unknown to the given brain ontology: '"+"', '".join(unknown_regions)+"'")
 
 def extract_acronym(region_class: str) -> str:
     """

@@ -73,19 +73,21 @@ class AnimalGroup:
         is_split = animals[0].is_split
         assert all(is_split == brain.is_split for brain in animals), "All AnimalBrains of a group must either have spit hemispheres or not."
 
+        no_update = lambda b: b  # noqa: E731
         if is_split and not hemisphere_distinction:
             merge = AnimalBrain.merge_hemispheres
         else:
-            merge = lambda brain: brain
+            merge = no_update
 
         if _have_same_regions(animals):
-            fill = lambda brain: brain
+            fill = no_update
         else:
             regions = _common_regions(animals)
-            fill: Callable[[AnimalBrain], AnimalBrain] = lambda brain: brain.select_from_list(regions, fill_nan=True, inplace=False)
+            def fill(brain: AnimalBrain) -> AnimalBrain:
+                return brain.select_from_list(regions, fill_nan=True, inplace=False)
 
         if brain_ontology is None:
-            sort = lambda brain: brain
+            sort = no_update
         else:
             def sort(brain: AnimalBrain) -> AnimalBrain:
                 return brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)

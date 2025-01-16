@@ -503,7 +503,7 @@ class AnimalBrain:
         --------
         [`to_pandas`][braian.AnimalBrain.to_pandas]
         """
-        if type(metric:=df.columns.name) != str:
+        if isinstance(metric:=df.columns.name, str):
             metric = str(df.columns.name)
         raw = AnimalBrain.is_raw(metric)
         markers_data = dict()

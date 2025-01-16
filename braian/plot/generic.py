@@ -129,7 +129,7 @@ def group(group: AnimalGroup, selected_regions: list[str]|np.ndarray[str],
         if check_regions:
             try:
                 selected_data: pd.DataFrame = marker_df.loc[selected_regions]
-            except KeyError as e:
+            except KeyError:
                 raise KeyError("Could not find data for all selected brain regions.")
         else:
             selected_data: pd.DataFrame = marker_df.reindex(selected_regions)
@@ -371,7 +371,7 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
     fig.update_layout(
         title = f"density in {list(regions)}",
         yaxis = dict(
-            title = f"marker/mm²"
+            title = "marker/mm²"
         ),
 #        hovermode="x unified",
         width=width, height=height,
