@@ -121,7 +121,7 @@ plugins:
           # MEMBERS
           inherited_members: true
           members_order: source # alphabetical
-          filters: ["!^_"]
+          filters: ["!^_[^_]"]
           group_by_category: true
           # summary: true                                           # paid feature
           ############

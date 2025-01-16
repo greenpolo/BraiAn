@@ -78,15 +78,15 @@ class AllenBrainOntology:
             # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
         if version is not None:
-            unannoted_regions, self.annotation_version = self.__get_unannoted_regions(version)
+            unannoted_regions, self.annotation_version = self._get_unannoted_regions(version)
             self.blacklist_regions(unannoted_regions, key="acronym", has_reference=False)
         else:
             self.annotation_version = None
 
-        self.__add_depth_to_regions()
-        self.__mark_major_divisions()
-        self.parent_region: dict[str,str] = self.__get_all_parent_areas() #: A dictionary mapping region's acronyms to the parent region. It does not have 'root'.
-        self.direct_subregions: dict[str,list[str]] = self.__get_all_subregions()
+        self._add_depth_to_regions()
+        self._mark_major_divisions()
+        self.parent_region: dict[str,str] = self._get_all_parent_areas() #: A dictionary mapping region's acronyms to the parent region. It does not have 'root'.
+        self.direct_subregions: dict[str,list[str]] = self._get_all_subregions()
         """A dictionary mappin region's acronyms to a list of direct subregions.
 
         Examples
@@ -98,10 +98,10 @@ class AllenBrainOntology:
         >>> brain_ontology.direct_subregions["ACAv"]
         ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"]   # all layers in ventral part
         """
-        self.full_name: dict[str,str] = self.__get_full_names()
+        self.full_name: dict[str,str] = self._get_full_names()
         """A dictionary mapping a regions' acronym to its full name."""
 
-    def __get_unannoted_regions(self, version) -> tuple[list[str], str]:
+    def _get_unannoted_regions(self, version) -> tuple[list[str], str]:
         # alternative implementation: use annotation's nrrd file - https://help.brain-map.org/display/mousebrain/API#API-DownloadAtlas3-DReferenceModels
         # this way is not totally precise, because some masks files are present even if they're empty
         #
@@ -272,10 +272,10 @@ class AllenBrainOntology:
         regions = visit_dict.non_overlapping_where(self.dict, "children", lambda n,d: is_blacklisted(n) and has_reference(n), mode="bfs")
         return [region[key] for region in regions]
 
-    def __mark_major_divisions(self):
+    def _mark_major_divisions(self):
         visit_dict.add_boolean_attribute(self.dict, "children", "major_division", lambda node,d: node["acronym"] in MAJOR_DIVISIONS)
 
-    def __add_depth_to_regions(self):
+    def _add_depth_to_regions(self):
         def add_depth(node, depth):
             node["depth"] = depth
         visit_dict.visit_bfs(self.dict, "children", add_depth)
@@ -717,7 +717,7 @@ class AllenBrainOntology:
         #     assert area in parents.keys(), f"Can't find the parent of an area with '{key}': {area}"
         # return {area: (parent[key] if parent else None) for area,parent in parents.items()}
 
-    def __get_all_parent_areas(self, key: str="acronym") -> dict:
+    def _get_all_parent_areas(self, key: str="acronym") -> dict:
         """
         Finds, for each brain region in the ontology, the corresponding parent region.
         The "root" region has no entry in the returned dictionary
@@ -734,9 +734,9 @@ class AllenBrainOntology:
         :
             A dictionary mapping region→parent
         """
-        return {subregion: region for region,subregion in self.__get_edges(key)}
+        return {subregion: region for region,subregion in self._get_edges(key)}
 
-    def __get_edges(self, key: str="id") -> list[tuple]:
+    def _get_edges(self, key: str="id") -> list[tuple]:
         assert key in ("id", "acronym", "graph_order"), "'key' parameter must be  'id', 'acronym' or 'graph_order'"
         edges = []
         visit_dict.visit_parents(self.dict,
@@ -746,7 +746,7 @@ class AllenBrainOntology:
                                     edges.append((region[key], subregion[key])))
         return edges
 
-    def __get_all_subregions(self, key: str="acronym") -> dict:
+    def _get_all_subregions(self, key: str="acronym") -> dict:
         """
         returns a dictionary where all parent regions are the keys,
         and the subregions that belong to the parent are stored
@@ -883,7 +883,7 @@ class AllenBrainOntology:
         assert self.annotation_version == "ccf_2017", "Unsupported version of the ontology. The current ontology does not know which regions make up the layer 1"
         return ["FRP1", "MOp1", "MOs1", "SSp-n1", "SSp-bfd1", "SSp-ll1", "SSp-m1", "SSp-ul1", "SSp-tr1", "SSp-un1", "SSs1", "GU1", "VISC1", "AUDd1", "AUDp1", "AUDpo1", "AUDv1", "VISal1", "VISam1", "VISl1", "VISp1", "VISpl1", "VISpm1", "ACAd1", "ACAv1", "PL1", "ILA1", "ORBl1", "ORBm1", "ORBvl1", "AId1", "AIp1", "AIv1", "RSPagl1", "RSPd1", "RSPv1", "PTLp1", "TEa1", "PERI1", "ECT1", "PIR1", "OT1", "NLOT1", "COAa1", "COApl1", "COApm1", "PAA1", "TR1"]
 
-    def __get_full_names(self) -> dict[str,str]:
+    def _get_full_names(self) -> dict[str,str]:
         """
         Computes a dictionary that translates acronym of a brain region in its full name
 
@@ -927,7 +927,7 @@ class AllenBrainOntology:
                 v["structural_level"] = region["st_level"]
             return visit
 
-        G = ig.Graph(edges=self.__get_edges(key="graph_order"))
+        G = ig.Graph(edges=self._get_edges(key="graph_order"))
         visit_dict.visit_bfs(self.dict, "children", add_attributes(G))
         # if self.dict was modified removing some nodes, 'graph_order' creates some empty vertices
         # in that case, we remove those vertices

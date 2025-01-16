@@ -62,7 +62,7 @@ class Experiment:
         """The groups making up the current experiment."""
         return self._groups
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> AnimalGroup:
         """
         Get a specific group in the current experiment by accessing it with an attribute named like the name of the group.
 

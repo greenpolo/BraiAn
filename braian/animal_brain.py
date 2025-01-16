@@ -214,7 +214,7 @@ class AnimalBrain:
     def __str__(self):
         return f"AnimalBrain(name='{self.name}', metric={self.metric}, markers={list(self.markers)})"
 
-    def __getitem__(self, marker: str):
+    def __getitem__(self, marker: str) -> BrainData:
         """
         Get the [`BrainData`][braian.BrainData] associated to `marker`.
         Fails if there is no data for the the given marker
