@@ -384,11 +384,6 @@ class AnimalBrain:
         """
         Creates a new `AnimalBrain` from the current instance with no hemisphere distinction.
 
-        Parameters
-        ----------
-        inplace
-            If True, it applies the sorting to the current instance.
-
         Returns
         -------
         :

@@ -1,6 +1,6 @@
 # ML-assisted segmentation
 
-In some situations you may see that typical [object segmentation](image-analysis.md#segmentation) does not suffice our needs. Sometimes the settings are not always spot on between animals, sections or even brain regions, and we can't find some parameters that fits them all. In italian we refer to this as the "too-short-blanket-problem"!
+In some situations you may see that typical [object segmentation](image-analysis.md#segmentation) does not suffice your needs. Sometimes the settings are not always spot on between animals, sections or even brain regions, and we can't find some parameters that fits them all. In italian we refer to these kind of issues as the "_too-short-blanket_ problem"!
 
 In order to go around this problem, we came up with a different segmentation workflow. One that proved to be quite good with immediate-early-genes
 
@@ -8,12 +8,12 @@ In order to go around this problem, we came up with a different segmentation wor
 
 The workflow consists of:
 
-1. determining a set of [parameters](https://qupath.readthedocs.io/en/stable/docs/tutorials/cell_classification.html#run-cell-detection-command) that manages to identify close-to-all positive cells, at the expenses of taking lots of false detections
-2. training an object classifier based on the detections computed in the previous step; one for each image channel. This classifier will determine whether each detection is a _real_ positive cell or not;
+1. determining a set of [parameters](https://qupath.readthedocs.io/en/stable/docs/tutorials/cell_classification.html#run-cell-detection-command) that manages to identify close-to-all positive cells, at the expenses of taking lots of false detections;
+2. training an [object classifier](https://qupath.readthedocs.io/en/stable/docs/tutorials/cell_classification.html#annotate-regions-containing-different-cell-types) based on the detections computed in the previous step; one for each image channel. This classifier will determine whether each detection is a _real_ positive cell or not;
 3. apply the classifier in the regions-of-interest. If more classifiers are needed, they'll be applied in sequence.
 
 !!! warning
-    Classifiers are mostly specific to the experiment conditions, the marker used, the acquisition specifics and the brain regions they were trained on, among all. This makes it close-to-impossible to share a classifier across multiple experiments, unless it was specifically trained with a diverse dataset.
+    Classifiers are mostly specific to the experiment conditions, the marker used, the acquisition specifics and the brain regions they were trained on, among all. This makes it close-to-impossible to share a classifier across multiple experiments, unless it was specifically trained with a diverse (i.e. big) dataset.
 
 ### Classifiers in the configuration file
 
@@ -44,7 +44,7 @@ This configuration means that BraiAn will first applies a classifiers named `AF6
 When defining the parameters for your [object classification](https://qupath.readthedocs.io/en/stable/docs/tutorials/cell_classification.html#run-cell-detection-command), usually what works best is to choose a low `sigmaMicrons` as well a wide range of `minAreaMicrons:maxAreaMicrons`.
 Most importantly, however, you should always compute the cell expansions: `cellExpansionMicrons`.
 
-As a matter of fact, QuPath's object classifiers don't work by reading pixels off the image. Instead, they take as input the [object measurements](https://qupath.readthedocs.io/en/latest/docs/concepts/measurements.html) computed for every single detection. This means that if you don't do any cell expansion, the classifier will only work with pre-computed statistics coming from the pixels within the detection, effectively loosing any information about the surrounding context. Expanding the detection by, let's say, $5µm$ will effectively allow the classifier to draw conclusions also based on the statistical comparisons between the actual detection (i.e. the _nucleus_ in QuPath's terms) and the near-abouts (i.e. the _cytoplasm_).
+As a matter of fact, QuPath's object classifiers don't work by reading pixels off the image. Instead, they take as input the [object measurements](https://qupath.readthedocs.io/en/latest/docs/concepts/measurements.html) computed for every single detection. This means that if you don't do any cell expansion, the classifier will only work with pre-computed statistics coming from the pixels within the detection, effectively loosing any information about the surrounding context. Expanding the detection by—let's say—$5µm$, will effectively allow the classifier to draw conclusions also based on the statistical comparisons between the actual detection (i.e. the _nucleus_ in QuPath's terms) and the near-abouts (i.e. the _cytoplasm_).
 
 ![**_Figure 1_**: Example of detections segmented with overly permissive parameters. Note that there is close-to-no positive cell in the image that is _not_ detected (in red).](resources/object-classifiers/detections_pre_classifier.png)
 
@@ -63,7 +63,7 @@ The [`classifier_sample_images.groovy` script](https://github.com/carlocastoldi/
 With _labelling_ we intend, in this scenario, the act of creating a project with a large amount of detection being _manually_ classified as **true positive** or **false positive cell**.\
 The resulting set of labels should, in fact, be representative of the whole population of detections in the regions-of-interest that you want to classify. For this reason it's best for you to avoid any involuntary bias given by choices made by the human operator (e.g. which slices, which animals, which regions, which cells,... to label?).
 
-A part from using the above-mentioned script, we suggest you to show the counting grid overlay (`Shift+G`) in QuPath, and randomly select one of its squares. You should then label every single detection inside this square, be it classifying it as `AF647` or as `Other: AF647`—if detections refer to image channel "AF647"—whether they are true or false positive cells, respectively. Each image slice in the project should have approximately the same number of detections classified, and you should either choose to label **all** detection inside a square or **none** of them. No in-between.
+Apart from using the above-mentioned script, we suggest you to show the counting grid overlay (`Shift+G`) in QuPath, and randomly select one of its squares. You should then label every single detection inside this square, be it classifying it as `AF647` or as `Other: AF647`—if detections refer to image channel "AF647"—whether they are true or false positive cells, respectively. Each image slice in the project should have approximately the same number of detections classified, and you should either choose to label **all** detection inside a square or **none** of them. No in-between.
 
 !!! tip
     You can read more about object classifiers over in [QuPath's documentation](https://qupath.readthedocs.io/en/stable/docs/tutorials/cell_classification.html).
@@ -85,7 +85,7 @@ The best way to do the labelling, to our knowledge, is by using the Point tool (
 7. inter-annotator agreement
 -->
 
-Once we have made an unbiased training set, we can train the classifier. We can do so within QuPath's interface clicking on `Classify ‣ Object classification ‣ Train object classifier`.\
+Once we have made an unbiased training set, we can [train the classifier](https://qupath.readthedocs.io/en/stable/docs/tutorials/cell_classification.html#train-a-cell-classifier-based-on-annotations). We can do so within QuPath's interface clicking on `Classify ‣ Object classification ‣ Train object classifier`.\
 Following are the options that we, SilvaLab, usually select. Changes may be needed depending on the your dataset and requirements:
 
 * Object filter: _Detections (all)_

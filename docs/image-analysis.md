@@ -231,6 +231,8 @@ There are two ways to create these _exclusion_ annotations:
 !!! tip
     When working on the exclusions, we highly suggest you to [lock](https://qupath.readthedocs.io/en/stable/docs/starting/annotating.html#locking-unlocking) the brain annotations to avoid disrupting the hierarchy by mistake.
 
+In the event that a mistake done during the exclusions step has slipped away, BraiAn will, annoyingly, let you know; either while executing a QuPath script, or later during the [python analysis](read_qupath_data.ipynb). With the objective of making this step less frustrating, [`AtlasManager.fixExclusions()`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AtlasManager.html#fixExclusions()) finds the most common mistakes and tries to correct them.
+
 ### Drawn exclusions
 
 You can draw an annotation around the region you want to exclude using the closed polygon tool (`P`) or the brush tool (`B`).
