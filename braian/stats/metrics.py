@@ -245,10 +245,10 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
     For each region, it computes the ratio of positive cells and double positive counts;
     for both `marker1` and `marker2`:
     $$
-    O(m_1,m_{1,2}) : \\frac {m_1} {m_{1,2}}
+    O(m_1,m_{1,2}) : \\frac {m_{1,2}} {m_1}
     $$
     $$
-    O(m_2,m_{1,2}) : \\frac {m_2} {m_{1,2}}
+    O(m_2,m_{1,2}) : \\frac {m_{1,2}} {m_2}
     $$
     with $m_{1,2}$ being the number of detections being `marker1` _and_ `marker2` positive.
 
