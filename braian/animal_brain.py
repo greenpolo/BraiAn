@@ -131,7 +131,7 @@ class AnimalBrain:
             when `sliced_brain` has not enough sections or when `min_slices` filters out all brain regions.
         """
         if not hemisphere_distinction:
-            sliced_brain = SlicedBrain.merge_hemispheres(sliced_brain)
+            sliced_brain = sliced_brain.merge_hemispheres()
 
         name = sliced_brain.name
         markers = copy.copy(sliced_brain.markers)

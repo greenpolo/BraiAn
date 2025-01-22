@@ -394,8 +394,7 @@ class BrainSlice:
     def __marker_density(self) -> pd.DataFrame:
         return self.data[self.markers].div(self.data["area"], axis=0)
 
-    @staticmethod
-    def merge_hemispheres(slice: Self) -> Self:
+    def merge_hemispheres(self) -> Self:
         """
         For each brain region, sums the data of left and right hemispheres into one single datum
 
@@ -410,8 +409,8 @@ class BrainSlice:
             A new [`BrainSlice`][braian.BrainSlice] with no hemisphere distinction.
             If `slice` is already merged, it return the same instance with no changes.
         """
-        if not slice.is_split:
-            return slice
-        corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in slice.data.index]
-        data = slice.data.groupby(corresponding_region).sum(min_count=1)
-        return BrainSlice(data, slice.animal, slice.name, is_split=False, area_units="mm2")
+        if not self.is_split:
+            return self
+        corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self.data.index]
+        data = self.data.groupby(corresponding_region).sum(min_count=1)
+        return BrainSlice(data, self.animal, self.name, is_split=False, area_units="mm2")

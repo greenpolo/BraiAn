@@ -219,8 +219,7 @@ class SlicedBrain:
         count = all_slices.groupby(all_slices.index).count().iloc[:,0]
         return BrainData(count, self._name, "count_slices", "#slices", brain_ontology=brain_ontology, fill_nan=False)
 
-    @staticmethod
-    def merge_hemispheres(sliced_brain: Self) -> Self:
+    def merge_hemispheres(self) -> Self:
         """
         Creates a new `SlicedBrain` from all merged [`BrainSlice`][braian.BrainSlice]
         in `sliced_brain`.
@@ -240,10 +239,10 @@ class SlicedBrain:
         --------
         [`BrainSlice.merge_hemispheres`][braian.BrainSlice.merge_hemispheres]
         """
-        if not sliced_brain.is_split:
-            return sliced_brain
-        brain = copy.copy(sliced_brain)
-        brain._slices = [BrainSlice.merge_hemispheres(brain_slice) for brain_slice in brain._slices]
+        if not self.is_split:
+            return self
+        brain = copy.copy(self)
+        brain._slices = [brain_slice.merge_hemispheres() for brain_slice in brain._slices]
         brain.is_split = False
         return brain
 
