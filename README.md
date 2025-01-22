@@ -10,7 +10,7 @@ SPDX-License-Identifier: CC-BY-4.0
 <!--mkdocs-start-->
 <!--install-start-->
 ## Installation
-Once you are in an active `python>=3.11,<3.13` environment, you can run:
+Once you are in an active `python>=3.11,<3.14` environment, you can run:
 ```bash
 python3 -m pip install braian
 ```
@@ -31,7 +31,7 @@ If you use BraiAn in your work, please cite the paper below, currently in pre-pr
 * [Poetry](https://python-poetry.org/docs/#installation): for dependency management
 
 ### Step 1: Set-up an environment for BraiAn
-Create and activate a new `python>=3.11,<3.13` environment.
+Create and activate a new `python>=3.11,<3.14` environment.
 
 <table border="0">
  <tr>
