@@ -25,40 +25,22 @@ If you use BraiAn in your work, please cite the paper below, currently in pre-pr
 <!--build-start-->
 ## Building
 ### Prerequisites
-* [python>=3.11](https://www.python.org/downloads/):
-  you can use [conda](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [pyenv](https://github.com/pyenv/pyenv)/[pyenv-win](https://pyenv-win.github.io/pyenv-win/#installation) to manage the correct version
+* [python>=3.11<3.14](https://www.python.org/downloads/).
+  If needed, you can use [conda](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) or [pyenv](https://github.com/pyenv/pyenv)/[pyenv-win](https://pyenv-win.github.io/pyenv-win/#installation) to manage the correct version;
 
-* [Poetry](https://python-poetry.org/docs/#installation): for dependency management
+* [Poetry](https://python-poetry.org/docs/#installation): for dependency management.
 
-### Step 1: Set-up an environment for BraiAn
-Create and activate a new `python>=3.11,<3.14` environment.
-
-<table border="0">
- <tr>
-    <td>
-      Using <a href="https://docs.continuum.io/anaconda/"><code>conda</code></a>:</p>
-      <pre><code class="language-bash">conda create --name braian_env python=3.11
-conda activate braian_env</code></pre>
-    </td>
-    <td>
-      Using python venv:</p>
-      <code class="language-bash">python3.11 -m venv /path/to/new/braian_env</code>
-      </p>
-      and <a href="https://docs.python.org/3/library/venv.html#how-venvs-work">activate it</a>
-    </td>
- </tr>
-</table>
-
-### Step 2: clone the repository
+### Step 1: clone the repository
 ```bash
 git clone https://codeberg.org/SilvaLab/BraiAn.git /path/to/BraiAn
 ```
 
-### Step 3: install BraiAn inside the environment with Poetry
-With the environment set and Poetry installed:
+### Step 2: install with Poetry
 ```bash
-(braian_env) cd /path/to/BraiAn
-(braian_env) poetry install # --with docs, if building the documentation is of your interest
+cd /path/to/BraiAn
+poetry install # --with docs, if building the documentation is of your interest
 ```
+Poetry will automatically create a [virtual environment](https://docs.python.org/3/library/venv.html#how-venvs-work) in which it installs all the dependencies.
+If, instead, you want to manage the environment yourself, Poetry use the one active during the installation.
 <!--build-end-->
 <!--mkdocs-end-->
