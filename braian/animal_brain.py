@@ -165,10 +165,9 @@ class AnimalBrain:
             Whether the data can be considered _raw_ (e.g., contains simple cell positive counts) or not.
         """
         assert len(markers_data) > 0 and sizes is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the size of each region"
-        self.markers: tuple[str] = tuple(markers_data.keys())
-        """The name of the markers for which the current `AnimalBrain` has data."""
-        self.markers_data: dict[str,BrainData] = markers_data
-        """The whole-brain data for each marker."""
+        self._markers: tuple[str] = tuple(markers_data.keys())
+        self._markers_data: dict[str,BrainData] = markers_data
+        
         self.sizes: BrainData = sizes
         """The data corresponding to the size of each brain region of the current AnimalBrain."""
         self.raw: bool = raw
@@ -185,22 +184,29 @@ class AnimalBrain:
         return self.sizes
 
     @property
+    def markers(self) -> tuple[str]:
+        """
+        The name of the markers for which the current `AnimalBrain` has data.
+        """
+        return tuple(self._markers)
+
+    @property
     def metric(self) -> str:
         """
         The name of the metric used to compute current data.
         Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
         """
-        return self.markers_data[self.markers[0]].metric
+        return self._markers_data[self._markers[0]].metric
 
     @property
     def is_split(self) -> bool:
         """Whether the data of the current `AnimalBrain` makes a distinction between right and left hemisphere."""
-        return self.markers_data[self.markers[0]].is_split
+        return self._markers_data[self._markers[0]].is_split
 
     @property
     def name(self) -> str:
         """The name of the animal."""
-        return self.markers_data[self.markers[0]].data_name
+        return self._markers_data[self._markers[0]].data_name
 
     @property
     def regions(self) -> list[str]:
@@ -212,7 +218,7 @@ class AnimalBrain:
         return str(self)
 
     def __str__(self):
-        return f"AnimalBrain(name='{self.name}', metric={self.metric}, markers={list(self.markers)})"
+        return f"AnimalBrain(name='{self.name}', metric={self.metric}, markers={list(self._markers)})"
 
     def __getitem__(self, marker: str) -> BrainData:
         """
@@ -229,7 +235,7 @@ class AnimalBrain:
         :
             The data associated to `marker`.
         """
-        return self.markers_data[marker]
+        return self._markers_data[marker]
 
     def remove_region(self, region: str, *regions, fill_nan: bool=True) -> None:
         """
@@ -243,7 +249,7 @@ class AnimalBrain:
             If True, instead of removing the regions completely, it fills their value to [`NA`][pandas.NA].
         """
         regions = (region, *regions)
-        for data in self.markers_data.values():
+        for data in self._markers_data.values():
             data.remove_region(*regions, inplace=True, fill_nan=fill_nan)
         self.sizes.remove_region(*regions, inplace=True, fill_nan=fill_nan)
 
@@ -275,12 +281,12 @@ class AnimalBrain:
             If `inplace=True` it returns the same instance.
         """
         markers_data = {marker: m_data.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
-                        for marker, m_data in self.markers_data.items()}
+                        for marker, m_data in self._markers_data.items()}
         areas = self.sizes.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, sizes=areas, raw=self.raw)
         else:
-            self.markers_data = markers_data
+            self._markers_data = markers_data
             self.sizes = areas
             return self
 
@@ -309,7 +315,7 @@ class AnimalBrain:
         [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
         """
         markers_data = {marker: m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
-                        for marker, m_data in self.markers_data.items()}
+                        for marker, m_data in self._markers_data.items()}
         areas = self.sizes.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, sizes=areas, raw=self.raw)
@@ -373,11 +379,11 @@ class AnimalBrain:
         :
             A string representing the units of measurement of `marker`.
         """
-        if len(self.markers) == 1:
-            marker = self.markers[0]
+        if len(self._markers) == 1:
+            marker = self._markers[0]
         else:
-            assert marker in self.markers, f"Could not get units for marker '{marker}'!"
-        return self.markers_data[marker].units
+            assert marker in self._markers, f"Could not get units for marker '{marker}'!"
+        return self._markers_data[marker].units
 
 
     def merge_hemispheres(self) -> Self:
@@ -397,7 +403,7 @@ class AnimalBrain:
         if not self.is_split:
             return self
         brain: AnimalBrain = copy.copy(self)
-        brain.markers_data = {m: m_data.merge_hemispheres() for m, m_data in brain.markers_data.items()}
+        brain._markers_data = {m: m_data.merge_hemispheres() for m, m_data in brain._markers_data.items()}
         brain.sizes = brain.sizes.merge_hemispheres()
         return brain
 
@@ -422,7 +428,7 @@ class AnimalBrain:
         [`from_pandas`][braian.AnimalBrain.from_pandas]
         """
         data = pd.concat({f"area ({self.sizes.units})" if units else "area": self.sizes.data,
-                          **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self.markers_data.items()}}, axis=1)
+                          **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self._markers_data.items()}}, axis=1)
         data.columns.name = str(self.metric)
         return data
 

@@ -188,8 +188,8 @@ def _group_change(brain: AnimalBrain, group: AnimalGroup,
     # assert set(brain.regions) == set(group.regions), f"Both AnimalBrain and AnimalGroup must be on the same regions"
 
     markers_data = dict()
-    for marker,this in brain.markers_data.items():
-        data = fun(this, group.mean[marker])
+    for marker in brain.markers:
+        data = fun(brain[marker], group.mean[marker])
         data.metric = str(metric)
         data.units = f"{marker} {str(brain.metric)}{symbol}{group.name} {str(group.metric)}"
         markers_data[marker] = data
