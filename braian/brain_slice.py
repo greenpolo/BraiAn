@@ -100,10 +100,10 @@ class BrainSlice:
         MissingResultsColumnError
             If `csv_file` is missing reporting the number of detection in at least one `detected_channels`.
         """
-        cols2marker = {BrainSlice.__column_from_qupath_channel(ch): m for ch,m in ch2marker.items()}
-        data = BrainSlice.__read_qupath_data(search_file_or_simlink(csv_file))
-        BrainSlice.__check_columns(data, [BrainSlice.__QUPATH_AREA, *cols2marker.keys()], csv_file)
-        for column, ch1, ch2 in BrainSlice.__find_overlapping_channels(data, cols2marker.keys()):
+        cols2marker = {BrainSlice._column_from_qupath_channel(ch): m for ch,m in ch2marker.items()}
+        data = BrainSlice._read_qupath_data(search_file_or_simlink(csv_file))
+        BrainSlice._check_columns(data, [BrainSlice.__QUPATH_AREA, *cols2marker.keys()], csv_file)
+        for column, ch1, ch2 in BrainSlice._find_overlapping_channels(data, cols2marker.keys()):
             try:
                 m1 = ch2marker[ch1]
                 m2 = ch2marker[ch2]
@@ -112,16 +112,16 @@ class BrainSlice:
             cols2marker[column] = overlapping_markers(m1, m2)
         data = pd.DataFrame(data, columns=[BrainSlice.__QUPATH_AREA, *cols2marker.keys()])
         # NOTE: not needed since qupath-extension-braian>=1.0.1
-        BrainSlice.__fix_nan_countings(data, cols2marker.keys())
+        BrainSlice._fix_nan_countings(data, cols2marker.keys())
         data.rename(columns={BrainSlice.__QUPATH_AREA: "area"} | cols2marker, inplace=True)
         return BrainSlice(data, *args, **kwargs)
 
     @staticmethod
-    def __column_from_qupath_channel(channel: str) -> str:
+    def _column_from_qupath_channel(channel: str) -> str:
         return f"Num {channel}"
 
     @staticmethod
-    def __read_qupath_data(csv_file: Path) -> pd.DataFrame:
+    def _read_qupath_data(csv_file: Path) -> pd.DataFrame:
         sep = "," if csv_file.suffix.lower() == ".csv" else "\t"
         try:
             data = pd.read_csv(csv_file, sep=sep).drop_duplicates()
@@ -132,7 +132,7 @@ class BrainSlice:
                 raise InvalidResultsError(file=csv_file)
         if "Class" in data.columns:
             raise ValueError("You are analyising results file exported with QuPath <0.5.x. Such files are no longer supported!")
-        BrainSlice.__check_columns(data, ["Name", "Classification", "Num Detections",], csv_file)
+        BrainSlice._check_columns(data, ["Name", "Classification", "Num Detections",], csv_file)
         # data = self.clean_rows(data, csv_file)
         if len(data) == 0:
             raise EmptyResultsError(file=csv_file)
@@ -154,7 +154,7 @@ class BrainSlice:
         return data
 
     @staticmethod
-    def __check_columns(data: pd.DataFrame, columns: Iterable[str],
+    def _check_columns(data: pd.DataFrame, columns: Iterable[str],
                         csv_file: str|Path) -> bool:
         for column in columns:
             if column not in data.columns:
@@ -162,7 +162,7 @@ class BrainSlice:
         return True
 
     @staticmethod
-    def __find_overlapping_channels(data: pd.DataFrame,
+    def _find_overlapping_channels(data: pd.DataFrame,
                                     detections_cols: Iterable[str]) -> Generator[tuple[str], None, None]:
         other_cols = [col for col in data.columns if col not in (*detections_cols, BrainSlice.__QUPATH_AREA)]
         if len(other_cols) == 0:
@@ -177,7 +177,7 @@ class BrainSlice:
         return
 
     @staticmethod
-    def __fix_nan_countings(data, detection_columns):
+    def _fix_nan_countings(data, detection_columns):
         # old version (<1.0.1) of qupath.ext.braian.AtlasManager.saveResults()
         # fills with NaNs columns when there is< no detection in the whole image
         # This, for instance, can happen when there is no overlapping detection.
@@ -284,7 +284,7 @@ class BrainSlice:
         """Whether the data of the current `BrainSlice` make a distinction between right and left hemisphere."""
         if is_split and not self.is_split:
             raise InvalidRegionsHemisphereError(file=self.name)
-        BrainSlice.__check_columns(self.data, ("area",), self.name)
+        BrainSlice._check_columns(self.data, ("area",), self.name)
         assert self.data.shape[1] >= 2, "'data' should have at least one column, apart from 'area', containing per-region data"
         match area_units:
             case "µm2" | "um2":
@@ -298,7 +298,7 @@ class BrainSlice:
         if brain_ontology is not None:
             self.data = _sort_by_ontology(self.data, brain_ontology, fill=False)
 
-        self.markers_density: pd.DataFrame = self.__marker_density()
+        self.markers_density: pd.DataFrame = self._marker_density()
 
     @property
     def markers(self) -> list[str]:
@@ -384,14 +384,14 @@ class BrainSlice:
         except Exception:
             raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
         finally:
-            self.markers_density = self.__marker_density()
+            self.markers_density = self._marker_density()
         if len(self.data) == 0:
             raise ExcludedAllRegionsError(file=self.name)
 
     def __area_µm2_to_mm2(self) -> None:
         self.data.area = self.data.area * 1e-06
 
-    def __marker_density(self) -> pd.DataFrame:
+    def _marker_density(self) -> pd.DataFrame:
         return self.data[self.markers].div(self.data["area"], axis=0)
 
     def merge_hemispheres(self) -> Self:

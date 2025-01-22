@@ -120,8 +120,8 @@ class SlicedBrain:
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
                 slice.exclude_regions(exclude, brain_ontology, exclude_parent_regions)
             except BrainSliceFileError as e:
-                mode = SlicedBrain.__get_default_error_mode(e)
-                SlicedBrain.__handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)
+                mode = SlicedBrain._get_default_error_mode(e)
+                SlicedBrain._handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)
             else:
                 slices.append(slice)
         # DOES NOT PRESERVE ORDER
@@ -247,7 +247,7 @@ class SlicedBrain:
         return brain
 
     @staticmethod
-    def __handle_brainslice_error(exception, mode, name, results_file: Path, regions_to_exclude_file: Path):
+    def _handle_brainslice_error(exception, mode, name, results_file: Path, regions_to_exclude_file: Path):
         assert issubclass(type(exception), BrainSliceFileError), ""
         match mode:
             case "delete":
@@ -265,7 +265,7 @@ class SlicedBrain:
                 raise ValueError(f"Invalid mode='{mode}' parameter. Supported BrainSliceFileError handling modes: 'delete', 'error', 'print', 'silent'.")
 
     @staticmethod
-    def __get_default_error_mode(exception):
+    def _get_default_error_mode(exception):
         e_name = type(exception).__name__
         mode_var = f"MODE_{e_name}"
         if mode_var in globals():
