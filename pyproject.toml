@@ -16,13 +16,12 @@ readme = "README.md"
 packages = [{include = "braian"}]
 
 [tool.poetry.dependencies]
-python = ">=3.11,<3.13"
+python = ">=3.11,<3.14"
 python-igraph = "^0.11.8"
-numpy = "^2.0.2"                # for 2.1.1 wait for numba 0.61: https://github.com/numba/numba/issues/9708
-numba = ">=0.60"                # must pin numba to 0.60 in order to update to numpy 2.0. Blocking support for python3.13
-pandas = "^2.2.2"
+numpy = "^2.0.2,<2.2"           # for 2.2 wait for numba 0.62: https://github.com/numba/numba/issues/9838
+pandas = "^2.2.3"
 plotly = "^5.24.1"
-scipy = "^1.14.1"
+scipy = "^1.15.1"
 kaleido = "0.2.1"               # used to export plotly images. "0.2.1.post1" version can't be installed
 beautifulsoup4 = "^4.12.3"      # used to blacklist regions from Allen's ontology that have no annotation
 brainglobe-heatmap = "^v0.5.4"  # used to visualize brain heatmap for IEGs overlaps
@@ -38,11 +37,11 @@ optional = true
 mkdocs = {git = "https://github.com/carlocastoldi/mkdocs.git", rev = "on-template"}
 mkdocstrings = {extras = ["python"], version = "^0.26.2"}
 mkdocs-plugin-progress = "^1.2.0"
-mkdocs-material = "^9.5.44"
+mkdocs-material = "^9.5.50"
 mkdocs-jupyter = "^0.25.1"
-mkdocs-include-markdown-plugin = "^6.2.2"
+mkdocs-include-markdown-plugin = "^7.1.2"
 mkdocs-multi-theme-plugin = {git = "https://github.com/carlocastoldi/mkdocs-multi-theme-plugin.git", rev = "master"}
-mkdocs-open-in-new-tab = "^1.0.7"
+mkdocs-open-in-new-tab = "^1.0.8"
 markdown-captions = "^2.1.2"
 
 [build-system]
