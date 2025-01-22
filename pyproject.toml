@@ -4,7 +4,7 @@
 
 [tool.poetry]
 name = "braian"
-version = "1.0.3a0"
+version = "1.0.3"
 description = "A python library for easy navigation, visualisation, and analysis of whole-brain quantification data."
 homepage = "https://silvalab.codeberg.page/BraiAn/"
 repository = "https://codeberg.org/SilvaLab/BraiAn"
