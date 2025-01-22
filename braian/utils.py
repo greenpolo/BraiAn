@@ -1,10 +1,12 @@
 import errno
+import functools
 import os
 import numpy as np
 import pandas as pd
 import platform
 import requests
 import sys
+import warnings
 from importlib import resources
 from pathlib import Path
 
@@ -66,7 +68,21 @@ def get_indices_where(where):
     rows = where.index[where.any(axis=1)]
     return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]
 
-def silvalab_remote_dirs(experiment_dir_name: Path|str,
+def deprecated(message=None):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # If a custom message is provided, use it; otherwise, use a default message
+            warning_message = f"{func.__name__} is deprecated and may be removed in future versions."
+            if message:
+                warning_message += " "+message
+            warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+def silvalab_remote_dirs(
+                experiment_dir_name: Path|str,
                 is_collaboration_project: bool,
                 collaboration_dir_name: Path|str) -> tuple[Path,Path]:
     match sys.platform:
@@ -89,6 +105,6 @@ def silvalab_remote_dirs(experiment_dir_name: Path|str,
         data_root  =  mnt_point/"collaborations"/collaboration_dir_name/"data"/experiment_dir_name
         plots_root =  mnt_point/"collaborations"/collaboration_dir_name/"results"/experiment_dir_name/"plots"
     else:
-        data_root  = mnt_point/"projects"/"data"/experiment_dir_name
-        plots_root = mnt_point/"projects"/"results"/experiment_dir_name/"plots"
+        data_root  = mnt_point/"projects"/experiment_dir_name/"data"
+        plots_root = mnt_point/"projects"/experiment_dir_name/"results"/"plots"
     return data_root, plots_root

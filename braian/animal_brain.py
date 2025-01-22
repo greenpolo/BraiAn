@@ -2,7 +2,6 @@ import copy
 import numpy as np
 import pandas as pd
 import re
-import warnings
 
 from collections.abc import Sequence
 from enum import Enum, auto
@@ -13,7 +12,7 @@ from typing import Generator, Self
 from braian.ontology import AllenBrainOntology
 from braian.sliced_brain import SlicedBrain, EmptyBrainError
 from braian.brain_data import BrainData
-from braian.utils import save_csv
+from braian.utils import save_csv, deprecated
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
 
@@ -179,7 +178,7 @@ class AnimalBrain:
         return
 
     @property
-    @warnings.deperecated("Use sizes instead.")
+    @deprecated("Use sizes instead.")
     def areas(self) -> BrainData:
         return self.sizes
 
