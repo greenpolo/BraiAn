@@ -5,7 +5,7 @@
 # from https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0
 
 when:
-  - event: [push, manual]
+  - event: [release, manual]
     branch: master
 
 steps:
