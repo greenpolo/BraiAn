@@ -109,6 +109,7 @@ class BrainSlice:
             data = BrainSlice._read_qupath_data(search_file_or_simlink(csv))
         BrainSlice._check_columns(data, [BrainSlice.__QUPATH_AREA, *cols2marker.keys()], csv)
         for column, ch1, ch2 in BrainSlice._find_overlapping_channels(data, cols2marker.keys()):
+            BrainSlice.fix_double_positive_bug(data, column, ch1, ch2)
             try:
                 m1 = ch2marker[ch1]
                 m2 = ch2marker[ch2]
@@ -120,6 +121,16 @@ class BrainSlice:
         BrainSlice._fix_nan_countings(data, cols2marker.keys())
         data.rename(columns={BrainSlice.__QUPATH_AREA: "area"} | cols2marker, inplace=True)
         return BrainSlice(data, *args, **kwargs)
+
+    @staticmethod
+    def fix_double_positive_bug(data: pd.DataFrame, dp_col: str, ch1: str, ch2: str):
+        # ~fixes: https://github.com/carlocastoldi/qupath-extension-braian/issues/2
+        # NOTE: this solution MAY reduce the total number of double positive,
+        # but no better solution was found to the above issue
+        ch1_col = BrainSlice._column_from_qupath_channel(ch1)
+        ch2_col = BrainSlice._column_from_qupath_channel(ch2)
+        maximum_overlap = data[[ch1_col, ch2_col]].min(axis=1)
+        data[dp_col] = data[dp_col].clip(upper=maximum_overlap)
 
     @staticmethod
     def _column_from_qupath_channel(channel: str) -> str:
