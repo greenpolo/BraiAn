@@ -4,7 +4,7 @@
 
 [project]
 name = "braian"
-version = "1.0.4"
+version = "1.0.5a0"
 description = "A python library for easy navigation, visualisation, and analysis of whole-brain quantification data."
 homepage = "https://silvalab.codeberg.page/BraiAn/"
 repository = "https://codeberg.org/SilvaLab/BraiAn"
