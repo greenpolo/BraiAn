@@ -63,7 +63,7 @@ class BrainSlice:
     __QUPATH_AREA = "Area um^2"
 
     @staticmethod
-    def from_qupath(csv_file: str|Path, ch2marker: dict[str,str],
+    def from_qupath(csv: str|Path|pd.DataFrame, ch2marker: dict[str,str],
                     *args, **kwargs) -> Self:
         """
         Creates a [`BrainSlice`][braian.BrainSlice] from a file exported with
@@ -72,9 +72,10 @@ class BrainSlice:
 
         Parameters
         ----------
-        csv_file
+        csv
             The path to file exported with [`AtlasManager.saveResults()`](https://carlocastoldi.github.io/qupath-extension-braian/docs/qupath/ext/braian/AtlasManager.html#saveResults(java.util.List,java.io.File)).
             If it ends with ".csv", it treats the file as a comma-separated table. Otherwise, it assuems it is tab-separated.
+            It can also be a DataFrame.
         ch2marker
             A dictionary mapping the QuPath channel names to markers.
             A cell segmentation algorithm must have previously run on each of the given channels.
@@ -101,8 +102,12 @@ class BrainSlice:
             If `csv_file` is missing reporting the number of detection in at least one `detected_channels`.
         """
         cols2marker = {BrainSlice._column_from_qupath_channel(ch): m for ch,m in ch2marker.items()}
-        data = BrainSlice._read_qupath_data(search_file_or_simlink(csv_file))
-        BrainSlice._check_columns(data, [BrainSlice.__QUPATH_AREA, *cols2marker.keys()], csv_file)
+        if isinstance(csv, pd.DataFrame):
+            data = csv.copy(deep=True)
+            csv = "unkown file"
+        else:
+            data = BrainSlice._read_qupath_data(search_file_or_simlink(csv))
+        BrainSlice._check_columns(data, [BrainSlice.__QUPATH_AREA, *cols2marker.keys()], csv)
         for column, ch1, ch2 in BrainSlice._find_overlapping_channels(data, cols2marker.keys()):
             try:
                 m1 = ch2marker[ch1]
