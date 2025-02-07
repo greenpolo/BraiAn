@@ -16,5 +16,5 @@ steps:
         from_secret: POETRY_PYPI_TOKEN_PYPI
     commands:
       - python -m pip install --upgrade pip --root-user-action=ignore
-      - python -m pip install poetry==1.8.3 --root-user-action=ignore
+      - python -m pip install poetry==2.0.1 --root-user-action=ignore
       - poetry publish --build && rm -rf $POETRY_CACHE_DIR
