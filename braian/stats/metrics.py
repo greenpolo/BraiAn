@@ -286,8 +286,7 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     overlaps = dict()
     for m in (marker1, marker2):
-        # TODO: clipping overlaps to 100% because of a bug with the QuPath script that counts overlapping cells as belonging to different regions
-        overlaps[m] = (brain[both] / brain[m]).clip(upper=1)
+        overlaps[m] = (brain[both] / brain[m])
         overlaps[m].metric = "overlaps"
         overlaps[m].units = f"({marker1}+{marker2})/{m}"
     return AnimalBrain(markers_data=overlaps, sizes=brain.sizes, raw=False)
