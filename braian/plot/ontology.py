@@ -2,10 +2,10 @@ import braian
 import igraph as ig
 import numpy as np
 import numpy.typing as npt
+import plotly.colors as plc
 import plotly.graph_objects as go
 
 from collections.abc import Iterable, Callable
-from plotly.colors import DEFAULT_PLOTLY_COLORS
 
 __all__ = [
     "hierarchy",
@@ -88,8 +88,9 @@ def draw_edges(G: ig.Graph, layout: ig.Layout, width: int) -> go.Scatter:
     return edges_trace
 
 def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: braian.AllenBrainOntology,
-               node_size: int, outline_size: float=0.5,
-               use_centrality: bool=False, centrality_metric: str=None, use_clustering: bool=False,
+               node_size: int, fill_mode: str="region",
+               outline_size: float=0.5, outline_mode: str="region",
+               centrality_metric: str=None,
                metrics: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={"degree": ig.VertexSeq.degree}
                ) -> go.Scatter:
     """
@@ -102,19 +103,22 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: braian.AllenBrain
     layout
         The layout used to position the nodes of the graph `G`
     brain_ontology
-        TODO: missing
+        The atlas ontology associated with `G`. It is used to retrieve information about brain regions.
     node_size
         The size of the region nodes
+    fill_mode
+        The mode chosen to color each region node.
+        Accepted values are: `"region"`, `"centrality"` or `"cluster"`.
     outline_size
-        the size of the region nodes' outlines
-    use_centrality
-        If true, it colors the regions nodes based on the attribute defined in `centrality_metric` of each `G` vertex
-        If false, it uses the corresponding brain region color.
+        The size of the region nodes' outlines
+    outline_mode
+        The mode chosen to color each region node outline.
+        Accepted values are: `"region"`, `"centrality"` or `"cluster"`.
+        If `"region"`, it colors based on `brain_ontology`.
+        If `"centrality"`, it colors based on the attribute defined in `centrality_metric` of `G` vertices.
+        If `"cluster"`, it colors based on `cluster` attribute on `G` vertices.
     centrality_metric
-        The name of the attribute used if `use_centrality=True`
-    use_clustering
-        If true, it colors the regions nodes outlines based on the `cluster` attribute of each `G` vertex
-        If false, it uses the corresponding brain region color.
+        The name of the attribute used if `fill_mode` or `outline_mode` are set to `"centrality"`.
     metrics
         A dictionary that defines M additional information for the vertices of graph `G`.
         The keys are title of an additional metric, while the values are functions that
@@ -128,31 +132,28 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: braian.AllenBrain
     Raises
     ------
     ValueError
-        If `use_centrality=True`, but the vertices of `G` have no attribute as defined in `centrality_metric`
+        If `fill_mode` or `outline_mode` are set to `"centrality"`,
+        but `G` vertices have no attributes named `"cluster"`.
     ValueError
-        If `use_clustering=True`, but the vertices of `G` have no `cluster` attribute
+        If `fill_mode` or `outline_mode` are set to `"centrality"`,
+        but `G` vertices have no attributes named as defined by `centrality_metric`.
     """
-    colors = brain_ontology.get_region_colors()
+    region_colors = brain_ontology.get_region_colors()
+    vertex_fill =       _region_color(fill_mode, G, region_colors, centrality_metric)
+    vertex_outline = _region_color(outline_mode, G, region_colors, centrality_metric)
     nodes_color = []
     outlines_color = []
-    if use_clustering:
-        if "cluster" not in G.vs.attributes():
-            raise ValueError("No clustering is made on the provided connectome")
-        get_outline_color = lambda v: DEFAULT_PLOTLY_COLORS[v["cluster"] % len(DEFAULT_PLOTLY_COLORS)]  # noqa: E731
-    else:
-        get_outline_color = lambda v: colors[v["name"]]  # noqa: E731
-    if use_centrality and (centrality_metric is None or centrality_metric not in G.vs.attributes()):
-        raise ValueError("If you want to plot the centrality, you must also specify a nodes' attribute in 'centrality_metric'")
+
     for v in G.vs:
         if v.degree() > 0:
-            outline_color = get_outline_color(v)
-            node_color = v[centrality_metric] if use_centrality else colors[v["name"]]
+            outline_color = vertex_outline(v)
+            node_color = vertex_fill(v)
         elif "is_undefined" in v.attributes() and v["is_undefined"]:
-            outline_color = 'rgb(140,140,140)'
-            node_color = '#A0A0A0'
+            outline_color = "rgb(140,140,140)"
+            node_color = "rgb(160,160,160)"
         else:
-            outline_color = 'rgb(150,150,150)'
-            node_color = '#CCCCCC'
+            outline_color = "rgb(150,150,150)"
+            node_color = "rgb(204,204,204)"
         nodes_color.append(node_color)
         outlines_color.append(outline_color)
 
@@ -171,6 +172,22 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: braian.AllenBrain
         showlegend=False
     )
     return nodes_trace
+
+def _region_color(mode: str,
+                  G: ig.Graph,
+                  region_colors: list[str],
+                  centrality_metric: str) -> Callable[[ig.Vertex],str]:
+    match mode:
+        case "region":
+            return lambda v: region_colors[v["name"]]  # noqa: E731
+        case "centrality":
+            if centrality_metric is None or centrality_metric not in G.vs.attributes():
+                raise ValueError("No valid centrality metric was specified.") # Check the vertices' attributes to see the available options.")
+            return lambda v: v[centrality_metric]
+        case "cluster":
+            if "cluster" not in G.vs.attributes():
+                raise ValueError("No clustering was made on the provided connectome")
+            return lambda v: plc.qualitative.Plotly[v["cluster"] % len(plc.qualitative.Plotly)]  # noqa: E731
 
 def _nodes_hover_info(brain_ontology: braian.AllenBrainOntology, G: ig.Graph,
                      title_dict: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={}

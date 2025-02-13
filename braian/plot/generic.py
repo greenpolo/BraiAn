@@ -264,7 +264,7 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], thresh
             opacity=0.7,
             marker=dict(
                 size=7,
-                color=plc.DEFAULT_PLOTLY_COLORS[i],
+                color=plc.qualitative.Plotly[i],
                 line=dict(
                     color="rgb(0,0,0)",
                     width=1
@@ -346,7 +346,7 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
                 x=list(brain_densities_mean.keys()),
                 y=list(brain_densities_mean.values()),
                 # text=texts,
-                marker_color=plc.DEFAULT_PLOTLY_COLORS[i],
+                marker_color=plc.qualitative.Plotly[i],
                 # opacity=0.3,
                 # showlegend=i==0,
                 # legendgroup="#above",
@@ -359,7 +359,7 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
                 opacity=0.7,
                 marker=dict(
                     size=7,
-                    color=plc.DEFAULT_PLOTLY_COLORS[i],
+                    color=plc.qualitative.Plotly[i],
                     line=dict(
                         color="rgb(0,0,0)",
                         width=1
