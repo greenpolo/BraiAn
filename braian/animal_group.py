@@ -286,8 +286,9 @@ class AnimalGroup:
         :
             A group with the data of each animal changed accordingly to `f`.
         """
-        return AnimalGroup(self.name,
-                           [f(a) for a in self._animals],
+        animals = [f(a) for a in self._animals]
+        return AnimalGroup(name=self.name,
+                           animals=animals,
                            hemisphere_distinction=hemisphere_distinction,
                            brain_ontology=brain_ontology,
                            fill_nan=fill_nan)

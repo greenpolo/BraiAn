@@ -279,7 +279,7 @@ class BrainSlice:
             Whether the data was extracted distinguishing between the two hemispheres or not.
         area_units
             The units of measurements used by `"area"` column in `data`.
-            Accepted values are: `"µm2"`, `"um2"` or `mm2`.
+            Accepted values are: `"µm2"`, `"um2"` or `"mm2"`.
         brain_ontology
             If specified, it checks the brain regions in `data` against the given ontology
             and it sorts the rows in depth-first order in ontology's hierarchy.
