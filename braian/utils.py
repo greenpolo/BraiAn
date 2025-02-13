@@ -102,9 +102,9 @@ def silvalab_remote_dirs(
     if not mnt_point.is_dir():
         raise Exception(f"Could not read '{mnt_point}'. Please be sure you are connected to the server.")
     if is_collaboration_project:
-        data_root  =  mnt_point/"collaborations"/collaboration_dir_name/"data"/experiment_dir_name
-        plots_root =  mnt_point/"collaborations"/collaboration_dir_name/"results"/experiment_dir_name/"plots"
+        analysis_root  =  mnt_point/"collaborations"/collaboration_dir_name/experiment_dir_name/"analysis"
+        plots_root =  mnt_point/"collaborations"/collaboration_dir_name/experiment_dir_name/"results"/"plots"
     else:
-        data_root  = mnt_point/"projects"/experiment_dir_name/"data"
+        analysis_root  = mnt_point/"projects"/experiment_dir_name/"analysis"
         plots_root = mnt_point/"projects"/experiment_dir_name/"results"/"plots"
-    return data_root, plots_root
+    return analysis_root, plots_root
