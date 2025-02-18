@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from collections import OrderedDict
 from collections.abc import Iterable, Container
 from braian import visit_dict
+from pathlib import Path
 
 __all__ = ["AllenBrainOntology", "MAJOR_DIVISIONS"]
 
@@ -66,10 +67,16 @@ class AllenBrainOntology:
             The version of the Common Coordinates Framework to which the onthology is synchronised
         """
         # TODO: we should probably specify the size (10nm, 25nm, 50nm) to which the data was registered
-        with open(path_to_allen_json, "r") as file:
-            allen_data = json.load(file)
-
-        self.dict = allen_data["msg"][0]
+        if isinstance(path_to_allen_json, (str, Path)):
+            with open(path_to_allen_json, "r") as file:
+                allen_data = json.load(file)
+            if "msg" in allen_data:
+                self.dict = allen_data["msg"][0]
+            else:
+                self.dict = allen_data
+        else:
+            assert isinstance(path_to_allen_json, dict)
+            self.dict = path_to_allen_json
         # First label every region as "not blacklisted"
         visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
         visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_reference(n, True))
