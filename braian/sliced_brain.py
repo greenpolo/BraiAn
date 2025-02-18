@@ -114,7 +114,7 @@ class SlicedBrain:
                 # group analysis. Checking against the ontology for each slice would be too time consuming.
                 # We can do it afterwards, after the SlicedBrain is reduced to AnimalBrain
                 slice: BrainSlice = BrainSlice.from_qupath(results_file,
-                                               ch2marker,
+                                               ch2marker, atlas=brain_ontology.name,
                                                animal=name, name=image, is_split=True,
                                                area_units=SlicedBrain.__QUPATH_AREA_UNITS, brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)

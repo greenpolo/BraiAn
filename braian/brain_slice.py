@@ -61,9 +61,11 @@ def overlapping_markers(marker1: str, marker2: str) -> str:
 
 class BrainSlice:
     __QUPATH_AREA = "Area um^2"
+    __QUPATH_ATLAS_CONTAINER = "Root"
 
     @staticmethod
     def from_qupath(csv: str|Path|pd.DataFrame, ch2marker: dict[str,str],
+                    atlas: str=None,
                     *args, **kwargs) -> Self:
         """
         Creates a [`BrainSlice`][braian.BrainSlice] from a file exported with
@@ -79,6 +81,9 @@ class BrainSlice:
         ch2marker
             A dictionary mapping the QuPath channel names to markers.
             A cell segmentation algorithm must have previously run on each of the given channels.
+        atlas
+            The name of the brain atlas used to align the section.
+            If None, it won't use it as a sanity check of the `csv` data.
         *args
             Other arguments are passed to [`BrainSlice`][braian.BrainSlice] constructor.
         **kwargs
@@ -105,8 +110,11 @@ class BrainSlice:
         if isinstance(csv, pd.DataFrame):
             data = csv.copy(deep=True)
             csv = "unkown file"
+            data_atlas = None
         else:
-            data = BrainSlice._read_qupath_data(search_file_or_simlink(csv))
+            data_atlas, data = BrainSlice._read_qupath_data(search_file_or_simlink(csv))
+            assert data_atlas is None or data_atlas == atlas,\
+                f"Brain slice was expected to be aligned against '{atlas}', but instead found '{data_atlas}'"
         BrainSlice._check_columns(data, [BrainSlice.__QUPATH_AREA, *cols2marker.keys()], csv)
         for column, ch1, ch2 in BrainSlice._find_overlapping_channels(data, cols2marker.keys()):
             BrainSlice.fix_double_positive_bug(data, column, ch1, ch2)
@@ -120,7 +128,7 @@ class BrainSlice:
         # NOTE: not needed since qupath-extension-braian>=1.0.1
         BrainSlice._fix_nan_countings(data, cols2marker.keys())
         data.rename(columns={BrainSlice.__QUPATH_AREA: "area"} | cols2marker, inplace=True)
-        return BrainSlice(data, *args, **kwargs)
+        return BrainSlice(data, *args, atlas=data_atlas, **kwargs)
 
     @staticmethod
     def fix_double_positive_bug(data: pd.DataFrame, dp_col: str, ch1: str, ch2: str):
@@ -137,7 +145,7 @@ class BrainSlice:
         return f"Num {channel}"
 
     @staticmethod
-    def _read_qupath_data(csv_file: Path) -> pd.DataFrame:
+    def _read_qupath_data(csv_file: Path) -> tuple[str,pd.DataFrame]:
         sep = "," if csv_file.suffix.lower() == ".csv" else "\t"
         try:
             data = pd.read_csv(csv_file, sep=sep).drop_duplicates()
@@ -157,17 +165,22 @@ class BrainSlice:
 
         # There may be one region/row with Name == "Root" and Classification == NaN indicating the whole slice.
         # We remove it, as we want the distinction between hemispheres in the regions' acronym given by Classification column
-        match (data["Classification"].isnull()).sum():
+        match (atlas_container:=data["Name"] == BrainSlice.__QUPATH_ATLAS_CONTAINER).sum():
             case 0:
-                data = data.set_index("Classification")
+                data.set_index("Classification", inplace=True)
+                atlas = None
             case 1:
-                data["Classification"] = data["Classification"].fillna("wholebrain")
-                data = data.set_index("Classification")
-                data = data.drop("wholebrain", axis=0)
+                root_class = data["Classification"][atlas_container].values[0]
+                data.drop(data.index[atlas_container], axis=0, inplace=True, errors="raise")
+                data.set_index("Classification", inplace=True)
+                if not pd.isna(root_class): # QP BraiAn<1.0.4 exported data without the atlas name
+                    atlas = str(root_class)
+                else:
+                    atlas = None
             case _:
                 raise InvalidResultsError(file=csv_file)
         data.index.name = None
-        return data
+        return atlas, data
 
     @staticmethod
     def _check_columns(data: pd.DataFrame, columns: Iterable[str],
@@ -258,7 +271,8 @@ class BrainSlice:
     #     return True
 
     def __init__(self, data: pd.DataFrame, animal:str, name: str, is_split: bool,
-                 area_units: str="µm2", brain_ontology: AllenBrainOntology|None=None) -> None:
+                 area_units: str="µm2", brain_ontology: AllenBrainOntology|None=None,
+                 atlas: str|None=None) -> None:
         """
         Creates a `BrainSlice` from a [`DataFrame`][pandas.DataFrame]. Each row representes the data
         of a single brain region, whose acronym is used as index. If the data was collected
@@ -296,6 +310,8 @@ class BrainSlice:
         self.name: str = name
         """The name of the image that captured the section from which the data of the current `BrainSlice` are from."""
         self.data = data
+        self.atlas = atlas
+        """The name of the brain atlas used to align the section. If None, it means that the cell-segmented data didn't specify it."""
         self.is_split: bool = _is_split_left_right(self.data.index)
         """Whether the data of the current `BrainSlice` make a distinction between right and left hemisphere."""
         if is_split and not self.is_split:

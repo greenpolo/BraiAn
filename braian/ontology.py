@@ -45,7 +45,10 @@ def has_reference(node) -> bool:
 
 class AllenBrainOntology:
     # https://community.brain-map.org/t/allen-mouse-ccf-accessing-and-using-related-data-and-tools/359
-    def __init__(self, path_to_allen_json: str, blacklisted_acronyms: Iterable=[], version: str|None=None):
+    def __init__(self,
+                 path_to_allen_json: str,
+                 blacklisted_acronyms: Iterable=[],
+                 version: str|None=None):
         """
         Crates an ontology of brain regions based on Allen Institute's structure graphs.
         To know more where to get the structure graphs, read the
@@ -92,6 +95,8 @@ class AllenBrainOntology:
 
         self._add_depth_to_regions()
         self._mark_major_divisions()
+        self.name: str = "allen_mouse_10um_java"
+        """The name of the atlas accordingly to ABBA/BrainGlobe"""
         self.parent_region: dict[str,str] = self._get_all_parent_areas() #: A dictionary mapping region's acronyms to the parent region. It does not have 'root'.
         self.direct_subregions: dict[str,list[str]] = self._get_all_subregions()
         """A dictionary mappin region's acronyms to a list of direct subregions.
