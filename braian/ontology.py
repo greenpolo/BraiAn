@@ -150,7 +150,6 @@ class AllenBrainOntology:
         """
         return visit_dict.find_subtree(self.dict, key, r, "children") is not None
 
-
     def are_regions(self, a: Iterable, key: str="acronym") -> npt.NDArray:
         """
         Check whether each of the elements of the iterable are a brain region of the current ontology or not
@@ -588,8 +587,8 @@ class AllenBrainOntology:
         ids
             The brain regions' IDs to convert
         mode
-            Must be eithe "breadth" or "depth".
-            The order in which the returned acronyms will be: breadth-first or depth-first
+            If None, it returns the acronyms in the same order as the given `ids`.
+            Otherwise, it must be either "breadth"—for breadth-first—or "depth"—for depth-first order.
 
         Returns
         -------
@@ -607,16 +606,18 @@ class AllenBrainOntology:
         match mode:
             case "breadth":
                 visit_alg = visit_dict.visit_bfs
-            case "depth":
+            case "depth" | None:
                 visit_alg = visit_dict.visit_dfs
             case _:
-                raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
+                raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth', 'depth' or None.")
         if not all(is_region:=self.are_regions(ids, key="id")):
             raise ValueError(f"Some given IDs are not recognised as part of the ontology: {np.asarray(ids)[~is_region]}")
         areas = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] in ids, visit_alg)
+        if mode is None:
+            areas.sort(key=lambda r: list(ids).index(r["id"]))
         return [area["acronym"] for area in areas]
 
-    def acronym_to_ids(self, acronyms: Container[str], mode: str="depth") -> list[int]:
+    def acronyms_to_id(self, acronyms: Container[str], mode: str="depth") -> list[int]:
         """
         Converts the given brain regions acronyms into ther corresponding IDs
 
@@ -625,8 +626,8 @@ class AllenBrainOntology:
         acronyms
             the brain regons' acronyms to convert
         mode
-            Must be eithe "breadth" or "depth".
-            The order in which the returned acronyms will be: breadth-first or depth-first
+            If None, it returns the IDs in the same order as the given `acronyms`.
+            Otherwise, it must be either "breadth"—for breadth-first—or "depth"—for depth-first order.
 
         Returns
         -------
@@ -639,16 +640,18 @@ class AllenBrainOntology:
             If given `mode` is not supported
 
         ValueError
-            If it can't find at least one of the `ids` in the ontology
+            If it can't find at least one of the `acronyms` in the ontology
         """
         match mode:
             case "breadth":
                 visit_alg = visit_dict.visit_bfs
-            case "depth":
+            case "depth" | None:
                 visit_alg = visit_dict.visit_dfs
             case _:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
         regions = visit_dict.get_where(self.dict, "children", lambda n,d: n["acronym"] in acronyms, visit_alg)
+        if mode is None:
+            regions.sort(key=lambda r: list(acronyms).index(r["acronym"]))
         return [r["id"] for r in regions]
 
     def get_sibiling_regions(self, region:str|int, key: str="acronym") -> list:
