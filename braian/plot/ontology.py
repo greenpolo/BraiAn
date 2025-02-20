@@ -13,7 +13,7 @@ __all__ = [
     "draw_nodes"
 ]
 
-def hierarchy(brain_ontology: braian.AllenBrainOntology) -> go.Figure:
+def hierarchy(brain_ontology: braian.AllenBrainOntology, bdata: braian.BrainData=None) -> go.Figure:
         """
         Plots the ontology as a tree.
 
@@ -25,7 +25,21 @@ def hierarchy(brain_ontology: braian.AllenBrainOntology) -> go.Figure:
         G: ig.Graph = brain_ontology.to_igraph()
         graph_layout = G.layout_reingold_tilford(mode="in", root=[0])
         edges_trace = draw_edges(G, graph_layout, width=0.5)
-        nodes_trace = draw_nodes(G, graph_layout, brain_ontology, node_size=5, metrics={"Subregions": lambda vs: np.asarray(vs.degree())-1})
+        nodes_params = dict(
+            layout=graph_layout,
+            brain_ontology=brain_ontology,
+            node_size=5,
+            metrics={"Subregions": lambda vs: np.asarray(vs.degree())-1}
+        )
+        if bdata is not None:
+            selected_regions = set(bdata.regions) - set(bdata.missing_regions())
+            for v in G.vs:
+                acronym = v["name"]
+                v["cluster"] = 2 if acronym in selected_regions else 1
+                v[f"{bdata.units} - {bdata.metric}"] = bdata[acronym] if acronym in bdata else np.nan
+            # nodes_params |= dict(outline_mode="cluster", outline_size=0.5)
+            nodes_params |= dict(fill_mode="cluster")
+        nodes_trace = draw_nodes(G, **nodes_params)
         nodes_trace.marker.line = dict(color="black", width=0.25)
         plot_layout = go.Layout(
             title="Allen's brain region hierarchy",
