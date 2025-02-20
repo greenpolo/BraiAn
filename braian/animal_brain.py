@@ -210,7 +210,7 @@ class AnimalBrain:
     @property
     def regions(self) -> list[str]:
         """The list of region acronyms for which the current `AnimalBrain` has data."""
-        # assumes areas' and all markers' BrainData are synchronized
+        # assumes sizes' and all markers' BrainData are synchronized
         return self.sizes.regions
 
     def __repr__(self):
@@ -281,12 +281,12 @@ class AnimalBrain:
         """
         markers_data = {marker: m_data.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
                         for marker, m_data in self._markers_data.items()}
-        areas = self.sizes.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
+        sizes = self.sizes.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
-            return AnimalBrain(markers_data=markers_data, sizes=areas, raw=self.raw)
+            return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
         else:
             self._markers_data = markers_data
-            self.sizes = areas
+            self.sizes = sizes
             return self
 
     def select_from_list(self, regions: Sequence[str], fill_nan: bool=False, inplace: bool=False) -> Self:
@@ -315,9 +315,9 @@ class AnimalBrain:
         """
         markers_data = {marker: m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
                         for marker, m_data in self._markers_data.items()}
-        areas = self.sizes.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+        sizes = self.sizes.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
         if not inplace:
-            return AnimalBrain(markers_data=markers_data, sizes=areas, raw=self.raw)
+            return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
         else:
             return self
 
@@ -426,7 +426,7 @@ class AnimalBrain:
         --------
         [`from_pandas`][braian.AnimalBrain.from_pandas]
         """
-        data = pd.concat({f"area ({self.sizes.units})" if units else "area": self.sizes.data,
+        data = pd.concat({f"size ({self.sizes.units})" if units else "size": self.sizes.data,
                           **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self._markers_data.items()}}, axis=1)
         data.columns.name = str(self.metric)
         return data
@@ -507,18 +507,18 @@ class AnimalBrain:
             metric = str(df.columns.name)
         raw = AnimalBrain.is_raw(metric)
         markers_data = dict()
-        areas = None
+        sizes = None
         regex = r'(.+) \((.+)\)$'
         pattern = re.compile(regex)
         for column, data in df.items():
-            # extracts name and units from the column's name. E.g. 'area (mm²)' -> ('area', 'mm²')
+            # extracts name and units from the column's name. E.g. 'size (mm²)' -> ('size', 'mm²')
             matches = re.findall(pattern, column)
             name, units = matches[0] if len(matches) == 1 else (column, None)
-            if name == "area":
-                areas = BrainData(data, animal_name, metric, units)
+            if name == "area" or name == "size": # braian <= 1.0.3 called sizes "area"
+                sizes = BrainData(data, animal_name, metric, units)
             else: # it's a marker
                 markers_data[name] = BrainData(data, animal_name, metric, units)
-        return AnimalBrain(markers_data=markers_data, sizes=areas, raw=raw)
+        return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=raw)
 
     @staticmethod
     def from_csv(filepath: Path|str, name: str, sep: str=",") -> Self:
