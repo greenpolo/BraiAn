@@ -236,7 +236,10 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return list(self.data.index)
 
     def __str__(self) -> str:
-        return f"BrainData(name={self.data_name}, metric={self.metric})"
+        return f"BrainData(name='{self.data_name}', metric='{self.metric}', units='{self.units}')"
+
+    def __repr__(self) -> str:
+        return str(self)
 
     def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
                          fill_nan=False, inplace=False) -> Self:
