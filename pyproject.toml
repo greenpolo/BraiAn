@@ -23,13 +23,14 @@ dependencies = [
     "pandas (>=2.2.3,<3.0.0)",
     "plotly (>=5.24.1,<6.0.0)",
     "scipy (>=1.15.1,<2.0.0)",
-    "kaleido (==0.2.1)",                         # used to export plotly images. "0.2.1.post1" version can't be installed
+    "kaleido (==0.2.1)",                        # used to export plotly images. "0.2.1.post1" version can't be installed
     "beautifulsoup4 (>=4.12.3,<=5.0.0)",        # used to blacklist regions from Allen's ontology that have no annotation
     "brainglobe-heatmap (>=0.5.4,<1.0.0)",      # used to visualize brain heatmap for IEGs overlaps
     "urllib3 (>=1.26.16,<2.0.0)",               # fix poetry+conda bug: https://github.com/python-poetry/poetry/issues/7936
     "tables (>=3.9.2,<4.0.0)",                  # fix problem with h5py installation
     "pywin32 (>=306) ; sys_platform == 'win32'",
     "pyyaml (>=6.0.2,<7.0.0)",
+    "vtk (>=9.4.1,<10.0.0)",                    # fixes problem with dependency incompatibility due to brainrender==2.1.16
 ]
 
 [tool.poetry.group.docs]
@@ -45,6 +46,11 @@ mkdocs-include-markdown-plugin = "^7.1.2"
 mkdocs-multi-theme-plugin = {git = "https://github.com/carlocastoldi/mkdocs-multi-theme-plugin.git", rev = "master"}
 mkdocs-open-in-new-tab = "^1.0.8"
 markdown-captions = "^2.1.2"
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.5"
+nbformat = "^5.10.4"
 
 [build-system]
 requires = ["poetry-core>=2.0"]
