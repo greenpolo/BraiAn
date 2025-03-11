@@ -30,7 +30,6 @@ dependencies = [
     "tables (>=3.9.2,<4.0.0)",                  # fix problem with h5py installation
     "pywin32 (>=306) ; sys_platform == 'win32'",
     "pyyaml (>=6.0.2,<7.0.0)",
-    "vtk (>=9.4.1,<10.0.0)",                    # fixes problem with dependency incompatibility due to brainrender==2.1.16
 ]
 
 [tool.poetry.group.docs]
