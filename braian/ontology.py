@@ -137,10 +137,19 @@ class AllenBrainOntology:
             print(f"WARNING: could not remove unannoted regions from {annotation_version} ontology")
             return [], None
         soup = BeautifulSoup(site_content, "html.parser")
-        if annotation_version == "ccf_2022":
-            regions_w_annotation = [int(link["href"][:-len(".nii.gz")].split("_")[0]) for link in soup.select('a[href*=".nii.gz"]')]
-        else:
-            regions_w_annotation = [int(link["href"][len("structure_"):-len(".nrrd")]) for link in soup.select('a[href*=".nrrd"]')]
+        try:
+            if annotation_version == "ccf_2022":
+                regions_w_annotation = [int(link["href"].removeprefix("./").split("_")[0])
+                                        for link in soup.select('a[href*=".nii.gz"]')]
+            else:
+                regions_w_annotation = [int(link["href"].\
+                                            removeprefix("./").\
+                                            removeprefix("structure_").\
+                                            removesuffix(".nrrd")
+                                        ) for link in soup.select('a[href*=".nrrd"]')]
+        except ValueError:
+            print(f"WARNING: could not remove unannoted regions from {annotation_version} ontology")
+            return [], None
         regions_wo_annotation = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dict.visit_dfs)
         return [region["acronym"] for region in regions_wo_annotation], annotation_version
 

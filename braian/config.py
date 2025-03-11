@@ -125,7 +125,8 @@ class BraiAnConfig:
         Returns
         -------
         :
-            _description_
+            An Experiment object, with all animals' and groups' data from QuPath.\\
+            If sliced=True, it returns a SlicedExperiment.
         """
         qupath = self.config["qupath"]
         qupath_dir = _resolve_dir(qupath["files"]["dirs"]["output"], relative=self.config_file.absolute().parent)
