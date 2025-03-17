@@ -519,5 +519,5 @@ def markers_correlation(marker1: str, marker2: str,
         other = group
     else:
         assert group.metric == other.metric, "Both groups must have the same metric."
-    corr = group.to_pandas(marker1).corrwith(other.to_pandas(marker2), method=method, axis=1)
+    corr = group.to_pandas(marker1, missing_as_nan=True).corrwith(other.to_pandas(marker2, missing_as_nan=True), method=method, axis=1)
     return BrainData(corr, group.name, str(group.metric)+f"-corr (n={group.n})", f"corr({marker1}, {marker2})")

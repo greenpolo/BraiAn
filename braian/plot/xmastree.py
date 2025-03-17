@@ -210,7 +210,7 @@ def marker_traces(groups: list[AnimalGroup],
     for group in groups[1:]:
         assert str(group.metric) == metric, f"Expected metric for {group} is '{metric}'"
     assert len(groups_colours) >= len(groups), f"{marker}: You must provide a colour for each group!"
-    groups_df: list[pd.DataFrame] = [group.to_pandas(marker=marker).loc[selected_regions] for group in groups] # .loc sorts the DatFrame in selected_regions' order
+    groups_df: list[pd.DataFrame] = [group.to_pandas(marker=marker, missing_as_nan=True).loc[selected_regions] for group in groups] # .loc sorts the DatFrame in selected_regions' order
     if pls_filtering:=len(groups) == 2 and pls_n_bootstrap is not None and pls_n_permutation is not None:
         if markers_salience_scores is None:
             salience_scores = bas.pls_regions_salience(groups[0], groups[1], selected_regions, marker=marker, fill_nan=True,

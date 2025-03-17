@@ -125,7 +125,7 @@ def group(group: AnimalGroup, selected_regions: list[str]|np.ndarray[str],
 
     data = []
     for marker, color in zip(markers, colors):
-        marker_df = group.to_pandas(marker=marker)
+        marker_df = group.to_pandas(marker=marker, missing_as_nan=True)
         if check_regions:
             try:
                 selected_data: pd.DataFrame = marker_df.loc[selected_regions]
@@ -239,7 +239,7 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], thresh
 
         for brain in group:
             for marker in brain.markers:
-                brain_data = brain.to_pandas(units=False)[marker].reindex(regions)
+                brain_data = brain.to_pandas(units=False, missing_as_nan=True)[marker].reindex(regions)
                 above = brain_data > threshold
                 label = f"{brain.name} ({marker})"
                 n_above[label] = above.sum()

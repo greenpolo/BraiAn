@@ -406,7 +406,7 @@ class AnimalBrain:
         brain.sizes = brain.sizes.merge_hemispheres()
         return brain
 
-    def to_pandas(self, units: bool=False) -> pd.DataFrame:
+    def to_pandas(self, units: bool=False, missing_as_nan: bool=False) -> pd.DataFrame:
         """
         Converts the current `AnimalBrain` to a DataFrame. T
 
@@ -414,6 +414,9 @@ class AnimalBrain:
         ----------
         units
             Whether the columns should include the units of measurement or not.
+        missing_as_nan
+            If True, it converts missing values [`NA`][pandas.NA] as [`NaN`][numpy.nan].
+            Note that if the corresponding brain data is integer-based, it converts them to float.
 
         Returns
         -------
@@ -429,6 +432,8 @@ class AnimalBrain:
         data = pd.concat({f"size ({self.sizes.units})" if units else "size": self.sizes.data,
                           **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self._markers_data.items()}}, axis=1)
         data.columns.name = str(self.metric)
+        if missing_as_nan:
+            data = data.astype(float)
         return data
 
     def to_csv(self, output_path: Path|str, sep: str=",", overwrite: bool=False) -> str:

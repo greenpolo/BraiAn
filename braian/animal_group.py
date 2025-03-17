@@ -369,7 +369,7 @@ class AnimalGroup:
             self._mean = self._update_mean()
             return self
 
-    def to_pandas(self, marker: str=None, units: bool=False) -> pd.DataFrame:
+    def to_pandas(self, marker: str=None, units: bool=False, missing_as_nan: bool=False) -> pd.DataFrame:
         """
         Constructs a `DataFrame` with data from the current group.
 
@@ -379,6 +379,9 @@ class AnimalGroup:
             If specified, it includes data only from the given marker.
         units
             Whether to include the units of measurement in the `DataFrame` index.
+        missing_as_nan
+            If True, it converts missing values [`NA`][pandas.NA] as [`NaN`][numpy.nan].
+            Note that if the corresponding brain data is integer-based, it converts them to float.
 
         Returns
         -------
@@ -398,6 +401,8 @@ class AnimalGroup:
             if units:
                 a = self._animals[0]
                 df.rename(columns={marker: f"{marker} ({a[marker].units})"}, inplace=True)
+            if missing_as_nan:
+                df = df.astype(float)
             return df
         df = {"area": pd.concat({brain.name: brain.sizes.data for brain in self._animals}, join="outer", axis=0)}
         for marker in self.markers:
@@ -411,6 +416,8 @@ class AnimalGroup:
         if units:
             a = self._animals[0]
             df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.sizes.units})" for col in df.columns}, inplace=True)
+        if missing_as_nan:
+            df = df.astype(float)
         return df
 
     def to_csv(self, output_path: Path|str, sep: str=",", overwrite: bool=False) -> str:
