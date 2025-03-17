@@ -9,6 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 from collections import OrderedDict
 from collections.abc import Iterable, Container
+from copy import deepcopy
 from braian import visit_dict
 from pathlib import Path
 
@@ -46,7 +47,7 @@ def has_reference(node) -> bool:
 class AllenBrainOntology:
     # https://community.brain-map.org/t/allen-mouse-ccf-accessing-and-using-related-data-and-tools/359
     def __init__(self,
-                 path_to_allen_json: str,
+                 allen_json: str|Path|dict,
                  blacklisted_acronyms: Iterable=[],
                  version: str|None=None):
         """
@@ -61,7 +62,7 @@ class AllenBrainOntology:
 
         Parameters
         ----------
-        path_to_allen_json
+        allen_json
             The path to an Allen structural graph json
         blacklisted_acronyms
             Acronyms of branches from the onthology to exclude completely from the analysis
@@ -70,16 +71,16 @@ class AllenBrainOntology:
             The version of the Common Coordinates Framework to which the onthology is synchronised
         """
         # TODO: we should probably specify the size (10nm, 25nm, 50nm) to which the data was registered
-        if isinstance(path_to_allen_json, (str, Path)):
-            with open(path_to_allen_json, "r") as file:
+        if isinstance(allen_json, (str, Path)):
+            with open(allen_json, "r") as file:
                 allen_data = json.load(file)
             if "msg" in allen_data:
-                self.dict = allen_data["msg"][0]
+                self.dict = deepcopy(allen_data["msg"][0])
             else:
-                self.dict = allen_data
+                self.dict = deepcopy(allen_data)
         else:
-            assert isinstance(path_to_allen_json, dict)
-            self.dict = path_to_allen_json
+            assert isinstance(allen_json, dict)
+            self.dict = allen_json
         # First label every region as "not blacklisted"
         visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
         visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_reference(n, True))
