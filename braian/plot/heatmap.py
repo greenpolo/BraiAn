@@ -24,6 +24,7 @@ def heatmap(bd1: BrainData,
             centered_cmap: bool=False, ccenter: float=0, 
             show_acronyms: bool=False, title: str=None,
             ticks: Sequence[float]=None, ticks_labels: Sequence[str]=None,
+            atlas_name: str="allen_mouse_25um",
             output_path: Path|str=None, filename: str=None) -> mpl.figure.Figure|dict[int,mpl.figure.Figure]:
     """
     Plots the heatmaps of the given [`BrainData`][braian.BrainData] onto a 2D representation of the brain
@@ -68,6 +69,8 @@ def heatmap(bd1: BrainData,
         This option may be useful to show to which values specific colors correspond to.
     ticks_labels
         If specified, it set a name to the corresponding `ticks`.
+    atlas_name
+        The name used by BrainGlobe to identify the atlas to plot
     output_path
         If specified, it saves all the resulting heatmaps in the given location.
         It no folder exists at the given location, it creates it.
@@ -124,7 +127,8 @@ def heatmap(bd1: BrainData,
             vmin=cmin,
             vmax=cmax,
             format="2D",
-            hemisphere=hem
+            hemisphere=hem,
+            atlas_name=atlas_name
         )
         for d,hem,cm in zip(data, hems, cmaps)
     ]
