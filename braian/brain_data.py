@@ -11,7 +11,7 @@ from braian import AllenBrainOntology
 
 __all__ = ["BrainData"]
 
-class UnkownBrainRegionsError(Exception):
+class UnknownBrainRegionsError(Exception):
     def __init__(self, unknown_regions: Iterable[str]):
         super().__init__("The following regions are unknown to the given brain ontology: '"+"', '".join(unknown_regions)+"'")
 
@@ -66,7 +66,7 @@ def _sort_by_ontology(data: pd.DataFrame|pd.Series,
     if _is_split_left_right(data.index):
         all_regions = _split_index(all_regions)
     if len(unknown_regions:=data.index[~data.index.isin(all_regions)]) > 0:
-        raise UnkownBrainRegionsError(unknown_regions)
+        raise UnknownBrainRegionsError(unknown_regions)
     if not fill:
         all_regions = np.array(all_regions)
         all_regions = all_regions[np.isin(all_regions, data.index)]
@@ -428,7 +428,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             fill = itertools.repeat(fill)
         if not all(are_regions := brain_ontology.are_regions(brain_regions, "acronym")):
             unknown_regions = brain_regions[~are_regions]
-            raise UnkownBrainRegionsError(unknown_regions)
+            raise UnknownBrainRegionsError(unknown_regions)
         data = self.data.copy() if not inplace else self.data
         for region,value in zip(brain_regions, fill):
             if not overwrite and region in data.index:

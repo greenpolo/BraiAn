@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Self
 from collections.abc import Iterable, Generator
 
-from braian.brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnkownBrainRegionsError
+from braian.brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnknownBrainRegionsError
 from braian.ontology import AllenBrainOntology
 from braian.utils import search_file_or_simlink
 
@@ -372,7 +372,7 @@ class BrainSlice:
         InvalidExcludedRegionsHemisphereError
             if [`BrainSlice.is_split`][braian.BrainSlice.is_split] but a region in
             `excluded_regions` is not considering left/right hemisphere distinction.
-        UnkownBrainRegionsError
+        UnknownBrainRegionsError
             if a region in `excluded_regions` is not recognised from `brain_ontology`.
         ExcludedAllRegionsError
             if there is no cell count left after the exclusion is done.
@@ -391,7 +391,7 @@ class BrainSlice:
                 else:
                     region = exclusion
                 if not brain_ontology.is_region(region):
-                    raise UnkownBrainRegionsError((region,))
+                    raise UnknownBrainRegionsError((region,))
 
                 # Step 1: subtract counting results of the regions to be excluded
                 # from their parent regions.
