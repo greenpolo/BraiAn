@@ -404,7 +404,7 @@ class AnimalGroup:
             if missing_as_nan:
                 df = df.astype(float)
             return df
-        df = {"area": pd.concat({brain.name: brain.sizes.data for brain in self._animals}, join="outer", axis=0)}
+        df = {"size": pd.concat({brain.name: brain.sizes.data for brain in self._animals}, join="outer", axis=0)}
         for marker in self.markers:
             all_animals = pd.concat({brain.name: brain[marker].data for brain in self._animals}, join="outer", axis=0)
             df[marker] = all_animals
@@ -415,7 +415,7 @@ class AnimalGroup:
         df.columns.name = str(self.metric)
         if units:
             a = self._animals[0]
-            df.rename(columns={col: f"{col} ({a[col].units if col != 'area' else a.sizes.units})" for col in df.columns}, inplace=True)
+            df.rename(columns={col: f"{col} ({a[col].units if col != 'size' else a.sizes.units})" for col in df.columns}, inplace=True)
         if missing_as_nan:
             df = df.astype(float)
         return df
