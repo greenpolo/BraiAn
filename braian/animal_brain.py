@@ -142,9 +142,9 @@ class AnimalBrain:
         if redux.shape[0] == 0:
             raise EmptyBrainError(sliced_brain.name)
         metric = f"{str(metric)}_densities" if densities else str(metric)
-        areas = BrainData(redux["area"], name=name, metric=metric, units="mm²")
+        areas = BrainData(redux["area"], name=name, metric=metric, units=sliced_brain.units["area"])
         markers_data = {
-            m: BrainData(redux[m], name=name, metric=metric, units=m)
+            m: BrainData(redux[m], name=name, metric=metric, units=sliced_brain.units[m])
             for m in markers
         }
         return AnimalBrain(markers_data=markers_data, sizes=areas, raw=raw)

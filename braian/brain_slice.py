@@ -327,7 +327,7 @@ class BrainSlice:
         of a single brain region, whose acronym is used as index. If the data was collected
         distinguishing between the two hemispheres, the index is expected to be either `Left: <ACRONYM>`
         or `Right: <ACRONYM>`. The DataFrame is expected to have at least two columns: one named `"area"`
-        corresponding to the size in `area_units`, and the others corresponding to the markers used to
+        corresponding to the size specified in `units`, and the others corresponding to the markers used to
         measure brain activity.
 
         Parameters
@@ -370,12 +370,13 @@ class BrainSlice:
             if column == units: # it's a cell count
                 continue
             match unit:
-                case "µm2" | "um2" | "um^2" | "µm^2":
+                case "µm2" | "um2" | "um^2" | "µm^2" | "um²" | "µm²" :
                     self._µm2_to_mm2(column)
-                case "mm2":
+                case "mm2" | "mm²":
                     pass
                 case _:
                     raise ValueError(f"Unknown unit of measurement '{unit}' for '{column}'!")
+            units[column] = "mm²"
         self.units = units.copy()
         assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
         self.data = self.data[self.data["area"] > 0]
@@ -497,4 +498,4 @@ class BrainSlice:
             return self
         corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self.data.index]
         data = self.data.groupby(corresponding_region).sum(min_count=1)
-        return BrainSlice(data, self.animal, self.name, is_split=False, area_units="mm2")
+        return BrainSlice(data, self.animal, self.name, is_split=False, units=self.units)

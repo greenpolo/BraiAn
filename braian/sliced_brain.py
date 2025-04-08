@@ -1,4 +1,5 @@
 import copy
+import functools
 import numpy as np
 import pandas as pd
 import re
@@ -42,8 +43,6 @@ class EmptyBrainError(Exception):
     pass
 
 class SlicedBrain:
-    __QUPATH_AREA_UNITS = "µm2"
-
     @staticmethod
     def from_qupath(name: str,
                     animal_dir: str|Path,
@@ -116,7 +115,7 @@ class SlicedBrain:
                 slice: BrainSlice = BrainSlice.from_qupath(results_file,
                                                ch2marker, atlas=brain_ontology.name,
                                                animal=name, name=image, is_split=True,
-                                               area_units=SlicedBrain.__QUPATH_AREA_UNITS, brain_ontology=None)
+                                               brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
                 slice.exclude_regions(exclude, brain_ontology, exclude_parent_regions)
             except BrainSliceFileError as e:
@@ -160,6 +159,8 @@ class SlicedBrain:
         if len(self._slices) == 0:
             raise EmptyBrainError(self._name)
         self.markers = list(markers)
+        self._check_same_units()
+        self.units = self._slices[0].units.copy()
         are_split = np.array([s.is_split for s in self._slices])
         assert are_split.all() or ~are_split.any(), "Slices from the same animal should either be ALL split between right/left hemisphere or not."
         self.is_split = are_split[0]
@@ -245,6 +246,13 @@ class SlicedBrain:
         brain._slices = [brain_slice.merge_hemispheres() for brain_slice in brain._slices]
         brain.is_split = False
         return brain
+
+    def _check_same_units(self):
+        units = pd.DataFrame([s.units for s in self._slices])
+        units_np = units.to_numpy()
+        if not all(same_units:=(units_np[0] == units_np).all(0)):
+            raise ValueError("Some measurements do not have the same unit of measurement for all slices: "+\
+                             ", ".join(units.columns[~same_units]))
 
     @staticmethod
     def _handle_brainslice_error(exception, mode, name, results_file: Path, regions_to_exclude_file: Path):
