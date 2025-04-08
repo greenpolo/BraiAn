@@ -15,7 +15,7 @@ from braian.brain_slice import BrainSlice,\
                         EmptyResultsError, \
                         NanResultsError, \
                         InvalidResultsError, \
-                        MissingResultsColumnError, \
+                        MissingResultsMeasurementError, \
                         InvalidRegionsHemisphereError, \
                         InvalidExcludedRegionsHemisphereError
 
@@ -282,7 +282,7 @@ class SlicedBrain:
                 return "print"
             case InvalidResultsError.__class__:
                 return "print"
-            case MissingResultsColumnError.__class__:
+            case MissingResultsMeasurementError.__class__:
                 return "print"
             case InvalidRegionsHemisphereError.__class__:
                 return "print"

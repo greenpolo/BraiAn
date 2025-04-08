@@ -1,5 +1,6 @@
 import pandas as pd
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 from collections.abc import Iterable, Generator
@@ -36,12 +37,12 @@ class NanResultsError(BrainSliceFileError):
 class InvalidResultsError(BrainSliceFileError):
     def __str__(self):
         return f"Could not read results file: {self.file_path}"
-class MissingResultsColumnError(BrainSliceFileError):
-    def __init__(self, column, **kargs: object) -> None:
-        self.column = column
+class MissingResultsMeasurementError(BrainSliceFileError):
+    def __init__(self, channel, **kargs: object) -> None:
+        self.channel = channel
         super().__init__(**kargs)
     def __str__(self):
-        return f"Column '{self.column}' is missing in: {self.file_path}"
+        return f"Measurements missing for channel '{self.channel}' in: {self.file_path}"
 class RegionsWithNoCountError(BrainSliceFileError):
     def __init__(self, tracer, regions, **kargs: object) -> None:
         self.tracer = tracer
@@ -59,8 +60,52 @@ class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
 def overlapping_markers(marker1: str, marker2: str) -> str:
     return f"{marker1}+{marker2}"
 
+@dataclass
+class QuPathMeasurement:
+    """Class for keeping track of an item in inventory."""
+    key: str
+    measurement: str
+    unit: str
+
+    def is_cell_count(self) -> bool:
+        return self.measurement == self.unit
+
+    def colabelled_channels(self) -> tuple[str,str]:
+        match = re.match(r"(.+)\~(.+)", self.measurement)
+        if match is None:
+            return None
+        channels = match.groups()
+        if len(channels) == 2:
+            return channels
+
+QUPATH_REGEX_MEASUREMENT_AREA = re.compile(r"(.+) area ([u,µ]m\^2)")
+QUPATH_REGEX_MEASUREMENT_COUNT = re.compile(r"Num (.+)")
+QUPATH_AREA = "Area um^2"
+
+def unique_parse(regex: re.Pattern, s: str):
+    result = regex.findall(s)
+    match len(result):
+        case 0:
+            return None
+        case 1:
+            return result[0]
+        case _:
+            raise ValueError(f"Unexpected parsing of '{s}': {result}")
+
+def extract_qupath_unit(measurement: str) -> tuple[str,str]:
+    if measurement == QUPATH_AREA:
+        return "area","um^2"
+    if channel_units:=unique_parse(QUPATH_REGEX_MEASUREMENT_AREA, measurement):
+        return channel_units
+    if channel:=unique_parse(QUPATH_REGEX_MEASUREMENT_COUNT, measurement):
+        return channel,channel # the count units is the channel itself
+    raise ValueError(f"Cannot extract units for measurement '{measurement}'")
+
+def extract_qupath_units(data: pd.DataFrame) -> list[QuPathMeasurement]:
+    measurements = [c for c in data.columns if c not in ("Image Name", "Name", "Num Detections")]
+    return [QuPathMeasurement(m, *extract_qupath_unit(m)) for m in measurements]
+
 class BrainSlice:
-    __QUPATH_AREA = "Area um^2"
     __QUPATH_ATLAS_CONTAINER = "Root"
 
     @staticmethod
@@ -97,16 +142,15 @@ class BrainSlice:
         Raises
         ------
         EmptyResultsError
-            If the given `csv_file` is empty
+            If the given `csv` is empty
         InvalidResultsError
-            If the given `csv_file` is an invalid file. Probably because it was not exported through
+            If the given `csv` is an invalid file. Probably because it was not exported through
             [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian).
         NanResultsError
             If the number of total detections in all brain regions, exported from QuPath, is undefined
         MissingResultsColumnError
-            If `csv_file` is missing reporting the number of detection in at least one `detected_channels`.
+            If `csv` is missing reporting the number of detection in at least one `detected_channels`.
         """
-        cols2marker = {BrainSlice._column_from_qupath_channel(ch): m for ch,m in ch2marker.items()}
         if isinstance(csv, pd.DataFrame):
             data = csv.copy(deep=True)
             csv = "unkown file"
@@ -115,20 +159,42 @@ class BrainSlice:
             data_atlas, data = BrainSlice._read_qupath_data(search_file_or_simlink(csv))
             assert data_atlas is None or data_atlas == atlas,\
                 f"Brain slice was expected to be aligned against '{atlas}', but instead found '{data_atlas}'"
-        BrainSlice._check_columns(data, [BrainSlice.__QUPATH_AREA, *cols2marker.keys()], csv)
-        for column, ch1, ch2 in BrainSlice._find_overlapping_channels(data, cols2marker.keys()):
-            BrainSlice.fix_double_positive_bug(data, column, ch1, ch2)
+        BrainSlice._check_columns(data, (QUPATH_AREA,), csv)
+        all_measurements = extract_qupath_units(data)
+        unique_channels = {m.measurement for m in all_measurements}
+        if len(unique_channels) != len(all_measurements):
+            raise ValueError("No support for multiple measurements on the same QuPath channel, even if of the diffent type (e.g. area and detection count).")
+        for channel in ch2marker.keys():
+            if channel not in unique_channels:
+                raise MissingResultsMeasurementError(file=csv, channel=channel)
+        measurements: list[QuPathMeasurement] = []
+        for m in all_measurements:
+            if colabelled_channels:=m.colabelled_channels() is None:
+                if m.measurement == "area":
+                    m.name = "area"
+                elif m.measurement not in ch2marker:
+                    continue
+                else:
+                    m.name = ch2marker[m.measurement]
+                measurements.append(m)
+                continue
+            ch1,ch2 = colabelled_channels
+            BrainSlice.fix_double_positive_bug(data, m.key, ch1, ch2)
             try:
                 m1 = ch2marker[ch1]
                 m2 = ch2marker[ch2]
             except KeyError:
                 continue
-            cols2marker[column] = overlapping_markers(m1, m2)
-        data = pd.DataFrame(data, columns=[BrainSlice.__QUPATH_AREA, *cols2marker.keys()])
+            m.name = overlapping_markers(m1, m2)
+            measurements.append(m)
+        if any(m.is_cell_count() for m in measurements):
+            if data["Num Detections"].count() == 0:
+                raise NanResultsError(file=csv)
+        data = pd.DataFrame(data, columns=[m.key for m in measurements])
         # NOTE: not needed since qupath-extension-braian>=1.0.1
-        BrainSlice._fix_nan_countings(data, cols2marker.keys())
-        data.rename(columns={BrainSlice.__QUPATH_AREA: "area"} | cols2marker, inplace=True)
-        return BrainSlice(data, *args, atlas=data_atlas, **kwargs)
+        BrainSlice._fix_nan_countings(data, [m.key for m in measurements if m.key == m.unit])
+        data.rename(columns={m.key: m.name for m in measurements}, inplace=True)
+        return BrainSlice(data, *args, atlas=data_atlas, units={m.name: m.unit for m in measurements}, **kwargs)
 
     @staticmethod
     def fix_double_positive_bug(data: pd.DataFrame, dp_col: str, ch1: str, ch2: str):
@@ -160,8 +226,6 @@ class BrainSlice:
         # data = self.clean_rows(data, csv_file)
         if len(data) == 0:
             raise EmptyResultsError(file=csv_file)
-        if data["Num Detections"].count() == 0:
-            raise NanResultsError(file=csv_file)
 
         # There may be one region/row with Name == "Root" and Classification == NaN indicating the whole slice.
         # We remove it, as we want the distinction between hemispheres in the regions' acronym given by Classification column
@@ -187,23 +251,8 @@ class BrainSlice:
                         csv_file: str|Path) -> bool:
         for column in columns:
             if column not in data.columns:
-                raise MissingResultsColumnError(file=csv_file, column=column)
+                raise MissingResultsMeasurementError(file=csv_file, channel=column)
         return True
-
-    @staticmethod
-    def _find_overlapping_channels(data: pd.DataFrame,
-                                    detections_cols: Iterable[str]) -> Generator[tuple[str], None, None]:
-        other_cols = [col for col in data.columns if col not in (*detections_cols, BrainSlice.__QUPATH_AREA)]
-        if len(other_cols) == 0:
-            return
-        for col_name in other_cols:
-            match = re.match(r"Num (.+)\~(.+)", col_name)
-            if match is None:
-                continue
-            overlapping_channels = match.groups()
-            if len(overlapping_channels) == 2:
-                yield (col_name, *overlapping_channels)
-        return
 
     @staticmethod
     def _fix_nan_countings(data, detection_columns):
@@ -271,7 +320,7 @@ class BrainSlice:
     #     return True
 
     def __init__(self, data: pd.DataFrame, animal:str, name: str, is_split: bool,
-                 area_units: str="µm2", brain_ontology: AllenBrainOntology|None=None,
+                 units: dict, brain_ontology: AllenBrainOntology|None=None,
                  atlas: str|None=None) -> None:
         """
         Creates a `BrainSlice` from a [`DataFrame`][pandas.DataFrame]. Each row representes the data
@@ -291,9 +340,8 @@ class BrainSlice:
             The name of hte brain slice.
         is_split
             Whether the data was extracted distinguishing between the two hemispheres or not.
-        area_units
-            The units of measurements used by `"area"` column in `data`.
-            Accepted values are: `"µm2"`, `"um2"` or `"mm2"`.
+        units
+            The units of measurement corresponding to each columns in `data`.
         brain_ontology
             If specified, it checks the brain regions in `data` against the given ontology
             and it sorts the rows in depth-first order in ontology's hierarchy.
@@ -303,7 +351,7 @@ class BrainSlice:
         InvalidRegionsHemisphereError
             If `is_split=True` but some rows' indices don't start with `"Left: "` or with `"Right: "`.
         ValueError
-            If the specified `area_units` is unknown.
+            If a specified unit of measurment in `units` is unknown.
         """
         self.animal: str = animal
         """The name of the animal from which the current `BrainSlice` is from."""
@@ -318,13 +366,17 @@ class BrainSlice:
             raise InvalidRegionsHemisphereError(file=self.name)
         BrainSlice._check_columns(self.data, ("area",), self.name)
         assert self.data.shape[1] >= 2, "'data' should have at least one column, apart from 'area', containing per-region data"
-        match area_units:
-            case "µm2" | "um2":
-                self.__area_µm2_to_mm2()
-            case "mm2":
-                pass
-            case _:
-                raise ValueError("A brain slice's area can only be expressed in µm² or mm²!")
+        for column, unit in units.items():
+            if column == units: # it's a cell count
+                continue
+            match unit:
+                case "µm2" | "um2" | "um^2" | "µm^2":
+                    self._µm2_to_mm2(column)
+                case "mm2":
+                    pass
+                case _:
+                    raise ValueError(f"Unknown unit of measurement '{unit}' for '{column}'!")
+        self.units = units.copy()
         assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
         self.data = self.data[self.data["area"] > 0]
         if brain_ontology is not None:
@@ -420,8 +472,8 @@ class BrainSlice:
         if len(self.data) == 0:
             raise ExcludedAllRegionsError(file=self.name)
 
-    def __area_µm2_to_mm2(self) -> None:
-        self.data.area = self.data.area * 1e-06
+    def _µm2_to_mm2(self, column) -> None:
+        self.data[column] = self.data[column] * 1e-06
 
     def _marker_density(self) -> pd.DataFrame:
         return self.data[self.markers].div(self.data["area"], axis=0)
