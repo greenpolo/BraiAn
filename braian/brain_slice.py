@@ -179,38 +179,43 @@ class BrainSlice:
         for channel in ch2marker.keys():
             if channel not in unique_channels:
                 raise MissingResultsMeasurementError(file=csv, channel=channel)
-        measurements: list[QuPathMeasurement] = []
-        for m in all_measurements:
-            if (colabelled_channels:=m.colabelled_channels()) is None:
-                if m.measurement == "area":
-                    m.name = "area"
-                elif m.measurement not in ch2marker:
-                    continue
-                else:
-                    m.name = ch2marker[m.measurement]
-                measurements.append(m)
-                continue
-            ch1,ch2 = colabelled_channels
-            BrainSlice.fix_double_positive_bug(data, m.key, ch1, ch2)
-            try:
-                m1 = ch2marker[ch1]
-                m2 = ch2marker[ch2]
-            except KeyError:
-                continue
-            m.name = overlapping_markers(m1, m2)
-            measurements.append(m)
+        measurements = BrainSlice._rename_selected_measurements(all_measurements, ch2marker, data)
         if any(m.type is QuPathMeasurementType.CELL_COUNT for m in measurements):
             if data["Num Detections"].count() == 0:
                 raise NanResultsError(file=csv)
         data = pd.DataFrame(data, columns=[m.key for m in measurements])
         # NOTE: not needed since qupath-extension-braian>=1.0.1
-        BrainSlice._fix_nan_countings(data, [m.key for m in measurements if m.key == m.type])
+        BrainSlice._fix_nan_countings(data, [m.key for m in measurements if m.type is QuPathMeasurementType.CELL_COUNT])
         data.rename(columns={m.key: m.name for m in measurements}, inplace=True)
         units = {m.name: m.unit() for m in measurements}
         return BrainSlice(data, *args, atlas=data_atlas, units=units, **kwargs)
 
     @staticmethod
-    def fix_double_positive_bug(data: pd.DataFrame, dp_col: str, ch1: str, ch2: str):
+    def _rename_selected_measurements(measurements: Iterable[QuPathMeasurement],
+                                      ch2marker: dict[str,str],
+                                      data: pd.DataFrame) -> list[QuPathMeasurement]:
+        selected_measurements = []
+        for m in measurements:
+            if (colabelled_channels:=m.colabelled_channels()) is not None:
+                ch1,ch2 = colabelled_channels
+                BrainSlice._fix_double_positive_bug(data, m.key, ch1, ch2)
+                try:
+                    m1 = ch2marker[ch1]
+                    m2 = ch2marker[ch2]
+                except KeyError:
+                    continue
+                m.name = overlapping_markers(m1, m2)
+            elif m.measurement == "area":
+                m.name = "area"
+            elif m.measurement not in ch2marker:
+                continue
+            else:
+                m.name = ch2marker[m.measurement]
+            selected_measurements.append(m)
+        return selected_measurements
+
+    @staticmethod
+    def _fix_double_positive_bug(data: pd.DataFrame, dp_col: str, ch1: str, ch2: str):
         # ~fixes: https://github.com/carlocastoldi/qupath-extension-braian/issues/2
         # NOTE: this solution MAY reduce the total number of double positive,
         # but no better solution was found to the above issue
