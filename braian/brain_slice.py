@@ -1,9 +1,10 @@
 import pandas as pd
 import re
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Self
-from collections.abc import Iterable, Generator
+from collections.abc import Iterable
 
 from braian.brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnknownBrainRegionsError
 from braian.ontology import AllenBrainOntology
@@ -60,15 +61,16 @@ class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
 def overlapping_markers(marker1: str, marker2: str) -> str:
     return f"{marker1}+{marker2}"
 
+class QuPathMeasurementType(Enum):
+    AREA = 0
+    CELL_COUNT = 1
+
 @dataclass
 class QuPathMeasurement:
     """Class for keeping track of an item in inventory."""
     key: str
     measurement: str
-    unit: str
-
-    def is_cell_count(self) -> bool:
-        return self.measurement == self.unit
+    type: QuPathMeasurementType
 
     def colabelled_channels(self) -> tuple[str,str]:
         match = re.match(r"(.+)\~(.+)", self.measurement)
@@ -78,7 +80,17 @@ class QuPathMeasurement:
         if len(channels) == 2:
             return channels
 
-QUPATH_REGEX_MEASUREMENT_AREA = re.compile(r"(.+) area ([u,µ]m\^2)")
+    def unit(self) -> str:
+        match self.type:
+            case QuPathMeasurementType.AREA:
+                return "µm²"
+            case QuPathMeasurementType.CELL_COUNT:
+                assert "name" in self.__dict__
+                return self.name
+            case _:
+                raise ValueError(f"Unknown QuPath measurement type: '{self.type}'")
+
+QUPATH_REGEX_MEASUREMENT_AREA = re.compile(r"(.+) area [u,µ]m\^2")
 QUPATH_REGEX_MEASUREMENT_COUNT = re.compile(r"Num (.+)")
 QUPATH_AREA = "Area um^2"
 
@@ -92,18 +104,18 @@ def unique_parse(regex: re.Pattern, s: str):
         case _:
             raise ValueError(f"Unexpected parsing of '{s}': {result}")
 
-def extract_qupath_unit(measurement: str) -> tuple[str,str]:
+def extract_qupath_measurement_type(measurement: str) -> tuple[str,QuPathMeasurementType]:
     if measurement == QUPATH_AREA:
-        return "area","um^2"
-    if channel_units:=unique_parse(QUPATH_REGEX_MEASUREMENT_AREA, measurement):
-        return channel_units
+        return "area",QuPathMeasurementType.AREA
+    if channel:=unique_parse(QUPATH_REGEX_MEASUREMENT_AREA, measurement):
+        return channel,QuPathMeasurementType.AREA
     if channel:=unique_parse(QUPATH_REGEX_MEASUREMENT_COUNT, measurement):
-        return channel,channel # the count units is the channel itself
+        return channel,QuPathMeasurementType.CELL_COUNT
     raise ValueError(f"Cannot extract units for measurement '{measurement}'")
 
-def extract_qupath_units(data: pd.DataFrame) -> list[QuPathMeasurement]:
+def extract_qupath_measurement_types(data: pd.DataFrame) -> list[QuPathMeasurement]:
     measurements = [c for c in data.columns if c not in ("Image Name", "Name", "Num Detections")]
-    return [QuPathMeasurement(m, *extract_qupath_unit(m)) for m in measurements]
+    return [QuPathMeasurement(m, *extract_qupath_measurement_type(m)) for m in measurements]
 
 class BrainSlice:
     __QUPATH_ATLAS_CONTAINER = "Root"
@@ -160,7 +172,7 @@ class BrainSlice:
             assert data_atlas is None or data_atlas == atlas,\
                 f"Brain slice was expected to be aligned against '{atlas}', but instead found '{data_atlas}'"
         BrainSlice._check_columns(data, (QUPATH_AREA,), csv)
-        all_measurements = extract_qupath_units(data)
+        all_measurements = extract_qupath_measurement_types(data)
         unique_channels = {m.measurement for m in all_measurements}
         if len(unique_channels) != len(all_measurements):
             raise ValueError("No support for multiple measurements on the same QuPath channel, even if of the diffent type (e.g. area and detection count).")
@@ -169,7 +181,7 @@ class BrainSlice:
                 raise MissingResultsMeasurementError(file=csv, channel=channel)
         measurements: list[QuPathMeasurement] = []
         for m in all_measurements:
-            if colabelled_channels:=m.colabelled_channels() is None:
+            if (colabelled_channels:=m.colabelled_channels()) is None:
                 if m.measurement == "area":
                     m.name = "area"
                 elif m.measurement not in ch2marker:
@@ -187,14 +199,15 @@ class BrainSlice:
                 continue
             m.name = overlapping_markers(m1, m2)
             measurements.append(m)
-        if any(m.is_cell_count() for m in measurements):
+        if any(m.type is QuPathMeasurementType.CELL_COUNT for m in measurements):
             if data["Num Detections"].count() == 0:
                 raise NanResultsError(file=csv)
         data = pd.DataFrame(data, columns=[m.key for m in measurements])
         # NOTE: not needed since qupath-extension-braian>=1.0.1
-        BrainSlice._fix_nan_countings(data, [m.key for m in measurements if m.key == m.unit])
+        BrainSlice._fix_nan_countings(data, [m.key for m in measurements if m.key == m.type])
         data.rename(columns={m.key: m.name for m in measurements}, inplace=True)
-        return BrainSlice(data, *args, atlas=data_atlas, units={m.name: m.unit for m in measurements}, **kwargs)
+        units = {m.name: m.unit() for m in measurements}
+        return BrainSlice(data, *args, atlas=data_atlas, units=units, **kwargs)
 
     @staticmethod
     def fix_double_positive_bug(data: pd.DataFrame, dp_col: str, ch1: str, ch2: str):
@@ -367,7 +380,7 @@ class BrainSlice:
         BrainSlice._check_columns(self.data, ("area",), self.name)
         assert self.data.shape[1] >= 2, "'data' should have at least one column, apart from 'area', containing per-region data"
         for column, unit in units.items():
-            if column == units: # it's a cell count
+            if column == unit: # it's a cell count
                 continue
             match unit:
                 case "µm2" | "um2" | "um^2" | "µm^2" | "um²" | "µm²" :
