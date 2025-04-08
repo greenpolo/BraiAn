@@ -95,7 +95,7 @@ def heatmap(bd1: BrainData,
         _cmax = data[0].max(skiinf=True)
     else:
         hems = ("right", "left")
-        data = (bd1.select_from_list(brain_regions), bd2.select_from_list(brain_regions))
+        data = (bd1.select_from_list(brain_regions, fill_nan=True), bd2.select_from_list(brain_regions, fill_nan=True))
         _cmin = min(data[0].min(skiinf=True), data[1].min(skiinf=True))
         _cmax = max(data[0].max(skiinf=True), data[1].max(skiinf=True))
         data_names = (bd1.data_name, bd2.data_name)

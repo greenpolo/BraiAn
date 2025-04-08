@@ -78,7 +78,7 @@ class PLS:
         data = pd.DataFrame(index=regions+["group"], columns=animal_list)
 
         for i,(group,_marker) in enumerate(zip(groups, marker)):
-            selected_data = group.select(regions).to_pandas(_marker, missing_as_nan=True)
+            selected_data = group.select(regions, fill_nan=True).to_pandas(_marker, missing_as_nan=True)
             selected_data.columns = selected_data.columns.str.cat((str(i),)*selected_data.shape[1], sep="_")
             data.loc[regions,selected_data.columns] = selected_data
             data.loc["group",selected_data.columns] = group.name+"_"+str(i)
