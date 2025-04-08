@@ -1,4 +1,5 @@
 import braian.utils
+import brainglobe_atlasapi as bga
 import igraph as ig
 import json
 import numpy as np
@@ -49,6 +50,7 @@ class AllenBrainOntology:
     def __init__(self,
                  allen_json: str|Path|dict,
                  blacklisted_acronyms: Iterable=[],
+                 name: str|None=None,
                  version: str|None=None):
         """
         Crates an ontology of brain regions based on Allen Institute's structure graphs.
@@ -66,6 +68,8 @@ class AllenBrainOntology:
             The path to an Allen structural graph json
         blacklisted_acronyms
             Acronyms of branches from the onthology to exclude completely from the analysis
+        name
+            the name of a Allen-compatible mouse brain atlas from BrainGlobe
         version
             Must be `"CCFv1"`, `"CCFv2"`, `"CCFv3"`, `"CCFv4"` or `None`.
             The version of the Common Coordinates Framework to which the onthology is synchronised
@@ -88,15 +92,30 @@ class AllenBrainOntology:
             self.blacklist_regions(blacklisted_acronyms, key="acronym")
             # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
-        if version is not None:
-            unannoted_regions, self.annotation_version = self._get_unannoted_regions(version)
-            self.blacklist_regions(unannoted_regions, key="acronym", has_reference=False)
-        else:
-            self.annotation_version = None
+        if name is not None:
+            self.name = name
+            self.annotation_version = "ccf_2017"
+        else: #if version is not None:
+            self.annotation_version = self._get_allen_version(version)
+            self.name = "allen_mouse_10um_java"
+        # this should be temporary workaround, before the ontology is rewritten with complete BrainGlobe support
+        bg_atlas = bga.BrainGlobeAtlas(self.name) # can throw ValueError if self.name is not valid
+        if not (self.name.startswith("silvalab_mouse") or self.name.startswith("allen_mouse")):
+            raise ValueError(f"'{self.name}' is not compatible with Allen mouse brain ontology.")
+        annoted_regions = {n.identifier for n in bg_atlas.hierarchy.all_nodes()}
+        region_ids = {n["id"] for n in visit_dict.get_all_nodes(self.dict, "children", visit=visit_dict.visit_dfs)}
+        unannoted_regions = region_ids - annoted_regions
+        self.blacklist_regions(unannoted_regions, key="id", has_reference=False)
+        # if version is not None:
+        #     unannoted_regions, self.annotation_version = self._get_unannoted_regions(version)
+        #     self.blacklist_regions(unannoted_regions, key="acronym", has_reference=False)
+        #     self.name: str = "allen_mouse_10um_java"
+        # else:
+        #     self.annotation_version = None
+        #     self.name: str = "allen_mouse_10um_java"
 
         self._add_depth_to_regions()
         self._mark_major_divisions()
-        self.name: str = "allen_mouse_10um_java"
         """The name of the atlas accordingly to ABBA/BrainGlobe"""
         self.parent_region: dict[str,str] = self._get_all_parent_areas() #: A dictionary mapping region's acronyms to the parent region. It does not have 'root'.
         self.direct_subregions: dict[str,list[str]] = self._get_all_subregions()
@@ -114,32 +133,34 @@ class AllenBrainOntology:
         self.full_name: dict[str,str] = self._get_full_names()
         """A dictionary mapping a regions' acronym to its full name."""
 
-    def _get_unannoted_regions(self, version) -> tuple[list[str], str]:
+    def _get_allen_version(self, version):
+        match version:
+            case "2015" | "CCFv1" | "ccfv1" | "v1" | 1:
+                return "ccf_2015"
+            case "2016" | "CCFv2" | "ccfv2" | "v2" | 2:
+                return "ccf_2016"
+            case "2017" | "CCFv3" | "ccfv3" | "v3" | 3:
+                return "ccf_2017"
+            case "2022" | "CCFv4" | "ccfv4" | "v4" | 4:
+                return "ccf_2022"
+            case _:
+                raise ValueError(f"Unrecognised Allen atlas version: '{version}'")
+
+    def _get_unannoted_regions(self) -> tuple[list[str], str]:
         # alternative implementation: use annotation's nrrd file - https://help.brain-map.org/display/mousebrain/API#API-DownloadAtlas3-DReferenceModels
         # this way is not totally precise, because some masks files are present even if they're empty
         #
         # Regarding ccf_2022, little is known about future plans of publishing strucutral masks for resolutions lower than 10nm
         # https://community.brain-map.org/t/2022-ccfv3-mouse-atlas/2287
-        match version:
-            case "2015" | "CCFv1" | "ccfv1" | "v1" | 1:
-                annotation_version = "ccf_2015"
-            case "2016" | "CCFv2" | "ccfv2" | "v2" | 2:
-                annotation_version = "ccf_2016"
-            case "2017" | "CCFv3" | "ccfv3" | "v3" | 3:
-                annotation_version = "ccf_2017"
-            case "2022" | "CCFv4" | "ccfv4" | "v4" | 4:
-                annotation_version = "ccf_2022"
-            case _:
-                raise ValueError(f"Unrecognised '{version}' version")
-        url = f"http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/{annotation_version}/structure_masks/structure_masks_10"
+        url = f"http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/{self.annotation_version}/structure_masks/structure_masks_10"
         try:
             site_content = requests.get(url).content
         except requests.ConnectionError:
-            print(f"WARNING: could not remove unannoted regions from {annotation_version} ontology")
+            print(f"WARNING: could not remove unannoted regions from {self.annotation_version} ontology")
             return [], None
         soup = BeautifulSoup(site_content, "html.parser")
         try:
-            if annotation_version == "ccf_2022":
+            if self.annotation_version == "ccf_2022":
                 regions_w_annotation = [int(link["href"].removeprefix("./").split("_")[0])
                                         for link in soup.select('a[href*=".nii.gz"]')]
             else:
@@ -149,10 +170,10 @@ class AllenBrainOntology:
                                             removesuffix(".nrrd")
                                         ) for link in soup.select('a[href*=".nrrd"]')]
         except ValueError:
-            print(f"WARNING: could not remove unannoted regions from {annotation_version} ontology")
+            print(f"WARNING: could not remove unannoted regions from {self.annotation_version} ontology")
             return [], None
         regions_wo_annotation = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dict.visit_dfs)
-        return [region["acronym"] for region in regions_wo_annotation], annotation_version
+        return [region["acronym"] for region in regions_wo_annotation], self.annotation_version
 
     def is_region(self, r: int|str, key: str="acronym") -> bool:
         """
