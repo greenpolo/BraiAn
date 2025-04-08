@@ -98,7 +98,7 @@ def density(brain: AnimalBrain) -> AnimalBrain:
     for marker in brain.markers:
         data = brain[marker] / brain.sizes
         data.metric = "density"
-        data.units = f"{marker}/{brain.sizes.units}"
+        data.units = f"{brain[marker].units}/{brain.sizes.units}"
         markers_data[marker] = data
     return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
 
@@ -136,7 +136,7 @@ def percentage(brain: AnimalBrain) -> AnimalBrain:
         brainwide_cell_counts = sum((brain[marker].root(hem) for hem in hems))
         data = brain[marker] / brainwide_cell_counts
         data.metric = "percentage"
-        data.units = f"{marker}/{marker} in root"
+        data.units = f"{brain[marker].units}/{brain[marker].units} in root"
         markers_data[marker] = data
     return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
 
@@ -175,7 +175,7 @@ def relative_density(brain: AnimalBrain) -> AnimalBrain:
         brainwide_cell_counts = sum((brain[marker].root(hem) for hem in hems))
         data = (brain[marker] / brain.sizes) / (brainwide_cell_counts / brainwide_area)
         data.metric = "relative_density"
-        data.units = f"{marker} density/root {marker} density"
+        data.units = f"{brain[marker].units} density/root {brain[marker].units} density"
         markers_data[marker] = data
     return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
 
@@ -191,7 +191,7 @@ def _group_change(brain: AnimalBrain, group: AnimalGroup,
     for marker in brain.markers:
         data = fun(brain[marker], group.mean[marker])
         data.metric = str(metric)
-        data.units = f"{marker} {str(brain.metric)}{symbol}{group.name} {str(group.metric)}"
+        data.units = f"{brain[marker].units} {str(brain.metric)}{symbol}{group.name} {str(group.metric)}"
         markers_data[marker] = data
     return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
 
