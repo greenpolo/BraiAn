@@ -98,7 +98,7 @@ class AllenBrainOntology:
             self.annotation_version = "ccf_2017"
         else: #if version is not None:
             self.annotation_version = self._get_allen_version(version)
-            self.name = "allen_mouse_10um_java"
+            self.name = "allen_mouse_10um" #_java
         # this should be temporary workaround, before the ontology is rewritten with complete BrainGlobe support
         # NOTE: it doesn't work with default 'allen_mouse_10_java' atlas. Commenting it out
         # bg_atlas = bga.BrainGlobeAtlas(self.name) # can throw ValueError if self.name is not valid

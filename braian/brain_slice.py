@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Self
 from collections.abc import Iterable
 
-from braian.brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnknownBrainRegionsError
+from braian.brain_data import _sort_by_ontology, BrainHemisphere, UnknownBrainRegionsError
 from braian.ontology import AllenBrainOntology
 from braian.utils import search_file_or_simlink
 
@@ -53,7 +53,7 @@ class RegionsWithNoCountError(BrainSliceFileError):
         return f"There are {len(self.regions)} region(s) with no count of tracer '{self.tracer}' in file: {self.file_path}"
 class InvalidRegionsHemisphereError(BrainSliceFileError):
     def __str__(self):
-        return f"Slice {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
+        return f"Slice {self.file_path}"+" is badly formatted. Some rows are in the form '{Left|Right}: <region acronym>', while others are not."
 class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
     def __str__(self):
         return f"Exclusions for Slice {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
@@ -186,12 +186,31 @@ class BrainSlice:
         for m in measurements:
             if m.type is QuPathMeasurementType.AREA and data[m.key].count() == 0:
                 raise(NanResultsError(file=csv))
-        data = pd.DataFrame(data, columns=[m.key for m in measurements])
+        BrainSlice._extract_qupath_hemispheres(data, csv)
+        data = pd.DataFrame(data, columns=["Name", "hemisphere"]+[m.key for m in measurements])
         # NOTE: not needed since qupath-extension-braian>=1.0.1
         BrainSlice._fix_nan_countings(data, [m.key for m in measurements if m.type is QuPathMeasurementType.CELL_COUNT])
-        data.rename(columns={m.key: m.name for m in measurements}, inplace=True)
+        data.rename(columns={"Name": "acronym"}|{m.key: m.name for m in measurements}, inplace=True)
         units = {m.name: m.unit() for m in measurements}
         return BrainSlice(data, *args, atlas=data_atlas, units=units, **kwargs)
+
+    @staticmethod
+    def _extract_qupath_hemispheres(data: pd.DataFrame, csv_file: str):
+        match_groups = data.index.str.extract(r"((Left|Right): )?(.+)")
+        # extracts 3 groups:
+        #  1) '(Left|Right): '
+        #  2) '(Left|Right)'
+        #  3) '<region_name>'
+        match_groups.set_index(data.index, inplace=True)
+        if (unknown_classes:=match_groups[2] != data["Name"]).any():
+            raise ValueError("Unknown regions: '"+"', '".join(match_groups.index[unknown_classes])+"'")
+        if match_groups[1].isna().all():
+            data["hemisphere"] = BrainHemisphere.BOTH.value
+        else:
+            try:
+                data["hemisphere"] = match_groups[1].map(lambda s: BrainHemisphere(s).value)
+            except ValueError:
+                raise InvalidRegionsHemisphereError(csv_file)
 
     @staticmethod
     def _rename_selected_measurements(measurements: Iterable[QuPathMeasurement],
@@ -381,12 +400,17 @@ class BrainSlice:
         self.data = data
         self.atlas = atlas
         """The name of the brain atlas used to align the section. If None, it means that the cell-segmented data didn't specify it."""
-        self.is_split: bool = _is_split_left_right(self.data.index)
+        BrainSlice._check_columns(self.data, ("acronym", "hemisphere", "area"), self.name)
+        assert self.data.shape[1] >= 4, "'data' should have at least one column, apart from 'acronym', 'hemisphere' and 'area', containing per-region data"
+        hemispheres = self.data.hemisphere.unique()
+        hemispheres = [BrainHemisphere(v) for v in hemispheres]
+        if len(hemispheres) >= 2 and\
+            (BrainHemisphere.LEFT not in hemispheres or BrainHemisphere.RIGHT not in hemispheres):
+            raise InvalidRegionsHemisphereError(file=self.name)
+        self.is_split: bool = len(hemispheres)
         """Whether the data of the current `BrainSlice` make a distinction between right and left hemisphere."""
         if is_split and not self.is_split:
             raise InvalidRegionsHemisphereError(file=self.name)
-        BrainSlice._check_columns(self.data, ("area",), self.name)
-        assert self.data.shape[1] >= 2, "'data' should have at least one column, apart from 'area', containing per-region data"
         for column, unit in units.items():
             if column == unit: # it's a cell count
                 continue
@@ -402,14 +426,25 @@ class BrainSlice:
         assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
         self.data = self.data[self.data["area"] > 0]
         if brain_ontology is not None:
-            self.data = _sort_by_ontology(self.data, brain_ontology, fill=False)
+            if not self.is_split:
+                self.data.reset_index(inplace=True)
+                self.data.set_index("acronym", inplace=True)
+                self.data = _sort_by_ontology(self.data, brain_ontology, fill=False)
+                self.data.reset_index(inplace=True)
+                self.data.set_index("index", inplace=True)
+            else:
+                hem1 = self.data[self.data["hemisphere"] == BrainHemisphere.LEFT.value].reset_index().set_index("acronym")
+                hem2 = self.data[self.data["hemisphere"] == BrainHemisphere.RIGHT.value].reset_index().set_index("acronym")
+                hem1 = _sort_by_ontology(hem1, brain_ontology, fill=True)
+                hem2 = _sort_by_ontology(hem2, brain_ontology, fill=True)
+                self.data.reindex([*hem2["index"], *hem1["index"]], copy=False)
 
         self.markers_density: pd.DataFrame = self._marker_density()
 
     @property
     def markers(self) -> list[str]:
         """The name of the markers for which the current `BrainSlice` has data."""
-        return list(self.data.columns[self.data.columns != "area"])
+        return list(self.data.columns[~self.data.columns.isin(("acronym", "hemisphere", "area"))])
 
 
     def exclude_regions(self,
@@ -462,6 +497,7 @@ class BrainSlice:
                         elif MODE_ExcludedRegionNotRecognisedError == "error":
                             raise InvalidExcludedRegionsHemisphereError(file=self.name)
                     hem, region = exclusion.split(": ")
+                    # hem = BrainHemisphere(hem)
                 else:
                     region = exclusion
                 if not brain_ontology.is_region(region):
@@ -517,6 +553,9 @@ class BrainSlice:
         """
         if not self.is_split:
             return self
-        corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self.data.index]
-        data = self.data.groupby(corresponding_region).sum(min_count=1)
+        # corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self.data.index]
+        data = self.data.groupby("acronym").sum(min_count=1)
+        data["hemisphere"] = BrainHemisphere.BOTH.value
+        data["acronym"] = data.index
+        data.index = data.index.set_names(None)
         return BrainSlice(data, self.animal, self.name, is_split=False, units=self.units)

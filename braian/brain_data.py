@@ -3,58 +3,36 @@ import numpy as np
 import pandas as pd
 import re
 from collections.abc import Collection, Iterable, Sequence
+from enum import Enum
 from typing import Self, Callable
 from numbers import Number
 
 from braian.deflector import deflect
 from braian import AllenBrainOntology
 
-__all__ = ["BrainData"]
+__all__ = ["BrainHemisphere", "BrainData"]
 
 class UnknownBrainRegionsError(Exception):
     def __init__(self, unknown_regions: Iterable[str]):
         super().__init__("The following regions are unknown to the given brain ontology: '"+"', '".join(unknown_regions)+"'")
 
-def extract_acronym(region_class: str) -> str:
-    """
-    Extracts the region acronym from a QuPath's PathClass assigned by ABBA.
-    Example: "Left: AVA" becomes "AVA".
-
-    Parameters
-    ----------
-    region_class
-        The name of QuPath PathClass identifying a brain region with hemisphere distinction.
-
-    Returns
-    -------
-    :
-        The acronym of the corresponding brain region.\\
-        If `region_class` has no hemisphere distinction, it returns a copy of `region_class`.
-    """
-    acronym = re.compile("[Left|Right]: (.+)").findall(region_class)
-    if len(acronym) == 0:
-        # the region's class didn't distinguish between left|right hemispheres
-        return str(region_class)
-    return acronym[0]
-
-def _hemisphere_name(hem: str) -> str:
-    match hem.lower():
-        case "left" | "l":
-            return "Left"
-        case "right" | "r":
-            return "Right"
-        case _:
-            raise ValueError(f"Unrecognised hemisphere '{hem}'!")
-
-def _is_split_left_right(index: pd.Index) -> bool:
-    return (index.str.startswith("Left: ", na=False) | \
-            index.str.startswith("Right: ", na=False)).all()
-
-def _split_index(regions: Iterable[str]) -> list[str]:
-    """
-    Splits between left/right hemisphere the given list of acronyms.
-    """
-    return [": ".join(t) for t in itertools.product(("Left", "Right"), regions)]
+class BrainHemisphere(Enum):
+    BOTH = 0
+    LEFT = 1    # same as brainglobe_atlasapi.core.Atlas.left_hemisphere_value
+    RIGHT = 2   # same as brainglobe_atlasapi.core.Atlas.right_hemisphere_value
+    @classmethod
+    def _missing_(cls, value):
+        if not isinstance(value, str):
+            return None
+        match value.lower():
+            case "both" | "b":
+                return BrainHemisphere.BOTH
+            case "left" | "l":
+                return BrainHemisphere.LEFT
+            case "right" | "r":
+                return BrainHemisphere.RIGHT
+            case _:
+                return None
 
 def _sort_by_ontology(data: pd.DataFrame|pd.Series,
                       brain_ontology: AllenBrainOntology,
@@ -63,8 +41,6 @@ def _sort_by_ontology(data: pd.DataFrame|pd.Series,
     The index of the data is the name of the regions.
     If fill=True, it adds data for the missing regions"""
     all_regions = brain_ontology.list_all_subregions("root", mode="depth")
-    if _is_split_left_right(data.index):
-        all_regions = _split_index(all_regions)
     if len(unknown_regions:=data.index[~data.index.isin(all_regions)]) > 0:
         raise UnknownBrainRegionsError(unknown_regions)
     if not fill:
@@ -78,8 +54,9 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     @staticmethod
     def reduce(first: Self, *others: Self,
               op: Callable[[pd.DataFrame],pd.Series]=pd.DataFrame.mean,
-              name=None, op_name=None,
-              same_units=True,
+              name: str=None, op_name: str=None,
+              same_units: bool=True,
+              same_hemisphere: bool=True,
               **kwargs) -> Self:
         """
         Reduces two (or more) `BrainData` into a single one based on a given function.\\
@@ -100,6 +77,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             The name of the reduction function. If not specified, it uses `op` name.
         same_units
             Whether it should enforce the same units of measurement for all `BrainData`.
+        same_hemisphere
+            Whether it should enforce the same hemisphere for all `BrainData`.
         **kwargs
             Other keyword arguments are passed to `op`.
 
@@ -113,12 +92,18 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         if same_units:
             assert all([first.units == other.units for other in others]),\
                 f"Merging must be done between BrainData of the same units, {[first.units, *[other.units for other in others]]}!"
+        if same_hemisphere:
+            assert all([first.hemisphere == other.hemisphere for other in others]),\
+                f"Merging must be done between BrainData of the same hemisphere, {[first.hemisphere, *[other.hemisphere for other in others]]}!"
+            hemisphere = first.hemisphere
+        else:
+            hemisphere = BrainHemisphere.BOTH
         if name is None:
             name = ":".join([first.data_name, *[other.data_name for other in others]])
         if op_name is None:
             op_name = op.__name__
         data: pd.Series = op(pd.concat([first.data, *[other.data for other in others]], axis=1), axis=1, **kwargs)
-        return BrainData(data, name, f"{first.metric}:{op_name} (n={len(others)+1})", first.units)
+        return BrainData(data, name, f"{first.metric}:{op_name} (n={len(others)+1})", first.units, hemisphere)
 
     @staticmethod
     def mean(*data: Self, **kwargs) -> Self:
@@ -183,7 +168,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     RAW_TYPE: str = "raw"
     """The identifier used to specify the nature of raw data as 'metric' attribute in `BrainData`."""
 
-    def __init__(self, data: pd.Series, name: str, metric: str, units: str,
+    def __init__(self, data: pd.Series, name: str, metric: str, units: str, hemisphere: BrainHemisphere,
                  brain_ontology: AllenBrainOntology|None=None, fill_nan=False) -> None:
         """
         This class is the base structure for managing any data that associates values to brain regions.\
@@ -199,6 +184,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             The metric used to extract `data`. If they no metric was previosuly used, use [`RAW_TYPE`][braian.BrainData.RAW_TYPE].
         units
             The units of measurment of the values in `data`.
+        hemisphere
+            The brain hemisphere to which the `data` is referring to.
         brain_ontology
             The ontology against which the extracted data was aligned.
             It is used to check that all `data` is attributable to a region in the ontology and to sort it accordingly.\\
@@ -212,8 +199,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         """        # convert to nullable type
         self.data: pd.Series = data.copy().convert_dtypes()
         """The internal representation of the current brain data."""
-        self.is_split: bool = _is_split_left_right(self.data.index)
-        """Whether the data of the current `BrainData` makes a distinction between right and left hemisphere."""
+        self.hemisphere = hemisphere
+        """The brain hemisphere to which the `data` is referring to."""
         self.data_name: str = str(name) # data_name
         """The name of the current `BrainData`."""
         self.data.name = self.data_name
@@ -236,7 +223,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return list(self.data.index)
 
     def __str__(self) -> str:
-        return f"BrainData(name='{self.data_name}', metric='{self.metric}', units='{self.units}')"
+        return f"BrainData(name='{self.data_name}', hemisphere={self.hemisphere.name} metric='{self.metric}', units='{self.units}')"
 
     def __repr__(self) -> str:
         return str(self)
@@ -262,24 +249,17 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             Brain data sorted accordingly to `brain_ontology`.
             If `inplace=True` it returns the same instance.
         """
-        data = _sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA)\
+        data = _sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA)#\
                 # .convert_dtypes() # no need to convert to IntXXArray/FloatXXArray as self.data should already be
         if not inplace:
-            return BrainData(data, self.data_name, self.metric, self.units)
+            return BrainData(data, self.data_name, self.metric, self.units, self.hemisphere)
         else:
             self.data = data
             return self
 
-    def root(self, hemisphere: str=None) -> float:
+    def root(self, hemisphere: BrainHemisphere=None) -> float:
         """
         Retrieves the value associated to the whole brain.
-
-        Parameters
-        ----------
-        hemisphere
-            Anything between "left", "L", "right" and "R".\\
-            If the current `BrainData` is split, it defines for which hemisphere to retrieve the data.
-            Otherwise, this parameter is ignored.
 
         Returns
         -------
@@ -289,15 +269,9 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         Raises
         ------
         ValueError
-            If `hemisphere` was not specified but the current `BrainData` is split.
-        ValueError
             If there is no data for the 'root' brain region.
         """
         acronym = "root"
-        if self.is_split:
-            if hemisphere is None:
-                raise ValueError(f"You have to specify the hemisphere of '{acronym}' you want!")
-            acronym = f"{_hemisphere_name(hemisphere)}: {acronym}"
         if acronym not in self.data:
             raise ValueError(f"No data for '{acronym}' in {self}!")
         return self.data[acronym]
@@ -382,7 +356,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.data = data
             return self
         else:
-            return BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
+            return BrainData(data, name=self.data_name, metric=self.metric, units=self.units, hemisphere=self.hemisphere)
 
     def set_regions(self, brain_regions: Collection[str],
                     brain_ontology: AllenBrainOntology,
@@ -435,7 +409,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 continue
             data[region] = value
         if not inplace:
-            return BrainData(data, self.data_name, self.metric, self.units)
+            return BrainData(data, self.data_name, self.metric, self.units, self.hemisphere)
         else:
             self.data = data
             return self
@@ -479,7 +453,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         else:
             data = self.data[self.data.index.isin(brain_regions)]
         if not inplace:
-            return BrainData(data, self.data_name, self.metric, self.units)
+            return BrainData(data, self.data_name, self.metric, self.units, self.hemisphere)
         else:
             self.data = data
             return self
@@ -518,20 +492,34 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
         return self.select_from_list(list(selectable_regions), *args, **kwargs)
 
-    def merge_hemispheres(self) -> Self:
+    def merge_hemispheres(self, other: Self) -> Self:
         """
-        Creates a new `BrainData` by merging the hemispheric data of the current instance.
+        Creates a new `BrainData` by merging two hemispheric data into one.
+
+        Parameters
+        ----------
+        other
+            The brain data from the other hemisphere.
 
         Returns
         -------
         :
             A new [`BrainData`][braian.BrainData] with no hemisphere distinction.
-            If the caller is already merged, it return the same instance with no changes.
+
+        Raises
+        ------
+        ValueError
+            If at least one the given `BrainData` is already merged.
+        ValueError
+            If the given `BrainData` metric is not suitable for being merged.
+        ValueError
+            If the given `BrainData` are not compatible between each other.
         """
-        if not self.is_split:
-            return self
+        if self.hemisphere is BrainHemisphere.BOTH or other.hemisphere is BrainHemisphere.BOTH:
+            raise ValueError("The given brain data is already merged.")
         if self.metric not in (BrainData.RAW_TYPE, "sum", "count_slices"):
             raise ValueError(f"Cannot properly merge '{self.metric}' BrainData from left/right hemispheres into a single region!")
-        corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self.data.index]
-        data = self.data.groupby(corresponding_region).sum(min_count=1)
-        return BrainData(data, name=self.data_name, metric=self.metric, units=self.units)
+        if self.metric != other.metric or self.units != other.units or self.hemisphere == self.hemisphere:
+            raise ValueError(f"Incompatible brain data: '{self}' and '{other}'")
+        data = self.data.add(other.data, fill_value=0)
+        return BrainData(data, name=self.data_name, metric=self.metric, units=self.units, hemisphere=BrainHemisphere.BOTH)
