@@ -182,7 +182,7 @@ class AnimalBrain:
             Whether the data can be considered _raw_ (e.g., contains simple cell positive counts) or not.
         """
         assert len(markers_data) > 0 and sizes is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the size of each region"
-        markers_data = {m: (ds,) if isinstance(ds, BrainData) else ds
+        markers_data = {m: (ds,) if isinstance(ds, BrainData) else tuple(sorted(ds, key=lambda d: d.hemisphere.value))
                         for m,ds in markers_data.items()}
         are_merged = [m.hemisphere is BrainHemisphere.BOTH for ms in markers_data.values() for m in ms]
         assert all(are_merged) or not any(are_merged), "You must provide BrainData that has merged hemispheres for all markers or for none."
@@ -204,13 +204,17 @@ class AnimalBrain:
         return
 
     @property
+    def hemispheres(self) -> tuple[BrainData]|tuple[BrainData,BrainData]:
+        return tuple(s.hemisphere for s in self._sizes)
+
+    @property
     def sizes(self) -> BrainData:
         """
         The data corresponding to the size of each brain region of the current AnimalBrain.
         Only available if the brain is not split between left and right hemispheres.
         """
         if self.is_split:
-            raise ValueError("Cannot get a single size for all brain region because the brain is split between left and right hemispheres."+\
+            raise ValueError("Cannot get a single size for all brain regions because the brain is split between left and right hemispheres."+\
                              "Use AnimalBrain.hemisizes.")
         return self._sizes[0]
 
@@ -261,7 +265,7 @@ class AnimalBrain:
         """
         # assumes sizes' and all markers' BrainData are synchronized
         if self.is_split:
-            raise ValueError("Cannot get a single list for all brain region because the brain is split between left and right hemispheres."+\
+            raise ValueError("Cannot get a single list for all brain regions because the brain is split between left and right hemispheres."+\
                              "Use AnimalBrain.hemiregions.")
         return self._sizes[0].regions
 
@@ -295,8 +299,8 @@ class AnimalBrain:
         """
         if isinstance(key,str):
             if self.is_split:
-                raise ValueError("Cannot get a single marker data for all brain region because the brain is split between left and right hemispheres."+\
-                                 "You should also specify a [`BrainHemisphere`][braian.BrainHemisphere].")
+                raise ValueError("Cannot get a single marker data for all brain regions because the brain is split between left and right hemispheres."+\
+                                 "You should also specify a braian.BrainHemisphere.")
             return self._markers_data[key][0] # there is no hemisphere distinction
         elif isinstance(key,tuple) and len(key) == 2 and isinstance(key[0],str):
             marker,hemi = key
@@ -405,7 +409,9 @@ class AnimalBrain:
             self._sizes = sizes
             return self
 
-    def select_from_list(self, regions: Sequence[str], fill_nan: bool=False, inplace: bool=False) -> Self:
+    def select_from_list(self, regions: Sequence[str],
+                         fill_nan: bool=False, inplace: bool=False,
+                         hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> Self:
         """
         Filters the data from a given list of regions.
 
@@ -418,6 +424,9 @@ class AnimalBrain:
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.
+        hemisphere
+            If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
+            it only selects the brain regions from the given hemisphere.
 
         Returns
         -------
@@ -429,9 +438,16 @@ class AnimalBrain:
         --------
         [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
         """
-        markers_data = {marker: tuple(m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for m_data in hemidata)
+        hemisphere = BrainHemisphere(hemisphere)
+        markers_data = {marker: tuple(
+                                m_data if hemisphere not in (BrainHemisphere.BOTH, m_data.hemisphere)\
+                                else m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+                            for m_data in hemidata)
                         for marker, hemidata in self._markers_data.items()}
-        sizes = tuple(s.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for s in self._sizes)
+        sizes = tuple(
+                s if hemisphere not in (BrainHemisphere.BOTH, s.hemisphere)\
+                else s.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+            for s in self._sizes)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
         else:
@@ -439,7 +455,9 @@ class AnimalBrain:
             self._sizes = sizes
             return self
 
-    def select_from_ontology(self, brain_ontology: AllenBrainOntology, fill_nan: bool=False, inplace: bool=False) -> Self:
+    def select_from_ontology(self, brain_ontology: AllenBrainOntology,
+                             fill_nan: bool=False, inplace: bool=False,
+                             hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> Self:
         """
         Filters the data from a given ontology, accordingly to a non-overlapping list of regions
         previously selected in `brain_ontology`.\\
@@ -454,6 +472,9 @@ class AnimalBrain:
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.
+        hemisphere
+            If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
+            it only selects the brain regions from the given hemisphere.
 
         Returns
         -------
@@ -480,7 +501,7 @@ class AnimalBrain:
             selectable_regions = set(self.regions).intersection(set(selected_allen_regions))
         else:
             selectable_regions = selected_allen_regions
-        return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, inplace=inplace)
+        return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, inplace=inplace, hemisphere=hemisphere)
 
     def get_units(self, marker:str|None=None) -> str:
         """

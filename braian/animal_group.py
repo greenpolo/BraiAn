@@ -9,21 +9,25 @@ from pathlib import Path
 from typing import Self
 
 from braian.animal_brain import AnimalBrain, SliceMetrics
-from braian.brain_data import BrainData
+from braian.brain_data import BrainData, BrainHemisphere
 from braian.ontology import AllenBrainOntology
 from braian.sliced_brain import SlicedBrain
 from braian.utils import save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
-def _common_regions(animals: list[AnimalBrain]) -> list[str]:
-    all_regions = [set(brain.regions) for brain in animals]
-    return list(reduce(set.__or__, all_regions))
+def _common_regions(animals: list[AnimalBrain]) -> dict[BrainHemisphere,list[str]]:
+    common_regions = dict()
+    for hemi in animals[0].hemispheres:
+        all_regions = [set(brain.hemiregions[hemi]) for brain in animals]
+        common_regions[hemi] = list(reduce(set.__or__, all_regions))
+    return common_regions
 
 def _have_same_regions(animals: list[AnimalBrain]) -> bool:
-    regions = animals[0].regions
-    all_regions = [set(brain.regions) for brain in animals]
-    return len(reduce(set.__and__, all_regions)) ==  len(regions)
+    # NOTE: it only checks whether all animals have the same number of brain regions
+    for hemi,regions in animals[0].hemiregions.items():
+        all_regions = [set(brain.hemiregions[hemi]) for brain in animals]
+        return len(reduce(set.__and__, all_regions)) ==  len(regions)
 
 class AnimalGroup:
     def __init__(self, name: str, animals: Sequence[AnimalBrain], hemisphere_distinction: bool=True,
@@ -82,9 +86,11 @@ class AnimalGroup:
         if _have_same_regions(animals):
             fill = no_update
         else:
-            regions = _common_regions(animals)
+            hemiregions = _common_regions(animals)
             def fill(brain: AnimalBrain) -> AnimalBrain:
-                return brain.select_from_list(regions, fill_nan=True, inplace=False)
+                for hemi,regions in hemiregions.items():
+                    brain = brain.select_from_list(regions, fill_nan=True, inplace=False, hemisphere=hemi)
+                return brain
 
         if brain_ontology is None:
             sort = no_update
@@ -93,7 +99,7 @@ class AnimalGroup:
                 return brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)
 
         self._animals: list[AnimalBrain] = [sort(fill(merge(brain))) for brain in animals] # brain |> merge |> fill |> sort -- OLD: brain |> merge |> analyse |> sort
-        self._mean: dict[str, BrainData] = self._update_mean()
+        self._mean: dict[str, tuple[BrainData]|tuple[BrainData,BrainData]] = self._update_mean()
 
     @property
     def n(self) -> int:
@@ -116,6 +122,11 @@ class AnimalGroup:
         return np.asarray(self._animals[0].markers)
 
     @property
+    def hemispheres(self) -> npt.NDArray[np.str_]:
+        """The name of the markers for which the current `AnimalGroup` has data."""
+        return np.asarray(self._animals[0].hemispheres)
+
+    @property
     def regions(self) -> list[str]:
         """The list of region acronyms for which the current `AnimalGroup` has data."""
         # NOTE: all animals of the group are expected to have the same regions!
@@ -135,7 +146,18 @@ class AnimalGroup:
 
     @property
     def mean(self) -> dict[str, BrainData]:
-        """The mean between each brain of the group, for each region."""
+        """The mean between each brain of the group, for each marker and for each region."""
+        if self.is_split:
+            raise ValueError("Cannot get a single marker mean for all brain regions because the group is split between left and right hemispheres."+\
+                             "Use AnimalGroup.hemimean.")
+        return {marker: means[0] for marker,means in self._mean.items()}
+
+    @property
+    def hemimean(self) -> dict[str,tuple[BrainData,BrainData]|tuple[BrainData]]:
+        """
+        The mean between each brain of the group, for each marker and for each region.
+        If the AnimalGroup has data for two hemispheres, the dictionary maps to tuples of size two.
+        """
         return dict(self._mean)
 
     def get_animals(self) -> list[str]:
@@ -153,11 +175,11 @@ class AnimalGroup:
     def __str__(self) -> str:
         return f"AnimalGroup('{self.name}', metric={self.metric}, n={self.n})"
 
-    def _update_mean(self) -> dict[str, BrainData]:
+    def _update_mean(self) -> dict[str, tuple[BrainData]|tuple[BrainData,BrainData]]:
         # NOTE: skipna=True does not work with FloatingArrays (what BrainData uses)
         #       https://github.com/pandas-dev/pandas/issues/59965
-        return {marker: BrainData.mean(*[brain[marker] for brain in self._animals], name=self.name, skipna=True)
-                for marker in self.markers}
+        return {marker: BrainData.mean(*[brain[marker,hemi] for brain in self._animals], name=self.name, skipna=True)
+                for marker in self.markers for hemi in self.hemispheres}
 
     def reduce(self, op: Callable[[pd.DataFrame], pd.Series], **kwargs) -> dict[str, BrainData]:
         """
@@ -176,6 +198,8 @@ class AnimalGroup:
         :
             Brain data for each marker of the group, result of the the folding.
         """
+        if self.is_split:
+            raise NotImplementedError()
         return {marker: BrainData.reduce(
                             *[brain[marker] for brain in self._animals],
                             op=op, name=self.name, **kwargs
@@ -197,6 +221,8 @@ class AnimalGroup:
         :
             True if the current group and `other` are comparable. False otherwise.
         """
+        if self.is_split:
+            raise NotImplementedError()
         if not isinstance(other, AnimalGroup):
             return False
         return set(self.markers) == set(other.markers) and \
@@ -204,7 +230,9 @@ class AnimalGroup:
                 self.metric == other.metric # and \
                 # set(self.regions) == set(other.regions)
 
-    def select(self, regions: Sequence[str], fill_nan=False, inplace=False) -> Self:
+    def select(self, regions: Sequence[str],
+               fill_nan: bool=False, inplace: bool=False,
+               hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> Self:
         """
         Filters the data from a given list of regions.
 
@@ -217,6 +245,9 @@ class AnimalGroup:
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.
+        hemisphere
+            If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
+            it only selects the brain regions from the given hemisphere.
 
         Returns
         -------
@@ -228,7 +259,7 @@ class AnimalGroup:
         --------
         [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
         """
-        animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace) for brain in self._animals]
+        animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace, hemisphere=hemisphere) for brain in self._animals]
         if not inplace:
             # self.metric == animals.metric -> no self.metric.analyse(brain) is computed
             return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
@@ -262,7 +293,8 @@ class AnimalGroup:
         try:
             return next(brain for brain in self._animals if brain.name == animal_name)
         except StopIteration:
-            raise KeyError(f"'{animal_name}'")
+            pass
+        raise KeyError(f"Cannot find animal with name '{animal_name}'")
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
@@ -314,7 +346,7 @@ class AnimalGroup:
         return self._animals[0].get_units(marker)
 
     def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
-                         fill_nan=True, inplace=True) -> None:
+                         fill_nan: bool=True, inplace: bool=True) -> None:
         """
         Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
 
@@ -395,6 +427,7 @@ class AnimalGroup:
 
             If a region is missing in some animals, the corresponding row is [`NA`][pandas.NA]-filled.
         """
+        raise NotImplementedError()
         if marker in self.markers:
             df = pd.concat({brain.name: brain[marker].data for brain in self._animals}, join="outer", axis=1)
             df.columns.name = str(self.metric)
@@ -472,6 +505,7 @@ class AnimalGroup:
         --------
         [`to_pandas`][braian.AnimalGroup.to_pandas]
         """
+        raise NotImplementedError()
         animals = [AnimalBrain.from_pandas(df.xs(animal_name, level=1), animal_name) for animal_name in df.index.unique(1)]
         return AnimalGroup(group_name, animals, fill_nan=False)
 
@@ -533,6 +567,7 @@ class AnimalGroup:
         ValueError
             If the given groups are not [comparable][braian.AnimalGroup.is_comparable].
         """
+        raise NotImplementedError()
         groups = [group1, group2, *groups]
         if not all(group1.is_comparable(g) for g in groups[1:]):
             raise ValueError("The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)")

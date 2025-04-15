@@ -223,7 +223,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return list(self.data.index)
 
     def __str__(self) -> str:
-        return f"BrainData(name='{self.data_name}', hemisphere={self.hemisphere.name} metric='{self.metric}', units='{self.units}')"
+        return f"BrainData(name='{self.data_name}', hemisphere={self.hemisphere.name}, metric='{self.metric}', units='{self.units}')"
 
     def __repr__(self) -> str:
         return str(self)
@@ -257,14 +257,10 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.data = data
             return self
 
-    def root(self, hemisphere: BrainHemisphere=None) -> float:
+    @property
+    def root(self) -> float:
         """
         Retrieves the value associated to the whole brain.
-
-        Returns
-        -------
-        :
-            The value of the root.
 
         Raises
         ------

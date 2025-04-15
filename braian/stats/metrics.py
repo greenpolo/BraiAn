@@ -1,6 +1,6 @@
 import enum
 
-from braian.brain_data import BrainData
+from braian.brain_data import BrainData, BrainHemisphere
 from braian.animal_brain import AnimalBrain
 from braian.animal_group import AnimalGroup
 from collections.abc import Callable
@@ -70,6 +70,23 @@ def _enforce_rawdata(brain: AnimalBrain):
     if not brain.raw:
         raise ValueError(f"This metric cannot be computed for AnimalBrains whose data is not raw (metric={brain.metric}).")
 
+def _hemisphered_metric(brain: AnimalBrain,
+                        metric: Callable[[BrainData, BrainData, str], BrainData], # (sizes,marker_data,marker) -> result
+                        metric_str: str,
+                        units: Callable[[BrainData, BrainData], str], # (sizes,marker_data) -> units,
+                        raw: bool):
+    markers_data = dict()
+    for marker in brain.markers:
+        hemidata = set()
+        for sizes in brain.hemisizes:
+            marker_data = brain[marker,sizes.hemisphere]
+            data: BrainData = metric(sizes, marker_data, marker)
+            data.metric = metric_str
+            data.units = units(sizes, marker_data)
+            hemidata.add(data)
+        markers_data[marker] = tuple(hemidata)
+    return AnimalBrain(markers_data=markers_data, sizes=brain.hemisizes, raw=raw)
+
 def density(brain: AnimalBrain) -> AnimalBrain:
     r"""
     For each region $r$ of `brain`, it computes the density $D(m)$ for each marker $m$:
@@ -94,13 +111,12 @@ def density(brain: AnimalBrain) -> AnimalBrain:
         If `brain` does not contain raw data of marker countings.
     """
     _enforce_rawdata(brain)
-    markers_data = dict()
-    for marker in brain.markers:
-        data = brain[marker] / brain.sizes
-        data.metric = "density"
-        data.units = f"{brain[marker].units}/{brain.sizes.units}"
-        markers_data[marker] = data
-    return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
+    return _hemisphered_metric(
+        brain=brain,
+        metric=lambda sizes,marker_data,marker: marker_data / sizes,
+        metric_str="density",
+        units=lambda sizes,marker_data: f"{marker_data.units}/{sizes.units}",
+        raw=False)
 
 def percentage(brain: AnimalBrain) -> AnimalBrain:
     r"""
@@ -127,18 +143,18 @@ def percentage(brain: AnimalBrain) -> AnimalBrain:
         If `brain` does not contain raw data of marker countings.
     """
     _enforce_rawdata(brain)
-    if brain.is_split:
-        hems = ("L", "R")
-    else:
-        hems = (None,)
-    markers_data = dict()
+    total_brainwide = dict()
     for marker in brain.markers:
-        brainwide_cell_counts = sum((brain[marker].root(hem) for hem in hems))
-        data = brain[marker] / brainwide_cell_counts
-        data.metric = "percentage"
-        data.units = f"{brain[marker].units}/{brain[marker].units} in root"
-        markers_data[marker] = data
-    return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
+        if brain.is_split:
+            total_brainwide[marker] = brain[marker,BrainHemisphere.LEFT].root+brain[marker,BrainHemisphere.RIGHT].root
+        else:
+            total_brainwide[marker] = brain[marker].root()
+    return _hemisphered_metric(
+        brain=brain,
+        metric=lambda sizes,marker_data,marker: marker_data / total_brainwide[marker],
+        metric_str="percentage",
+        units=lambda sizes,marker_data: f"{marker_data.units}/{marker_data.units} in root",
+        raw=False)
 
 def relative_density(brain: AnimalBrain) -> AnimalBrain:
     r"""
@@ -165,35 +181,35 @@ def relative_density(brain: AnimalBrain) -> AnimalBrain:
         If `brain` does not contain raw data of marker countings.
     """
     _enforce_rawdata(brain)
-    if brain.is_split:
-        hems = ("L", "R")
-    else:
-        hems = (None,)
-    markers_data = dict()
+
+    area_brainwide = sum(map(s.root for s in brain.hemisizes))
+    total_brainwide = dict()
     for marker in brain.markers:
-        brainwide_area = sum((brain.sizes.root(hem) for hem in hems))
-        brainwide_cell_counts = sum((brain[marker].root(hem) for hem in hems))
-        data = (brain[marker] / brain.sizes) / (brainwide_cell_counts / brainwide_area)
-        data.metric = "relative_density"
-        data.units = f"{brain[marker].units} density/root {brain[marker].units} density"
-        markers_data[marker] = data
-    return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
+        if brain.is_split:
+            total_brainwide[marker] = brain[marker,BrainHemisphere.LEFT].root+brain[marker,BrainHemisphere.RIGHT].root
+        else:
+            total_brainwide[marker] = brain[marker].root()
+    return _hemisphered_metric(
+        brain=brain,
+        metric=lambda sizes,marker_data,marker: (marker_data/sizes) / (total_brainwide[marker]/area_brainwide),
+        metric_str="relative_density",
+        units=lambda sizes,marker_data: f"{marker_data.units} density/root {marker_data.units} density",
+        raw=False)
 
 def _group_change(brain: AnimalBrain, group: AnimalGroup,
-                  metric: str, fun: Callable[[BrainData,BrainData],BrainData],
+                  metric: str, fun: Callable[[BrainData,BrainData],BrainData], # (animal,group) -> result
                   symbol: str) -> AnimalBrain:
     assert brain.is_split == group.is_split, "Both AnimalBrain and AnimalGroup must either have the hemispheres split or not"
     assert set(brain.markers) == set(group.markers), "Both AnimalBrain and AnimalGroup must have the same markers"
     # assert brain.metric == group.metric == BrainMetrics.DENSITY, f"Both AnimalBrain and AnimalGroup must be on {BrainMetrics.DENSITY}"
     # assert set(brain.regions) == set(group.regions), f"Both AnimalBrain and AnimalGroup must be on the same regions"
 
-    markers_data = dict()
-    for marker in brain.markers:
-        data = fun(brain[marker], group.mean[marker])
-        data.metric = str(metric)
-        data.units = f"{brain[marker].units} {str(brain.metric)}{symbol}{group.name} {str(group.metric)}"
-        markers_data[marker] = data
-    return AnimalBrain(markers_data=markers_data, sizes=brain.sizes, raw=False)
+    return _hemisphered_metric(
+        brain=brain,
+        metric=lambda sizes,marker_data,marker: fun(brain[marker], group.hemimean[marker]), # select mean of the same hemisphere as the brain
+        metric_str=str(metric),
+        units=lambda sizes,marker_data: f"{marker_data.units} {str(brain.metric)}{symbol}{group.name} {str(group.metric)}",
+        raw=False)
 
 def fold_change(brain: AnimalBrain, group: AnimalGroup) -> AnimalBrain:
     """
@@ -281,15 +297,21 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
     try:
-        both = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
+        doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     overlaps = dict()
     for m in (marker1, marker2):
-        overlaps[m] = (brain[both] / brain[m])
-        overlaps[m].metric = "overlaps"
-        overlaps[m].units = f"({marker1}+{marker2})/{m}"
-    return AnimalBrain(markers_data=overlaps, sizes=brain.sizes, raw=False)
+        hemidata = set()
+        for hemi in brain.hemispheres:
+            marker_data = brain[m,hemi]
+            doublepos_data = brain[doublepos,hemi]
+            data: BrainData = marker_data/doublepos_data
+            data.metric = "overlaps"
+            data.units = f"({marker1}+{marker2})/{m}"
+            hemidata.add(data)
+        overlaps[m] = tuple(hemidata)
+    return AnimalBrain(markers_data=overlaps, sizes=brain.hemisizes, raw=False)
 
 def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     r"""
@@ -329,13 +351,20 @@ def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> Ani
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
     try:
-        overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
+        doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-    similarities = brain[overlapping] / (brain[marker1]+brain[marker2]-brain[overlapping])
-    similarities.metric = "jaccard_index"
-    similarities.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
-    return AnimalBrain(markers_data={overlapping: similarities}, sizes=brain.sizes, raw=False)
+    hemidata = set()
+    for hemi in brain.hemispheres:
+        marker1_data = brain[marker1,hemi]
+        marker2_data = brain[marker2,hemi]
+        doublepos_data = brain[doublepos,hemi]
+        data: BrainData = doublepos_data / (marker1_data+marker2_data-doublepos_data)
+        data.metric = "jaccard_index"
+        data.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
+        hemidata.add(data)
+    similarities = {doublepos: tuple(hemidata)}
+    return AnimalBrain(similarities, sizes=brain.sizes, raw=False)
 
 def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     # computes an index of normalized similarity we developed
@@ -379,16 +408,23 @@ def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> 
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
     try:
-        overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
+        doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-    # NOT normalized in (0,1)
-    # similarities = brain[overlapping] / (brain[marker1]*brain[marker2]) * brain.sizes
-    # NORMALIZED
-    similarities = brain[overlapping]**2 / (brain[marker1]*brain[marker2])
-    similarities.metric = "similarity_index"
-    similarities.units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
-    return AnimalBrain(markers_data={overlapping: similarities}, sizes=brain.sizes, raw=False)
+    hemidata = set()
+    for sizes in brain.hemisizes:
+        marker1_data = brain[marker1,sizes.hemisphere]
+        marker2_data = brain[marker2,sizes.hemisphere]
+        doublepos_data = brain[doublepos,sizes.hemisphere]
+        # NOT normalized in (0,1)
+        # data = doublepos_data / (marker1_data*marker2_data) * sizes
+        # NORMALIZED
+        data: BrainData = doublepos_data**2 / (marker1_data*marker2_data)
+        data.metric = "similarity_index"
+        data.units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
+        hemidata.add(data)
+    similarities = {doublepos: tuple(hemidata)}
+    return AnimalBrain(markers_data=similarities, sizes=brain.sizes, raw=False)
 
 def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     r"""
@@ -429,13 +465,20 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
     try:
-        overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
+        doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
-    overlap_coeffs = brain[overlapping] / BrainData.minimum(brain[marker1], brain[marker2])
-    overlap_coeffs.metric = "overlap_coefficient"
-    overlap_coeffs.units = f"({marker1}∩{marker2})/min({marker1},{marker2})"
-    return AnimalBrain(markers_data={overlapping: overlap_coeffs}, sizes=brain.sizes, raw=False)
+    hemidata = set()
+    for hemi in brain.hemispheres:
+        marker1_data = brain[marker1,hemi]
+        marker2_data = brain[marker2,hemi]
+        doublepos_data = brain[doublepos,hemi]
+        data: BrainData = doublepos_data / BrainData.minimum(marker1_data, marker2_data)
+        data.metric = "overlap_coefficient"
+        data.units = f"({marker1}∩{marker2})/min({marker1},{marker2})"
+        hemidata.add(data)
+    overlap_coeffs = {doublepos: tuple(hemidata)}
+    return AnimalBrain(markers_data=overlap_coeffs, sizes=brain.sizes, raw=False)
 
 # def markers_chance_level(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
 #     # This chance level is good only if the used for the fold change.
@@ -485,10 +528,16 @@ def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> Animal
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
-    diff = brain[marker1] - brain[marker2]
-    diff.metric = "marker_difference"
-    diff.units = f"{brain[marker1].units}-{brain[marker2].units}"
-    return AnimalBrain(markers_data={f"{marker1}+{marker2}": diff}, sizes=brain.sizes, raw=False)
+    hemidata = set()
+    for hemi in brain.hemispheres:
+        marker1_data = brain[marker1,hemi]
+        marker2_data = brain[marker2,hemi]
+        data: BrainData = marker1_data - marker2_data
+        data.metric = "marker_difference"
+        data.units = f"{marker1_data.units}-{marker2_data.units}"
+        hemidata.add(data)
+    diff = {f"{marker1}+{marker2}": tuple(hemidata)}
+    return AnimalBrain(markers_data=diff, sizes=brain.sizes, raw=False)
 
 def markers_correlation(marker1: str, marker2: str,
                         group: AnimalGroup, other: AnimalGroup=None,
@@ -515,6 +564,7 @@ def markers_correlation(marker1: str, marker2: str,
     :
         Brain data of the correlation between `marker1` and `marker2`.
     """
+    raise NotImplementedError()
     if other is None:
         other = group
     else:
