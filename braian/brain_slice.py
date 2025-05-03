@@ -183,6 +183,9 @@ class BrainSlice:
         if any(m.type is QuPathMeasurementType.CELL_COUNT for m in measurements):
             if data["Num Detections"].count() == 0:
                 raise NanResultsError(file=csv)
+        for m in measurements:
+            if m.type is QuPathMeasurementType.AREA and data[m.key].count() == 0:
+                raise(NanResultsError(file=csv))
         data = pd.DataFrame(data, columns=[m.key for m in measurements])
         # NOTE: not needed since qupath-extension-braian>=1.0.1
         BrainSlice._fix_nan_countings(data, [m.key for m in measurements if m.type is QuPathMeasurementType.CELL_COUNT])
