@@ -7,6 +7,7 @@ import numpy.typing as npt
 import pandas as pd
 import requests
 
+from brainglobe_atlasapi import list_atlases
 from bs4 import BeautifulSoup
 from collections import OrderedDict
 from collections.abc import Iterable, Container
@@ -99,13 +100,15 @@ class AllenBrainOntology:
             self.annotation_version = self._get_allen_version(version)
             self.name = "allen_mouse_10um_java"
         # this should be temporary workaround, before the ontology is rewritten with complete BrainGlobe support
-        bg_atlas = bga.BrainGlobeAtlas(self.name) # can throw ValueError if self.name is not valid
-        if not (self.name.startswith("silvalab_mouse") or self.name.startswith("allen_mouse")):
-            raise ValueError(f"'{self.name}' is not compatible with Allen mouse brain ontology.")
-        annoted_regions = {n.identifier for n in bg_atlas.hierarchy.all_nodes()}
-        region_ids = {n["id"] for n in visit_dict.get_all_nodes(self.dict, "children", visit=visit_dict.visit_dfs)}
-        unannoted_regions = region_ids - annoted_regions
-        self.blacklist_regions(unannoted_regions, key="id", has_reference=False)
+        # NOTE: it doesn't work with default 'allen_mouse_10_java' atlas. Commenting it out
+        # bg_atlas = bga.BrainGlobeAtlas(self.name) # can throw ValueError if self.name is not valid
+        # if not (self.name.startswith("silvalab_mouse") or self.name.startswith("allen_mouse")):
+        #     raise ValueError(f"'{self.name}' is not compatible with Allen mouse brain ontology.")
+        # annoted_regions = {n.identifier for n in bg_atlas.hierarchy.all_nodes()}
+        # region_ids = {n["id"] for n in visit_dict.get_all_nodes(self.dict, "children", visit=visit_dict.visit_dfs)}
+        # unannoted_regions = region_ids - annoted_regions
+        # self.blacklist_regions(unannoted_regions, key="id", has_reference=False)
+
         # if version is not None:
         #     unannoted_regions, self.annotation_version = self._get_unannoted_regions(version)
         #     self.blacklist_regions(unannoted_regions, key="acronym", has_reference=False)
@@ -145,6 +148,19 @@ class AllenBrainOntology:
                 return "ccf_2022"
             case _:
                 raise ValueError(f"Unrecognised Allen atlas version: '{version}'")
+
+    def _get_unannoted_bg_regions(self) -> list[str]:
+        last_atlases_versions: dict[str,str] = list_atlases.get_all_atlases_lastversions()
+        if self.name not in last_atlases_versions:
+            raise ValueError(f"BrainGlobe atlas not found: '{self.name}'")
+        last_version = last_atlases_versions[self.name]
+        bg_atlas_name = (self.name+"_v"+last_version)
+        atlas_meshes_dir = Path.home()/".brainglobe"/bg_atlas_name/"meshes"
+        if not atlas_meshes_dir.exists():
+            raise ValueError(f"BrainGlobe atlas not downloaded: '{bg_atlas_name}'")
+        regions_w_annotation = [int(p.stem) for p in atlas_meshes_dir.iterdir() if p.suffix == ".obj"]
+        regions_wo_annotation = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dict.visit_dfs)
+        return [region["acronym"] for region in regions_wo_annotation]
 
     def _get_unannoted_regions(self) -> tuple[list[str], str]:
         # alternative implementation: use annotation's nrrd file - https://help.brain-map.org/display/mousebrain/API#API-DownloadAtlas3-DReferenceModels
