@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Self
 from collections.abc import Iterable
 
-from braian.brain_data import _sort_by_ontology, BrainHemisphere, UnknownBrainRegionsError
+from braian.brain_data import sort_by_ontology, BrainHemisphere, UnknownBrainRegionsError
 from braian.ontology import AllenBrainOntology
 from braian.utils import search_file_or_simlink
 
@@ -197,10 +197,10 @@ class BrainSlice:
     @staticmethod
     def _extract_qupath_hemispheres(data: pd.DataFrame, csv_file: str):
         match_groups = data.index.str.extract(r"((Left|Right): )?(.+)")
-        # extracts 3 groups:
-        #  1) '(Left|Right): '
-        #  2) '(Left|Right)'
-        #  3) '<region_name>'
+        # the above regex extracts 3 groups:
+        #  0) '(Left|Right): '
+        #  1) '(Left|Right)'
+        #  2) '<region_name>'
         match_groups.set_index(data.index, inplace=True)
         if (unknown_classes:=match_groups[2] != data["Name"]).any():
             raise ValueError("Unknown regions: '"+"', '".join(match_groups.index[unknown_classes])+"'")
@@ -429,14 +429,14 @@ class BrainSlice:
             if not self.is_split:
                 self.data.reset_index(inplace=True)
                 self.data.set_index("acronym", inplace=True)
-                self.data = _sort_by_ontology(self.data, brain_ontology, fill=False)
+                self.data = sort_by_ontology(self.data, brain_ontology, fill=False)
                 self.data.reset_index(inplace=True)
                 self.data.set_index("index", inplace=True)
             else:
                 hem1 = self.data[self.data["hemisphere"] == BrainHemisphere.LEFT.value].reset_index().set_index("acronym")
                 hem2 = self.data[self.data["hemisphere"] == BrainHemisphere.RIGHT.value].reset_index().set_index("acronym")
-                hem1 = _sort_by_ontology(hem1, brain_ontology, fill=True)
-                hem2 = _sort_by_ontology(hem2, brain_ontology, fill=True)
+                hem1 = sort_by_ontology(hem1, brain_ontology, fill=True)
+                hem2 = sort_by_ontology(hem2, brain_ontology, fill=True)
                 self.data.reindex([*hem2["index"], *hem1["index"]], copy=False)
 
         self.markers_density: pd.DataFrame = self._marker_density()

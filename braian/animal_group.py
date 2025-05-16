@@ -16,7 +16,7 @@ from braian.utils import save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
-def _common_regions(animals: list[AnimalBrain]) -> dict[BrainHemisphere,list[str]]:
+def _combined_regions(animals: list[AnimalBrain]) -> dict[BrainHemisphere,list[str]]:
     common_regions = dict()
     for hemi in animals[0].hemispheres:
         all_regions = [set(brain.hemiregions[hemi]) for brain in animals]
@@ -86,10 +86,10 @@ class AnimalGroup:
         if _have_same_regions(animals):
             fill = no_update
         else:
-            hemiregions = _common_regions(animals)
+            hemiregions = _combined_regions(animals)
             def fill(brain: AnimalBrain) -> AnimalBrain:
-                for hemi,regions in hemiregions.items():
-                    brain = brain.select_from_list(regions, fill_nan=True, inplace=False, hemisphere=hemi)
+                for hemi,combined_regions in hemiregions.items():
+                    brain = brain.select_from_list(combined_regions, fill_nan=True, inplace=False, hemisphere=hemi)
                 return brain
 
         if brain_ontology is None:

@@ -10,7 +10,7 @@ from numbers import Number
 from braian.deflector import deflect
 from braian import AllenBrainOntology
 
-__all__ = ["BrainHemisphere", "BrainData"]
+__all__ = ["sort_by_ontology", "BrainHemisphere", "BrainData"]
 
 class UnknownBrainRegionsError(Exception):
     def __init__(self, unknown_regions: Iterable[str]):
@@ -34,20 +34,27 @@ class BrainHemisphere(Enum):
             case _:
                 return None
 
-def _sort_by_ontology(data: pd.DataFrame|pd.Series,
+def sort_by_ontology(regions: Iterable|pd.DataFrame|pd.Series,
                       brain_ontology: AllenBrainOntology,
-                      fill=False, fill_value=np.nan) -> pd.DataFrame|pd.Series:
-    """Sorts a DataFrame/Series by depth-first search in the given ontology.
+                      fill=False, fill_value=np.nan) -> np.ndarray|pd.DataFrame|pd.Series:
+    """Sorts an Iterable/DataFrame/Series by depth-first search in the given ontology.
     The index of the data is the name of the regions.
     If fill=True, it adds data for the missing regions"""
     all_regions = brain_ontology.list_all_subregions("root", mode="depth")
-    if len(unknown_regions:=data.index[~data.index.isin(all_regions)]) > 0:
+    if isinstance(regions, (pd.Series, pd.DataFrame)): 
+        regions_ = regions.index
+    else:
+        regions_ = pd.Index(regions)
+    if len(unknown_regions:=regions_[~regions_.isin(all_regions)]) > 0:
         raise UnknownBrainRegionsError(unknown_regions)
     if not fill:
         all_regions = np.array(all_regions)
-        all_regions = all_regions[np.isin(all_regions, data.index)]
+        all_regions = all_regions[np.isin(all_regions, regions_)]
+    if not isinstance(regions, (pd.Series, pd.DataFrame)):
+        return all_regions
+    # else: 'regions' contains data
     # NOTE: if fill_value=np.nan -> converts dtype to float
-    sorted = data.reindex(all_regions, copy=False, fill_value=fill_value)
+    sorted = regions.reindex(all_regions, copy=False, fill_value=fill_value)
     return sorted
 
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
@@ -249,7 +256,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             Brain data sorted accordingly to `brain_ontology`.
             If `inplace=True` it returns the same instance.
         """
-        data = _sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA)#\
+        data = sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA)#\
                 # .convert_dtypes() # no need to convert to IntXXArray/FloatXXArray as self.data should already be
         if not inplace:
             return BrainData(data, self.data_name, self.metric, self.units, self.hemisphere)
