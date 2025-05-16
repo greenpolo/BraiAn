@@ -1,4 +1,5 @@
 import copy
+import functools
 import numpy as np
 import pandas as pd
 import re
@@ -11,7 +12,7 @@ from typing import Generator, Self
 
 from braian.ontology import AllenBrainOntology
 from braian.sliced_brain import SlicedBrain, EmptyBrainError
-from braian.brain_data import BrainData, BrainHemisphere
+from braian.brain_data import BrainData, BrainHemisphere, sort_by_ontology
 from braian.utils import save_csv, deprecated
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
@@ -26,6 +27,15 @@ def coefficient_variation(x: np.ndarray) -> np.float64:
             return 0
     else: # compute it for each column of the DataFrame and return a Series
         return x.apply(coefficient_variation, axis=0)
+
+def _combined_regions(*bd: BrainData) -> list[str]:
+    all_regions = [set(bd_.regions) for bd_ in bd]
+    return list(functools.reduce(set.__or__, all_regions))
+
+def _to_legacy_series(bd: BrainData) -> pd.Series:
+    if bd.hemisphere is not BrainHemisphere.BOTH:
+        return bd.data.add_prefix(bd.hemisphere.name.capitalize()+": ")
+    return bd.data
 
 class SliceMetrics(Enum):
     r"""
@@ -399,6 +409,14 @@ class AnimalBrain:
             If `inplace=True` it returns the same instance.
         """
         # TODO: add option to sync markers and hemispheres
+        
+        # NOTE: this adds the regions present in only one of the two hemispheres
+        # if self.is_split:
+        #     combined_regions = _combined_regions(self[self._markers[0], 1], self[self._markers[0], 2])
+        #     combined_regions = sort_by_ontology(combined_regions, atlas_ontology, fill=False)
+        #     combined_hemidata = {m: tuple(hemidata.select_from_list(combined_regions, fill_nan=True, inplace=False) for hemidata in data)
+        #                         for m,data in self._markers_data.items()}
+        #     combined_hemisizes = tuple(hemisize.select_from_list(combined_regions, fill_nan=True, inplace=False) for hemisize in self.hemisizes)
         markers_data = {marker: tuple(m_data.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace) for m_data in hemidata)
                         for marker, hemidata in self._markers_data.items()}
         sizes = tuple(s.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace) for s in self._sizes)
@@ -568,9 +586,15 @@ class AnimalBrain:
         --------
         [`from_pandas`][braian.AnimalBrain.from_pandas]
         """
-        raise NotImplementedError()
-        data = pd.concat({f"size ({self.sizes.units})" if units else "size": self.sizes.data,
-                          **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self._markers_data.items()}}, axis=1)
+        brain_dict = dict()
+        hemisizes = sorted(self._sizes, key=lambda bd: bd.hemisphere.name) # first LEFT and then RIGHT hemispheres
+        index_size = f"size ({self._sizes[0].units})" if units else "size"
+        brain_dict[index_size] = pd.concat(map(_to_legacy_series, hemisizes))
+        for marker, hemidata in self._markers_data.items():
+            hemidata = sorted(hemidata, key=lambda bd: bd.hemisphere.name) # first LEFT and then RIGHT hemispheres
+            index_marker = f"{marker} ({hemidata[0].units})" if units else marker
+            brain_dict[index_marker] = pd.concat(map(_to_legacy_series, hemidata))
+        data = pd.concat(brain_dict, axis=1)
         data.columns.name = str(self.metric)
         if missing_as_nan:
             data = data.astype(float)
