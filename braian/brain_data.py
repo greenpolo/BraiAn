@@ -522,7 +522,11 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             raise ValueError("The given brain data is already merged.")
         if self.metric not in (BrainData.RAW_TYPE, "sum", "count_slices"):
             raise ValueError(f"Cannot properly merge '{self.metric}' BrainData from left/right hemispheres into a single region!")
-        if self.metric != other.metric or self.units != other.units or self.hemisphere == self.hemisphere:
-            raise ValueError(f"Incompatible brain data: '{self}' and '{other}'")
+        if self.metric != other.metric:
+            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different metrics ('{self.metric}', '{other.metric}')")
+        if self.units != other.units:
+            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different units ('{self.units}', '{other.units}')")
+        if self.hemisphere == other.hemisphere:
+            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have the same hemisphere ('{self.hemisphere}', '{other.hemisphere}')")
         data = self.data.add(other.data, fill_value=0)
         return BrainData(data, name=self.data_name, metric=self.metric, units=self.units, hemisphere=BrainHemisphere.BOTH)
