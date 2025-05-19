@@ -559,8 +559,8 @@ class AnimalBrain:
         if not self.is_split:
             return self
         brain: AnimalBrain = copy.copy(self)
-        brain._markers_data = {m: tuple(m_data.merge_hemispheres() for m_data in hemidata) for m, hemidata in brain._markers_data.items()}
-        brain._sizes = tuple(s.merge_hemispheres() for s in self._sizes)
+        brain._markers_data = {m: (hemidata1.merge_hemispheres(hemidata2),) for m, (hemidata1,hemidata2) in brain._markers_data.items()}
+        brain._sizes = (brain._sizes[0].merge_hemispheres(brain._sizes[1]),)
         return brain
 
     def to_pandas(self, units: bool=False, missing_as_nan: bool=False) -> pd.DataFrame:
