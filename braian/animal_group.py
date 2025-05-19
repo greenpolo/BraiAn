@@ -99,7 +99,7 @@ class AnimalGroup:
                 return brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)
 
         self._animals: list[AnimalBrain] = [sort(fill(merge(brain))) for brain in animals] # brain |> merge |> fill |> sort -- OLD: brain |> merge |> analyse |> sort
-        self._mean: dict[str, tuple[BrainData]|tuple[BrainData,BrainData]] = self._update_mean()
+        self._hemimean: dict[str, tuple[BrainData]|tuple[BrainData,BrainData]] = self._update_mean()
 
     @property
     def n(self) -> int:
@@ -130,7 +130,7 @@ class AnimalGroup:
     def regions(self) -> list[str]:
         """The list of region acronyms for which the current `AnimalGroup` has data."""
         # NOTE: all animals of the group are expected to have the same regions!
-        #       This should be enforced during AnimalGroup construction
+        #       In theory, this was enforced during AnimalGroup construction
         # if not _have_same_regions(animals):
         #     # NOTE: if the animals of the AnimalGroup were not sorted by ontology, the order is not guaranteed to be significant
         #     print(f"WARNING: animals of {self} don't have the same brain regions. "+\
@@ -138,6 +138,13 @@ class AnimalGroup:
         #     return list(reduce(set.union, all_regions))
         #     # return set(chain(*all_regions))
         return self._animals[0].regions
+
+    @property
+    def hemiregions(self) -> dict[BrainHemisphere, list[str]]:
+        """
+        The dictionary that maps the hemispheres to the list of region acronyms for which the current `AnimalGroup` has data.
+        """
+        return dict(self._animals[0].hemiregions)
 
     @property
     def animals(self) -> list[AnimalBrain]:
@@ -150,7 +157,7 @@ class AnimalGroup:
         if self.is_split:
             raise ValueError("Cannot get a single marker mean for all brain regions because the group is split between left and right hemispheres."+\
                              "Use AnimalGroup.hemimean.")
-        return {marker: means[0] for marker,means in self._mean.items()}
+        return {marker: hemimeans[0] for marker,hemimeans in self._hemimean.items()}
 
     @property
     def hemimean(self) -> dict[str,tuple[BrainData,BrainData]|tuple[BrainData]]:
@@ -158,7 +165,7 @@ class AnimalGroup:
         The mean between each brain of the group, for each marker and for each region.
         If the AnimalGroup has data for two hemispheres, the dictionary maps to tuples of size two.
         """
-        return dict(self._mean)
+        return dict(self._hemimean)
 
     def get_animals(self) -> list[str]:
         """
@@ -178,8 +185,10 @@ class AnimalGroup:
     def _update_mean(self) -> dict[str, tuple[BrainData]|tuple[BrainData,BrainData]]:
         # NOTE: skipna=True does not work with FloatingArrays (what BrainData uses)
         #       https://github.com/pandas-dev/pandas/issues/59965
-        return {marker: BrainData.mean(*[brain[marker,hemi] for brain in self._animals], name=self.name, skipna=True)
-                for marker in self.markers for hemi in self.hemispheres}
+        return {marker: tuple(
+                    BrainData.mean(*[brain[marker,hemi] for brain in self._animals], name=self.name, skipna=True)
+                    for hemi in self.hemispheres
+                ) for marker in self.markers}
 
     def reduce(self, op: Callable[[pd.DataFrame], pd.Series], **kwargs) -> dict[str, BrainData]:
         """
@@ -232,7 +241,7 @@ class AnimalGroup:
 
     def select(self, regions: Sequence[str],
                fill_nan: bool=False, inplace: bool=False,
-               hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> Self:
+               hemisphere: str|BrainHemisphere=BrainHemisphere.BOTH) -> Self:
         """
         Filters the data from a given list of regions.
 
@@ -246,7 +255,7 @@ class AnimalGroup:
         inplace
             If True, it applies the filtering to the current instance.
         hemisphere
-            If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
+            If not [`BOTH`][braian.BrainHemisphere] and the brains [are split][braian.AnimalGroup.is_split],
             it only selects the brain regions from the given hemisphere.
 
         Returns
@@ -265,7 +274,7 @@ class AnimalGroup:
             return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
         else:
             self._animals = animals
-            self._mean = self._update_mean()
+            self._hemimean = self._update_mean()
             return self
 
     def __getitem__(self, animal_name: str) -> AnimalBrain:
@@ -398,7 +407,7 @@ class AnimalGroup:
             return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
         else:
             self._animals = animals
-            self._mean = self._update_mean()
+            self._hemimean = self._update_mean()
             return self
 
     def to_pandas(self, marker: str=None, units: bool=False, missing_as_nan: bool=False) -> pd.DataFrame:
