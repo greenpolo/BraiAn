@@ -458,12 +458,12 @@ class AnimalBrain:
         """
         hemisphere = BrainHemisphere(hemisphere)
         markers_data = {marker: tuple(
-                                m_data if hemisphere not in (BrainHemisphere.BOTH, m_data.hemisphere)\
+                                m_data if m_data.hemisphere not in (BrainHemisphere.BOTH, hemisphere)\
                                 else m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
                             for m_data in hemidata)
                         for marker, hemidata in self._markers_data.items()}
         sizes = tuple(
-                s if hemisphere not in (BrainHemisphere.BOTH, s.hemisphere)\
+                s if s.hemisphere not in (BrainHemisphere.BOTH, hemisphere)\
                 else s.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
             for s in self._sizes)
         if not inplace:
