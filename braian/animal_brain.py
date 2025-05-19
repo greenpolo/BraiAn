@@ -12,7 +12,7 @@ from typing import Generator, Self
 
 from braian.ontology import AllenBrainOntology
 from braian.sliced_brain import SlicedBrain, EmptyBrainError
-from braian.brain_data import BrainData, BrainHemisphere, sort_by_ontology
+from braian.brain_data import BrainData, BrainHemisphere #, sort_by_ontology
 from braian.utils import save_csv, deprecated
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
@@ -355,7 +355,7 @@ class AnimalBrain:
                 continue
             sizes.remove_region(*regions, inplace=True, fill_nan=fill_nan)
 
-    def remove_missing(self, kind:str="any") -> None:
+    def remove_missing(self, kind: str="same") -> None:
         """
         Removes the regions for which there is no data about the size.
 
@@ -363,27 +363,30 @@ class AnimalBrain:
         ----------
         kind
             Choice to select which missing brain regions to remove:
-                * `'both'`: completely removes the brain regions missing from both the hemispheres,
-                * `'any'`: completely removes the brain regions missing from any of the two hemispheres,
-                * `'same'`: removes just the brain regions missing within the same hemisphere.
+                * `'same'`: removes only from one hemisphere the brain missing regions missing from that same hemisphere;
+                * `'both'`: removes only the brain regions missing _from both_ hemispheres;
+                * `'any'`:  removes from all hemispheres the brain regions missing from _any_ of the two hemispheres.
 
             If the brain has no hemisphere distinction, the result will be the same.
         """
         match kind:
-            case "any":
-                missing_regions = {}
-                for sizes in self._sizes:
-                    missing_regions |= set(sizes.missing_regions())
-                self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.BOTH)
-            case "both":
-                missing_regions = {}
-                for sizes in self._sizes:
-                    missing_regions &= set(sizes.missing_regions())
-                self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.BOTH)
             case "same":
                 for sizes in self._sizes:
                     missing_regions = sizes.missing_regions()
-                    self.remove_region(*missing_regions, fill_nan=False, hemisphere=sizes.hemisphere)
+                    if len(missing_regions) > 0:
+                        self.remove_region(*missing_regions, fill_nan=False, hemisphere=sizes.hemisphere)
+            case "both":
+                missing_regions = set()
+                for sizes in self._sizes:
+                    missing_regions &= set(sizes.missing_regions())
+                if len(missing_regions) > 0:
+                    self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.BOTH)
+            case "any":
+                missing_regions = set()
+                for sizes in self._sizes:
+                    missing_regions |= set(sizes.missing_regions())
+                if len(missing_regions) > 0:
+                    self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.BOTH)
             case _:
                 raise ValueError(f"Unknown kind '{kind}'.")
 
