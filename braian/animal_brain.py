@@ -566,12 +566,14 @@ class AnimalBrain:
         brain._sizes = (brain._sizes[0].merge_hemispheres(brain._sizes[1]),)
         return brain
 
-    def to_pandas(self, units: bool=False, missing_as_nan: bool=False) -> pd.DataFrame:
+    def to_pandas(self, marker: str=None, units: bool=False, missing_as_nan: bool=False) -> pd.DataFrame:
         """
         Converts the current `AnimalBrain` to a DataFrame. T
 
         Parameters
         ----------
+        marker
+            If specified, it includes data only from the given marker.
         units
             Whether the columns should include the units of measurement or not.
         missing_as_nan
@@ -593,7 +595,11 @@ class AnimalBrain:
         hemisizes = sorted(self._sizes, key=lambda bd: bd.hemisphere.name) # first LEFT and then RIGHT hemispheres
         index_size = f"size ({self._sizes[0].units})" if units else "size"
         brain_dict[index_size] = pd.concat(map(_to_legacy_series, hemisizes))
-        for marker, hemidata in self._markers_data.items():
+        if marker is not None:
+            markers_data = ((marker, self._markers_data[marker]),)
+        else:
+            markers_data = self._markers_data.items()
+        for marker, hemidata in markers_data:
             hemidata = sorted(hemidata, key=lambda bd: bd.hemisphere.name) # first LEFT and then RIGHT hemispheres
             index_marker = f"{marker} ({hemidata[0].units})" if units else marker
             brain_dict[index_marker] = pd.concat(map(_to_legacy_series, hemidata))
