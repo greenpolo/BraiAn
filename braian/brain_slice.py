@@ -2,6 +2,7 @@ import pandas as pd
 import re
 from dataclasses import dataclass
 from enum import Enum
+from pandas.api.types import is_numeric_dtype
 from pathlib import Path
 from typing import Self
 from collections.abc import Iterable
@@ -512,9 +513,16 @@ class BrainSlice:
                         if exclude_parent_regions and region not in layer1:
                             self.data.drop(row, inplace=True)
                         elif exclusion in self.data.index:
-                            # Subtract the counting results from the parent region.
+                            # Subtract the quantification results from the parent region.
                             # Use fill_value=0 to prevent "3-NaN=NaN".
-                            self.data.loc[row] = self.data.loc[row].subtract(self.data.loc[exclusion], fill_value=0)
+                            for column in self.data.columns:
+                                if not is_numeric_dtype(self.data[column]) or column == "hemisphere":
+                                    continue
+                                if pd.isna(self.data.loc[row,column]) or pd.isna(self.data.loc[exclusion,column]):
+                                    # NOTE: remove if never used.
+                                    # This check is a leftover of the old <row>.subtract(<exclusion>, fill_value=True)
+                                    raise RuntimeError(f"{self.name}: quantification '{column}' is NaN for '{row}' or for '{exclusion}'!")
+                                self.data.loc[row,column] -= self.data.loc[exclusion,column]
 
                 # Step 2: Remove the regions that should be excluded
                 # together with their daughter regions.
