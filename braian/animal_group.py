@@ -436,30 +436,24 @@ class AnimalGroup:
 
             If a region is missing in some animals, the corresponding row is [`NA`][pandas.NA]-filled.
         """
-        raise NotImplementedError()
-        if marker in self.markers:
-            df = pd.concat({brain.name: brain[marker].data for brain in self._animals}, join="outer", axis=1)
-            df.columns.name = str(self.metric)
-            if units:
-                a = self._animals[0]
-                df.rename(columns={marker: f"{marker} ({a[marker].units})"}, inplace=True)
-            if missing_as_nan:
-                df = df.astype(float)
-            return df
-        df = {"size": pd.concat({brain.name: brain.sizes.data for brain in self._animals}, join="outer", axis=0)}
-        for marker in self.markers:
-            all_animals = pd.concat({brain.name: brain[marker].data for brain in self._animals}, join="outer", axis=0)
-            df[marker] = all_animals
-        df = pd.concat(df, join="outer", axis=1)
-        df = df.reorder_levels([1,0], axis=0)
-        ordered_indices = product(self.regions, [animal.name for animal in self._animals])
-        df = df.reindex(ordered_indices)
+        if marker is None:
+            df = pd.concat(
+                {brain.name: brain.to_pandas(marker=None, units=units, missing_as_nan=missing_as_nan) for brain in self._animals},
+                join="outer", axis=0)
+            if self.is_split:
+                regions_L = list("Left: "+pd.Index(self.hemiregions[BrainHemisphere.LEFT]))
+                regions_R = list("Right: "+pd.Index(self.hemiregions[BrainHemisphere.RIGHT]))
+                hemiregions = regions_L+regions_R
+            else:
+                hemiregions = self.regions
+            sorted_regions = pd.MultiIndex.from_product((hemiregions, self.get_animals()))
+            df = df.reorder_levels((1,0), axis=0).reindex(sorted_regions)
+        else:
+            df = pd.concat(
+                {brain.name: brain.to_pandas(marker=marker, units=units, missing_as_nan=missing_as_nan) for brain in self._animals},
+                join="outer", axis=1)
+            df = df.xs(marker, level=1, axis=1)
         df.columns.name = str(self.metric)
-        if units:
-            a = self._animals[0]
-            df.rename(columns={col: f"{col} ({a[col].units if col != 'size' else a.sizes.units})" for col in df.columns}, inplace=True)
-        if missing_as_nan:
-            df = df.astype(float)
         return df
 
     def to_csv(self, output_path: Path|str, sep: str=",", overwrite: bool=False) -> str:
