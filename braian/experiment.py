@@ -8,18 +8,20 @@ __all__ = ["Experiment", "SlicedExperiment"]
 class Experiment:
     @staticmethod
     def from_group_csv(name: str, group_names: Iterable[str],
-                       metric: str, basedir: Path|str, sep=",") -> Self:
+                       metric: str, basedir: Path|str, sep=",",
+                       legacy: bool=False) -> Self:
         if not isinstance(basedir, Path):
             basedir = Path(basedir)
         groups = []
         for name in group_names:
-            group = AnimalGroup.from_csv(basedir/f"{name}_{metric}.csv", name, sep)
+            group = AnimalGroup.from_csv(basedir/f"{name}_{metric}.csv", name, sep, legacy=legacy)
             groups.append(group)
         return Experiment(name, *groups)
 
     @staticmethod
     def from_brain_csv(name: str, group2brains: dict[str,Iterable[str]],
                        metric: str, basedir: Path|str, sep=",",
+                       legacy: bool=False,
                        **kwargs) -> Self:
         if not isinstance(basedir, Path):
             basedir = Path(basedir)
@@ -27,7 +29,7 @@ class Experiment:
         for name, brain_names in group2brains.items():
             brains = []
             for brain_name in brain_names:
-                brain = AnimalBrain.from_csv(basedir/f"{brain_name}_{metric}.csv", brain_name, sep)
+                brain = AnimalBrain.from_csv(basedir/f"{brain_name}_{metric}.csv", brain_name, sep, legacy=legacy)
                 brains.append(brain)
             group = AnimalGroup(name, brains, **kwargs)
             groups.append(group)

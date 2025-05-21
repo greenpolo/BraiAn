@@ -516,7 +516,7 @@ class AnimalGroup:
         return AnimalGroup(group_name, animals, fill_nan=False)
 
     @staticmethod
-    def from_csv(filepath: Path|str, name: str, sep: str=",") -> Self:
+    def from_csv(filepath: Path|str, name: str, sep: str=",", legacy: bool=False) -> Self:
         """
         Reads a comma-separated values (CSV) file into `AnimalGroup`.
 
@@ -528,6 +528,8 @@ class AnimalGroup:
             Name of the group associated to the data.
         sep
             Character or regex pattern to treat as the delimiter.
+        legacy
+            If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -541,7 +543,7 @@ class AnimalGroup:
         df = pd.read_csv(filepath, sep=sep, header=0, index_col=[0,1])
         df.columns.name = df.index.names[0]
         df.index.names = (None, None)
-        return AnimalGroup.from_pandas(df, name)
+        return AnimalGroup.from_pandas(df, name, legacy=legacy)
 
     @staticmethod
     def to_prism(marker, brain_ontology: AllenBrainOntology,

@@ -711,7 +711,7 @@ class AnimalBrain:
         return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=raw)
 
     @staticmethod
-    def from_csv(filepath: Path|str, name: str, sep: str=",") -> Self:
+    def from_csv(filepath: Path|str, name: str, sep: str=",", legacy: bool=False) -> Self:
         """
         Reads a comma-separated values (CSV) file into `AnimalBrain`.
 
@@ -723,6 +723,8 @@ class AnimalBrain:
             Name of the animal associated to the data.
         sep
             Character or regex pattern to treat as the delimiter.
+        legacy
+            If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -741,7 +743,7 @@ class AnimalBrain:
             raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
         df.columns.name = df.index.name
         df.index.name = None
-        return AnimalBrain.from_pandas(df, name)
+        return AnimalBrain.from_pandas(df, name, legacy=legacy)
 
 def _extract_name_and_units(ls) -> Generator[str, None, None]:
     regex = r'(.+) \((.+)\)$'

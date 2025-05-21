@@ -86,17 +86,17 @@ class BraiAnConfig:
                                                  version=self.config["atlas"]["version"])
         return self._brain_ontology
 
-    def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True) -> Experiment:
+    def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True, legacy: bool=True) -> Experiment:
         metric = self.config["brains"]["raw-metric"]
         assert AnimalBrain.is_raw(metric), f"Configuration files should specify raw metrics only, not '{metric}'"
         group2brains: dict[str,str] = self.config["groups"]
         if not from_brains:
-            return Experiment.from_group_csv(self.experiment_name, group2brains.keys(), metric, self.output_dir, sep)
+            return Experiment.from_group_csv(self.experiment_name, group2brains.keys(), metric, self.output_dir, sep, legacy=legacy)
         if self._brain_ontology is None:
             self.read_atlas_ontology()
         return Experiment.from_brain_csv(self.experiment_name, group2brains, metric,
                                       self.output_dir, sep, brain_ontology=self._brain_ontology,
-                                      fill_nan=fill_nan)
+                                      fill_nan=fill_nan, legacy=legacy)
 
     def experiment_from_qupath(self, sliced: bool=False, validate: bool=True) -> Experiment|SlicedExperiment:
         """
