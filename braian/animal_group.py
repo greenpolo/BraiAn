@@ -230,8 +230,6 @@ class AnimalGroup:
         :
             True if the current group and `other` are comparable. False otherwise.
         """
-        if self.is_split:
-            raise NotImplementedError()
         if not isinstance(other, AnimalGroup):
             return False
         return set(self.markers) == set(other.markers) and \
@@ -575,7 +573,8 @@ class AnimalGroup:
         ValueError
             If the given groups are not [comparable][braian.AnimalGroup.is_comparable].
         """
-        raise NotImplementedError()
+        # NOTE: when to_pandas() will no longer have legacy hemispheric distinction,
+        # we'll need to change how we get the corresponding major divisions
         groups = [group1, group2, *groups]
         if not all(group1.is_comparable(g) for g in groups[1:]):
             raise ValueError("The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)")
