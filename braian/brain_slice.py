@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Self
 from collections.abc import Iterable
 
-from braian.brain_data import sort_by_ontology, BrainHemisphere, UnknownBrainRegionsError
+from braian.brain_data import sort_by_ontology, BrainHemisphere, UnknownBrainRegionsError, InvalidRegionsHemisphereError, extract_legacy_hemispheres
 from braian.ontology import AllenBrainOntology
 from braian.utils import search_file_or_simlink
 
@@ -52,9 +52,6 @@ class RegionsWithNoCountError(BrainSliceFileError):
         super().__init__(**kargs)
     def __str__(self) -> str:
         return f"There are {len(self.regions)} region(s) with no count of tracer '{self.tracer}' in file: {self.file_path}"
-class InvalidRegionsHemisphereError(BrainSliceFileError):
-    def __str__(self):
-        return f"Slice {self.file_path}"+" is badly formatted. Some rows are in the form '{Left|Right}: <region acronym>', while others are not."
 class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
     def __str__(self):
         return f"Exclusions for Slice {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
@@ -197,21 +194,12 @@ class BrainSlice:
 
     @staticmethod
     def _extract_qupath_hemispheres(data: pd.DataFrame, csv_file: str):
-        match_groups = data.index.str.extract(r"((Left|Right): )?(.+)")
-        # the above regex extracts 3 groups:
-        #  0) '(Left|Right): '
-        #  1) '(Left|Right)'
-        #  2) '<region_name>'
-        match_groups.set_index(data.index, inplace=True)
-        if (unknown_classes:=match_groups[2] != data["Name"]).any():
-            raise ValueError("Unknown regions: '"+"', '".join(match_groups.index[unknown_classes])+"'")
-        if match_groups[1].isna().all():
-            data["hemisphere"] = BrainHemisphere.BOTH.value
-        else:
-            try:
-                data["hemisphere"] = match_groups[1].map(lambda s: BrainHemisphere(s).value)
-            except ValueError:
-                raise InvalidRegionsHemisphereError(csv_file)
+        try:
+            extract_legacy_hemispheres(data, reindex=False, inplace=True)
+        except InvalidRegionsHemisphereError as e:
+            raise InvalidRegionsHemisphereError(f"'{csv_file}': {str(e)}")
+        # if (unknown_classes:=match_groups[2] != data["Name"]).any():
+        #     raise ValueError("Unknown regions: '"+"', '".join(match_groups.index[unknown_classes])+"'")
 
     @staticmethod
     def _rename_selected_measurements(measurements: Iterable[QuPathMeasurement],
@@ -407,11 +395,11 @@ class BrainSlice:
         hemispheres = [BrainHemisphere(v) for v in hemispheres]
         if len(hemispheres) >= 2 and\
             (BrainHemisphere.LEFT not in hemispheres or BrainHemisphere.RIGHT not in hemispheres):
-            raise InvalidRegionsHemisphereError(file=self.name)
+            raise InvalidRegionsHemisphereError(context=self.name)
         self.is_split: bool = len(hemispheres)
         """Whether the data of the current `BrainSlice` make a distinction between right and left hemisphere."""
         if is_split and not self.is_split:
-            raise InvalidRegionsHemisphereError(file=self.name)
+            raise InvalidRegionsHemisphereError(context=self.name)
         for column, unit in units.items():
             if column == unit: # it's a cell count
                 continue

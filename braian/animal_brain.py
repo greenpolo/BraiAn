@@ -12,7 +12,7 @@ from typing import Generator, Self
 
 from braian.ontology import AllenBrainOntology
 from braian.sliced_brain import SlicedBrain, EmptyBrainError
-from braian.brain_data import BrainData, BrainHemisphere #, sort_by_ontology
+from braian.brain_data import BrainData, BrainHemisphere, extract_legacy_hemispheres #, sort_by_ontology
 from braian.utils import save_csv, deprecated
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
@@ -661,7 +661,7 @@ class AnimalBrain:
             return metric == BrainData.RAW_TYPE
 
     @staticmethod
-    def from_pandas(df: pd.DataFrame, animal_name: str) -> Self:
+    def from_pandas(df: pd.DataFrame, animal_name: str, legacy: bool=False) -> Self:
         """
         Creates an instance of [`AnimalBrain`][braian.AnimalBrain] from a `DataFrame`.
 
@@ -671,6 +671,8 @@ class AnimalBrain:
             A [`to_pandas`][braian.AnimalBrain.to_pandas]-compatible `DataFrame`.
         animal_name
             The name of the animal associated to the data in `df`.
+        legacy
+            If `df` distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -681,12 +683,17 @@ class AnimalBrain:
         --------
         [`to_pandas`][braian.AnimalBrain.to_pandas]
         """
-        raise NotImplementedError()
+        if legacy:
+            df = extract_legacy_hemispheres(df, reindex=True, inplace=False)
+        else:
+            df = df.copy()
         if isinstance(metric:=df.columns.name, str):
             metric = str(df.columns.name)
         raw = AnimalBrain.is_raw(metric)
         markers_data = dict()
         sizes = None
+        df.index = df.index.map(lambda i: (BrainHemisphere(i[0]),i[1]))
+        hemispheres = sorted(df.index.unique(level=0), key=lambda hem: hem.value)
         regex = r'(.+) \((.+)\)$'
         pattern = re.compile(regex)
         for column, data in df.items():
@@ -694,9 +701,13 @@ class AnimalBrain:
             matches = re.findall(pattern, column)
             name, units = matches[0] if len(matches) == 1 else (column, None)
             if name == "area" or name == "size": # braian <= 1.0.3 called sizes "area"
-                sizes = BrainData(data, animal_name, metric, units)
+                sizes = tuple(
+                    BrainData(data[hem], animal_name, metric, units, hemisphere=hem)
+                    for hem in hemispheres)
             else: # it's a marker
-                markers_data[name] = BrainData(data, animal_name, metric, units)
+                markers_data[name] = tuple(
+                    BrainData(data[hem], animal_name, metric, units, hemisphere=hem)
+                    for hem in hemispheres)
         return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=raw)
 
     @staticmethod

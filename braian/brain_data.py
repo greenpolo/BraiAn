@@ -10,11 +10,17 @@ from numbers import Number
 from braian.deflector import deflect
 from braian import AllenBrainOntology
 
-__all__ = ["sort_by_ontology", "BrainHemisphere", "BrainData"]
+__all__ = ["sort_by_ontology", "BrainHemisphere", "extract_legacy_hemispheres", "BrainData"]
 
 class UnknownBrainRegionsError(Exception):
     def __init__(self, unknown_regions: Iterable[str]):
         super().__init__("The following regions are unknown to the given brain ontology: '"+"', '".join(unknown_regions)+"'")
+
+class InvalidRegionsHemisphereError(Exception):
+    def __init__(self, context=None):
+        context = f"'{context}': " if context is not None else ""
+        super().__init__(f"{context}Error occurred extracting the brain hemispheres."+\
+        " Some rows are in the form '{Left|Right}: <region acronym>', while others are not.")
 
 class BrainHemisphere(Enum):
     BOTH = 0
@@ -33,6 +39,29 @@ class BrainHemisphere(Enum):
                 return BrainHemisphere.RIGHT
             case _:
                 return None
+
+def extract_legacy_hemispheres(data: pd.DataFrame, reindex: bool=False, inplace: bool=False):
+    match_groups = data.index.str.extract(r"((Left|Right): )?(.+)")
+    # the above regex extracts 3 groups:
+    #  0) '(Left|Right): '
+    #  1) '(Left|Right)'
+    #  2) '<region_name>'
+    match_groups.set_index(data.index, inplace=True)
+    # if (unknown_classes:=match_groups[2] != data["Name"]).any():
+    #     raise ValueError("Unknown regions: '"+"', '".join(match_groups.index[unknown_classes])+"'")
+    if not inplace:
+        data = data.copy()
+    if match_groups[1].isna().all():
+        data["hemisphere"] = BrainHemisphere.BOTH.value
+    else:
+        try:
+            data["hemisphere"] = match_groups[1].map(lambda s: BrainHemisphere(s).value)
+        except ValueError:
+            raise InvalidRegionsHemisphereError()
+    if reindex:
+        data.index = pd.MultiIndex.from_arrays((data["hemisphere"],match_groups[2]), names=("hemisphere","acronym"))
+        data.drop(columns="hemisphere", inplace=True)
+    return data
 
 def sort_by_ontology(regions: Iterable|pd.DataFrame|pd.Series,
                       brain_ontology: AllenBrainOntology,
