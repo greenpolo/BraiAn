@@ -488,7 +488,7 @@ class AnimalGroup:
         return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=(df.columns.name, None))
 
     @staticmethod
-    def from_pandas(df: pd.DataFrame, group_name: str) -> Self:
+    def from_pandas(df: pd.DataFrame, group_name: str, legacy: bool=False) -> Self:
         """
         Creates an instance of [`AnimalGroup`][braian.AnimalGroup] from a `DataFrame`.
 
@@ -498,6 +498,8 @@ class AnimalGroup:
             A [`to_pandas`][braian.AnimalGroup.to_pandas]-compatible `DataFrame`.
         group_name
             The name of the group associated to the data in `df`.
+        legacy
+            If `df` distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -508,8 +510,9 @@ class AnimalGroup:
         --------
         [`to_pandas`][braian.AnimalGroup.to_pandas]
         """
-        raise NotImplementedError()
-        animals = [AnimalBrain.from_pandas(df.xs(animal_name, level=1), animal_name) for animal_name in df.index.unique(1)]
+        brains_level = 1 if legacy else 2
+        animals = [AnimalBrain.from_pandas(df.xs(animal_name, axis=0, level=1), animal_name, legacy=legacy)
+                   for animal_name in df.index.unique(brains_level)]
         return AnimalGroup(group_name, animals, fill_nan=False)
 
     @staticmethod
