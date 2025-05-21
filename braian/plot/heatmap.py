@@ -108,6 +108,8 @@ def heatmap(bd1: BrainData,
         cmaps = (CenteredColormap("RdBu", cmin, ccenter, cmax),)*2
     elif isinstance(cmap, (str, mpl.colors.Colormap)):
         cmaps = (cmap,)*2
+    else: # it's an iterable of cmaps, such as [cmap1, cmap2]
+        cmaps = cmap
     if highlighted_regions is not None:
         if isinstance(highlighted_regions[0], str):
             # if you passed only one list, it will highlight the same brain regions in both hemispheres
