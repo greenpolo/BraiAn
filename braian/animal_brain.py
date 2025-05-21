@@ -698,8 +698,14 @@ class AnimalBrain:
         [`to_pandas`][braian.AnimalBrain.to_pandas]
         """
         if legacy:
+            assert not isinstance(df.index, pd.MultiIndex), \
+                "Legacy dataframes are expected to have a simple Index of the acronyms and the hemishere prepended. "+\
+                f"Instead got a '{type(df.index)}'"
             df = extract_legacy_hemispheres(df, reindex=True, inplace=False)
         else:
+            assert isinstance(df.index, pd.MultiIndex), \
+                "The dataframe is expected to have a two-level MultiIndex (hemisphere,acronym). "+\
+                f"Instead, got a '{type(df.index)}'"
             df = df.copy()
         if isinstance(metric:=df.columns.name, str):
             metric = str(df.columns.name)
