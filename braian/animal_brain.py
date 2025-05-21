@@ -32,10 +32,10 @@ def _combined_regions(*bd: BrainData) -> list[str]:
     all_regions = [set(bd_.regions) for bd_ in bd]
     return list(functools.reduce(set.__or__, all_regions))
 
-def _to_legacy_series(bd: BrainData) -> pd.Series:
+def _to_legacy_index(bd: BrainData) -> pd.Series:
     if bd.hemisphere is not BrainHemisphere.BOTH:
-        return bd.data.add_prefix(bd.hemisphere.name.capitalize()+": ")
-    return bd.data
+        return (bd.hemisphere.name.capitalize()+": ")+bd.data.index
+    return bd.data.index
 
 class SliceMetrics(Enum):
     r"""
@@ -566,7 +566,9 @@ class AnimalBrain:
         brain._sizes = (brain._sizes[0].merge_hemispheres(brain._sizes[1]),)
         return brain
 
-    def to_pandas(self, marker: str=None, units: bool=False, missing_as_nan: bool=False) -> pd.DataFrame:
+    def to_pandas(self, marker: str=None, units: bool=False,
+                  missing_as_nan: bool=False,
+                  legacy: bool=False) -> pd.DataFrame:
         """
         Converts the current `AnimalBrain` to a DataFrame. T
 
@@ -579,6 +581,8 @@ class AnimalBrain:
         missing_as_nan
             If True, it converts missing values [`NA`][pandas.NA] as [`NaN`][numpy.nan].
             Note that if the corresponding brain data is integer-based, it converts them to float.
+        legacy
+            If True, it distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -592,17 +596,27 @@ class AnimalBrain:
         [`from_pandas`][braian.AnimalBrain.from_pandas]
         """
         brain_dict = dict()
-        hemisizes = sorted(self._sizes, key=lambda bd: bd.hemisphere.name) # first LEFT and then RIGHT hemispheres
-        index_size = f"size ({self._sizes[0].units})" if units else "size"
-        brain_dict[index_size] = pd.concat(map(_to_legacy_series, hemisizes))
+        hemisizes = sorted(self._sizes, key=lambda bd: bd.hemisphere.value) # first LEFT and then RIGHT hemispheres
+        size_col = f"size ({self._sizes[0].units})" if units else "size"
+        if legacy:
+            index = functools.reduce(lambda i1,i2: i1.union(i2, sort=False), map(_to_legacy_index, self._sizes))
+        else:
+            hemiregions = self.hemiregions
+            hemiregions = [(hemi,region) for hemi in hemiregions for region in hemiregions[hemi]]
+            index = pd.MultiIndex.from_tuples(hemiregions, names=("hemisphere","acronym"))
+        hemisizes = pd.concat((bd.data for bd in hemisizes))
+        hemisizes.index = index
+        brain_dict[size_col] = hemisizes
         if marker is not None:
             markers_data = ((marker, self._markers_data[marker]),)
         else:
             markers_data = self._markers_data.items()
         for marker, hemidata in markers_data:
-            hemidata = sorted(hemidata, key=lambda bd: bd.hemisphere.name) # first LEFT and then RIGHT hemispheres
-            index_marker = f"{marker} ({hemidata[0].units})" if units else marker
-            brain_dict[index_marker] = pd.concat(map(_to_legacy_series, hemidata))
+            hemidata = sorted(hemidata, key=lambda bd: bd.hemisphere.value) # first LEFT and then RIGHT hemispheres
+            marker_col = f"{marker} ({hemidata[0].units})" if units else marker
+            hemidata = pd.concat((bd.data for bd in hemidata))
+            hemidata.index = index # NOTE: exploits the assumtion that the markers regions are sync'd with the sizes'. 
+            brain_dict[marker_col] = hemidata
         data = pd.concat(brain_dict, axis=1)
         data.columns.name = str(self.metric)
         if missing_as_nan:
