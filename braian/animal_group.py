@@ -408,7 +408,9 @@ class AnimalGroup:
             self._hemimean = self._update_mean()
             return self
 
-    def to_pandas(self, marker: str=None, units: bool=False, missing_as_nan: bool=False) -> pd.DataFrame:
+    def to_pandas(self, marker: str=None, units: bool=False,
+                  missing_as_nan: bool=False,
+                  legacy: bool=False) -> pd.DataFrame:
         """
         Constructs a `DataFrame` with data from the current group.
 
@@ -418,9 +420,12 @@ class AnimalGroup:
             If specified, it includes data only from the given marker.
         units
             Whether to include the units of measurement in the `DataFrame` index.
+            Available only when `marker=None`.
         missing_as_nan
             If True, it converts missing values [`NA`][pandas.NA] as [`NaN`][numpy.nan].
             Note that if the corresponding brain data is integer-based, it converts them to float.
+        legacy
+            If True, it distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -436,19 +441,26 @@ class AnimalGroup:
         """
         if marker is None:
             df = pd.concat(
-                {brain.name: brain.to_pandas(marker=None, units=units, missing_as_nan=missing_as_nan) for brain in self._animals},
+                {brain.name: brain.to_pandas(marker=None, units=units, missing_as_nan=missing_as_nan, legacy=legacy)
+                 for brain in self._animals},
                 join="outer", axis=0)
-            if self.is_split:
-                regions_L = list("Left: "+pd.Index(self.hemiregions[BrainHemisphere.LEFT]))
-                regions_R = list("Right: "+pd.Index(self.hemiregions[BrainHemisphere.RIGHT]))
-                hemiregions = regions_L+regions_R
+            hemiregions = self.hemiregions
+            if legacy:
+                if self.is_split:
+                    regions_L = list("Left: "+pd.Index(hemiregions[BrainHemisphere.LEFT]))
+                    regions_R = list("Right: "+pd.Index(hemiregions[BrainHemisphere.RIGHT]))
+                    hemiregions = regions_L+regions_R
+                else:
+                    hemiregions = self.regions
+                index_sorted = pd.MultiIndex.from_product((hemiregions, self.get_animals()))
             else:
-                hemiregions = self.regions
-            sorted_regions = pd.MultiIndex.from_product((hemiregions, self.get_animals()))
-            df = df.reorder_levels((1,0), axis=0).reindex(sorted_regions)
+                index_tupled = [(hemi,region,animal) for hemi in hemiregions for region in hemiregions[hemi] for animal in self.get_animals()]
+                index_sorted = pd.MultiIndex.from_tuples(index_tupled, names=("hemisphere","acronym","animal"))
+            df = df.reorder_levels((1,0) if legacy else (1,2,0), axis=0).reindex(index_sorted)
         else:
             df = pd.concat(
-                {brain.name: brain.to_pandas(marker=marker, units=units, missing_as_nan=missing_as_nan) for brain in self._animals},
+                {brain.name: brain.to_pandas(marker=marker, units=False, missing_as_nan=missing_as_nan, legacy=legacy)
+                 for brain in self._animals},
                 join="outer", axis=1)
             df = df.xs(marker, level=1, axis=1)
         df.columns.name = str(self.metric)
