@@ -89,7 +89,8 @@ class AnimalGroup:
             hemiregions = _combined_regions(animals)
             def fill(brain: AnimalBrain) -> AnimalBrain:
                 for hemi,combined_regions in hemiregions.items():
-                    brain = brain.select_from_list(combined_regions, fill_nan=True, inplace=False, hemisphere=hemi)
+                    brain = brain.select_from_list(combined_regions, fill_nan=True, inplace=False,
+                                                   hemisphere=hemi, select_other_hemisphere=True)
                 return brain
 
         if brain_ontology is None:

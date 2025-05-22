@@ -432,7 +432,8 @@ class AnimalBrain:
 
     def select_from_list(self, regions: Sequence[str],
                          fill_nan: bool=False, inplace: bool=False,
-                         hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> Self:
+                         hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+                         select_other_hemisphere: bool=False) -> Self:
         """
         Filters the data from a given list of regions.
 
@@ -448,6 +449,9 @@ class AnimalBrain:
         hemisphere
             If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
             it only selects the brain regions from the given hemisphere.
+        select_compelementary_hemisphere
+            If True and `hemisphere` is not [`BOTH`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
+            If False, it deselect the opposite hemisphere.
 
         Returns
         -------
@@ -465,12 +469,14 @@ class AnimalBrain:
         markers_data = {marker: tuple(
                                 m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
                                 if hemisphere is BrainHemisphere.BOTH or m_data.hemisphere is hemisphere
+                                else m_data if select_other_hemisphere
                                 else m_data.select_from_list([], fill_nan=fill_nan, inplace=inplace)
                             for m_data in hemidata)
                         for marker, hemidata in self._markers_data.items()}
         sizes = tuple(
                 s.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
                 if hemisphere is BrainHemisphere.BOTH or s.hemisphere is hemisphere
+                else s if select_other_hemisphere
                 else s.select_from_list([], fill_nan=fill_nan, inplace=inplace)
             for s in self._sizes)
         if not inplace:
