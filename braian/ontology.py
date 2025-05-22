@@ -106,7 +106,7 @@ class AllenBrainOntology:
             self.annotation_version = "ccf_2017"
         else: #if version is not None:
             self.annotation_version = self._get_allen_version(version)
-            self.name = "allen_mouse_10um" #_java
+            self.name = "allen_mouse_10um_java"
         # this should be temporary workaround, before the ontology is rewritten with complete BrainGlobe support
         try:
             _get_brainglobe_name(self.name) # throws ValueError if the name is not recognised by BrainGlobe

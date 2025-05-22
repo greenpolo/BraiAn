@@ -326,6 +326,7 @@ class AnimalGroup:
         :
             A group with the data of each animal changed accordingly to `f`.
         """
+        # NOTE: hemisphere distinction is useless if we call f() now.
         animals = [f(a) for a in self._animals]
         return AnimalGroup(name=self.name,
                            animals=animals,
