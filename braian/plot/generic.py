@@ -6,6 +6,7 @@ import plotly.colors as plc
 import plotly.graph_objects as go
 import random
 
+from braian.brain_data import BrainHemisphere
 from braian.sliced_brain import SlicedBrain
 from braian.animal_brain import AnimalBrain
 from braian.animal_group import AnimalGroup, SlicedGroup
@@ -125,7 +126,7 @@ def group(group: AnimalGroup, selected_regions: list[str]|np.ndarray[str],
 
     data = []
     for marker, color in zip(markers, colors):
-        marker_df = group.to_pandas(marker=marker, missing_as_nan=True)
+        marker_df = group.to_pandas(marker=marker, missing_as_nan=True).loc[BrainHemisphere.BOTH]
         if check_regions:
             try:
                 selected_data: pd.DataFrame = marker_df.loc[selected_regions]

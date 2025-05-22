@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from braian.animal_group import AnimalGroup
-from braian.brain_data import BrainData
+from braian.brain_data import BrainData, BrainHemisphere
 from braian.experiment import Experiment
 from braian.plot.generic import bar_sample
 from braian.ontology import AllenBrainOntology
@@ -19,6 +19,7 @@ __all__ = [
 def xmas_tree(groups: Experiment|Collection[AnimalGroup],
               selected_regions: Collection[str],
               marker1: str, marker2: str=None,
+              hemisphere: BrainHemisphere|tuple[BrainHemisphere,BrainHemisphere]=None,
               brain_ontology: AllenBrainOntology=None,
               pls_n_permutation: int=None, pls_n_bootstrap: int=None,
               pls_threshold: float=None, pls_seed: int=None,
@@ -118,13 +119,27 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
                       pls_n_bootstrap=pls_n_bootstrap, pls_n_permutation=pls_n_permutation,
                       pls_threshold=pls_threshold, pls_seed=pls_seed,
                       markers_salience_scores=markers_salience_scores)
-    heatmaps, group_seps, bars, _max_value = marker_traces(groups, marker1, groups_marker1_colours, **pls_params)
+    if hemisphere is None:
+        hemisphere = BrainHemisphere.BOTH
+    elif isinstance(hemisphere, (BrainHemisphere, str, int)):
+        hemisphere = BrainHemisphere(hemisphere)
+    elif len(hemisphere:=tuple(BrainHemisphere(h) for h in hemisphere)) == 1: # it's a tuple
+        hemisphere = hemisphere[0]
+    if marker2 is not None and isinstance(hemisphere, tuple):
+        raise ValueError("The XMas Tree plot can't compare multiple marker activity across multiple hemisphere."+
+                         "Either specify a single 'hemisphere', or avoid specifying 'marker2' parameter.")
+    if isinstance(hemisphere, tuple):
+       # marker2 is None
+       marker2 = marker1
+    heatmaps, group_seps, bars, _max_value = marker_traces(groups, marker1,
+                                                           BrainHemisphere.LEFT if isinstance(hemisphere, tuple) else hemisphere,
+                                                           groups_marker1_colours, **pls_params)
     if marker2 is None:
         fig = prepare_subplots(1, bar_to_heatmap_ratio, space_between_markers if brain_ontology is not None else 0)
         data_range = (0, _max_value if max_value is None else max_value)
 
         major_divisions_subplot = 1
-        units = f"{str(groups[0].metric)} [{groups[0].mean[marker1].units}]"
+        units = f"{str(groups[0].metric)} [{groups[0].hemimean[marker1][0].units}]"
 
         fig.add_traces(heatmaps, rows=1, cols=2)
         [fig.add_vline(x=x, line_color="white", row=1, col=2) for x in group_seps]
@@ -133,12 +148,14 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         fig.update_xaxes(title=units, range=data_range, row=1, col=3)
     else:
         m1_heatmaps, m1_group_seps, m1_bars, m1_max_value = heatmaps, group_seps, bars, _max_value
-        m2_heatmaps, m2_group_seps, m2_bars, m2_max_value = marker_traces(groups, marker2, groups_marker2_colours, **pls_params)
+        m2_heatmaps, m2_group_seps, m2_bars, m2_max_value = marker_traces(groups, marker2,
+                                                                          BrainHemisphere.RIGHT if marker2 == marker1 else hemisphere,
+                                                                          groups_marker2_colours, **pls_params)
         fig = prepare_subplots(2, bar_to_heatmap_ratio, space_between_markers)
         data_range = (0, max(m1_max_value, m2_max_value) if max_value is None else max_value)
 
         # MARKER1 - left side
-        units = f"{str(groups[0].metric)} [{groups[0].mean[marker1].units}]"
+        units = f"{str(groups[0].metric)} [{groups[0].hemimean[marker1][0].units}]"
         fig.add_traces(m1_bars, rows=1, cols=1)
         fig.update_xaxes(title=units, range=data_range[::-1], row=1, col=1) # NOTE: don't use autorange='(min) reversed', as it doesn't play nice with range
         fig.add_traces(m1_heatmaps, rows=1, cols=2)
@@ -148,7 +165,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         major_divisions_subplot = 3
 
         # MARKER2 - right side
-        units = f"{str(groups[0].metric)} [{groups[0].mean[marker2].units}]"
+        units = f"{str(groups[0].metric)} [{groups[0].hemimean[marker2][0].units}]"
         fig.add_traces(m2_heatmaps, rows=1, cols=4)
         [fig.add_vline(x=x, line_color="white", row=1, col=4) for x in m2_group_seps]
         fig.update_xaxes(tickangle=45,  row=1, col=4)
@@ -197,7 +214,9 @@ def prepare_subplots(n_markers: int, bar_to_heatmap_ratio: float, gap_width: flo
 
 
 def marker_traces(groups: list[AnimalGroup],
-                  marker: str, groups_colours: list,
+                  marker: str,
+                  hemisphere: BrainHemisphere,
+                  groups_colours: list,
                   selected_regions: Collection[str],
                   plot_scatter: bool,
                   brain_ontology: AllenBrainOntology,
@@ -210,11 +229,13 @@ def marker_traces(groups: list[AnimalGroup],
     for group in groups[1:]:
         assert str(group.metric) == metric, f"Expected metric for {group} is '{metric}'"
     assert len(groups_colours) >= len(groups), f"{marker}: You must provide a colour for each group!"
-    groups_df: list[pd.DataFrame] = [group.to_pandas(marker=marker, missing_as_nan=True).loc[selected_regions] for group in groups] # .loc sorts the DatFrame in selected_regions' order
+    groups_df: list[pd.DataFrame] = [group.to_pandas(marker=marker, missing_as_nan=True).loc[hemisphere].loc[selected_regions] for group in groups] # .loc sorts the DatFrame in selected_regions' order
     if pls_filtering:=len(groups) == 2 and pls_n_bootstrap is not None and pls_n_permutation is not None:
         if markers_salience_scores is None:
-            salience_scores = bas.pls_regions_salience(groups[0], groups[1], selected_regions, marker=marker, fill_nan=True,
-                                                    n_bootstrap=pls_n_bootstrap, n_permutation=pls_n_permutation, seed=pls_seed)
+            salience_scores = bas.pls_regions_salience(groups[0], groups[1], selected_regions,
+                                                       marker=marker, hemisphere=hemisphere,
+                                                       fill_nan=True, n_bootstrap=pls_n_bootstrap,
+                                                       n_permutation=pls_n_permutation, seed=pls_seed)
         else:
             salience_scores =  markers_salience_scores[marker]
         if brain_ontology is not None:
