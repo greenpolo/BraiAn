@@ -306,7 +306,7 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
         for hemi in brain.hemispheres:
             marker_data = brain[m,hemi]
             doublepos_data = brain[doublepos,hemi]
-            data: BrainData = marker_data/doublepos_data
+            data: BrainData = doublepos_data/marker_data
             data.metric = "overlaps"
             data.units = f"({marker1}+{marker2})/{m}"
             hemidata.add(data)
