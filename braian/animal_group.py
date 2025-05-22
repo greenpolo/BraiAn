@@ -585,14 +585,17 @@ class AnimalGroup:
         ValueError
             If the given groups are not [comparable][braian.AnimalGroup.is_comparable].
         """
-        # NOTE: when to_pandas() will no longer have legacy hemispheric distinction,
-        # we'll need to change how we get the corresponding major divisions
         groups = [group1, group2, *groups]
         if not all(group1.is_comparable(g) for g in groups[1:]):
             raise ValueError("The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)")
         df = pd.concat({g.name: g.to_pandas(marker) for g in groups}, axis=1)
-        major_divisions = brain_ontology.get_corresponding_md(*df.index)
-        df["major_divisions"] = [major_divisions[region] for region in df.index]
+        if len(hems:=df.index.unique(level=0)) == 1 and hems[0] is BrainHemisphere.BOTH:
+            df.index = df.index.get_level_values(1)
+            regions = df.index
+        else:
+            regions = df.index.get_level_values(1)
+        major_divisions = brain_ontology.get_corresponding_md(*regions)
+        df["major_divisions"] = [major_divisions[region] for region in regions]
         df.set_index("major_divisions", append=True, inplace=True)
         return df
 
