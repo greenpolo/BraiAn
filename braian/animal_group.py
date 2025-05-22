@@ -466,7 +466,8 @@ class AnimalGroup:
         df.columns.name = str(self.metric)
         return df
 
-    def to_csv(self, output_path: Path|str, sep: str=",", overwrite: bool=False) -> str:
+    def to_csv(self, output_path: Path|str, sep: str=",",
+               overwrite: bool=False, legacy: bool=False) -> str:
         """
         Write the current `AnimalGroup` to a comma-separated values (CSV) file in `output_path`.
 
@@ -478,6 +479,8 @@ class AnimalGroup:
             Character to treat as the delimiter.
         overwrite
             If True, it overwrite any conflicting file in `output_path`.
+        legacy
+            If True, it distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -493,7 +496,9 @@ class AnimalGroup:
         --------
         [`from_csv`][braian.AnimalGroup.from_csv]
         """
-        df = self.to_pandas(units=True)
+        df = self.to_pandas(units=True, legacy=legacy)
+        if not legacy:
+            df.index = df.index.map(lambda i: (i[0].name.lower(), *i[1:]))
         file_name = f"{self.name}_{self.metric}.csv"
         return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=(df.columns.name, None))
 
