@@ -239,7 +239,7 @@ class AnimalGroup:
 
     def select(self, regions: Sequence[str],
                fill_nan: bool=False, inplace: bool=False,
-               hemisphere: str|BrainHemisphere=BrainHemisphere.BOTH) -> Self:
+               hemisphere: BrainHemisphere|str|int=BrainHemisphere.BOTH) -> Self:
         """
         Filters the data from a given list of regions.
 

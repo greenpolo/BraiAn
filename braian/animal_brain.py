@@ -460,14 +460,18 @@ class AnimalBrain:
         [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
         """
         hemisphere = BrainHemisphere(hemisphere)
+        if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
+            raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
         markers_data = {marker: tuple(
-                                m_data if m_data.hemisphere not in (BrainHemisphere.BOTH, hemisphere)\
-                                else m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+                                m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+                                if hemisphere is BrainHemisphere.BOTH or m_data.hemisphere is hemisphere
+                                else m_data.select_from_list([], fill_nan=fill_nan, inplace=inplace)
                             for m_data in hemidata)
                         for marker, hemidata in self._markers_data.items()}
         sizes = tuple(
-                s if s.hemisphere not in (BrainHemisphere.BOTH, hemisphere)\
-                else s.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+                s.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+                if hemisphere is BrainHemisphere.BOTH or s.hemisphere is hemisphere
+                else s.select_from_list([], fill_nan=fill_nan, inplace=inplace)
             for s in self._sizes)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
