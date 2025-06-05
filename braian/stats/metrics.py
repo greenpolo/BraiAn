@@ -148,7 +148,7 @@ def percentage(brain: AnimalBrain) -> AnimalBrain:
         if brain.is_split:
             total_brainwide[marker] = brain[marker,BrainHemisphere.LEFT].root+brain[marker,BrainHemisphere.RIGHT].root
         else:
-            total_brainwide[marker] = brain[marker].root()
+            total_brainwide[marker] = brain[marker].root
     return _hemisphered_metric(
         brain=brain,
         metric=lambda sizes,marker_data,marker: marker_data / total_brainwide[marker],
@@ -188,7 +188,7 @@ def relative_density(brain: AnimalBrain) -> AnimalBrain:
         if brain.is_split:
             total_brainwide[marker] = brain[marker,BrainHemisphere.LEFT].root+brain[marker,BrainHemisphere.RIGHT].root
         else:
-            total_brainwide[marker] = brain[marker].root()
+            total_brainwide[marker] = brain[marker].root
     return _hemisphered_metric(
         brain=brain,
         metric=lambda sizes,marker_data,marker: (marker_data/sizes) / (total_brainwide[marker]/area_brainwide),
