@@ -222,11 +222,12 @@ class AllenBrainOntology:
         assert isinstance(a, Iterable), f"Expected a '{Iterable}' but get '{type(a)}'"
         a = list(a)
         s = set(a)
+        assert len(a) == len(s), f"Duplicates detected in the list of '{key}' requested to be identified as brain regions"
         is_region = np.full_like(a, False, dtype=bool)
         def check_region(node, depth):
             id = node[key]
             if id in s:
-                is_region[a.index(id)] = True
+                is_region[a.index(id)] = True # NOTE: if it wont work properly if 'a' has duplicates 
         visit_dict.visit_dfs(self.dict, "children", check_region)
         return is_region
 
