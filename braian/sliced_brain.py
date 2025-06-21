@@ -130,7 +130,8 @@ class SlicedBrain:
         # markers = all_markers[np.sort(idx)]
         # PRESERVES ORDER: FROM PYTHON 3.7+,
         #                  due to dict implementation details! (i.e. not guaranteed)
-        markers = list(dict.fromkeys((marker for slice in slices for marker in slice.markers_density.columns)))
+        markers = list(dict.fromkeys((marker for slice in slices for marker in slice.markers_density.columns
+                                      if marker not in ("acronym", "hemisphere"))))
         return SlicedBrain(name, slices, markers)
 
 

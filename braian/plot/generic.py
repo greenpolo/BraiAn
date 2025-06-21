@@ -314,6 +314,7 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
     :
         A Plotly figure.
     """
+    raise NotImplementedError()
     if isinstance(brains, SlicedGroup):
         groups = (brains.animals,)
         groups_names = (brains.name,)

@@ -530,7 +530,10 @@ class BrainSlice:
         self.data[column] = self.data[column] * 1e-06
 
     def _marker_density(self) -> pd.DataFrame:
-        return self.data[self.markers].div(self.data["area"], axis=0)
+        densities = self.data[self.markers].div(self.data["area"], axis=0)
+        densities["acronym"] = self.data["acronym"]
+        densities["hemisphere"] = self.data["hemisphere"]
+        return densities
 
     def merge_hemispheres(self) -> Self:
         """
