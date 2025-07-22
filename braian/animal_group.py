@@ -499,10 +499,14 @@ class AnimalGroup:
         [`from_csv`][braian.AnimalGroup.from_csv]
         """
         df = self.to_pandas(units=True, legacy=legacy)
+        if legacy:
+            labels = (df.columns.name, None)
         if not legacy:
             df.index = df.index.map(lambda i: (i[0].name.lower(), *i[1:]))
+            labels = (df.columns.name, None, None)
+
         file_name = f"{self.name}_{self.metric}.csv"
-        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=(df.columns.name, None))
+        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=labels)
 
     @staticmethod
     def from_pandas(df: pd.DataFrame, group_name: str, legacy: bool=False) -> Self:
