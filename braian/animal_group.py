@@ -605,7 +605,7 @@ class AnimalGroup:
             regions = df.index
         else:
             regions = df.index.get_level_values(1)
-        major_divisions = brain_ontology.get_corresponding_md(*regions)
+        major_divisions = brain_ontology.get_corresponding_md(*regions.unique())
         df["major_divisions"] = [major_divisions[region] for region in regions]
         df.set_index("major_divisions", append=True, inplace=True)
         return df
