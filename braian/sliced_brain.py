@@ -261,6 +261,35 @@ class SlicedBrain:
         brain.is_split = False
         return brain
 
+    def region(self, acronym: str, metric: str, as_density: bool=False) -> pd.DataFrame:
+        """
+        Extracts all data of a brain region from all [`slices`][braian.SlicedBrain.slices] in the current brain.
+        If [`SlicedBrain.is_split`][braian.SlicedBrain.is_split], the resulting DataFrame
+        may contain two values for the same brain region.
+
+        Parameters
+        ----------
+        acronym
+            The acronym of a brain region.
+        metric
+            The metric to extract from the current `SlicedBrain`.
+            It can either be `"area"` or any value in [`SlicedBrain.markers`][braian.SlicedBrain.markers].
+        as_density
+            If `True`, it retrieves the values as densities instead (i.e. marker/area).
+
+        Returns
+        -------
+        :
+            A `DataFrame` with two columns, named:
+            * _slice_, revealing the name of the slice from which the region data was extracted;
+            * `metric`, revealing the value for the specified brain region.
+        """
+        vals = [(s.name, val)
+                for s in self.slices
+                for val in s.region(acronym=acronym, metric=metric, as_density=as_density)
+                if acronym in s.regions]
+        return pd.DataFrame(vals, columns=("slice", metric))
+
     def _check_same_units(self):
         units = pd.DataFrame([s.units for s in self._slices])
         units_np = units.to_numpy()

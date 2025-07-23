@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import re
 from dataclasses import dataclass
@@ -5,7 +6,7 @@ from enum import Enum
 from pandas.api.types import is_numeric_dtype
 from pathlib import Path
 from typing import Self
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from braian.brain_data import sort_by_ontology, BrainHemisphere, UnknownBrainRegionsError, InvalidRegionsHemisphereError, extract_legacy_hemispheres
 from braian.ontology import AllenBrainOntology
@@ -433,6 +434,14 @@ class BrainSlice:
         """The name of the markers for which the current `BrainSlice` has data."""
         return list(self.data.columns[~self.data.columns.isin(("acronym", "hemisphere", "area"))])
 
+    @property
+    def regions(self) -> list[str]:
+        """
+        The list of region acronyms for which the current `BrainSlice` has data. The given order is arbitrary.
+        If [`BrainSlice.is_split`][braian.BrainSlice.is_split], it contains the acronyms of the split brain region only once.
+        """
+        return list(pd.unique(self.data["acronym"].values))
+
 
     def exclude_regions(self,
                         excluded_regions: Iterable[str],
@@ -556,3 +565,39 @@ class BrainSlice:
         data["acronym"] = data.index
         data.index = data.index.set_names(None)
         return BrainSlice(data=data, animal=self.animal, name=self.name, units=self.units)
+
+    def region(self, acronym: str, metric: str, as_density: bool=False) -> Sequence:
+        """
+        Extract the values of a brain region from the current `BrainSlice`.
+
+        Parameters
+        ----------
+        acronym
+            The acronym of a brain region.
+        metric
+            The metric to extract from the current `SlicedBrain`.
+            It can either be `"area"` or any value in [`SlicedBrain.markers`][braian.SlicedBrain.markers].
+        as_density
+            If `True`, it retrieves the values as densities instead (i.e. marker/area).
+
+        Returns
+        -------
+        :
+            If the current `BrainSlice` is not split between right and left hemisphers, it returns a sequence of length 1.
+            Else, it returns a sequence of length 2.
+
+            If there is no value of `region`, it returns an empty sequence.
+
+        Raises
+        ------
+        ValueError
+            If `marker` is not recognised as a source of data for the current `BrainSlice`.
+        ValueError
+            If `marker="area"` and `as_density=True`.
+        """
+        if metric != "area" and metric not in self.markers:
+            raise ValueError(f"Invalid metric: '{metric}'. Valid metrics are: {['area', *self.markers]}")
+        if metric == "area" and as_density:
+            raise ValueError("Cannot request to retrieve values as densities when metric='area'. Choose a metric within the available markers.")
+        df = self.markers_density if as_density else self.data
+        return np.array(df[df["acronym"] == acronym][metric].values)
