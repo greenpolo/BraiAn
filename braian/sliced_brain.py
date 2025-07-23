@@ -39,7 +39,15 @@ MODE_InvalidRegionsHemisphereError = "print"
 MODE_InvalidExcludedRegionsHemisphereError = "print"
 
 class EmptyBrainError(Exception):
-    pass
+    def __init__(self, context=None):
+        context = f"'{context}': " if context is not None else ""
+        super().__init__(f"{context}Inconsistent hemisphere distinction across sections of the same brain!"+\
+                         +" Some report the data with split regions, while others do not.")
+class InconsistentRegionsSplitError(Exception):
+    def __init__(self, context=None):
+        context = f"'{context}': " if context is not None else ""
+        super().__init__(f"{context}Inconsistent hemisphere distinction across sections of the same brain!"+\
+                         +" Some report the data with split regions, while others do not.")
 
 class SlicedBrain:
     @staticmethod
@@ -113,7 +121,7 @@ class SlicedBrain:
                 # We can do it afterwards, after the SlicedBrain is reduced to AnimalBrain
                 slice: BrainSlice = BrainSlice.from_qupath(results_file,
                                                ch2marker, atlas=brain_ontology.name,
-                                               animal=name, name=image, is_split=True,
+                                               animal=name, name=image,
                                                brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
                 slice.exclude_regions(exclude, brain_ontology, exclude_parent_regions)
@@ -153,15 +161,21 @@ class SlicedBrain:
         ------
         EmptyBrainError
             If `slices` is empty.
+        InconsistentRegionsSplitError
+            If some `slices` report the data making a distinction between right and left hemispheres, while others do not.
         """
         self._name = name
         self._slices: tuple[BrainSlice] = tuple(slices)
         if len(self._slices) == 0:
-            raise EmptyBrainError(self._name)
-        self.markers = list(markers)
+            raise EmptyBrainError(context=self._name)
+        self.markers: list[str] = list(markers)
+        """The name of the markers for which the current `SlicedBrain` has data."""
         self._check_same_units()
         self.units = self._slices[0].units.copy()
+        """The units of measurements corresponding to each [`marker`][braian.SlicedBrain.markers] of the current `SlicedBrain`."""
         are_split = np.array([s.is_split for s in self._slices])
+        if not are_split.all() and not ~are_split.any():
+            raise InconsistentRegionsSplitError(context=self._name)
         assert are_split.all() or ~are_split.any(), "Slices from the same animal should either be ALL split between right/left hemisphere or not."
         self.is_split = are_split[0]
         """Whether the data of the current `SlicedBrain` makes a distinction between right and left hemisphere."""

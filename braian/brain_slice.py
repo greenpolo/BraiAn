@@ -45,6 +45,10 @@ class MissingResultsMeasurementError(BrainSliceFileError):
         super().__init__(**kargs)
     def __str__(self):
         return f"Measurements missing for channel '{self.channel}' in: {self.file_path}"
+class InvalidRegionsSplitError(Exception):
+    def __init__(self, context=None):
+        context = f"'{context}': " if context is not None else ""
+        super().__init__(f"{context}The data should be split between right and left hemispheres for ALL regions.")
 class RegionsWithNoCountError(BrainSliceFileError):
     def __init__(self, tracer, regions, **kargs: object) -> None:
         self.tracer = tracer
@@ -348,7 +352,7 @@ class BrainSlice:
     #             return False
     #     return True
 
-    def __init__(self, data: pd.DataFrame, animal:str, name: str, is_split: bool,
+    def __init__(self, data: pd.DataFrame, animal:str, name: str,
                  units: dict, brain_ontology: AllenBrainOntology|None=None,
                  atlas: str|None=None) -> None:
         """
@@ -367,8 +371,6 @@ class BrainSlice:
             The name of the animal from which the slice was cut.
         name
             The name of hte brain slice.
-        is_split
-            Whether the data was extracted distinguishing between the two hemispheres or not.
         units
             The units of measurement corresponding to each columns in `data`.
         brain_ontology
@@ -377,8 +379,6 @@ class BrainSlice:
 
         Raises
         ------
-        InvalidRegionsHemisphereError
-            If `is_split=True` but some rows' indices don't start with `"Left: "` or with `"Right: "`.
         ValueError
             If a specified unit of measurment in `units` is unknown.
         """
@@ -391,15 +391,12 @@ class BrainSlice:
         """The name of the brain atlas used to align the section. If None, it means that the cell-segmented data didn't specify it."""
         BrainSlice._check_columns(self.data, ("acronym", "hemisphere", "area"), self.name)
         assert self.data.shape[1] >= 4, "'data' should have at least one column, apart from 'acronym', 'hemisphere' and 'area', containing per-region data"
-        hemispheres = self.data.hemisphere.unique()
-        hemispheres = [BrainHemisphere(v) for v in hemispheres]
-        if len(hemispheres) >= 2 and\
-            (BrainHemisphere.LEFT not in hemispheres or BrainHemisphere.RIGHT not in hemispheres):
-            raise InvalidRegionsHemisphereError(context=self.name)
-        self.is_split: bool = len(hemispheres)
+        hemispheres = self.data["hemisphere"].unique()
+        hemispheres = {BrainHemisphere(v) for v in hemispheres} # if not hemispheres.issubset(BrainHemisphere), it already raises an error
+        if len(hemispheres) > 2 or (len(hemispheres) == 2 and BrainHemisphere.BOTH in hemispheres):
+            raise InvalidRegionsSplitError(context=self.name)
+        self.is_split: bool = len(hemispheres) == 2
         """Whether the data of the current `BrainSlice` make a distinction between right and left hemisphere."""
-        if is_split and not self.is_split:
-            raise InvalidRegionsHemisphereError(context=self.name)
         for column, unit in units.items():
             if column == unit: # it's a cell count
                 continue
@@ -411,7 +408,8 @@ class BrainSlice:
                 case _:
                     raise ValueError(f"Unknown unit of measurement '{unit}' for '{column}'!")
             units[column] = "mm²"
-        self.units = units.copy()
+        self.units: dict[str,str] = units.copy()
+        """The units of measurements corresponding to each [`marker`][braian.BrainSlice.markers] of the current `BrainSlice`."""
         assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
         self.data = self.data[self.data["area"] > 0]
         if brain_ontology is not None:
@@ -557,4 +555,4 @@ class BrainSlice:
         data["hemisphere"] = BrainHemisphere.BOTH.value
         data["acronym"] = data.index
         data.index = data.index.set_names(None)
-        return BrainSlice(data, self.animal, self.name, is_split=False, units=self.units)
+        return BrainSlice(data=data, animal=self.animal, name=self.name, units=self.units)
