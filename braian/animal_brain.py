@@ -87,16 +87,19 @@ class SliceMetrics(Enum):
             case "std" | "standard deviation":
                 return SliceMetrics.STD
 
-    def apply(self, grouped_by_region: DataFrameGroupBy):
+    def apply(self, data: pd.Series|pd.DataFrame|DataFrameGroupBy):
         match self:
             case SliceMetrics.SUM:
-                return grouped_by_region.sum()
+                return data.sum()
             case SliceMetrics.MEAN:
-                return grouped_by_region.mean()
+                return data.mean()
             case SliceMetrics.STD:
-                return grouped_by_region.std(ddof=1)
+                return data.std(ddof=1)
             case SliceMetrics.CVAR:
-                return grouped_by_region.apply(coefficient_variation)
+                if isinstance(data, DataFrameGroupBy):
+                    return data.apply(coefficient_variation)
+                else:
+                    return coefficient_variation(data)
             case _:
                 raise ValueError(f"{self} does not support BrainSlices reductions")
 

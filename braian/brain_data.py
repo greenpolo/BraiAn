@@ -479,7 +479,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         """
         if fill_nan:
             data = self.data.reindex(index=brain_regions, fill_value=pd.NA)
-        elif not (unknown_regions:=np.isin(brain_regions, self.data.index)).all():
+        elif not (unknown_regions:=np.isin(brain_regions, self.data.index)).all(): # TODO: valutare se ignorare o cambiare le docstrings
             unknown_regions = np.array(brain_regions)[~unknown_regions]
             raise ValueError(f"Can't find some regions in {self}: '"+"', '".join(unknown_regions)+"'!")
         else:
