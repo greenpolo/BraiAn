@@ -196,6 +196,14 @@ class SlicedBrain:
         """The list of slices making up the `SlicedBrain`."""
         return self._slices
 
+    @property
+    def regions(self) -> list[str]:
+        """
+        The list of region acronyms for which the current `SlicedBrain` has data. The given order is arbitrary.
+        If [`SlicedBrain.is_split`][braian.SlicedBrain.is_split], it contains the acronyms of the split brain region only once.
+        """
+        return pd.unique(np.array([r for s in self.slices for r in s.regions]))
+
     def concat_slices(self, densities: bool=False) -> pd.DataFrame:
         """
         Combines all the [`BrainSlice`][braian.BrainSlice] making up the current
