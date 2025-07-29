@@ -127,6 +127,9 @@ def percentage(brain: AnimalBrain) -> AnimalBrain:
     $$
     with $m_r$ being the raw number of $m$ detections in region $r$.
 
+    If `brain` is split between left and right hemispheres,
+    it normalizes on the the root _without_ hemisphere distinction.
+
     Parameters
     ----------
     brain
@@ -165,6 +168,9 @@ def relative_density(brain: AnimalBrain) -> AnimalBrain:
     $$
     with $m_r$ being the raw number of $m$ detections in region $r$.
 
+    If `brain` is split between left and right hemispheres,
+    it normalizes on the density of the root _without_ hemisphere distinction.
+
     Parameters
     ----------
     brain
@@ -182,7 +188,7 @@ def relative_density(brain: AnimalBrain) -> AnimalBrain:
     """
     _enforce_rawdata(brain)
 
-    area_brainwide = sum(map(s.root for s in brain.hemisizes))
+    area_brainwide = sum(s.root for s in brain.hemisizes)
     total_brainwide = dict()
     for marker in brain.markers:
         if brain.is_split:
