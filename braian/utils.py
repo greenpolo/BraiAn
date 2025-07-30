@@ -1,5 +1,7 @@
 import errno
 import functools
+import igraph as ig
+import itertools
 import os
 import numpy as np
 import pandas as pd
@@ -7,6 +9,7 @@ import platform
 import requests
 import sys
 import warnings
+from collections.abc import Sequence
 from importlib import resources
 from pathlib import Path
 
@@ -29,6 +32,21 @@ def get_resource_path(resource_name: str):
                                     .joinpath(resource_name)) as path:
         return path
 
+def merge_ordered(*xs: Sequence) -> Sequence:
+    vs_obj = list(functools.reduce(set.union, [set(x) for x in xs]))
+    n_vertices = len(vs_obj)
+    vs = list(range(n_vertices))
+    vs_obj2id = dict(zip(vs_obj, vs))
+    es = itertools.chain(*(zip(x, x[1:]) for x in xs))
+    es = [(vs_obj2id[v1], vs_obj2id[v2]) for v1,v2 in es]
+    g = ig.Graph(n_vertices, es, directed=True)
+    g.vs["obj"] = vs_obj
+    if g.is_dag():
+        # topological sorting is possible only if g is a DAG
+        return g.vs[g.topological_sorting(mode="out")]["obj"]
+    else:
+        raise ValueError("The given sequences are not sorted in a compatible way.")
+        return vs_obj
 
 def search_file_or_simlink(file_path: str|Path) -> Path:
     if not isinstance(file_path, Path):

@@ -12,13 +12,14 @@ from braian.animal_brain import AnimalBrain, SliceMetrics
 from braian.brain_data import BrainData
 from braian.ontology import AllenBrainOntology
 from braian.sliced_brain import SlicedBrain
-from braian.utils import save_csv
+from braian.utils import save_csv, merge_ordered
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
 def _common_regions(animals: list[AnimalBrain]) -> list[str]:
-    all_regions = [set(brain.regions) for brain in animals]
-    return list(reduce(set.__or__, all_regions))
+    return merge_ordered(*[brain.regions for brain in animals])
+    #all_regions = [set(brain.regions) for brain in animals]
+    #return list(reduce(set.__or__, all_regions))
 
 def _have_same_regions(animals: list[AnimalBrain]) -> bool:
     regions = animals[0].regions

@@ -9,6 +9,7 @@ from braian.brain_data import BrainData
 from braian.experiment import Experiment
 from braian.plot.generic import bar_sample
 from braian.ontology import AllenBrainOntology
+from braian.utils import merge_ordered
 from collections.abc import Collection, Sequence
 from plotly.subplots import make_subplots
 
@@ -108,6 +109,13 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         groups = [group.sort_by_ontology(brain_ontology, fill_nan=True, inplace=False) for group in groups]
         regions_mjd = brain_ontology.get_corresponding_md(*selected_regions)
         selected_regions = list(regions_mjd.keys())
+    else:
+        regions = merge_ordered(*[g.regions for g in groups]) #, selected_regions)
+        groups = [
+            group.apply(lambda brain: brain.select_from_list(regions, fill_nan=True, inplace=False))
+            for group in groups
+        ]
+
     # elif len(groups) > 1:
     #     assert all(set(groups[0].regions) == set(group.regions) for group in in groups[1:])
 
