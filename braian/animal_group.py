@@ -262,7 +262,7 @@ class AnimalGroup:
         try:
             return next(brain for brain in self._animals if brain.name == animal_name)
         except StopIteration:
-            raise KeyError(f"'{animal_name}'")
+            raise KeyError(animal_name)
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
