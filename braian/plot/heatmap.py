@@ -165,8 +165,9 @@ def heatmap(bd1: BrainData,
             if not isinstance(output_path, Path):
                 output_path = Path(output_path)
             output_path.mkdir(mode=0o777, parents=True, exist_ok=True)
+            filename = "" if filename is None else filename+"_"
             for position,fig in figures.items():
-                plot_filepath = output_path/(filename+f"_{position:05.0f}.svg")
+                plot_filepath = output_path/(filename+f"{position:05.0f}.svg")
                 fig.savefig(plot_filepath)
         return figures
 

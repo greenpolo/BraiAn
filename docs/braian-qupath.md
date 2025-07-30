@@ -24,10 +24,20 @@ Where to start from, though? Reading [this script](https://github.com/carlocasto
 
 ## Installation
 
+### Manual
 You can download the [latest](https://github.com/carlocastoldi/qupath-extension-braian/releases/latest) release from the the official GitHub page of the project named `qupath-extension-braian-<VERSION>.jar`. Generally, there is no need to download `-javadoc.jar` and `-sources.jar`.\
-Later you can simply drag the downloaded file onto QuPath, restart and be good to go!
+Later you can drag the downloaded file onto QuPath, restart and be good to go!
 
-Any new available release of the extension should be notified on QuPath startup, and its update can be handled in QuPath itself.
+Up until QuPath 0.5.1 (included), new extension releases are notified by QuPath on startups. You'll then be able to update them through QuPath's extension manager with one click.\
+From QuPath 0.6.+, extensions installed manually no longer receive updates.
+
+### With QuPath 0.6.+ _Catalogs_
+Since QuPath 0.6.+, if you want to install third-party extensions and keep them up to date, you'll have to add a third-party _Catalog_ to your QuPath installation.\
+For BraiAn, you can do this by:
++ Opening QuPath's extension manager by clicking on `Extensions` -> `Manage extensions` in QuPath;
++ Clicking on `Manage extension catalogs`;
++ Pasting the following URL, and then clicking on the `Add` button: `https://github.com/carlocastoldi/qupath-extension-braian-catalog`;
++ Clicking on the + symbol next to BraiAn extension in the extension manager.
 
 ## Getting started
 
@@ -49,7 +59,7 @@ The very same ones can also be checked out from the [official repository](https:
 
 
 However, before running any script using this extension, we need to describe how BraiAn works and its assumptions.
- 
+
 ### Project arrangement
 
 All the brain section images of the same animal should be collected into a single QuPath project. If there are multiple animals, one should create a project for each one of them and save the respective project folders in the same directory (e.g. `QuPath_projects/`).

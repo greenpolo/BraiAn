@@ -173,7 +173,7 @@ class BrainSlice:
         else:
             data_atlas, data = BrainSlice._read_qupath_data(search_file_or_simlink(csv))
             assert data_atlas is None or data_atlas == atlas,\
-                f"Brain slice was expected to be aligned against '{atlas}', but instead found '{data_atlas}'"
+                f"Brain slice was expected to be aligned against '{atlas}', but instead found '{data_atlas}': {csv}"
         BrainSlice._check_columns(data, (QUPATH_AREA,), csv)
         all_measurements = extract_qupath_measurement_types(data)
         unique_channels = {m.measurement for m in all_measurements}
