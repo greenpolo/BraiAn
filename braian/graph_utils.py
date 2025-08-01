@@ -51,13 +51,13 @@ def _selection_cut(root: ig.Vertex,
         c[-1].append(_attr(root, attr)) # append to the last contiguous list of nodes
     elif root.outdegree() == 0:
         if advanced:
-            u.append(_attr(root, attr))
+            u.append(root)
         if len(c[-1]) != 0: # root is a leaf and the current last contiguous list of nodes is not empty
             c.append([])    # create a new empty list of nodes
     else:
         for v in root.neighbors(mode="out"):
             _selection_cut(root=v,attr=attr,advanced=advanced,c=c,u=u)
-    return (c,minimum_treecover(u)) if advanced else c
+    return (c,[_attr(v, attr) for v in minimum_treecover(u)]) if advanced else c
 
 def selection_cut(g: ig.GraphBase, attr="index", advanced: bool=False) -> list[list[str]]:
     if "selected" not in g.vs.attributes():
