@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from collections import OrderedDict
 from collections.abc import Iterable, Container
 from copy import deepcopy
-from braian import visit_dict
+from braian import visit_dict, graph_utils
 from pathlib import Path
 
 __all__ = ["AllenBrainOntology", "MAJOR_DIVISIONS"]
@@ -1014,63 +1014,13 @@ class AllenBrainOntology:
         unrefs_trees = blacklisted_unrefs_trees - blacklisted_trees
         if not unreferenced:
             if not blacklisted:
-                _remove_branch(g, blacklisted_unrefs_trees)
+                graph_utils.remove_branch(g, blacklisted_unrefs_trees)
             else:
-                _remove_branch(g, unrefs_trees)
-                _blacklist_regions(g, blacklisted_trees)
+                graph_utils.remove_branch(g, unrefs_trees)
+                graph_utils.blacklist_regions(g, blacklisted_trees)
         else: # if regions unreferenced are kept in the graph, it means it will also keep the
               # blacklisted ones because unreferenced regions are obligatorily blacklisted from any analysis.
-            _blacklist_regions(g, blacklisted_trees, unreferenced=unrefs_trees)
+            graph_utils.blacklist_regions(g, blacklisted_trees, unreferenced=unrefs_trees)
         if self.has_selection():
-            _select_regions(g, self.get_selected_regions())
+            graph_utils.select_regions(g, self.get_selected_regions())
         return g
-
-
-def _remove_branch(g: ig.Graph, branch_acronyms: Iterable[str]):
-    to_remove = []
-    for branch_to_remove in g.vs.select(name_in=branch_acronyms):
-        whole_branch = g.dfs(branch_to_remove.index, mode="out")[0]
-        to_remove.extend(whole_branch)
-    g.delete_vertices(to_remove)
-
-def _blacklist_regions(g: ig.Graph, blacklisted: Iterable[str], unreferenced: Iterable[str]=None):
-    for region, depth, parent in g.dfsiter(0, mode="out", advanced=True):
-        region["blacklisted"] = (parent is not None and parent["blacklisted"]) or region["name"] in blacklisted
-        if unreferenced:
-            region["referenced"] = (parent is None or parent["referenced"]) and region["name"] not in unreferenced
-
-def _select_regions(g: ig.Graph, regions: Iterable): # , key: str="acronym"
-    for region in g.dfsiter(0, mode="out"):
-        region["selected"] = region["name"] in regions
-
-def _mode(v: ig.Vertex, mode: str):
-    if mode == "index":
-        return v.index
-    else:
-        return v[mode]
-
-def _selection_cut(root: ig.Vertex,
-                   mode: str,
-                   advanced: bool,      # returns also the list of those leaves left out
-                   c: list[list]=None,  # covered
-                   u: list=None):       # uncovered
-    if c is None:
-        c = [[]]
-    if u is None:
-        u = []
-    if root["selected"]:
-        c[-1].append(_mode(root, mode)) # append to the last contiguous list of nodes
-    elif root.outdegree() == 0:
-        if advanced:
-            u.append(_mode(root, mode))
-        if len(c[-1]) == 0: # root is a leaf and the current last contiguous list of nodes is not empty
-            c.append([])    # create a new empty list of nodes
-    else:
-        for v in root.neighbors(mode="out"):
-            _selection_cut(v,mode,advanced,c=c,u=u)
-    return (c,u) if advanced else c
-
-def selection_cut(g: ig.GraphBase, mode="index", advanced: bool=False) -> list[list[str]]:
-    if "selected" not in g.vs[0].attributes():
-        raise ValueError("The current ontology has no active selection.")
-    return _selection_cut(g.vs[0], mode=mode, advanced=advanced)
