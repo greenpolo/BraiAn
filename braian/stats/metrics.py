@@ -1,8 +1,7 @@
+import braian.graph_utils
 import enum
 
-from braian.brain_data import BrainData, BrainHemisphere
-from braian.animal_brain import AnimalBrain
-from braian.animal_group import AnimalGroup
+from braian import AllenBrainOntology, AnimalBrain, AnimalGroup, BrainData, BrainHemisphere
 from collections.abc import Callable
 
 # NOTE: some arithmetic operations (e.g. division by zero) are not correctly converted to pd.NA,
@@ -159,14 +158,22 @@ def percentage(brain: AnimalBrain) -> AnimalBrain:
         units=lambda sizes,marker_data: f"{marker_data.units}/{marker_data.units} in root",
         raw=False)
 
-def relative_density(brain: AnimalBrain) -> AnimalBrain:
+def relative_density(brain: AnimalBrain,
+                     atlas_ontology: AllenBrainOntology) -> AnimalBrain:
     r"""
     For each region $r$ of `brain`, it computes the density fold change
     of each marker $m$ compared to brain-wide marker density:
     $$
     RD(m_r) : \\frac {m_r/size_r} {m_{root}/size_{root}}
     $$
-    with $m_r$ being the raw number of $m$ detections in region $r$.
+    with $m_r$ being the raw number of $m$ detections in region $r$.\
+    The brain-wide marker density is computed over the sum of a brain-wide
+    selection of the ontology. A selection is brain-wide if it covers every
+    leaf of the ontology.\
+    This unique brain-wide normalization is more precise than using the data directly
+    available from the `brain`'s root because
+    [2D slice exclusions][braian.BrainSlice.exclude_regions] might have reduced
+    the data substantially.
 
     If `brain` is split between left and right hemispheres,
     it normalizes on the density of the root _without_ hemisphere distinction.
@@ -175,6 +182,8 @@ def relative_density(brain: AnimalBrain) -> AnimalBrain:
     ----------
     brain
         The brain to compute relative density on.
+    atlas_ontology
+        An ontology with a brain-wide selection.
 
     Returns
     -------
@@ -185,19 +194,30 @@ def relative_density(brain: AnimalBrain) -> AnimalBrain:
     ------
     ValueError
         If `brain` does not contain raw data of marker countings.
+
+    See also
+    --------
+    [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions]
     """
     _enforce_rawdata(brain)
 
-    area_brainwide = sum(s.root for s in brain.hemisizes)
+    g = atlas_ontology.to_igraph(unreferenced=False, blacklisted=False)
+    if not braian.graph_utils.is_brainwide_selection(g):
+        _,uncovered = braian.graph_utils.brainwide_selection(g, attr="name", advanced=True)
+        raise ValueError(f"Current ontology selection does not cover the whole brain. The following regions are left out: {uncovered}")
+    if brain.is_split:
+        brain_merged = brain.merge_hemispheres()
+    else:
+        brain_merged = brain
+    brain_merged = brain_merged.select_from_ontology(atlas_ontology, fill_nan=False, inplace=False)
+    size_brainwide = brain_merged.sizes.data.sum(skipna=True)
     total_brainwide = dict()
-    for marker in brain.markers:
-        if brain.is_split:
-            total_brainwide[marker] = brain[marker,BrainHemisphere.LEFT].root+brain[marker,BrainHemisphere.RIGHT].root
-        else:
-            total_brainwide[marker] = brain[marker].root
+    for marker in brain_merged.markers:
+        total_brainwide[marker] = brain_merged[marker].data.sum(skipna=True)
+    total_brainwide, size_brainwide
     return _hemisphered_metric(
         brain=brain,
-        metric=lambda sizes,marker_data,marker: (marker_data/sizes) / (total_brainwide[marker]/area_brainwide),
+        metric=lambda sizes,marker_data,marker: (marker_data/sizes) / (total_brainwide[marker]/size_brainwide),
         metric_str="relative_density",
         units=lambda sizes,marker_data: f"{marker_data.units} density/root {marker_data.units} density",
         raw=False)

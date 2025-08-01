@@ -1,7 +1,6 @@
 import itertools
 import numpy as np
 import pandas as pd
-import re
 from collections.abc import Collection, Iterable, Sequence
 from enum import Enum
 from typing import Self, Callable

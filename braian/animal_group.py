@@ -4,7 +4,6 @@ import pandas as pd
 
 from collections.abc import Callable, Iterable, Sequence
 from functools import reduce
-from itertools import product
 from pathlib import Path
 from typing import Self
 
