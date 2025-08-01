@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import re
 
-from collections.abc import Sequence
+from collections.abc import Sequence, Callable
 from enum import Enum, auto
 from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
@@ -433,6 +433,14 @@ class AnimalBrain:
             self._sizes = sizes
             return self
 
+    def _apply(self,
+               hemidata: tuple[BrainData,BrainData],
+               f1: Callable[[BrainData],Callable],
+               f2: Callable[[BrainData],Callable],
+               hemisphere: BrainHemisphere):
+        return tuple(f1(data) if data.hemisphere is hemisphere else f2(data)
+                     for data in hemidata)
+
     def select_from_list(self, regions: Sequence[str],
                          fill_nan: bool=False, inplace: bool=False,
                          hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
@@ -452,7 +460,7 @@ class AnimalBrain:
         hemisphere
             If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
             it only selects the brain regions from the given hemisphere.
-        select_compelementary_hemisphere
+        select_other_hemisphere
             If True and `hemisphere` is not [`BOTH`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
             If False, it deselect the opposite hemisphere.
 
@@ -469,19 +477,20 @@ class AnimalBrain:
         hemisphere = BrainHemisphere(hemisphere)
         if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
             raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
-        markers_data = {marker: tuple(
-                                m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
-                                if hemisphere is BrainHemisphere.BOTH or m_data.hemisphere is hemisphere
-                                else m_data if select_other_hemisphere
-                                else m_data.select_from_list([], fill_nan=fill_nan, inplace=inplace)
-                            for m_data in hemidata)
+        def f1(bd: BrainData):
+            return bd.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+        if hemisphere is BrainHemisphere.BOTH:
+            f2 = f1
+        elif select_other_hemisphere:
+            def f2(bd: BrainData):
+                return bd
+        else:
+            def f2(bd: BrainData):
+                return bd.select_from_list([], fill_nan=fill_nan, inplace=inplace)
+
+        markers_data = {marker: self._apply(hemidata, f1, f2, hemisphere=hemisphere)
                         for marker, hemidata in self._markers_data.items()}
-        sizes = tuple(
-                s.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
-                if hemisphere is BrainHemisphere.BOTH or s.hemisphere is hemisphere
-                else s if select_other_hemisphere
-                else s.select_from_list([], fill_nan=fill_nan, inplace=inplace)
-            for s in self._sizes)
+        sizes = self._apply(self._sizes, f1, f2, hemisphere=hemisphere)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
         else:
@@ -491,7 +500,8 @@ class AnimalBrain:
 
     def select_from_ontology(self, brain_ontology: AllenBrainOntology,
                              fill_nan: bool=False, inplace: bool=False,
-                             hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> Self:
+                             hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+                             select_other_hemisphere: bool=False) -> Self:
         """
         Filters the data from a given ontology, accordingly to a non-overlapping list of regions
         previously selected in `brain_ontology`.\\
@@ -509,6 +519,9 @@ class AnimalBrain:
         hemisphere
             If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
             it only selects the brain regions from the given hemisphere.
+        select_other_hemisphere
+            If True and `hemisphere` is not [`BOTH`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
+            If False, it deselect the opposite hemisphere.
 
         Returns
         -------
@@ -529,13 +542,29 @@ class AnimalBrain:
         [`AllenBrainOntology.select_regions`][braian.AllenBrainOntology.select_regions]
         [`AllenBrainOntology.get_regions`][braian.AllenBrainOntology.get_regions]
         """
-        assert brain_ontology.has_selection(), "No selection found in the given ontology."
-        selected_allen_regions = brain_ontology.get_selected_regions()
-        if not fill_nan:
-            selectable_regions = set(self.regions).intersection(set(selected_allen_regions))
+        hemisphere = BrainHemisphere(hemisphere)
+        if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
+            raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
+        def f1(bd: BrainData):
+            return bd.select_from_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
+        if hemisphere is BrainHemisphere.BOTH:
+            f2 = f1
+        elif select_other_hemisphere:
+            def f2(bd: BrainData):
+                return bd
         else:
-            selectable_regions = selected_allen_regions
-        return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, inplace=inplace, hemisphere=hemisphere)
+            def f2(bd: BrainData):
+                return bd.select_from_list([], fill_nan=fill_nan, inplace=inplace)
+
+        markers_data = {marker: self._apply(hemidata, f1, f2, hemisphere=hemisphere)
+                        for marker, hemidata in self._markers_data.items()}
+        sizes = self._apply(self._sizes, f1, f2, hemisphere=hemisphere)
+        if not inplace:
+            return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
+        else:
+            self._markers_data = markers_data
+            self._sizes = sizes
+            return self
 
     def get_units(self, marker:str|None=None) -> str:
         """
