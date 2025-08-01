@@ -1,6 +1,6 @@
 import igraph as ig
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 def remove_branch(g: ig.Graph,
                    branch_acronyms: Iterable[str],
@@ -30,6 +30,14 @@ def _attr(v: ig.Vertex, mode: str):
     else:
         return v[mode]
 
+def minimum_treecover(vs: Sequence[ig.Vertex]):
+    vs = set(vs)
+    vs_ = {parent if all(child in vs for child in parent.neighbors(mode="out")) else v
+           for v in vs for parent in v.neighbors(mode="in")}
+    if vs_ == vs:
+        return vs
+    return minimum_treecover(vs_)
+
 def _selection_cut(root: ig.Vertex,
                    attr: str,
                    advanced: bool,      # returns also the list of those leaves left out
@@ -49,7 +57,7 @@ def _selection_cut(root: ig.Vertex,
     else:
         for v in root.neighbors(mode="out"):
             _selection_cut(root=v,attr=attr,advanced=advanced,c=c,u=u)
-    return (c,u) if advanced else c
+    return (c,minimum_treecover(u)) if advanced else c
 
 def selection_cut(g: ig.GraphBase, attr="index", advanced: bool=False) -> list[list[str]]:
     if "selected" not in g.vs.attributes():

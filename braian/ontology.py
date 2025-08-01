@@ -249,7 +249,10 @@ class AllenBrainOntology:
         """
         return all(r in regions for r in self.direct_subregions[parent])
 
-    def minimimum_treecover(self, acronyms: Iterable[str]) -> list[str]:
+    def minimum_treecover(self,
+                          acronyms: Iterable[str],
+                          unreferenced: bool=False,
+                          blacklisted: bool=True) -> list[str]:
         """
         Returns the minimum set of regions that covers all the given regions, and not more.
 
@@ -257,6 +260,11 @@ class AllenBrainOntology:
         ----------
         acronyms
             The acronyms of the regions to cover
+        unreferenced
+            If False, it does not consider from the cover all those brain regions that have no references in the atlas annotations.
+        blacklisted
+            If False, it does not consider from the cover all those brain regions that are currently blacklisted from the ontology.\
+            If `unreferenced` is True, it is ignored.
 
         Returns
         -------
@@ -266,19 +274,16 @@ class AllenBrainOntology:
         Examples
         --------
         >>> braian.utils.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        >>> brain_ontology = braian.AllenBrainOntology("ontology.json", [])
-        >>> sorted(brain_ontology.minimimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY']))
+        >>> brain_ontology = braian.AllenBrainOntology("ontology.json", [], version="v3")
+        >>> sorted(brain_ontology.minimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY']))
         ['BS', 'CB']
 
-        >>> sorted(brain_ontology.minimimum_treecover(["RE", "Xi", "PVT", "PT", "TH"]))
+        >>> sorted(brain_ontology.minimum_treecover(["RE", "Xi", "PVT", "PT", "TH"]))
         ['MTN', 'TH']
         """
-        acronyms = set(acronyms)
-        _regions = {parent if self.contains_all_children(parent, acronyms) else acronym
-                        for acronym, parent in self.get_parent_regions(acronyms).items()}
-        if acronyms == _regions:
-            return list(acronyms)
-        return self.minimimum_treecover(_regions)
+        g = self.to_igraph(unreferenced=unreferenced, blacklisted=blacklisted)
+        vs = graph_utils.minimum_treecover(g.vs.select(name_in=acronyms))
+        return [v["name"] for v in vs]
 
     def blacklist_regions(self, regions: Iterable, key: str="acronym", has_reference: bool=True):
         """
