@@ -194,8 +194,10 @@ def pie_ontology(brain_ontology: AllenBrainOntology, selected_regions: Collectio
                     ))
     return fig
 
-def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], threshold: float,
+def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain],
+                    threshold: float,
                     regions: Sequence[str],
+                    marker: str|Iterable[str]=None,
                     width: int=700, height: int=500) -> go.Figure:
     """
     Scatter plot of the regions above a threshold. Usually used together
@@ -209,6 +211,9 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], thresh
         The threshold above which a brain region is displayed.
     regions
         The names of the brain regions to filter from.
+    marker
+        The marker(s) to plot the data of.\
+        If `None`, it plots the data for all available markers.
     width
         The width of the plot.
     height
@@ -221,75 +226,83 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain], thresh
     """
     if isinstance(brains, AnimalGroup):
         metric = brains.metric
-        groups = (brains.animals,)
-        groups_names = (brains.name,)
+        groups = (brains,)
     elif isinstance(brains, Experiment):
         metric = brains.groups[0].metric
-        groups       = tuple(g.animals for g in brains.groups)
-        groups_names = tuple(g.name for g in brains.groups)
+        groups = brains.groups
     else:
         metric = brains[0].metric
-        groups = (brains,)
-        groups_names = (None,)
+        groups = (AnimalGroup("", brains),)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    for i, (group,group_name) in enumerate(zip(groups,groups_names)):
-
-        n_above = dict()
-        regions_above = dict()
-
-        for brain in group:
-            for marker in brain.markers:
-                brain_data = brain.to_pandas(units=False, missing_as_nan=True)[marker].reindex(regions)
-                above = brain_data > threshold
-                label = f"{brain.name} ({marker})"
-                n_above[label] = above.sum()
-                regions_above[label] = brain_data[above]
-
+    if isinstance(marker,str):
+        markers = (marker,)
+    elif marker is not None: # is an Iterable
+        markers = marker
+    else:
+        markers = pd.unique(np.array([m for g in groups for m in g.markers]))
+    for marker_i,marker in enumerate(markers):
+        df = pd.concat([g.select(regions, fill_nan=True).to_pandas(marker=marker) for g in groups])
+        # df.index = df.index.get_level_values(1)
+        df = df[~(df < threshold)]
         fig.add_trace(
             go.Bar(
-                x=list(n_above.keys()),
-                y=list(n_above.values()),
+                # x=[marker]*len(groups),
+                x=df.columns,
+                y=(~df.isna()).sum(),
                 marker_color="lightsalmon",
                 opacity=0.3,
-                showlegend=i==0,
-                legendgroup="#above",
+                showlegend=marker_i==0,
+                legendgroup="#count",
                 name=f"#regions above {threshold}",
+                offsetgroup=marker
             ),
             secondary_y=True,
         )
         fig.add_scatter(
-            x=list(itertools.chain(*[[k]*len(v) for k,v in regions_above.items()])),
-            y=list(itertools.chain(*[v.values for v in regions_above.values()])),
-            text=list(itertools.chain(*[v.index for v in regions_above.values()])),
+            # x=[marker]*len(groups),
+            x=list(itertools.chain(*[[brain_name]*len(df) for brain_name in df.columns])),
+            y=list(itertools.chain(*[animal_values.values for animal_name, animal_values in df.items()])),
+            text=list(itertools.chain(*[animal_values.index for animal_name, animal_values in df.items()])),
             opacity=0.7,
             marker=dict(
                 size=7,
-                color=plc.qualitative.Plotly[i],
+                color=plc.qualitative.Plotly[marker_i],
                 line=dict(
                     color="rgb(0,0,0)",
                     width=1
                 )
             ),
-            name=group_name,
-            legendgroup=i,
+            name=marker,
+            offsetgroup=marker,
+            legendgroup=marker,
             mode="markers"
         )
     fig.update_layout(
-        title = f"{metric} > {threshold}",
-
-        yaxis=dict(
-            title=metric,
-            gridcolor="#d8d8d8",
-        ),
-        yaxis2=dict(
-            title=f"#regions above {threshold}",
-            griddash="dot",
-            gridcolor="#d8d8d8",
-        ),
-        width=width, height=height,
-        template="none"
-    )
+            title = f"{metric} > {threshold}",
+            yaxis=dict(
+                title=metric,
+                gridcolor="#d8d8d8",
+                range=(threshold,None)
+            ),
+            yaxis2=dict(
+                title=f"#regions above {threshold}",
+                griddash="dot",
+                gridcolor="#d8d8d8",
+            ),
+            scattermode="group",
+            width=width, height=height,
+            template="none"
+        )\
+        .update_layout(
+                    margin=dict(l=40, r=0, t=100, b=120),
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1,
+                        xanchor="left",
+                        x=0,
+    ))
     return fig
 
 def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],

@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 def xmas_tree(groups: Experiment|Collection[AnimalGroup],
-              selected_regions: Collection[str],
+              selected_regions: Collection[str], # NOTE: it's order defines how regions are displayed
               marker1: str, marker2: str=None,
               hemisphere: BrainHemisphere|tuple[BrainHemisphere,BrainHemisphere]=None,
               brain_ontology: AllenBrainOntology=None,
@@ -30,6 +30,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
               groups_marker1_colours: Sequence=["LightCoral", "SandyBrown"],
               groups_marker2_colours: Sequence=["IndianRed", "Orange"],
               max_value: int=None,
+              # show_nan: str="all",
               color_heatmap: str="deep_r", width: int=None, height: int=None) -> go.Figure:
     """
     Plots the XMasTree of the given data. This is a visualisation of whole-brain data from multiple groups
