@@ -31,7 +31,7 @@ def _have_same_regions(animals: list[AnimalBrain]) -> bool:
 
 class AnimalGroup:
     def __init__(self, name: str, animals: Sequence[AnimalBrain], hemisphere_distinction: bool=True,
-                 brain_ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
+                 brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> None:
         """
         Creates an experimental cohort from a set of `AnimalBrain`.\\
         In order for a cohort to be valid, it must consist of brains with
