@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from collections import OrderedDict
 from collections.abc import Iterable, Container
 from copy import deepcopy
-from braian import visit_dict
+from braian import visit_dict, graph_utils
 from pathlib import Path
 
 __all__ = ["AllenBrainOntology", "MAJOR_DIVISIONS"]
@@ -308,12 +308,15 @@ class AllenBrainOntology:
             if not has_reference:
                 visit_dict.visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
 
-    def get_blacklisted_trees(self, key: str="acronym") -> list:
+    def get_blacklisted_trees(self, force_reference: bool=True, key: str="acronym") -> list:
         """
-        Returns the biggest brain region of each branch in the ontology that was blacklisted
+        Returns the biggest brain region of each branch in the ontology that was blacklisted.
 
         Parameters
         ----------
+        force_reference
+            If True, returns only those blacklisted regions that has a reference in the annotation volume.
+            Else, it includes also the brain regions that were blacklisted from the ontology because they don't have an annotation in the atlas.
         key
             The key in Allen's structural graph used to indentify the returned regions
 
@@ -322,7 +325,13 @@ class AllenBrainOntology:
         :
             A list of blacklisted regions, each of which is identifiable with `key`
         """
-        regions = visit_dict.non_overlapping_where(self.dict, "children", lambda n,d: is_blacklisted(n) and has_reference(n), mode="bfs")
+        if force_reference:
+            def select_node(n: dict, d: int):
+                return is_blacklisted(n) and has_reference(n)
+        else:
+            def select_node(n: dict, d: int):
+                return is_blacklisted(n) or not has_reference(n)
+        regions = visit_dict.non_overlapping_where(self.dict, "children", select_node, mode="bfs")
         return [region[key] for region in regions]
 
     def _mark_major_divisions(self):
@@ -964,10 +973,20 @@ class AllenBrainOntology:
         all_areas = visit_dict.get_all_nodes(self.dict, "children")
         return {area["acronym"]: "#"+area["color_hex_triplet"] for area in all_areas}
 
-    def to_igraph(self) -> ig.Graph:
+    def to_igraph(self,
+                  unreferenced: bool=False,
+                  blacklisted: bool=True) -> ig.Graph:
         """
         Translates the current brain ontology into an igraph directed Graph,
         where nodes are brain regions and edges region→subregion relationships
+
+        Parameters
+        ----------
+        unreferenced
+            If False, it removes from the graph all those brain regions that have no references in the atlas annotations.
+        blacklisted
+            If False, it removes from the graph all those brain regions that are currently blacklisted from the ontology.\
+            If `unreferenced` is True, it is ignored.
 
         Returns
         -------
@@ -977,6 +996,7 @@ class AllenBrainOntology:
         def add_attributes(graph: ig.Graph):
             def visit(region, depth):
                 v = graph.vs[region["graph_order"]]
+                v["id"] = region["id"]
                 v["name"] = region["acronym"]
                 # v["full_name"] = region["name"]
                 v["depth"] = depth
@@ -984,9 +1004,23 @@ class AllenBrainOntology:
                 v["structural_level"] = region["st_level"]
             return visit
 
-        G = ig.Graph(edges=self._get_edges(key="graph_order"))
-        visit_dict.visit_bfs(self.dict, "children", add_attributes(G))
+        g = ig.Graph(edges=self._get_edges(key="graph_order"), directed=True)
+        visit_dict.visit_bfs(self.dict, "children", add_attributes(g))
         # if self.dict was modified removing some nodes, 'graph_order' creates some empty vertices
         # in that case, we remove those vertices
-        G.delete_vertices([v.index for v in G.vs if v.degree() == 0])
-        return G
+
+        blacklisted_unrefs_trees = set(self.get_blacklisted_trees(force_reference=False, key="acronym"))
+        blacklisted_trees = set(self.get_blacklisted_trees(force_reference=True, key="acronym"))
+        unrefs_trees = blacklisted_unrefs_trees - blacklisted_trees
+        if not unreferenced:
+            if not blacklisted:
+                graph_utils.remove_branch(g, blacklisted_unrefs_trees)
+            else:
+                graph_utils.remove_branch(g, unrefs_trees)
+                graph_utils.blacklist_regions(g, blacklisted_trees)
+        else: # if regions unreferenced are kept in the graph, it means it will also keep the
+              # blacklisted ones because unreferenced regions are obligatorily blacklisted from any analysis.
+            graph_utils.blacklist_regions(g, blacklisted_trees, unreferenced=unrefs_trees)
+        if self.has_selection():
+            graph_utils.select_regions(g, self.get_selected_regions())
+        return g

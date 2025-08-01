@@ -12,22 +12,23 @@ from braian.animal_brain import AnimalBrain, SliceMetrics
 from braian.brain_data import BrainData, BrainHemisphere
 from braian.ontology import AllenBrainOntology
 from braian.sliced_brain import SlicedBrain
-from braian.utils import save_csv
+from braian.utils import save_csv, merge_ordered
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
 def _combined_regions(animals: list[AnimalBrain]) -> dict[BrainHemisphere,list[str]]:
     common_regions = dict()
     for hemi in animals[0].hemispheres:
-        all_regions = [set(brain.hemiregions[hemi]) for brain in animals]
-        common_regions[hemi] = list(reduce(set.__or__, all_regions))
+        common_regions[hemi] = merge_ordered(*[brain.hemiregions[hemi] for brain in animals])
+        # all_regions = [set(brain.hemiregions[hemi]) for brain in animals]
+        # common_regions[hemi] = list(reduce(set.__or__, all_regions))
     return common_regions
 
 def _have_same_regions(animals: list[AnimalBrain]) -> bool:
     # NOTE: it only checks whether all animals have the same number of brain regions
     for hemi,regions in animals[0].hemiregions.items():
         all_regions = [set(brain.hemiregions[hemi]) for brain in animals]
-        return len(reduce(set.__and__, all_regions)) ==  len(regions)
+        return len(reduce(set.__and__, all_regions)) == len(regions)
 
 class AnimalGroup:
     def __init__(self, name: str, animals: Sequence[AnimalBrain], hemisphere_distinction: bool=True,
