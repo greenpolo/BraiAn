@@ -113,7 +113,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
     else:
         regions = merge_ordered(*[g.regions for g in groups]) #, selected_regions)
         groups = [
-            group.apply(lambda brain: brain.select_from_list(regions, fill_nan=True, inplace=False))
+            group.apply(lambda brain: brain.select(regions, fill_nan=True, inplace=False))
             for group in groups
         ]
 

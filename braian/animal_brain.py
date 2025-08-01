@@ -441,17 +441,29 @@ class AnimalBrain:
         return tuple(f1(data) if data.hemisphere is hemisphere else f2(data)
                      for data in hemidata)
 
-    def select_from_list(self, regions: Sequence[str],
+    @deprecated("Use AnimalBrain.select instead.")
+    def select_from_list(self, regions: Sequence[str], *args, **kwargs):
+        return self.select(regions, *args, **kwargs)
+
+    @deprecated("Use AnimalBrain.select instead.")
+    def select_from_ontology(self, brain_ontology: AllenBrainOntology, *args, **kwargs):
+        return self.select(brain_ontology, *args, **kwargs)
+
+    def select(self, regions: Sequence[str]|AllenBrainOntology,
                          fill_nan: bool=False, inplace: bool=False,
                          hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
                          select_other_hemisphere: bool=False) -> Self:
         """
-        Filters the data from a given list of regions.
+        Filters the data from a given list of regions.\
+        If, instead, an [ontology][braian.AllenBrainOntology] is given, it filters
+        the data accordingly to a non-overlapping list of regions previously selected.\
+        If the ontology has no [active selection][brain.AllenBrainOntology.has_selection], it fails.
 
         Parameters
         ----------
         regions
-            The acronyms of the regions to select from the data.
+            The acronyms of the regions to select from the data.\
+            Otherwise, an ontology with an [active selection][brain.AllenBrainOntology.has_selection].
         fill_nan
             If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.
@@ -472,66 +484,6 @@ class AnimalBrain:
 
         See also
         --------
-        [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
-        """
-        hemisphere = BrainHemisphere(hemisphere)
-        if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
-            raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
-        def f1(bd: BrainData):
-            return bd.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
-        if hemisphere is BrainHemisphere.BOTH:
-            f2 = f1
-        elif select_other_hemisphere:
-            def f2(bd: BrainData):
-                return bd
-        else:
-            def f2(bd: BrainData):
-                return bd.select_from_list([], fill_nan=fill_nan, inplace=inplace)
-
-        markers_data = {marker: self._apply(hemidata, f1, f2, hemisphere=hemisphere)
-                        for marker, hemidata in self._markers_data.items()}
-        sizes = self._apply(self._sizes, f1, f2, hemisphere=hemisphere)
-        if not inplace:
-            return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
-        else:
-            self._markers_data = markers_data
-            self._sizes = sizes
-            return self
-
-    def select_from_ontology(self, brain_ontology: AllenBrainOntology,
-                             fill_nan: bool=False, inplace: bool=False,
-                             hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
-                             select_other_hemisphere: bool=False) -> Self:
-        """
-        Filters the data from a given ontology, accordingly to a non-overlapping list of regions
-        previously selected in `brain_ontology`.\\
-        It fails if no selection method was called on the ontology.
-
-        Parameters
-        ----------
-        brain_ontology
-            The ontology to which the current data was registered against.
-        fill_nan
-            If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
-            Otherwise, if the data from some regions are missing, they are ignored.
-        inplace
-            If True, it applies the filtering to the current instance.
-        hemisphere
-            If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
-            it only selects the brain regions from the given hemisphere.
-        select_other_hemisphere
-            If True and `hemisphere` is not [`BOTH`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
-            If False, it deselect the opposite hemisphere.
-
-        Returns
-        -------
-        :
-            A brain with data filtered accordingly to the given ontology selection.
-            If `inplace=True` it returns the same instance.
-
-        See also
-        --------
-        [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list]
         [`AllenBrainOntology.get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
         [`AllenBrainOntology.unselect_all`][braian.AllenBrainOntology.unselect_all]
         [`AllenBrainOntology.add_to_selection`][braian.AllenBrainOntology.add_to_selection]
@@ -545,8 +497,13 @@ class AnimalBrain:
         hemisphere = BrainHemisphere(hemisphere)
         if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
             raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
-        def f1(bd: BrainData):
-            return bd.select_from_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
+        if isinstance(regions, AllenBrainOntology):
+            def f1(bd: BrainData):
+                return bd.select_from_ontology(regions, fill_nan=fill_nan, inplace=inplace)
+        else:
+            def f1(bd: BrainData):
+                return bd.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+
         if hemisphere is BrainHemisphere.BOTH:
             f2 = f1
         elif select_other_hemisphere:
@@ -650,6 +607,7 @@ class AnimalBrain:
         hemisizes.index = index
         brain_dict[size_col] = hemisizes
         if marker is not None:
+            assert marker in self.markers, f"No data data available for marker '{marker}'."
             markers_data = ((marker, self._markers_data[marker]),)
         else:
             markers_data = self._markers_data.items()

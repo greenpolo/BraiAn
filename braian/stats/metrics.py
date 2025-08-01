@@ -209,7 +209,7 @@ def relative_density(brain: AnimalBrain,
         brain_merged = brain.merge_hemispheres()
     else:
         brain_merged = brain
-    brain_merged = brain_merged.select_from_ontology(atlas_ontology, fill_nan=False, inplace=False)
+    brain_merged = brain_merged.select(atlas_ontology, fill_nan=False, inplace=False)
     size_brainwide = brain_merged.sizes.data.sum(skipna=True)
     total_brainwide = dict()
     for marker in brain_merged.markers:

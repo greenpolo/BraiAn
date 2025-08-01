@@ -63,8 +63,7 @@ class AnimalGroup:
         [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
         [`AnimalBrain.sort_by_ontology`][braian.AnimalBrain.sort_by_ontology]
         [`BrainData.sort_by_ontology`][braian.BrainData.sort_by_ontology]
-        [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list]
-        [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
+        [`AnimalBrain.select`][braian.AnimalBrain.select]
         """
         self.name = name
         """The name of the group."""
@@ -89,7 +88,7 @@ class AnimalGroup:
             hemiregions = _combined_regions(animals)
             def fill(brain: AnimalBrain) -> AnimalBrain:
                 for hemi,combined_regions in hemiregions.items():
-                    brain = brain.select_from_list(combined_regions, fill_nan=True, inplace=False,
+                    brain = brain.select(combined_regions, fill_nan=True, inplace=False,
                                                    hemisphere=hemi, select_other_hemisphere=True)
                 return brain
 
@@ -238,9 +237,10 @@ class AnimalGroup:
                 self.metric == other.metric # and \
                 # set(self.regions) == set(other.regions)
 
-    def select(self, regions: Sequence[str],
+    def select(self, regions: Sequence[str]|AllenBrainOntology,
                fill_nan: bool=False, inplace: bool=False,
-               hemisphere: BrainHemisphere|str|int=BrainHemisphere.BOTH) -> Self:
+               hemisphere: BrainHemisphere|str|int=BrainHemisphere.BOTH,
+               select_other_hemisphere: bool=False) -> Self:
         """
         Filters the data from a given list of regions.
 
@@ -256,6 +256,9 @@ class AnimalGroup:
         hemisphere
             If not [`BOTH`][braian.BrainHemisphere] and the brains [are split][braian.AnimalGroup.is_split],
             it only selects the brain regions from the given hemisphere.
+        select_other_hemisphere
+            If True and `hemisphere` is not [`BOTH`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
+            If False, it deselect the opposite hemisphere.
 
         Returns
         -------
@@ -265,9 +268,14 @@ class AnimalGroup:
 
         See also
         --------
-        [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
+        [`AnimalBrain.select`][braian.AnimalBrain.select]
         """
-        animals = [brain.select_from_list(regions, fill_nan=fill_nan, inplace=inplace, hemisphere=hemisphere) for brain in self._animals]
+        animals = [brain.select(regions,
+                                fill_nan=fill_nan,
+                                inplace=inplace,
+                                hemisphere=hemisphere,
+                                select_other_hemisphere=select_other_hemisphere)
+                   for brain in self._animals]
         if not inplace:
             # self.metric == animals.metric -> no self.metric.analyse(brain) is computed
             return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
