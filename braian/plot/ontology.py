@@ -5,6 +5,8 @@ import numpy.typing as npt
 import plotly.colors as plc
 import plotly.graph_objects as go
 
+from braian.ontology import selection_cut
+
 from collections.abc import Iterable, Callable
 
 __all__ = [
@@ -15,6 +17,7 @@ __all__ = [
 
 def hierarchy(brain_ontology: braian.AllenBrainOntology,
               bdata: braian.BrainData=None,
+              selection: bool=True,
               unreferenced: bool=False,
               blacklisted: bool=True) -> go.Figure:
     """
@@ -26,6 +29,8 @@ def hierarchy(brain_ontology: braian.AllenBrainOntology,
         The instance of a brain ontology to plot.
     bdata
         If provided, it projects some brain data onto the ontology tree.
+    selection
+        If True, it plots an horizontal red line that cuts through all currently selected regions in the ontology
     unreferenced
         If False, it hides all those brain regions that have no references in the atlas annotations.
     blacklisted
@@ -37,9 +42,9 @@ def hierarchy(brain_ontology: braian.AllenBrainOntology,
     :
         A plotly Figure
     """
-    G: ig.Graph = brain_ontology.to_igraph(unreferenced=unreferenced, blacklisted=blacklisted)
-    graph_layout = G.layout_reingold_tilford(mode="out", root=[0])
-    edges_trace = draw_edges(G, graph_layout, width=0.5, directed=False)
+    g: ig.Graph = brain_ontology.to_igraph(unreferenced=unreferenced, blacklisted=blacklisted)
+    graph_layout = g.layout_reingold_tilford(mode="out", root=[0])
+    edges_trace = draw_edges(g, graph_layout, width=0.5, directed=False)
     nodes_params = dict(
         layout=graph_layout,
         brain_ontology=brain_ontology,
@@ -48,14 +53,17 @@ def hierarchy(brain_ontology: braian.AllenBrainOntology,
     )
     if bdata is not None:
         selected_regions = set(bdata.regions) - set(bdata.missing_regions())
-        for v in G.vs:
+        for v in g.vs:
             acronym = v["name"]
             v["cluster"] = 2 if acronym in selected_regions else 1
             v[f"{bdata.units} - {bdata.metric}"] = bdata[acronym] if acronym in bdata else np.nan
         # nodes_params |= dict(outline_mode="cluster", outline_size=0.5)
         nodes_params |= dict(fill_mode="cluster")
-    nodes_trace = draw_nodes(G, **nodes_params)
+    nodes_trace = draw_nodes(g, **nodes_params)
     nodes_trace.marker.line = dict(color="black", width=0.25)
+    traces = [edges_trace, nodes_trace]
+    if selection and brain_ontology.has_selection():
+        traces.append(draw_selection(g, graph_layout, width=2))
     plot_layout = go.Layout(
         title="Allen's brain region hierarchy",
         titlefont_size=16,
@@ -66,7 +74,7 @@ def hierarchy(brain_ontology: braian.AllenBrainOntology,
         yaxis=dict(showgrid=True, zeroline=False, dtick=1, autorange="reversed", title="depth"),
         template="none"
     )
-    return go.Figure([edges_trace, nodes_trace], layout=plot_layout)
+    return go.Figure(traces, layout=plot_layout)
 
 def draw_edges(G: ig.Graph, layout: ig.Layout, width: int, directed: bool=True) -> go.Scatter:
     """
@@ -104,7 +112,7 @@ def draw_edges(G: ig.Graph, layout: ig.Layout, width: int, directed: bool=True) 
         x=edge_x, y=edge_y,
         line=dict(width=width, color="#888"),
         hoverinfo="none",
-        mode="lines+markers" if G.is_directed() else "lines",
+        mode="lines+markers" if directed and G.is_directed() else "lines",
         showlegend=False)
 
     if directed and G.is_directed():
@@ -202,6 +210,21 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: braian.AllenBrain
         showlegend=False
     )
     return nodes_trace
+
+def draw_selection(g: ig.Graph, layout: ig.Layout, width: float):
+    coords = []
+    contiguous_selections = selection_cut(g)
+    for contiguous_selection in contiguous_selections:
+        for v in contiguous_selection:
+            coords.append(layout.coords[v])
+        coords.append([None,None])
+    coords = np.array(coords)
+    return go.Scatter(
+        x=coords[:,0], y=coords[:,1],
+        line=dict(width=width, color="red"),
+        hoverinfo="none",
+        mode="lines",
+        showlegend=True)
 
 def _region_color(mode: str,
                   G: ig.Graph,
