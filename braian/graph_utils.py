@@ -44,7 +44,7 @@ def _selection_cut(root: ig.Vertex,
     elif root.outdegree() == 0:
         if advanced:
             u.append(_attr(root, attr))
-        if len(c[-1]) == 0: # root is a leaf and the current last contiguous list of nodes is not empty
+        if len(c[-1]) != 0: # root is a leaf and the current last contiguous list of nodes is not empty
             c.append([])    # create a new empty list of nodes
     else:
         for v in root.neighbors(mode="out"):
