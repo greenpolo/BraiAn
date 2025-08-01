@@ -59,7 +59,7 @@ def _selection_cut(root: ig.Vertex,
             _selection_cut(root=v,attr=attr,advanced=advanced,c=c,u=u)
     return (c,[_attr(v, attr) for v in minimum_treecover(u)]) if advanced else c
 
-def selection_cut(g: ig.GraphBase, attr="index", advanced: bool=False) -> list[list[str]]:
+def brainwide_selection(g: ig.GraphBase, attr="index", advanced: bool=False) -> list[list[str]]:
     if "selected" not in g.vs.attributes():
         raise ValueError("The current ontology has no active selection.")
     return _selection_cut(g.vs[0], attr=attr, advanced=advanced)
