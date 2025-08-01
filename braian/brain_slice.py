@@ -12,7 +12,7 @@ from braian.brain_data import sort_by_ontology, BrainHemisphere, UnknownBrainReg
 from braian.ontology import AllenBrainOntology
 from braian.utils import search_file_or_simlink
 
-__all__ = ["BrainSlice"]
+__all__ = ["BrainSlice", "QuPathMeasurementType"]
 
 # global MODE_PathAnnotationObjectError
 global MODE_ExcludedRegionNotRecognisedError
@@ -65,12 +65,22 @@ def overlapping_markers(marker1: str, marker2: str) -> str:
     return f"{marker1}+{marker2}"
 
 class QuPathMeasurementType(Enum):
+    r"""
+    Enum of the supported types of measurements available from QuPath.
+
+    Attributes
+    ----------
+    AREA
+        The associated measurements report per-region _coverages_ (e.g. area covered by axonal projections).
+    CELL_COUNT
+        The associated measurements report per-region _cell counts_ (e.g. cFos positive quantifications).
+    """
     AREA = 0
     CELL_COUNT = 1
 
 @dataclass
 class QuPathMeasurement:
-    """Class for keeping track of an item in inventory."""
+    r"""Class for identifying measurements extracted with QuPath."""
     key: str
     measurement: str
     type: QuPathMeasurementType

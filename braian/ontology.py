@@ -1,5 +1,4 @@
 import braian.utils
-import brainglobe_atlasapi as bga
 import igraph as ig
 import json
 import numpy as np

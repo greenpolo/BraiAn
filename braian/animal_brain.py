@@ -457,13 +457,13 @@ class AnimalBrain:
         Filters the data from a given list of regions.\
         If, instead, an [ontology][braian.AllenBrainOntology] is given, it filters
         the data accordingly to a non-overlapping list of regions previously selected.\
-        If the ontology has no [active selection][brain.AllenBrainOntology.has_selection], it fails.
+        If the ontology has no [active selection][braian.AllenBrainOntology.has_selection], it fails.
 
         Parameters
         ----------
         regions
             The acronyms of the regions to select from the data.\
-            Otherwise, an ontology with an [active selection][brain.AllenBrainOntology.has_selection].
+            Otherwise, an ontology with an [active selection][braian.AllenBrainOntology.has_selection].
         fill_nan
             If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.

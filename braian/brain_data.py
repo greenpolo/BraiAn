@@ -22,6 +22,18 @@ class InvalidRegionsHemisphereError(Exception):
         " Some rows are in the form '{Left|Right}: <region acronym>', while others are not.")
 
 class BrainHemisphere(Enum):
+    r"""
+    Enum used to tag [brain data][braian.BrainData] as belonging to a certain hemisphere of the brain.
+
+    Attributes
+    ----------
+    BOTH
+        The associated brain region data concerns the whole brain, with no hemisphere distinction.
+    LEFT
+        The associated brain region data concerns the _left_ hemisphere only.
+    RIGHT
+        The associated brain region data concerns the _right_ hemisphere only.
+    """
     BOTH = 0
     LEFT = 1    # same as brainglobe_atlasapi.core.Atlas.left_hemisphere_value
     RIGHT = 2   # same as brainglobe_atlasapi.core.Atlas.right_hemisphere_value
