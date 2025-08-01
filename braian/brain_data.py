@@ -490,8 +490,10 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.data = data
             return self
 
-    def select_from_ontology(self, brain_ontology: AllenBrainOntology,
-                              *args, **kwargs) -> Self:
+    def select_from_ontology(self,
+                             brain_ontology: AllenBrainOntology,
+                             fill_nan=False,
+                             *args, **kwargs) -> Self:
         """
         Filters the data from a given ontology, accordingly to a non-overlapping list of regions
         previously selected in `brain_ontology`.\\
@@ -501,6 +503,9 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         ----------
         brain_ontology
             The ontology to which the current data was registered against.
+        fill_nan
+            If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
+            Otherwise, if the data from some regions are missing, they are ignored.
         *args, **kwargs
             Other arguments are passed to [`select_from_list`][braian.BrainData.select_from_list].
 
@@ -520,9 +525,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         [`AllenBrainOntology.select_regions`][braian.AllenBrainOntology.select_regions]
         [`AllenBrainOntology.get_regions`][braian.AllenBrainOntology.get_regions]
         """
+        assert brain_ontology.has_selection(), "No selection found in the given ontology."
         selected_allen_regions = brain_ontology.get_selected_regions()
-        selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
-        return self.select_from_list(list(selectable_regions), *args, **kwargs)
+        if not fill_nan:
+            selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
+        else:
+            selectable_regions = selected_allen_regions
+        return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, *args, **kwargs)
 
     def merge_hemispheres(self, other: Self) -> Self:
         """
