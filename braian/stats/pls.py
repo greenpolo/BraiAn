@@ -198,6 +198,7 @@ class PLS:
         seed
             A random seed.
         """
+        # NOTE: when n > |groups|^|brains| (e.g. 2^12 = 4092), it will have at least one duplicate in the permutation
         if seed is not None:
             np.random.seed(seed)
         singular_values = np.zeros((n, *self._s.shape))
