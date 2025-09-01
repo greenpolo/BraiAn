@@ -28,6 +28,7 @@ global MODE_EmptyResultsError
 global MODE_NanResultsError
 global MODE_InvalidResultsError
 global MODE_MissingResultsColumnError
+global MODE_MissingResultsMeasurementError
 global MODE_InvalidRegionsHemisphereError
 global MODE_InvalidExcludedRegionsHemisphereError
 MODE_ExcludedAllRegionsError = "print"
@@ -36,6 +37,7 @@ MODE_EmptyResultsError = "print"
 MODE_NanResultsError = "print"
 MODE_InvalidResultsError = "print"
 MODE_MissingResultsColumnError = "print"
+MODE_MissingResultsMeasurementError = "print"
 MODE_InvalidRegionsHemisphereError = "print"
 MODE_InvalidExcludedRegionsHemisphereError = "print"
 
