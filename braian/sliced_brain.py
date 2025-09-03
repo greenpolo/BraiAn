@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Self
 
 from braian.ontology import AllenBrainOntology
-from braian.brain_data import BrainData
+from braian.brain_data import BrainData, BrainHemisphere
 from braian.brain_slice import BrainSlice,\
                         BrainSliceFileError, \
                         ExcludedAllRegionsError, \
@@ -224,7 +224,7 @@ class SlicedBrain:
                           pd.concat((slice.data["area"], slice.markers_density), axis=1)
                           for slice in self._slices])
 
-    def count(self, brain_ontology: AllenBrainOntology=None) -> BrainData:
+    def count(self, brain_ontology: AllenBrainOntology=None) -> BrainData|dict[BrainHemisphere, BrainData]:
         """
         Counts the number of slices that contains data for each brain region.
 
@@ -239,8 +239,16 @@ class SlicedBrain:
             A `BrainData` with the number of slices per region.
         """
         all_slices = self.concat_slices()
-        count = all_slices.groupby(all_slices.index).count().iloc[:,0]
-        return BrainData(count, self._name, "count_slices", "#slices", brain_ontology=brain_ontology, fill_nan=False)
+        count = all_slices.groupby(["acronym", "hemisphere"]).count().iloc[:,0]
+        if self.is_split:
+            return {hem: BrainData(count.xs(hem.value, level="hemisphere"),
+                        self._name, "count_slices", "#slices", hemisphere=hem,
+                        brain_ontology=brain_ontology, fill_nan=False)
+                    for hem in (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)}
+        hem = BrainHemisphere.BOTH
+        return BrainData(count.xs(hem.value, level="hemisphere"),
+                        self._name, "count_slices", "#slices", hemisphere=hem,
+                        brain_ontology=brain_ontology, fill_nan=False)
 
     def merge_hemispheres(self) -> Self:
         """
