@@ -26,14 +26,32 @@ def allen_ontology():
     with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
         data = json.load(f)
     allen_dict = data["msg"][0] if "msg" in data else data
-    return AllenBrainOntology(allen_dict, version="CCFv3")
+    return AllenBrainOntology(allen_dict,
+                              blacklisted_acronyms=[],
+                              name="allen_mouse_10um_java",
+                              version="CCFv3",
+                              unreferenced=False)
 
 @pytest.fixture
-def allen_ontology_no_blacklists():
+def allen_ontology_with_unreferenced():
     with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
         data = json.load(f)
     allen_dict = data["msg"][0] if "msg" in data else data
-    return AllenBrainOntology(allen_dict, version=None)
+    return AllenBrainOntology(allen_dict,
+                              blacklisted_acronyms=[],
+                              name="allen_mouse_10um_java",
+                              version="CCFv3",
+                              unreferenced=True)
+
+@pytest.fixture
+def allen_ontology_with_unreferenced_blacklisted_hpf(allen_ontology_with_unreferenced: AllenBrainOntology):
+    allen_ontology_with_unreferenced.blacklist_regions(["HPF"], has_reference=True)
+    return allen_ontology_with_unreferenced
+
+@pytest.fixture
+def allen_ontology_with_unreferenced_blacklisted_hpf_no_reference(allen_ontology_with_unreferenced: AllenBrainOntology):
+    allen_ontology_with_unreferenced.blacklist_regions(["HPF"], has_reference=False)
+    return allen_ontology_with_unreferenced
 
 @pytest.fixture
 def allen_ontology_blacklisted_all(allen_ontology: AllenBrainOntology):
@@ -164,19 +182,19 @@ def test_minimum_treecover(ontology, acronyms, include_blacklisted, include_unre
     assert result == expected
 
 @pytest.mark.parametrize(
-    "ontology, force_reference, expected",
+    "ontology, unreferenced, expected",
     [
-        ("allen_ontology_no_blacklists", False, []),
-        ("allen_ontology_no_blacklists", True, []),
-        ("allen_ontology_blacklisted_hpf", False, ["HPF"]),
-        ("allen_ontology_blacklisted_hpf", True, ["HPF"]),
-        ("allen_ontology_blacklisted_hpf", False, ["HPF"]),
-        ("allen_ontology_blacklisted_hpf", True, []),
+        ("allen_ontology_with_unreferenced", True, []),
+        ("allen_ontology_with_unreferenced", False, []),
+        ("allen_ontology_with_unreferenced_blacklisted_hpf", True, ["HPF"]),
+        ("allen_ontology_with_unreferenced_blacklisted_hpf", False, ["HPF"]),
+        ("allen_ontology_with_unreferenced_blacklisted_hpf_no_reference", True, ["HPF"]),
+        ("allen_ontology_with_unreferenced_blacklisted_hpf_no_reference", False, []),
     ]
 )
-def test_get_blacklisted_trees(ontology, force_reference, expected, request):
+def test_get_blacklisted_trees(ontology, unreferenced, expected, request):
     ontology: AllenBrainOntology = request.getfixturevalue(ontology)
-    result = ontology.get_blacklisted_trees(force_reference=force_reference)
+    result = ontology.get_blacklisted_trees(unreferenced=unreferenced)
     assert result == expected
 
 @pytest.mark.parametrize(
@@ -330,19 +348,31 @@ def test_constructor_variants():
     with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
         data = json.load(f)
     allen_dict = data["msg"][0] if "msg" in data else data
-    # No blacklist
-    o1 = AllenBrainOntology(allen_dict, version="CCFv3")
-    assert isinstance(o1.dict, dict)
-    # Blacklist root
-    o2 = AllenBrainOntology(allen_dict, blacklisted_acronyms=["root"], version="CCFv3")
-    assert "root" in o2.get_blacklisted_trees()
-    # Blacklist some
-    o3 = AllenBrainOntology(allen_dict, blacklisted_acronyms=["CH", "BS"], version="CCFv3")
-    assert "CH" in o3.get_blacklisted_trees() and "BS" in o3.get_blacklisted_trees()
-    # Blacklist depth 1
-    o4 = AllenBrainOntology(allen_dict, blacklisted_acronyms=["grey", "fiber tracts", "VS", "grv", "retina"], version="CCFv3")
-    for r in ["grey", "fiber tracts", "VS", "grv", "retina"]:
-        assert r in o4.get_blacklisted_trees()
-    # Blacklist nothing
-    o5 = AllenBrainOntology(allen_dict, blacklisted_acronyms=[], version="CCFv3")
-    assert isinstance(o5.dict, dict)
+    # Default: name and version deduced, no blacklist, unreferenced False
+    o1 = AllenBrainOntology(allen_dict)
+    assert o1.get_blacklisted_trees(unreferenced=False) == []
+    assert o1.name == "allen_mouse_10um_java"
+    assert o1.annotation_version == "ccf_2017"
+    o2 = AllenBrainOntology(allen_dict, blacklisted_acronyms=["root"])
+    assert o2.get_blacklisted_trees() == ["root"]
+    o3 = AllenBrainOntology(allen_dict, blacklisted_acronyms=["CH", "BS", "grey", "fiber tracts"])
+    assert set(o3.get_blacklisted_trees()) == {"grey", "fiber tracts"}
+    o4 = AllenBrainOntology(allen_dict, unreferenced=True, version="CCFv3")
+    assert len(o4.get_blacklisted_trees(unreferenced=True)) == 0 # CCFv3 has some unreferenced regions in its ontology
+    o5 = AllenBrainOntology(allen_dict, unreferenced=False, version="CCFv3")
+    assert len(o5.get_blacklisted_trees(unreferenced=True)) > 0
+    o6 = AllenBrainOntology(allen_dict, name="other_allen_atlas", version="CCFv4", unreferenced=False)
+    assert o6.annotation_version == "ccf_2022"
+    with pytest.raises(ValueError):
+        AllenBrainOntology(allen_dict, name="other_allen_atlas")
+    # Name as BrainGlobe alias (should not raise if atlas is available)
+    try:
+        o9 = AllenBrainOntology(allen_dict, name="allen_mouse_10um", version="CCFv3")
+        assert o9.name == "allen_mouse_10um"
+    except ValueError:
+        pass  # Acceptable if atlas is not available locally
+    # Version deduction from name
+    o10 = AllenBrainOntology(allen_dict, name="allen_mouse_10um_java")
+    assert o10.annotation_version == "ccf_2017"
+    o11 = AllenBrainOntology(allen_dict, name="allen_mouse_10um")
+    assert o11.annotation_version == "ccf_2017"

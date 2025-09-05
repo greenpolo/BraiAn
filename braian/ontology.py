@@ -46,6 +46,17 @@ def set_reference(node, has_reference):
 def has_reference(node) -> bool:
     return "has_reference" in node and node["has_reference"]
 
+def _version_from_abba_name(name: str) -> str:
+    match name:
+        case "Adult Mouse Brain - Allen Brain Atlas V3" | "Adult Mouse Brain - Allen Brain Atlas V3p1" | "allen_mouse_10um_java":
+            return "CCFv3"
+        case _:
+            raise ValueError(f"Name not recognised as an Allen Mouse Brain-compatible atlas: '{name}'. Please, provide the version of the Common Coordinate Framework (CCF) manually.")
+
+def _is_brainglobe_atlas(name: str) -> bool:
+    last_atlases_versions: dict[str,str] = list_atlases.get_all_atlases_lastversions()
+    return name in last_atlases_versions
+
 def _get_brainglobe_name(name: str) -> bool:
     last_atlases_versions: dict[str,str] = list_atlases.get_all_atlases_lastversions()
     if name not in last_atlases_versions:
@@ -59,17 +70,14 @@ class AllenBrainOntology:
     def __init__(self,
                  allen_json: str|Path|dict,
                  blacklisted_acronyms: Iterable=[],
-                 name: str|None=None,
-                 version: str|None=None):
+                 name: str="allen_mouse_10um_java",
+                 version: str|None=None,
+                 unreferenced: bool=False):
         """
         Crates an ontology of brain regions based on Allen Institute's structure graphs.
         To know more where to get the structure graphs, read the
         [official guide](https://community.brain-map.org/t/downloading-an-ontologys-structure-graph/2880)
         from Allen Institute.
-        However, the ontology differs from the region annotations depeding on the version of the common coordinate
-        framework (CCF). This happens when a new CCF version changes a branch in the ontoloy to reflect a new scientific consesus.
-        In Allen's website, the "old" brain region can be identified in grey italic text: [](https://atlas.brain-map.org/atlas)
-        If you want to clean the ontology based on a particular version of the CCF, you can provide a valid value for `version`
 
         Parameters
         ----------
@@ -78,10 +86,28 @@ class AllenBrainOntology:
         blacklisted_acronyms
             Acronyms of branches from the onthology to exclude completely from the analysis
         name
-            the name of a Allen-compatible mouse brain atlas from BrainGlobe
+            The name of a Allen-compatible mouse brain atlas from ABBA, BrainGlobe or others.
+            (e.g., "allen_mouse_10um" or "Adult Mouse Brain - Allen Brain Atlas V3p1").
         version
+            The version of the Common Coordinates Framework from Allen's mouse brain atlas.
             Must be `"CCFv1"`, `"CCFv2"`, `"CCFv3"`, `"CCFv4"` or `None`.
-            The version of the Common Coordinates Framework to which the onthology is synchronised
+            If `version` is None, it defaults tries to deduce it from the `name` of the atlas.
+        unreferenced
+            If True, it considers as part of the ontology all those brain regions that have no references in the atlas annotations.
+            Otherwise, it removes them from the ontology.
+            On Allen's website, unreferenced brain regions are identified by grey italic text: [](https://atlas.brain-map.org)
+
+        Raises
+        ------
+        ValueError
+            If no `version` is provided and the given `name` is not compatible with ABBA nor with BrainGlobe,
+            thus making it impossible to deduce the version of the Common Coordinate Framework.
+        ValueError
+            If the provided `name` is from a BrainGlobe atlas but its not available locally on the computer.
+        ValueError
+            If the provided `version` is not recognised.
+        ValueError
+            If any of the `blacklisted_acronyms` is not recognised as part of the ontology.
         """
         # TODO: we should probably specify the size (10nm, 25nm, 50nm) to which the data was registered
         if isinstance(allen_json, (str, Path)):
@@ -101,19 +127,19 @@ class AllenBrainOntology:
             self.blacklist_regions(blacklisted_acronyms, key="acronym")
             # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
-        if name is not None:
-            self.name = name
-            self.annotation_version = "ccf_2017"
-        else: #if version is not None:
-            self.annotation_version = self._get_allen_version(version)
-            self.name = "allen_mouse_10um_java"
-        # this should be temporary workaround, before the ontology is rewritten with complete BrainGlobe support
-        try:
-            _get_brainglobe_name(self.name) # throws ValueError if the name is not recognised by BrainGlobe
-            unannoted_regions = self._get_unannoted_bg_regions()
-        except ValueError:
-            unannoted_regions = self._get_unannoted_regions()
-        self.blacklist_regions(unannoted_regions, key="id", has_reference=False)
+        self.name = name
+        if version is None:
+            if _is_brainglobe_atlas(self.name):
+                version = "CCFv3"
+            else:
+                version = _version_from_abba_name(self.name)
+        self.annotation_version = self._get_allen_version(version) # used to remove unreferenced regions and to select isocortex layer 1
+        if not unreferenced:
+            if _is_brainglobe_atlas(self.name):
+                unannoted_regions = self._get_unannoted_bg_regions() # throws ValueError if the atlas is not downloaded
+            else:
+                unannoted_regions = self._get_unannoted_regions()
+            self.blacklist_regions(unannoted_regions, key="id", has_reference=False)
 
         self._add_depth_to_regions()
         self._mark_major_divisions()
@@ -313,15 +339,15 @@ class AllenBrainOntology:
             if not has_reference:
                 visit_dict.visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
 
-    def get_blacklisted_trees(self, force_reference: bool=True, key: str="acronym") -> list:
+    def get_blacklisted_trees(self, unreferenced: bool=False, key: str="acronym") -> list:
         """
         Returns the biggest brain region of each branch in the ontology that was blacklisted.
 
         Parameters
         ----------
-        force_reference
-            If True, returns only those blacklisted regions that has a reference in the annotation volume.
-            Else, it includes also the brain regions that were blacklisted from the ontology because they don't have an annotation in the atlas.
+        unreferenced
+            If True, it includes also the brain regions that were blacklisted from the ontology because they don't have an annotation in the atlas.
+            Otherwise, it returns only those blacklisted regions that has a reference in the annotation volume.
         key
             The key in Allen's structural graph used to indentify the returned regions
 
@@ -330,12 +356,12 @@ class AllenBrainOntology:
         :
             A list of blacklisted regions, each of which is identifiable with `key`
         """
-        if force_reference:
-            def select_node(n: dict, d: int):
-                return is_blacklisted(n) and has_reference(n)
-        else:
+        if unreferenced:
             def select_node(n: dict, d: int):
                 return is_blacklisted(n) or not has_reference(n)
+        else:
+            def select_node(n: dict, d: int):
+                return is_blacklisted(n) and has_reference(n)
         regions = visit_dict.non_overlapping_where(self.dict, "children", select_node, mode="bfs")
         return [region[key] for region in regions]
 
@@ -1014,8 +1040,8 @@ class AllenBrainOntology:
         # if self.dict was modified removing some nodes, 'graph_order' creates some empty vertices
         # in that case, we remove those vertices
 
-        blacklisted_unrefs_trees = set(self.get_blacklisted_trees(force_reference=False, key="acronym"))
-        blacklisted_trees = set(self.get_blacklisted_trees(force_reference=True, key="acronym"))
+        blacklisted_unrefs_trees = set(self.get_blacklisted_trees(unreferenced=True, key="acronym"))
+        blacklisted_trees = set(self.get_blacklisted_trees(unreferenced=False, key="acronym"))
         unrefs_trees = blacklisted_unrefs_trees - blacklisted_trees
         if not unreferenced:
             if not blacklisted:
