@@ -13,6 +13,7 @@ from collections import OrderedDict
 from collections.abc import Iterable, Container
 from copy import deepcopy
 from braian import visit_dict, graph_utils
+from braian.utils import deprecated
 from pathlib import Path
 
 __all__ = ["AllenBrainOntology", "MAJOR_DIVISIONS"]
@@ -264,6 +265,7 @@ class AllenBrainOntology:
         visit_dict.visit_dfs(self.dict, "children", check_region)
         return is_region
 
+    @deprecated(since="1.1.0")
     def contains_all_children(self, parent: str, regions: Container[str]) -> bool:
         """
         Check whether a brain region contains all the given regions
@@ -280,7 +282,7 @@ class AllenBrainOntology:
         :
             True if all `regions` are direct subregions of `parent`
         """
-        return all(r in regions for r in self.direct_subregions[parent])
+        return set(self.direct_subregions[parent]) == set(regions)
 
     def minimum_treecover(self,
                           acronyms: Iterable[str],
@@ -338,13 +340,15 @@ class AllenBrainOntology:
         ValueError
             If it can't find at least one of the `regions` in the ontology
         """
-        if not all(is_region:=self.are_regions(regions, key=key)):
+        if not all(is_region:=self.are_regions(regions, key=key, unreferenced=True)):
             raise ValueError(f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}")
         for region_value in regions:
             region_node = visit_dict.find_subtree(self.dict, key, region_value, "children")
             visit_dict.visit_bfs(region_node, "children", lambda n,d: set_blacklisted(n, True))
             if not has_reference:
                 visit_dict.visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
+        if not has_reference:
+            self.direct_subregions = self._get_all_subregions()
 
     def get_blacklisted_trees(self, unreferenced: bool=False, key: str="acronym") -> list:
         """
@@ -872,7 +876,7 @@ class AllenBrainOntology:
         subregions = dict()
         def add_subregions(node, depth):
             if node["children"]:
-                subregions[node[key]] = [child[key] for child in node["children"]]
+                subregions[node[key]] = [child[key] for child in node["children"] if not is_blacklisted(child) and has_reference(child)]
         visit_dict.visit_bfs(self.dict, "children", add_subregions)
         return subregions
 
