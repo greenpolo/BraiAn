@@ -98,8 +98,10 @@ def allen_ontology_blacklisted_hpf_no_reference(allen_ontology: AllenBrainOntolo
     ]
 )
 def test_is_region(ontology, acronym, expected, request):
-    ontology: AllenBrainOntology = request.getfixturevalue(ontology)
-    assert ontology.is_region(acronym) == expected
+    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    assert o.is_region(acronym, unreferenced=False) == expected
+    if ontology in ("allen_ontology_blacklisted_all_no_reference", "allen_ontology_blacklisted_hpf_no_reference"):
+        assert o.is_region(acronym, unreferenced=True)
 
 @pytest.mark.parametrize(
     "ontology, acronyms, expected",

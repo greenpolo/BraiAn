@@ -211,7 +211,7 @@ class AllenBrainOntology:
         regions_wo_annotation = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dict.visit_dfs)
         return [region["id"] for region in regions_wo_annotation]
 
-    def is_region(self, r: int|str, key: str="acronym") -> bool:
+    def is_region(self, r: int|str, key: str="acronym", unreferenced: bool=False) -> bool:
         """
         Check whether a region is recognised in the current ontology or not
 
@@ -227,7 +227,8 @@ class AllenBrainOntology:
         :
             True, if a region identifiable by `r` exists in the ontoloy. False otherwise.
         """
-        return visit_dict.find_subtree(self.dict, key, r, "children") is not None
+        region_tree = visit_dict.find_subtree(self.dict, key, r, "children")
+        return region_tree is not None and (unreferenced or has_reference(region_tree))
 
     def are_regions(self, a: Iterable, key: str="acronym") -> npt.NDArray:
         """
