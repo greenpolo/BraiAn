@@ -100,43 +100,58 @@ def allen_ontology_blacklisted_hpf_no_reference(allen_ontology: AllenBrainOntolo
 def test_is_region(ontology, acronym, expected, request):
     o: AllenBrainOntology = request.getfixturevalue(ontology)
     assert o.is_region(acronym, unreferenced=False) == expected
-    if ontology in ("allen_ontology_blacklisted_all_no_reference", "allen_ontology_blacklisted_hpf_no_reference"):
+    if ontology.endswith("_no_reference"):
         assert o.is_region(acronym, unreferenced=True)
 
 @pytest.mark.parametrize(
-    "ontology, acronyms, expected",
+    "ontology, acronyms, unreferenced, expected",
     [
         (
             "allen_ontology",
             ["Isocortex", "FRP", "MOp"],
+            False,
             np.array([True, True, True])
         ),
         (
             "allen_ontology",
             ["NOT_A_REGION", "FAKE"],
+            False,
             np.array([False, False])
         ),
         (
             "allen_ontology",
             ["root", "HPF", "NOT_A_REGION"],
+            False,
             np.array([True, True, False])
         ),
         (
             "allen_ontology_blacklisted_hpf",
             ["root", "HPF", "NOT_A_REGION"],
+            False,
             np.array([True, True, False])
         ),
         (
             "allen_ontology_blacklisted_hpf_no_reference",
             ["root", "HPF", "NOT_A_REGION"],
+            False,
             np.array([True, False, False])
+        ),
+        (
+            "allen_ontology_blacklisted_hpf_no_reference",
+            ["root", "HPF", "NOT_A_REGION"],
+            True,
+            np.array([True, True, False])
         ),
     ]
 )
-def test_are_regions(ontology, acronyms, expected, request):
+def test_are_regions(ontology, acronyms, unreferenced, expected, request):
     ontology: AllenBrainOntology = request.getfixturevalue(ontology)
-    result = ontology.are_regions(acronyms)
+    result = ontology.are_regions(acronyms, unreferenced=unreferenced)
     npt.assert_array_equal(result, expected)
+
+def test_are_regions_should_raise(allen_ontology: AllenBrainOntology):
+    with pytest.raises(ValueError):
+        allen_ontology.are_regions(["Isocortex", "FRP", "Isocortex", "MOp"])
 
 @pytest.mark.parametrize(
     "ontology, parent, regions, expected",

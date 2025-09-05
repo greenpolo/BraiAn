@@ -95,7 +95,7 @@ class AllenBrainOntology:
         unreferenced
             If True, it considers as part of the ontology all those brain regions that have no references in the atlas annotations.
             Otherwise, it removes them from the ontology.
-            On Allen's website, unreferenced brain regions are identified by grey italic text: [](https://atlas.brain-map.org)
+            On Allen's website, unreferenced brain regions are identified by grey italic text: [](https://atlas.brain-map.org).
 
         Raises
         ------
@@ -213,14 +213,14 @@ class AllenBrainOntology:
 
     def is_region(self, r: int|str, key: str="acronym", unreferenced: bool=False) -> bool:
         """
-        Check whether a region is recognised in the current ontology or not
+        Check whether a region is recognised in the current ontology or not.
 
         Parameters
         ----------
         r
-            A value that uniquely indentifies a brain region (e.g. its acronym)
+            A value that uniquely indentifies a brain region (e.g. its acronym).
         key
-            The key in Allen's structural graph used to identify `r`
+            The key in Allen's structural graph used to identify `r`.
 
         Returns
         -------
@@ -230,31 +230,37 @@ class AllenBrainOntology:
         region_tree = visit_dict.find_subtree(self.dict, key, r, "children")
         return region_tree is not None and (unreferenced or has_reference(region_tree))
 
-    def are_regions(self, a: Iterable, key: str="acronym") -> npt.NDArray:
+    def are_regions(self, a: Iterable, key: str="acronym", unreferenced: bool=False) -> npt.NDArray:
         """
-        Check whether each of the elements of the iterable are a brain region of the current ontology or not
+        Check whether each of the elements of the iterable are a brain region of the current ontology or not.
 
         Parameters
         ----------
         a
-            List of values that identify uniquely a brain region (e.g. their acronyms)
+            List of values that identify uniquely a brain region (e.g. their acronyms).
         key
-            The key in Allen's structural graph used to identify `a`
+            The key in Allen's structural graph used to identify `a`.
 
         Returns
         -------
         :
-            An array of bools being True where the corresponding value in `a` is a region and False otherwise
+            An array of bools being True where the corresponding value in `a` is a region and False otherwise.
+
+        Raises
+        ------
+        ValueError
+            If duplicates are detected in the list of acronyms.
         """
         assert isinstance(a, Iterable), f"Expected a '{Iterable}' but get '{type(a)}'"
         a = list(a)
         s = set(a)
-        assert len(a) == len(s), f"Duplicates detected in the list of '{key}' requested to be identified as brain regions"
+        if len(a) != len(s):
+            raise ValueError(f"Duplicates detected in the list of '{key}' requested to be identified as brain regions")
         is_region = np.full_like(a, False, dtype=bool)
         def check_region(node, depth):
             id = node[key]
-            if id in s:
-                is_region[a.index(id)] = True # NOTE: if it wont work properly if 'a' has duplicates 
+            if (unreferenced or has_reference(node)) and id in s:
+                is_region[a.index(id)] = True # NOTE: if it wont work properly if 'a' has duplicates
         visit_dict.visit_dfs(self.dict, "children", check_region)
         return is_region
 
