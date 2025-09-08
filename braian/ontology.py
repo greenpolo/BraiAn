@@ -145,6 +145,8 @@ class AllenBrainOntology:
         self._add_depth_to_regions()
         self._mark_major_divisions()
         """The name of the atlas accordingly to ABBA/BrainGlobe"""
+        self.full_name: dict[str,str] = self._get_full_names()
+        """A dictionary mapping a regions' acronym to its full name. It also contains the names for the blacklisted and unreferenced regions."""
         self.parent_region: dict[str,str] = self._get_all_parent_areas() #: A dictionary mapping region's acronyms to the parent region. It does not have 'root'.
         self.direct_subregions: dict[str,list[str]] = self._get_all_subregions()
         """A dictionary mappin region's acronyms to a list of direct subregions.
@@ -158,8 +160,6 @@ class AllenBrainOntology:
         >>> brain_ontology.direct_subregions["ACAv"]
         ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"]   # all layers in ventral part
         """
-        self.full_name: dict[str,str] = self._get_full_names()
-        """A dictionary mapping a regions' acronym to its full name."""
 
     def _get_allen_version(self, version):
         match version:
@@ -287,7 +287,7 @@ class AllenBrainOntology:
     def minimum_treecover(self,
                           acronyms: Iterable[str],
                           unreferenced: bool=False,
-                          blacklisted: bool=True) -> list[str]:
+                          blacklisted: bool=True) -> set[str]:
         """
         Returns the minimum set of regions that covers all the given regions, and not more.
 
@@ -311,14 +311,14 @@ class AllenBrainOntology:
         >>> braian.utils.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
         >>> brain_ontology = braian.AllenBrainOntology("ontology.json", [], version="v3")
         >>> sorted(brain_ontology.minimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY']))
-        ['BS', 'CB']
+        {'BS', 'CB'}
 
         >>> sorted(brain_ontology.minimum_treecover(["RE", "Xi", "PVT", "PT", "TH"]))
-        ['MTN', 'TH']
+        {'MTN', 'TH'}
         """
         g = self.to_igraph(unreferenced=unreferenced, blacklisted=blacklisted)
         vs = graph_utils.minimum_treecover(g.vs.select(name_in=acronyms))
-        return [v["name"] for v in vs]
+        return {v["name"] for v in vs}
 
     def blacklist_regions(self, regions: Iterable, key: str="acronym", has_reference: bool=True):
         """
@@ -408,7 +408,8 @@ class AllenBrainOntology:
         [`get_regions`][braian.AllenBrainOntology.get_regions]
         """
         def is_selected(node, _depth):
-            return _depth == depth or (_depth < depth and not node["children"])
+            return _depth == depth or (_depth < depth and (not node["children"] or
+                                                           not any(has_reference(child) for child in node["children"])))
         visit_dict.add_boolean_attribute(self.dict, "children", "selected", is_selected)
 
     def select_at_structural_level(self, level: int):
@@ -716,7 +717,7 @@ class AllenBrainOntology:
                 visit_alg = visit_dict.visit_dfs
             case _:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth', 'depth' or None.")
-        if not all(is_region:=self.are_regions(ids, key="id")):
+        if not all(is_region:=self.are_regions(ids, key="id", unreferenced=True)):
             raise ValueError(f"Some given IDs are not recognised as part of the ontology: {np.asarray(ids)[~is_region]}")
         areas = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] in ids, visit_alg)
         if mode is None:
@@ -755,6 +756,8 @@ class AllenBrainOntology:
                 visit_alg = visit_dict.visit_dfs
             case _:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
+        if not all(is_region:=self.are_regions(acronyms, key="acronym", unreferenced=True)):
+            raise ValueError(f"Some given acronyms are not recognised as part of the ontology: {np.asarray(acronyms)[~is_region]}")
         regions = visit_dict.get_where(self.dict, "children", lambda n,d: n["acronym"] in acronyms, visit_alg)
         if mode is None:
             regions.sort(key=lambda r: list(acronyms).index(r["acronym"]))

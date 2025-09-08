@@ -175,7 +175,7 @@ def test_are_regions(ontology, acronyms, unreferenced, expected, request):
     npt.assert_array_equal(result, expected)
 
 def test_are_regions_should_raise(allen_ontology: AllenBrainOntology):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=".*Duplicates.*"):
         allen_ontology.are_regions(["Isocortex", "FRP", "Isocortex", "MOp"])
 
 @pytest.mark.parametrize(
@@ -204,6 +204,8 @@ def test_contains_all_children(ontology, parent, regions, expected, request):
 @pytest.mark.parametrize(
     "ontology, acronyms, include_blacklisted, include_unreferenced, expected",
     [
+        ("allen_ontology_complete",
+         [], True, True, set()),
         ("allen_ontology_unreferenced_hpf",
          ["Isocortex", "OLF", "HPF", "TH", "HY"], True, True, {"CTXpl", "IB"}),
         ("allen_ontology_unreferenced_hpf",
@@ -220,7 +222,7 @@ def test_contains_all_children(ontology, parent, regions, expected, request):
 )
 def test_minimum_treecover(ontology, acronyms, include_blacklisted, include_unreferenced, expected, request):
     ontology: AllenBrainOntology = request.getfixturevalue(ontology)
-    result = set(ontology.minimum_treecover(acronyms, blacklisted=include_blacklisted, unreferenced=include_unreferenced))
+    result = ontology.minimum_treecover(acronyms, blacklisted=include_blacklisted, unreferenced=include_unreferenced)
     assert result == expected
 
 @pytest.mark.parametrize(
@@ -235,8 +237,11 @@ def test_minimum_treecover(ontology, acronyms, include_blacklisted, include_unre
     ]
 )
 def test_get_blacklisted_trees(ontology, unreferenced, expected, request):
-    ontology: AllenBrainOntology = request.getfixturevalue(ontology)
-    result = ontology.get_blacklisted_trees(unreferenced=unreferenced)
+    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    if ontology.endswith("_hpf"):
+        o.blacklist_regions(("CA",)) # blacklisting something below HPF should not affect the result
+        o.blacklist_regions(("ENT",), has_reference=True)
+    result = o.get_blacklisted_trees(unreferenced=unreferenced)
     assert result == expected
 
 @pytest.mark.parametrize(
@@ -260,6 +265,10 @@ def test_blacklist_regions(ontology, regions, should_raise, request):
         if ontology.endswith("_unreferenced_hpf"):
             assert set(o.get_blacklisted_trees(unreferenced=False)) == {"Isocortex"}
 
+def test_blacklist_regions_duplicate(allen_ontology_complete: AllenBrainOntology):
+    with pytest.raises(ValueError, match=".*Duplicates.*"):
+        allen_ontology_complete.blacklist_regions(["HPF", "HPF"], has_reference=True)
+
 @pytest.mark.parametrize(
     "ontology, regions",
     [
@@ -277,79 +286,117 @@ def test_blacklist_regions_unreferenced(ontology, regions, request):
 @pytest.mark.parametrize(
     "ontology, depth, expected",
     [
-        ("allen_ontology", 0, ["root"]),
-        ("allen_ontology", 1, ["grey", "fiber tracts", "VS", "grv", "retina"]),
-        ("allen_ontology_param", 0, ["root"]),
-        ("allen_ontology_param", 1, ["grey", "fiber tracts", "VS", "grv", "retina"]),
+        ("allen_ontology_complete", 0, ["root"]),
+        ("allen_ontology_complete", 1, ["grey", "fiber tracts", "VS", "grv", "retina"]),
+        ("allen_ontology",          1, ["grey", "fiber tracts", "VS"]),
+        ("allen_ontology_blacklisted_depth3", 3, []),
+        ("allen_ontology_blacklisted_depth3_no_reference", 3, ["CH", "BS", "CB"]), # depth 2 regions, excluding "fiber tracts", "VS"
     ]
 )
 def test_select_at_depth(ontology, depth, expected, request):
-    ontology: AllenBrainOntology = request.getfixturevalue(ontology)
-    ontology.select_at_depth(depth)
-    selected = set(ontology.get_selected_regions())
-    for e in expected:
-        assert e in selected or e not in selected  # allow for blacklisting
-    ontology.unselect_all()
+    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    assert not o.has_selection()
+    o.select_at_depth(depth)
+    assert o.get_selected_regions() == expected
+    o.unselect_all()
+    assert not o.has_selection()
+    assert o.get_selected_regions() == []
+
+def test_select_at_depth3_blacklisted(allen_ontology_blacklisted_depth3: AllenBrainOntology, request):
+    o: AllenBrainOntology = allen_ontology_blacklisted_depth3
+    o.select_at_depth(3)
+    assert o.get_selected_regions() == []
+
+def test_select_at_depth5_hpf_blacklisted(allen_ontology_complete: AllenBrainOntology):
+    allen_ontology_complete.select_at_depth(5)
+    selected = allen_ontology_complete.get_selected_regions()
+    allen_ontology_complete.blacklist_regions(["HPF"], has_reference=True)
+    selected_hpf_blacklisted = allen_ontology_complete.get_selected_regions()
+    assert set(selected) == set(selected_hpf_blacklisted) | {"HPF"}
+    allen_ontology_complete.blacklist_regions(["HPF"], has_reference=False)
+    selected_hpf_unreferenced = allen_ontology_complete.get_selected_regions()
+    assert selected_hpf_blacklisted == selected_hpf_unreferenced
+
+def test_select_at_depth3_unreferenced(allen_ontology_blacklisted_depth3_no_reference: AllenBrainOntology, request):
+    o: AllenBrainOntology = allen_ontology_blacklisted_depth3_no_reference
+    o.select_at_depth(3)
+    selected_d3 = o.get_selected_regions()
+    o.unselect_all()
+    assert o.get_selected_regions() == []
+    o.select_at_depth(2)
+    selected_d2 = o.get_selected_regions()
+    assert selected_d3 == selected_d2
+    o.unselect_all()
+    assert o.get_selected_regions() == []
+    o.select_leaves()
+    selected_l = o.get_selected_regions()
+    assert selected_d3 == selected_l
+
+def test_select_at_depth_beyond_leaves(allen_ontology_complete: AllenBrainOntology):
+    allen_ontology_complete.select_at_depth(9999)
+    selected_d = allen_ontology_complete.get_selected_regions()
+    allen_ontology_complete.unselect_all()
+    assert allen_ontology_complete.get_selected_regions() == []
+    allen_ontology_complete.select_leaves()
+    selected_l = allen_ontology_complete.get_selected_regions()
+    assert selected_d == selected_l
 
 @pytest.mark.parametrize(
-    "ontology, level, expected",
+    "selection, args",
     [
-        ("allen_ontology", 1, ["grey", "fiber tracts", "VS", "grv", "retina"]),
-        ("allen_ontology", 2, ["CH", "BS", "CB"]),
-        ("allen_ontology_param", 1, ["grey", "fiber tracts", "VS", "grv", "retina"]),
-        ("allen_ontology_param", 2, ["CH", "BS", "CB"]),
+        ("select_at_depth", [0]),
+        ("select_at_structural_level", [0]),
+        ("select_regions", [["root"]]),
     ]
 )
-def test_select_at_structural_level(ontology, level, expected, request):
-    ontology: AllenBrainOntology = request.getfixturevalue(ontology)
-    ontology.select_at_structural_level(level)
-    selected = set(ontology.get_selected_regions())
-    for e in expected:
-        assert e in selected or e not in selected  # allow for blacklisting
-    ontology.unselect_all()
-
-def test_select_leaves(allen_ontology):
-    allen_ontology.select_leaves()
+def test_select_with_blacklist_removed(selection, args, allen_ontology: AllenBrainOntology):
+    allen_ontology.__getattribute__(selection)(*args)
     selected = allen_ontology.get_selected_regions()
+    assert selected == ["root"]
+
+def test_select_leaves(allen_ontology_complete: AllenBrainOntology):
+    allen_ontology_complete.select_leaves()
+    selected = allen_ontology_complete.get_selected_regions()
     # All selected regions should be leaves (no children)
     for acronym in selected:
-        node = visit_dict.find_subtree(allen_ontology.dict, "acronym", acronym, "children")
+        node = visit_dict.find_subtree(allen_ontology_complete.dict, "acronym", acronym, "children")
         assert node is not None
         assert node["children"] == []
-    allen_ontology.unselect_all()
+    allen_ontology_complete.unselect_all()
 
-def test_select_regions_and_add_to_selection(allen_ontology):
-    allen_ontology.select_regions(["CH", "CB"])
-    selected = set(allen_ontology.get_selected_regions())
-    assert "CH" in selected and "CB" in selected
-    allen_ontology.add_to_selection(["BS"])
-    selected = set(allen_ontology.get_selected_regions())
-    assert "BS" in selected
-    allen_ontology.unselect_all()
-
-def test_has_selection_and_unselect_all(allen_ontology):
-    allen_ontology.select_regions(["CH"])
+def test_select_regions_and_add_to_selection(allen_ontology: AllenBrainOntology):
+    with pytest.raises(ValueError, match="Some given regions are not recognised as part of the ontology"):
+        allen_ontology.select_regions(["HPF", "HIP", "CA", "NOT_A_REGION"])
+    assert not allen_ontology.has_selection()
+    allen_ontology.select_regions(["HPF", "HIP", "CA"])
     assert allen_ontology.has_selection()
+    assert allen_ontology.get_selected_regions() == ["HPF"]
+    with pytest.raises(ValueError, match="Some given regions are not recognised as part of the ontology"):
+        allen_ontology.select_regions(["CTXpl", "BS", "NOT_A_REGION"])
+    allen_ontology.add_to_selection(["CTXpl", "BS"])
+    assert allen_ontology.has_selection()
+    assert allen_ontology.get_selected_regions() == ["CTXpl", "BS"]
     allen_ontology.unselect_all()
     assert not allen_ontology.has_selection()
+    assert allen_ontology.get_selected_regions() == []
 
-def test_get_regions(allen_ontology):
-    regions = allen_ontology.get_regions("major divisions")
-    for acronym in MAJOR_DIVISIONS:
-        assert acronym in regions
-    regions = allen_ontology.get_regions("leaves")
-    # All returned regions should be leaves
-    for acronym in regions:
-        node = visit_dict.find_subtree(allen_ontology.dict, "acronym", acronym, "children")
-        assert node is not None
-        assert node["children"] == []
-
-def test_ids_to_acronym_and_acronyms_to_id(allen_ontology):
+def test_ids_acronym_conversions(allen_ontology_blacklisted_all_no_reference: AllenBrainOntology):
+    o = allen_ontology_blacklisted_all_no_reference
     ids = [997, 8, 343]
-    acronyms = allen_ontology.ids_to_acronym(ids)
-    assert acronyms == ["root", "grey", "BS"]
-    back_ids = allen_ontology.acronyms_to_id(["root", "grey", "BS"])
-    assert back_ids == ids
+    acronyms = ["root", "grey", "BS"]
+    assert o.acronyms_to_id(acronyms) == ids
+    assert o.ids_to_acronym(ids) == acronyms
+
+def test_ids_to_acronym_modes(allen_ontology_blacklisted_all_no_reference: AllenBrainOntology):
+    o = allen_ontology_blacklisted_all_no_reference
+    ids = [567, 343, 512, 997, 8, 1009, 73, 1024, 304325711] # order: CH, BS, CB, root, grey, fiber tracts, VS, grv, retina
+    assert o.ids_to_acronym(ids, mode="depth") == ["root", "grey", "CH", "BS", "CB", "fiber tracts", "VS", "grv", "retina"]
+    assert o.ids_to_acronym(ids, mode="breadth") == ["root", "grey", "fiber tracts", "VS", "grv", "retina", "CH", "BS", "CB"]
+    assert o.ids_to_acronym(ids, mode=None) == ["CH", "BS", "CB", "root", "grey", "fiber tracts", "VS", "grv", "retina"]
+    with pytest.raises(ValueError, match=".*Unsupported.*mode.*"):
+        o.ids_to_acronym(ids, mode="INVALID")
+    with pytest.raises(ValueError, match=".*Duplicates.*"):
+        o.ids_to_acronym([997, 997]) # duplicate IDs
 
 @pytest.mark.parametrize("region,key,expected", [
     ("CTX", "acronym", ["CTX", "CNU"]),
@@ -372,7 +419,7 @@ def test_get_parent_regions(allen_ontology, regions, key, expected):
     ("CH", "breadth", ["CH", "CTX", "CNU"]),
     ("BS", "depth", ["BS", "IB", "MB", "HB"]),
 ])
-def test_list_all_subregions(allen_ontology, acronym, mode, expected):
+def test_list_all_subregions(allen_ontology: AllenBrainOntology, acronym, mode, expected):
     subregions = allen_ontology.list_all_subregions(acronym, mode=mode)
     for e in expected:
         assert e in subregions
@@ -382,6 +429,7 @@ def test_list_all_subregions(allen_ontology, acronym, mode, expected):
     ("BS", ["grey", "root"]),
 ])
 def test_get_regions_above(allen_ontology, acronym, expected):
+    # TODO: mind the new interface of parent_region, used by get_regions_above
     path = allen_ontology.get_regions_above(acronym)
     for e in expected:
         assert e in path
@@ -395,9 +443,9 @@ def test_get_corresponding_md(allen_ontology, acronym, acronyms, expected):
         assert result[k] == v
 
 def test_full_names_and_get_region_colors(allen_ontology):
-    assert allen_ontology.full_name["CH"] == "Cerebrum"
+    assert allen_ontology.full_name["HPF"] == "Hippocampal formation"
     colors = allen_ontology.get_region_colors()
-    assert colors["CH"] == "#B0F0FF"
+    assert colors["HPF"] == "#7ED04B"
 
 def test_constructor_variants():
     with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
@@ -418,7 +466,7 @@ def test_constructor_variants():
     assert len(o5.get_blacklisted_trees(unreferenced=True)) > 0
     o6 = AllenBrainOntology(allen_dict, name="other_allen_atlas", version="CCFv4", unreferenced=False)
     assert o6.annotation_version == "ccf_2022"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=".*provide.*version.*"):
         AllenBrainOntology(allen_dict, name="other_allen_atlas")
     # Name as BrainGlobe alias (should not raise if atlas is available)
     try:
