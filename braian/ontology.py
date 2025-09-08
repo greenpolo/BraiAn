@@ -1,5 +1,4 @@
 import braian.utils
-import brainglobe_atlasapi as bga
 import igraph as ig
 import json
 import numpy as np
@@ -15,6 +14,7 @@ from copy import deepcopy
 from braian import visit_dict, graph_utils
 from braian.utils import deprecated
 from pathlib import Path
+from typing import Literal
 
 __all__ = ["AllenBrainOntology", "MAJOR_DIVISIONS"]
 
@@ -265,6 +265,10 @@ class AllenBrainOntology:
         visit_dict.visit_dfs(self.dict, "children", check_region)
         return is_region
 
+    def _check_regions(self, regions: Iterable, key: str, unreferenced: bool):
+        if not all(is_region:=self.are_regions(regions, key=key, unreferenced=unreferenced)):
+            raise KeyError(f"Regions not found: '{key}(s)'={np.asarray(regions)[~is_region]}")
+
     @deprecated(since="1.1.0")
     def contains_all_children(self, parent: str, regions: Container[str]) -> bool:
         """
@@ -337,11 +341,10 @@ class AllenBrainOntology:
 
         Raises
         ------
-        ValueError
+        KeyError
             If it can't find at least one of the `regions` in the ontology
         """
-        if not all(is_region:=self.are_regions(regions, key=key, unreferenced=True)):
-            raise ValueError(f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}")
+        self._check_regions(regions, key=key, unreferenced=True)
         for region_value in regions:
             region_node = visit_dict.find_subtree(self.dict, key, region_value, "children")
             visit_dict.visit_bfs(region_node, "children", lambda n,d: set_blacklisted(n, True))
@@ -500,7 +503,7 @@ class AllenBrainOntology:
 
         Raises
         ------
-        ValueError
+        KeyError
             If it can't find at least one of the `regions` in the ontology
 
         See also
@@ -515,8 +518,7 @@ class AllenBrainOntology:
         [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
         [`get_regions`][braian.AllenBrainOntology.get_regions]
         """
-        if not all(is_region:=self.are_regions(regions, key=key)):
-            raise ValueError(f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}")
+        self._check_regions(regions, key=key, unreferenced=False)
         visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node[key] in regions)
 
     def add_to_selection(self, regions: Iterable, key: str="acronym"):
@@ -685,7 +687,7 @@ class AllenBrainOntology:
         self.select_regions(old_selection, key="id")
         return selected_regions
 
-    def ids_to_acronym(self, ids: Container[int], mode: str="depth") -> list[str]:
+    def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]="depth") -> list[str]:
         """
         Converts the given brain regions IDs into their corresponding acronyms.
 
@@ -707,7 +709,7 @@ class AllenBrainOntology:
         ValueError
             If given `mode` is not supported
 
-        ValueError
+        KeyError
             If it can't find at least one of the `ids` in the ontology
         """
         match mode:
@@ -717,14 +719,13 @@ class AllenBrainOntology:
                 visit_alg = visit_dict.visit_dfs
             case _:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth', 'depth' or None.")
-        if not all(is_region:=self.are_regions(ids, key="id", unreferenced=True)):
-            raise ValueError(f"Some given IDs are not recognised as part of the ontology: {np.asarray(ids)[~is_region]}")
+        self._check_regions(ids, key="id", unreferenced=True)
         areas = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] in ids, visit_alg)
         if mode is None:
             areas.sort(key=lambda r: list(ids).index(r["id"]))
         return [area["acronym"] for area in areas]
 
-    def acronyms_to_id(self, acronyms: Container[str], mode: str="depth") -> list[int]:
+    def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]="depth") -> list[int]:
         """
         Converts the given brain regions acronyms into ther corresponding IDs
 
@@ -746,7 +747,7 @@ class AllenBrainOntology:
         ValueError
             If given `mode` is not supported
 
-        ValueError
+        KeyError
             If it can't find at least one of the `acronyms` in the ontology
         """
         match mode:
@@ -756,8 +757,7 @@ class AllenBrainOntology:
                 visit_alg = visit_dict.visit_dfs
             case _:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
-        if not all(is_region:=self.are_regions(acronyms, key="acronym", unreferenced=True)):
-            raise ValueError(f"Some given acronyms are not recognised as part of the ontology: {np.asarray(acronyms)[~is_region]}")
+        self._check_regions(acronyms, key="acronym", unreferenced=True)
         regions = visit_dict.get_where(self.dict, "children", lambda n,d: n["acronym"] in acronyms, visit_alg)
         if mode is None:
             regions.sort(key=lambda r: list(acronyms).index(r["acronym"]))
@@ -783,12 +783,12 @@ class AllenBrainOntology:
 
         Raises
         ------
-        ValueError
-            If it can't find a parent for the given `region`
+        KeyError
+            If it can't find the parent region for the given `region`
         """
         parents = visit_dict.get_parents_where(self.dict, "children", lambda parent,child: child[key] == region, key)
         if len(parents) != 1:
-            raise ValueError(f"Can't find the parent of a region with '{key}': {region}")
+            raise KeyError(f"Parent region not found ('{key}'={region})")
         parent = parents[region]
         return [sibiling[key] for sibiling in parent["children"]]
         ## Alternative implementation:
@@ -815,13 +815,13 @@ class AllenBrainOntology:
 
         Raises
         ------
-        ValueError
+        KeyError
             If it can't find the parent of one of the given `regions`
         """
         parents = visit_dict.get_parents_where(self.dict, "children", lambda parent,child: child[key] in regions, key)
         for region in regions:
             if region not in parents.keys():
-                raise ValueError(f"Can't find the parent of a region with '{key}': {region}")
+                raise KeyError(f"Parent region not found ('{key}'={region})")
         return {region: (parent[key] if parent else None) for region,parent in parents.items()}
 
         # parents = get_parents_where(self.dict, "children", lambda parent,child: child[key] in values, key)
@@ -885,11 +885,13 @@ class AllenBrainOntology:
         visit_dict.visit_bfs(self.dict, "children", add_subregions)
         return subregions
 
-    def list_all_subregions(self, acronym: str, mode: str="breadth") -> list:
+    def list_all_subregions(self,
+                            acronym: str,
+                            mode: Literal["breadth", "depth"]="breadth",
+                            blacklisted: bool=True,
+                            unreferenced: bool=False) -> list:
         """
         Lists all subregions of a brain region, at all hierarchical levels.
-
-        It does not take into account blacklisted regions
 
         Parameters
         ----------
@@ -908,7 +910,7 @@ class AllenBrainOntology:
         ------
         ValueError
             If given `mode` is not supported
-        ValueError
+        KeyError
             If it can't find `acronym` in the ontology
         """
         match mode:
@@ -922,9 +924,9 @@ class AllenBrainOntology:
         attr = "acronym"
         region = visit_dict.find_subtree(self.dict, attr, acronym, "children")
         if not region:
-            raise ValueError(f"Can't find a region with '{attr}'='{acronym}' in the ontology")
+            raise KeyError(f"Region not found ('{attr}'='{acronym}')")
         subregions = visit_dict.get_all_nodes(region, "children", visit=visit_alg)
-        return [subregion[attr] for subregion in subregions]
+        return [subregion[attr] for subregion in subregions if (blacklisted or not is_blacklisted(subregion)) and (unreferenced or has_reference(subregion))]
 
     def get_regions_above(self, acronym: str) -> list[str]:
         """
@@ -977,8 +979,7 @@ class AllenBrainOntology:
             if node["acronym"] in (acronym, *acronyms):
                 get_region_mjd.res[node["acronym"]] = get_region_mjd.curr_mjd
         acronyms = (acronym, *acronyms)
-        if not all(is_region:=self.are_regions(acronyms)):
-            raise ValueError(f"Some given regions are not recognised as part of the ontology: {np.asarray(acronyms)[~is_region]}")
+        self._check_regions(acronyms, key="acronym", unreferenced=True)
         get_region_mjd.curr_mjd = None
         get_region_mjd.res = OrderedDict()
         visit_dict.visit_dfs(self.dict, "children", get_region_mjd)

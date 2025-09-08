@@ -257,7 +257,7 @@ def test_get_blacklisted_trees(ontology, unreferenced, expected, request):
 def test_blacklist_regions(ontology, regions, should_raise, request):
     o: AllenBrainOntology = request.getfixturevalue(ontology)
     if should_raise:
-        with pytest.raises(ValueError, match="Some given regions are not recognised as part of the ontology"):
+        with pytest.raises(KeyError, match=".*not found.*"):
             o.blacklist_regions(regions, has_reference=True)
     else:
         o.blacklist_regions(regions, has_reference=True)
@@ -365,13 +365,13 @@ def test_select_leaves(allen_ontology_complete: AllenBrainOntology):
     allen_ontology_complete.unselect_all()
 
 def test_select_regions_and_add_to_selection(allen_ontology: AllenBrainOntology):
-    with pytest.raises(ValueError, match="Some given regions are not recognised as part of the ontology"):
+    with pytest.raises(KeyError, match=".*not found.*"):
         allen_ontology.select_regions(["HPF", "HIP", "CA", "NOT_A_REGION"])
     assert not allen_ontology.has_selection()
     allen_ontology.select_regions(["HPF", "HIP", "CA"])
     assert allen_ontology.has_selection()
     assert allen_ontology.get_selected_regions() == ["HPF"]
-    with pytest.raises(ValueError, match="Some given regions are not recognised as part of the ontology"):
+    with pytest.raises(KeyError, match=".*not found.*"):
         allen_ontology.select_regions(["CTXpl", "BS", "NOT_A_REGION"])
     allen_ontology.add_to_selection(["CTXpl", "BS"])
     assert allen_ontology.has_selection()
@@ -415,14 +415,24 @@ def test_get_parent_regions(allen_ontology, regions, key, expected):
     for k, v in expected.items():
         assert parents[k] == v
 
-@pytest.mark.parametrize("acronym,mode,expected", [
-    ("CH", "breadth", ["CH", "CTX", "CNU"]),
-    ("BS", "depth", ["BS", "IB", "MB", "HB"]),
+@pytest.mark.parametrize("acronym,mode,blacklisted,unreferenced,expected", [
+    ("CA1", "breadth", False, False, []),
+    ("CA1", "breadth", True, False, ["CA1"]),
+    ("CA1", "breadth", True, True, ["CA1", "CA1slm", "CA1so", "CA1sp", "CA1sr"]),
+    ("MED", "breadth", True, True, ["MED", "IMD", "MD", "SMT", "PR", "MDc", "MDl", "MDm"]),
+    ("MED", "depth", True, True, ["MED", "IMD", "MD", "MDc", "MDl", "MDm", "SMT", "PR"]),
 ])
-def test_list_all_subregions(allen_ontology: AllenBrainOntology, acronym, mode, expected):
-    subregions = allen_ontology.list_all_subregions(acronym, mode=mode)
-    for e in expected:
-        assert e in subregions
+def test_list_all_subregions(allen_ontology_blacklisted_hpf: AllenBrainOntology,
+                             acronym, mode, blacklisted, unreferenced, expected):
+    assert allen_ontology_blacklisted_hpf.list_all_subregions(
+        acronym, mode=mode,
+        blacklisted=blacklisted,
+        unreferenced=unreferenced
+    ) == expected
+
+def test_list_all_subregions_raises(allen_ontology_complete: AllenBrainOntology):
+    with pytest.raises(KeyError, match=".*not found.*"):
+        allen_ontology_complete.list_all_subregions("NOT_A_REGION")
 
 @pytest.mark.parametrize("acronym,expected", [
     ("CTX", ["CH", "grey", "root"]),
