@@ -349,6 +349,7 @@ class AllenBrainOntology:
                 visit_dict.visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
         if not has_reference:
             self.direct_subregions = self._get_all_subregions()
+            self.parent_region = self._get_all_parent_areas()
 
     def get_blacklisted_trees(self, unreferenced: bool=False, key: str="acronym") -> list:
         """
@@ -842,16 +843,17 @@ class AllenBrainOntology:
         :
             A dictionary mapping region→parent
         """
-        return {subregion: region for region,subregion in self._get_edges(key)}
+        return {subregion: region for region,subregion in self._get_edges(key, unreferenced=False)}
 
-    def _get_edges(self, key: str="id") -> list[tuple]:
+    def _get_edges(self, key: str="id", unreferenced: bool=True) -> list[tuple]:
         assert key in ("id", "acronym", "graph_order"), "'key' parameter must be  'id', 'acronym' or 'graph_order'"
         edges = []
         visit_dict.visit_parents(self.dict,
                                  "children",
                                  lambda region,subregion:
-                                    None if region is None else
-                                    edges.append((region[key], subregion[key])))
+                                    edges.append((region[key], subregion[key]))
+                                        if region is not None and (unreferenced or has_reference(subregion))
+                                    else None)
         return edges
 
     def _get_all_subregions(self, key: str="acronym") -> dict:
@@ -875,8 +877,8 @@ class AllenBrainOntology:
         """
         subregions = dict()
         def add_subregions(node, depth):
-            if node["children"]:
-                subregions[node[key]] = [child[key] for child in node["children"] if not is_blacklisted(child) and has_reference(child)]
+            if node["children"] and has_reference(node):
+                subregions[node[key]] = [child[key] for child in node["children"] if has_reference(child)]
         visit_dict.visit_bfs(self.dict, "children", add_subregions)
         return subregions
 

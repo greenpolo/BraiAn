@@ -84,15 +84,28 @@ def allen_ontology_unreferenced_hpf(allen_ontology: AllenBrainOntology):
     return allen_ontology
 
 def test_direct_adjacent_regions(allen_ontology: AllenBrainOntology):
-    # assert allen_ontology.parent_region["CH"] == "grey"
+    with pytest.raises(KeyError):
+        _ = allen_ontology.parent_region["root"]
+    assert allen_ontology.parent_region["HPF"] == "CTXpl"
     assert len(allen_ontology.direct_subregions["CA1"]) == 0 # Allen ontology has unreferenced subregions of CA1
     assert set(allen_ontology.direct_subregions["CTXpl"]) == set(["Isocortex", "OLF", "HPF"])
     allen_ontology.blacklist_regions(["HPF"], has_reference=True)
+    assert allen_ontology.parent_region["HPF"] == "CTXpl"
+    assert allen_ontology.parent_region["CA1"] == "CA"
     assert set(allen_ontology.direct_subregions["CTXpl"]) == set(["Isocortex", "OLF", "HPF"])
 
 def test_direct_adjacent_regions_unreferenced(allen_ontology: AllenBrainOntology):
+    assert allen_ontology.parent_region["HPF"] == "CTXpl"
     assert set(allen_ontology.direct_subregions["CTXpl"]) == set(["Isocortex", "OLF", "HPF"])
     allen_ontology.blacklist_regions(["HPF"], has_reference=False)
+    with pytest.raises(KeyError):
+        _ = allen_ontology.parent_region["HPF"]
+    with pytest.raises(KeyError):
+        _ = allen_ontology.parent_region["CA1"]
+    with pytest.raises(KeyError):
+        _ = allen_ontology.direct_subregions["HPF"]
+    with pytest.raises(KeyError):
+        _ = allen_ontology.direct_subregions["CA1"]
     assert set(allen_ontology.direct_subregions["CTXpl"]) == set(["Isocortex", "OLF"])
 
 @pytest.mark.parametrize(
