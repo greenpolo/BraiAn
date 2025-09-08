@@ -765,9 +765,9 @@ class AllenBrainOntology:
 
     def get_sibiling_regions(self, region:str|int, key: str="acronym") -> list:
         """
-        Get all brain regions that, combined, make the whole parent of the given `region`
+        Get all brain regions that, combined, make the whole parent of the given `region`.
 
-        It does not take into account blacklisted regions
+        It does not include unreferenced regions.
 
         Parameters
         ----------
@@ -786,11 +786,16 @@ class AllenBrainOntology:
         KeyError
             If it can't find the parent region for the given `region`
         """
-        parents = visit_dict.get_parents_where(self.dict, "children", lambda parent,child: child[key] == region, key)
+        parents = visit_dict.get_parents_where(self.dict,
+                                               "children",
+                                               lambda parent,child: child[key] == region and has_reference(child),
+                                               key)
         if len(parents) != 1:
             raise KeyError(f"Parent region not found ('{key}'={region})")
         parent = parents[region]
-        return [sibiling[key] for sibiling in parent["children"]]
+        if parent is None: # region is the root
+            return [region]
+        return [sibiling[key] for sibiling in parent["children"] if has_reference(sibiling)]
         ## Alternative implementation:
         # parent_id = find_subtree(self.dict, key, value, "children")["parent_structure_id"]
         # return [area[key] for area in find_subtree(self.dict, "id", parent_id, "children")["children"]]

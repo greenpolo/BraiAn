@@ -398,19 +398,32 @@ def test_ids_to_acronym_modes(allen_ontology_blacklisted_all_no_reference: Allen
     with pytest.raises(ValueError, match=".*Duplicates.*"):
         o.ids_to_acronym([997, 997]) # duplicate IDs
 
-@pytest.mark.parametrize("region,key,expected", [
-    ("CTX", "acronym", ["CTX", "CNU"]),
-    ("BS", "acronym", ["IB", "MB", "HB"]),
+@pytest.mark.parametrize("ontology,region,expected", [
+    ("allen_ontology_complete", "root", ["root"]),
+    ("allen_ontology_complete", "OLF", ["Isocortex", "OLF", "HPF"]),
+    ("allen_ontology_complete_blacklisted_hpf", "OLF", ["Isocortex", "OLF", "HPF"]),
+    ("allen_ontology_complete_blacklisted_hpf", "CA1", ["CA1", "CA2", "CA3"]),
+    ("allen_ontology_complete_unreferenced_hpf", "OLF", ["Isocortex", "OLF"]),
 ])
-def test_get_sibiling_regions(allen_ontology, region, key, expected):
-    siblings = allen_ontology.get_sibiling_regions(region, key=key)
-    for e in expected:
-        assert e in siblings
+def test_get_sibiling_regions(ontology, region, expected, request):
+    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    siblings = o.get_sibiling_regions(region, key="acronym")
+    assert siblings == expected
+
+@pytest.mark.parametrize("ontology,region", [
+    ("allen_ontology_complete", "NOT_A_REGION"),
+    ("allen_ontology_complete_unreferenced_hpf", "HPF"),
+    ("allen_ontology_complete_unreferenced_hpf", "CA"),
+])
+def test_get_sibiling_regions_raises(ontology: AllenBrainOntology, region, request):
+    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    with pytest.raises(KeyError, match=".*not found.*"):
+        o.get_sibiling_regions(region)
 
 @pytest.mark.parametrize("regions,key,expected", [
     (["CTX", "BS"], "acronym", {"CTX": "CH", "BS": "grey"}),
 ])
-def test_get_parent_regions(allen_ontology, regions, key, expected):
+def test_get_parent_regions(allen_ontology: AllenBrainOntology, regions, key, expected):
     parents = allen_ontology.get_parent_regions(regions, key=key)
     for k, v in expected.items():
         assert parents[k] == v
