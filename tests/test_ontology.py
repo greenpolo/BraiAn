@@ -7,20 +7,6 @@ from braian import visit_dict
 from braian.ontology import MAJOR_DIVISIONS
 from collections import OrderedDict
 
-@pytest.fixture(params=[
-    {},
-    {"blacklisted_acronyms": ["root"]},
-    {"blacklisted_acronyms": ["CH", "BS"]},
-    {"blacklisted_acronyms": ["grey", "fiber tracts", "VS", "grv", "retina"]},
-    {"blacklisted_acronyms": []},
-])
-def allen_ontology_param(request):
-    with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
-        data = json.load(f)
-    allen_dict = data["msg"][0] if "msg" in data else data
-    kwargs = request.param
-    return AllenBrainOntology(allen_dict, version="CCFv3", **kwargs)
-
 @pytest.fixture
 def allen_ontology():
     with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
@@ -457,32 +443,49 @@ def test_get_parent_regions_raises(allen_ontology_complete: AllenBrainOntology):
 
 @pytest.mark.parametrize("acronym,mode,blacklisted,unreferenced,expected", [
     ("CA1", "breadth", False, False, []),
+    ("CA1", "breadth", False, True, []),
     ("CA1", "breadth", True, False, ["CA1"]),
     ("CA1", "breadth", True, True, ["CA1", "CA1slm", "CA1so", "CA1sp", "CA1sr"]),
     ("MED", "breadth", True, True, ["MED", "IMD", "MD", "SMT", "PR", "MDc", "MDl", "MDm"]),
     ("MED", "depth", True, True, ["MED", "IMD", "MD", "MDc", "MDl", "MDm", "SMT", "PR"]),
 ])
-def test_list_all_subregions(allen_ontology_blacklisted_hpf: AllenBrainOntology,
+def test_list_all_subregions(allen_ontology_blacklisted_hpf,
                              acronym, mode, blacklisted, unreferenced, expected):
-    assert allen_ontology_blacklisted_hpf.list_all_subregions(
+    o: AllenBrainOntology = allen_ontology_blacklisted_hpf # has unreferenced regions too ("CA1slm", "CA1so", "CA1sp",...)
+    assert o.list_all_subregions(
         acronym, mode=mode,
         blacklisted=blacklisted,
         unreferenced=unreferenced
     ) == expected
 
-def test_list_all_subregions_raises(allen_ontology_complete: AllenBrainOntology):
-    with pytest.raises(KeyError, match=".*not found.*"):
-        allen_ontology_complete.list_all_subregions("NOT_A_REGION")
-
-@pytest.mark.parametrize("acronym,expected", [
-    ("CTX", ["CH", "grey", "root"]),
-    ("BS", ["grey", "root"]),
+@pytest.mark.parametrize("acronym", [
+    "NOT_A_REGION",
+    "CA1slm"
 ])
-def test_get_regions_above(allen_ontology, acronym, expected):
-    # TODO: mind the new interface of parent_region, used by get_regions_above
-    path = allen_ontology.get_regions_above(acronym)
-    for e in expected:
-        assert e in path
+def test_list_all_subregions_raises(acronym, allen_ontology_unreferenced_hpf):
+    o: AllenBrainOntology = allen_ontology_unreferenced_hpf
+    with pytest.raises(KeyError, match=".*not found.*"):
+        o.list_all_subregions(acronym, unreferenced=False)
+
+@pytest.mark.parametrize("ontology,acronym,expected", [
+    ("allen_ontology_complete", "HPF", ["CTXpl", "CTX", "CH", "grey", "root"]),
+    ("allen_ontology_complete", "CA1", ["CA", "HIP", "HPF", "CTXpl", "CTX", "CH", "grey", "root"]),
+    ("allen_ontology_complete_blacklisted_hpf", "HPF", ["CTXpl", "CTX", "CH", "grey", "root"]),
+    ("allen_ontology_complete_blacklisted_hpf", "CA1", ["CA", "HIP", "HPF", "CTXpl", "CTX", "CH", "grey", "root"]),
+])
+def test_get_regions_above(ontology, acronym, expected, request):
+    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    assert expected == o.get_regions_above(acronym)
+
+@pytest.mark.parametrize("acronym", [
+    "HPF",
+    "CA1",
+    "NOT_A_REGION",
+])
+def test_get_regions_above_raises(acronym, allen_ontology_complete_unreferenced_hpf):
+    o: AllenBrainOntology = allen_ontology_complete_unreferenced_hpf
+    with pytest.raises(KeyError, match=".*not found.*"):
+        o.get_regions_above(acronym)
 
 @pytest.mark.parametrize("acronym,acronyms,expected", [
     ("CTX", ["BS"], OrderedDict([("CTX", "CH"), ("BS", "grey")])),

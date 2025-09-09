@@ -909,6 +909,10 @@ class AllenBrainOntology:
         mode
             Must be eithe "breadth" or "depth".
             The order in which the returned acronyms will be: breadth-first or depth-first
+        blacklisted
+            If True, it includes in the returned list blacklisted structures
+        unreferenced
+            If True, it includes in the returned list structures with no reference in the atlas annotations
 
         Returns
         -------
@@ -932,7 +936,7 @@ class AllenBrainOntology:
 
         attr = "acronym"
         region = visit_dict.find_subtree(self.dict, attr, acronym, "children")
-        if not region:
+        if not region or (not unreferenced and not has_reference(region)):
             raise KeyError(f"Region not found ('{attr}'='{acronym}')")
         subregions = visit_dict.get_all_nodes(region, "children", visit=visit_alg)
         return [subregion[attr] for subregion in subregions if (blacklisted or not is_blacklisted(subregion)) and (unreferenced or has_reference(subregion))]
@@ -941,7 +945,7 @@ class AllenBrainOntology:
         """
         Lists all the regions for which `acronym` is a subregion.
 
-        The resulting dictionary does not include unreferenced brain regions.
+        It raises `KeyError` if `acronym` is a region with no reference in the atlas annotations.
 
         Parameters
         ----------
@@ -952,8 +956,16 @@ class AllenBrainOntology:
         -------
         :
             List of all regions above, excluding `acronym`
+
+        Raises
+        ------
+        KeyError
+            If it can't find `acronym` in the ontology
         """
         path = []
+        # if self.is_region(acronym, key="acronym", unreferenced=unreferenced):
+        if acronym != "root" and acronym not in self.parent_region:
+            raise KeyError(f"Region not found ('acronym'='{acronym}')")
         while acronym in self.parent_region.keys():
             parent = self.parent_region[acronym]
             path.append(parent)
