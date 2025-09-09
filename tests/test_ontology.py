@@ -364,6 +364,26 @@ def test_select_leaves(allen_ontology_complete: AllenBrainOntology):
         assert node["children"] == []
     allen_ontology_complete.unselect_all()
 
+@pytest.mark.parametrize(
+    "blacklisted, referenced, included_leaves, excludeed_leaves",
+    [
+        (["CA1", "CA2", "CA3"], None, ["CA1slm", "CA1so", "CA1sp", "CA1sr"], []),
+        (["CA1", "CA2", "CA3"], True, [], ["CA1slm", "CA1so", "CA1sp", "CA1sr"]),
+        (["CA1", "CA2", "CA3"], False, ["CA"], []),
+    ]
+)
+def test_select_leaves_blacklisted(blacklisted, referenced, included_leaves, excludeed_leaves, allen_ontology_complete: AllenBrainOntology):
+    assert not allen_ontology_complete.has_selection()
+    if referenced is not None:
+        allen_ontology_complete.blacklist_regions(blacklisted, has_reference=referenced)
+    allen_ontology_complete.select_leaves()
+    result = allen_ontology_complete.get_selected_regions()
+    for included_leaf in included_leaves:
+        assert included_leaf in result
+    for excluded_leaf in excludeed_leaves:
+        assert excluded_leaf not in result
+
+
 def test_select_regions_and_add_to_selection(allen_ontology: AllenBrainOntology):
     with pytest.raises(KeyError, match=".*not found.*"):
         allen_ontology.select_regions(["HPF", "HIP", "CA", "NOT_A_REGION"])

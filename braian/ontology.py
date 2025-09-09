@@ -241,6 +241,9 @@ class AllenBrainOntology:
             List of values that identify uniquely a brain region (e.g. their acronyms).
         key
             The key in Allen's structural graph used to identify `a`.
+        unreferenced
+            If True, it considers a region also those structures that have no reference
+            in the atlas annotation.
 
         Returns
         -------
@@ -444,7 +447,8 @@ class AllenBrainOntology:
     def select_leaves(self):
         """
         Select all th enon-overlapping smallest brain regions in the ontology.
-        A region is also selected if it's not the smallest possible, but all of its sub-regions are blacklisted
+        A region is also selected if it's not the smallest possible,
+        but all of its sub-regions have no reference in the atlas annotations.
 
         See also
         --------
@@ -459,7 +463,7 @@ class AllenBrainOntology:
         [`get_regions`][braian.AllenBrainOntology.get_regions]
         """
         visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node, d: visit_dict.is_leaf(node, "children") or \
-                                         not is_blacklisted(node) and all([is_blacklisted(child) for child in node["children"]]))
+                                         has_reference(node) and all([not has_reference(child) for child in node["children"]]))
         # not is_blacklisted(node) and all([has_reference(child) for child in node["children"]])) # some regions (see CA1 in CCFv3) have all subregions unannoted
 
     def select_summary_structures(self):
@@ -839,7 +843,7 @@ class AllenBrainOntology:
         Finds, for each brain region in the ontology, the corresponding parent region.
         The "root" region has no entry in the returned dictionary
 
-        It does not take into account blacklisted regions
+        The resulting dictionary does not include unreferenced brain regions.
 
         Parameters
         ----------
@@ -871,7 +875,7 @@ class AllenBrainOntology:
         in a list as the value corresponding to the key.
         Regions with no subregions have no entries in the dictionary.
 
-        It does not take into account blacklisted regions
+        The resulting dictionary does not include unreferenced brain regions.
 
         Parameters
         ----------
@@ -937,7 +941,7 @@ class AllenBrainOntology:
         """
         Lists all the regions for which `acronym` is a subregion.
 
-        It does not take into account blacklisted regions
+        The resulting dictionary does not include unreferenced brain regions.
 
         Parameters
         ----------
