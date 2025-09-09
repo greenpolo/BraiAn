@@ -246,7 +246,7 @@ class AllenBrainOntology:
         key
             The key in Allen's structural graph used to identify `a`.
         unreferenced
-            If True, it considers a regions also those structures that have no reference
+            If True, it considers regions also those structures that have no reference
             in the atlas annotation.
 
         Returns

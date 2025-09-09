@@ -1,4 +1,5 @@
 import brainglobe_atlasapi as bga
+import numpy as np
 import warnings
 
 from treelib import Tree, Node
@@ -199,10 +200,11 @@ class AtlasOntology:
             return True
         return id in self._tree
 
-    # def are_regions(self, a: Iterable, key: str="acronym", unreferenced: bool=False):
-    #     a = list(a)
-    #     found = [self.is_region(x, key=key, unreferenced=unreferenced) for x in a]
-    #     return found
+    def are_regions(self,
+                    values: Iterable,
+                    unreferenced: bool=False):
+        ids = self._to_ids(values, unreferenced=unreferenced, check_all=True)
+        return np.array([id is not None for id in ids], dtype=bool)
 
     # def get_sibiling_regions(self, region: str|int, key: str="acronym") -> list:
     #     node = next((n for n in self._tree_full.all_nodes() if n.data and n.data.get(key) == region), None)
