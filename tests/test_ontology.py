@@ -436,15 +436,14 @@ def test_acronym_to_ids_modes(allen_ontology_blacklisted_all_no_reference: Allen
 ])
 def test_get_sibiling_regions(ontology, region, expected, request):
     o: AllenBrainOntology = request.getfixturevalue(ontology)
-    siblings = o.get_sibiling_regions(region, key="acronym")
-    assert siblings == expected
+    assert expected == o.get_sibiling_regions(region, key="acronym")
 
 @pytest.mark.parametrize("ontology,region", [
     ("allen_ontology_complete", "NOT_A_REGION"),
     ("allen_ontology_complete_unreferenced_hpf", "HPF"),
     ("allen_ontology_complete_unreferenced_hpf", "CA"),
 ])
-def test_get_sibiling_regions_raises(ontology: AllenBrainOntology, region, request):
+def test_get_sibiling_regions_raises(ontology, region, request):
     o: AllenBrainOntology = request.getfixturevalue(ontology)
     with pytest.raises(KeyError, match=".*not found.*"):
         o.get_sibiling_regions(region)

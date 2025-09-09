@@ -219,3 +219,26 @@ def test_are_regions(ontology, acronyms, unreferenced, expected, request):
 def test_are_regions_should_raise(allen_ontology: AllenBrainOntology):
     with pytest.raises(ValueError, match=".*Duplicates.*"):
         allen_ontology.are_regions(["Isocortex", "FRP", "Isocortex", "MOp"])
+
+@pytest.mark.parametrize("ontology,region,expected", [
+    ("allen_ontology_complete", "root", ["root"]),
+    ("allen_ontology_complete", "OLF", ["Isocortex", "OLF", "HPF"]),
+    ("allen_ontology_complete_blacklisted_hpf", "OLF", ["Isocortex", "OLF", "HPF"]),
+    ("allen_ontology_complete_blacklisted_hpf", "CA1", ["CA1", "CA2", "CA3"]),
+    ("allen_ontology_complete_unreferenced_hpf", "OLF", ["Isocortex", "OLF"]),
+])
+def test_get_sibiling_regions(ontology, region, expected, request):
+    o: AtlasOntology = request.getfixturevalue(ontology)
+    assert expected == o.get_sibiling_regions(region, key="acronym")
+    expected.remove(region)
+    assert expected == o.siblings(region, key="acronym")
+
+@pytest.mark.parametrize("ontology,region", [
+    ("allen_ontology_complete", "NOT_A_REGION"),
+    ("allen_ontology_complete_unreferenced_hpf", "HPF"),
+    ("allen_ontology_complete_unreferenced_hpf", "CA"),
+])
+def test_get_sibiling_regions_raises(ontology, region, request):
+    o: AtlasOntology = request.getfixturevalue(ontology)
+    with pytest.raises(KeyError, match=".*not found.*"):
+        o.get_sibiling_regions(region)

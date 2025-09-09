@@ -783,12 +783,12 @@ class AllenBrainOntology:
         """
         Get all brain regions that, combined, make the whole parent of the given `region`.
 
-        It does not include unreferenced regions.
+        It does not include the regions that have no reference in the atlas annotations.
 
         Parameters
         ----------
         region
-            A brain region
+            A region, identified by its ID or its acronym.
         key
             The key in Allen's structural graph used to indentify the regions
 
@@ -800,7 +800,7 @@ class AllenBrainOntology:
         Raises
         ------
         KeyError
-            If it can't find the parent region for the given `region`
+            If the given `region` is not found in the ontology.
         """
         parents = visit_dict.get_parents_where(self.dict,
                                                "children",
