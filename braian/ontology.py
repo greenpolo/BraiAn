@@ -5,6 +5,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import requests
+import warnings
 
 from brainglobe_atlasapi import list_atlases
 from bs4 import BeautifulSoup
@@ -174,7 +175,7 @@ class AllenBrainOntology:
             case _:
                 raise ValueError(f"Unrecognised Allen atlas version: '{version}'")
 
-    def _get_unannoted_bg_regions(self) -> list[str]:
+    def _get_unannoted_bg_regions(self) -> list[int]:
         bg_atlas_name = _get_brainglobe_name(self.name)
         atlas_meshes_dir = Path.home()/".brainglobe"/bg_atlas_name/"meshes"
         if not atlas_meshes_dir.exists():
@@ -330,7 +331,11 @@ class AllenBrainOntology:
         vs = graph_utils.minimum_treecover(g.vs.select(name_in=acronyms))
         return {v["name"] for v in vs}
 
-    def blacklist_regions(self, regions: Iterable, key: str="acronym", has_reference: bool=True):
+    def blacklist_regions(self,
+                          regions: Iterable,
+                          key: str="acronym",
+                          unreferenced: bool=False,
+                          has_reference: bool=None):
         """
         Blacklists from further analysis the given `regions` the ontology, as well as all their sub-regions.
         If the reason of blacklisting is that `regions` no longer exist in the used version of the
@@ -350,13 +355,17 @@ class AllenBrainOntology:
         KeyError
             If it can't find at least one of the `regions` in the ontology
         """
+        if has_reference is not None:
+            warning_message = "'has_reference' is deprecated since 1.1.0 and may be removed in future versions. Use 'unreferenced' instead."
+            warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
+            unreferenced = not has_reference
         self._check_regions(regions, key=key, unreferenced=True)
         for region_value in regions:
             region_node = visit_dict.find_subtree(self.dict, key, region_value, "children")
             visit_dict.visit_bfs(region_node, "children", lambda n,d: set_blacklisted(n, True))
-            if not has_reference:
+            if unreferenced:
                 visit_dict.visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
-        if not has_reference:
+        if unreferenced:
             self.direct_subregions = self._get_all_subregions()
             self.parent_region = self._get_all_parent_areas()
 

@@ -27,6 +27,7 @@ dependencies = [
     "brainglobe-heatmap (>=0.6.0,<1.0.0)",      # used to visualize brain heatmap for IEGs overlaps
     "pywin32 (>=306) ; sys_platform == 'win32'",
     "pyyaml (>=6.0.2,<7.0.0)",
+    "treelib (>=1.8.0,<2.0.0)",
 ]
 
 [tool.poetry.group.docs]

@@ -245,11 +245,11 @@ def test_get_blacklisted_trees(ontology, unreferenced, expected, request):
 @pytest.mark.parametrize(
     "ontology, blacklisted_branches, should_raise",
     [
-        ("allen_ontology_complete", ["HPF", "Isocortex"], False),
+        ("allen_ontology_complete", ["Isocortex", "HPF"], False),
         ("allen_ontology_complete", ["NOT_A_REGION"], True),
-        ("allen_ontology_complete_blacklisted_hpf", ["HPF", "Isocortex"], False),
+        ("allen_ontology_complete_blacklisted_hpf", ["Isocortex", "HPF"], False),
         ("allen_ontology_complete_blacklisted_hpf", ["NOT_A_REGION"], True),
-        ("allen_ontology_complete_unreferenced_hpf", ["HPF", "Isocortex"], False),
+        ("allen_ontology_complete_unreferenced_hpf", ["Isocortex", "HPF"], False),
     ]
 )
 def test_blacklist_regions(ontology, blacklisted_branches, should_raise, request):
@@ -259,9 +259,9 @@ def test_blacklist_regions(ontology, blacklisted_branches, should_raise, request
             o.blacklist_regions(blacklisted_branches, has_reference=True)
     else:
         o.blacklist_regions(blacklisted_branches, has_reference=True)
-        assert set(o.get_blacklisted_trees(unreferenced=True)) == set(blacklisted_branches)
+        assert o.get_blacklisted_trees(unreferenced=True) == blacklisted_branches
         if ontology.endswith("_unreferenced_hpf"):
-            assert set(o.get_blacklisted_trees(unreferenced=False)) == {"Isocortex"}
+            assert o.get_blacklisted_trees(unreferenced=False) == ["Isocortex"]
 
 def test_blacklist_regions_duplicate(allen_ontology_complete: AllenBrainOntology):
     with pytest.raises(ValueError, match=".*Duplicates.*"):
@@ -270,15 +270,15 @@ def test_blacklist_regions_duplicate(allen_ontology_complete: AllenBrainOntology
 @pytest.mark.parametrize(
     "ontology, regions",
     [
-        ("allen_ontology_complete", ["HPF", "Isocortex"]),
-        ("allen_ontology_complete_blacklisted_hpf", ["HPF", "Isocortex"]),
-        ("allen_ontology_complete_unreferenced_hpf", ["HPF", "Isocortex"]),
+        ("allen_ontology_complete", ["Isocortex", "HPF"]),
+        ("allen_ontology_complete_blacklisted_hpf", ["Isocortex", "HPF"]),
+        ("allen_ontology_complete_unreferenced_hpf", ["Isocortex", "HPF"]),
     ]
 )
 def test_blacklist_regions_unreferenced(ontology, regions, request):
     o: AllenBrainOntology = request.getfixturevalue(ontology)
     o.blacklist_regions(regions, has_reference=False)
-    assert set(o.get_blacklisted_trees(unreferenced=True)) == set(regions)
+    assert o.get_blacklisted_trees(unreferenced=True) == regions
     assert len(o.get_blacklisted_trees(unreferenced=False)) == 0
 
 @pytest.mark.parametrize(
