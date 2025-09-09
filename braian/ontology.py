@@ -892,7 +892,7 @@ class AllenBrainOntology:
         """
         subregions = dict()
         def add_subregions(node, depth):
-            if node["children"] and has_reference(node):
+            if node["children"] and has_reference(node) and any([has_reference(child) for child in node["children"]]):
                 subregions[node[key]] = [child[key] for child in node["children"] if has_reference(child)]
         visit_dict.visit_bfs(self.dict, "children", add_subregions)
         return subregions
@@ -967,7 +967,7 @@ class AllenBrainOntology:
         """
         path = []
         # if self.is_region(acronym, key="acronym", unreferenced=unreferenced):
-        if acronym != "root" and acronym not in self.parent_region:
+        if acronym != self.dict["acronym"] and acronym not in self.parent_region: # if it's not the root
             raise KeyError(f"Region not found ('acronym'='{acronym}')")
         while acronym in self.parent_region.keys():
             parent = self.parent_region[acronym]
@@ -1005,7 +1005,6 @@ class AllenBrainOntology:
         #         get_region_mjd.curr_mjd = node["acronym"]
         #     if node["acronym"] in acronyms:
         #         get_region_mjd.res[node["acronym"]] = get_region_mjd.curr_mjd
-        # self._check_regions(acronyms, key="acronym", unreferenced=True)
         # get_region_mjd.curr_mjd = None
         # get_region_mjd.res = OrderedDict()
         # visit_dict.visit_dfs(self.dict, "children", get_region_mjd)

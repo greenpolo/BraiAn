@@ -68,30 +68,43 @@ def allen_ontology_unreferenced_hpf(allen_ontology: AllenBrainOntology):
     allen_ontology.blacklist_regions(["HPF"], has_reference=False)
     return allen_ontology
 
-def test_direct_adjacent_regions(allen_ontology: AllenBrainOntology):
+def test_direct_adjacent_regions(allen_ontology_complete):
+    o: AllenBrainOntology = allen_ontology_complete
     with pytest.raises(KeyError):
-        _ = allen_ontology.parent_region["root"]
-    assert allen_ontology.parent_region["HPF"] == "CTXpl"
-    assert len(allen_ontology.direct_subregions["CA1"]) == 0 # Allen ontology has unreferenced subregions of CA1
-    assert set(allen_ontology.direct_subregions["CTXpl"]) == set(["Isocortex", "OLF", "HPF"])
-    allen_ontology.blacklist_regions(["HPF"], has_reference=True)
-    assert allen_ontology.parent_region["HPF"] == "CTXpl"
-    assert allen_ontology.parent_region["CA1"] == "CA"
-    assert set(allen_ontology.direct_subregions["CTXpl"]) == set(["Isocortex", "OLF", "HPF"])
+        _ = o.parent_region["root"]
+    assert o.parent_region["CA1slm"] == "CA1"
+    with pytest.raises(KeyError):
+        _ = o.direct_subregions["CA1slm"] # leaf region
+    assert o.parent_region["HPF"] == "CTXpl"
+    assert o.direct_subregions["CTXpl"] == ["Isocortex", "OLF", "HPF"]
+    o.blacklist_regions(["HPF"], has_reference=True)
+    assert o.parent_region["HPF"] == "CTXpl"
+    assert o.parent_region["CA1"] == "CA"
+    assert o.direct_subregions["CTXpl"] == ["Isocortex", "OLF", "HPF"]
 
-def test_direct_adjacent_regions_unreferenced(allen_ontology: AllenBrainOntology):
-    assert allen_ontology.parent_region["HPF"] == "CTXpl"
-    assert set(allen_ontology.direct_subregions["CTXpl"]) == set(["Isocortex", "OLF", "HPF"])
-    allen_ontology.blacklist_regions(["HPF"], has_reference=False)
+def test_direct_adjacent_regions_unreferenced(allen_ontology_complete: AllenBrainOntology):
+    o: AllenBrainOntology = allen_ontology_complete
+    assert o.parent_region["CA1slm"] == "CA1"
+    assert o.direct_subregions["CA1"] == ["CA1slm", "CA1so", "CA1sp", "CA1sr"]
+    o.blacklist_regions(["CA1sp", "CA1sr"], has_reference=False) # unreference SOME subregions of CA1
+    assert o.direct_subregions["CA1"] == ["CA1slm", "CA1so"]
+    o.blacklist_regions(["CA1slm", "CA1so", "CA1sp", "CA1sr"], has_reference=False) # unreference all subregions of CA1
     with pytest.raises(KeyError):
-        _ = allen_ontology.parent_region["HPF"]
+        o.direct_subregions["CA1"]
     with pytest.raises(KeyError):
-        _ = allen_ontology.parent_region["CA1"]
+        assert o.parent_region["CA1slm"]
+    assert o.parent_region["HPF"] == "CTXpl"
+    assert o.direct_subregions["CTXpl"] == ["Isocortex", "OLF", "HPF"]
+    o.blacklist_regions(["HPF"], has_reference=False)
     with pytest.raises(KeyError):
-        _ = allen_ontology.direct_subregions["HPF"]
+        _ = o.parent_region["HPF"]
     with pytest.raises(KeyError):
-        _ = allen_ontology.direct_subregions["CA1"]
-    assert set(allen_ontology.direct_subregions["CTXpl"]) == set(["Isocortex", "OLF"])
+        _ = o.parent_region["CA1"]
+    with pytest.raises(KeyError):
+        _ = o.direct_subregions["HPF"]
+    with pytest.raises(KeyError):
+        _ = o.direct_subregions["CA1"]
+    assert o.direct_subregions["CTXpl"] == ["Isocortex", "OLF"]
 
 @pytest.mark.parametrize(
     "ontology, acronym, expected",
@@ -230,7 +243,7 @@ def test_get_blacklisted_trees(ontology, unreferenced, expected, request):
     assert result == expected
 
 @pytest.mark.parametrize(
-    "ontology, regions, should_raise",
+    "ontology, blacklisted_branches, should_raise",
     [
         ("allen_ontology_complete", ["HPF", "Isocortex"], False),
         ("allen_ontology_complete", ["NOT_A_REGION"], True),
@@ -239,14 +252,14 @@ def test_get_blacklisted_trees(ontology, unreferenced, expected, request):
         ("allen_ontology_complete_unreferenced_hpf", ["HPF", "Isocortex"], False),
     ]
 )
-def test_blacklist_regions(ontology, regions, should_raise, request):
+def test_blacklist_regions(ontology, blacklisted_branches, should_raise, request):
     o: AllenBrainOntology = request.getfixturevalue(ontology)
     if should_raise:
         with pytest.raises(KeyError, match=".*not found.*"):
-            o.blacklist_regions(regions, has_reference=True)
+            o.blacklist_regions(blacklisted_branches, has_reference=True)
     else:
-        o.blacklist_regions(regions, has_reference=True)
-        assert set(o.get_blacklisted_trees(unreferenced=True)) == set(regions)
+        o.blacklist_regions(blacklisted_branches, has_reference=True)
+        assert set(o.get_blacklisted_trees(unreferenced=True)) == set(blacklisted_branches)
         if ontology.endswith("_unreferenced_hpf"):
             assert set(o.get_blacklisted_trees(unreferenced=False)) == {"Isocortex"}
 
@@ -403,6 +416,17 @@ def test_ids_to_acronym_modes(allen_ontology_blacklisted_all_no_reference: Allen
     with pytest.raises(ValueError, match=".*Duplicates.*"):
         o.ids_to_acronym([997, 997]) # duplicate IDs
 
+def test_acronym_to_ids_modes(allen_ontology_blacklisted_all_no_reference: AllenBrainOntology):
+    o = allen_ontology_blacklisted_all_no_reference
+    acronyms = ["CH", "BS", "CB", "root", "grey", "fiber tracts", "VS", "grv", "retina"] # order: 567, 343, 512, 997, 8, 1009, 73, 1024, 304325711
+    assert o.acronyms_to_id(acronyms, mode="depth") == [997, 8, 567, 343, 512, 1009, 73, 1024, 304325711]
+    assert o.acronyms_to_id(acronyms, mode="breadth") == [997, 8, 1009, 73, 1024, 304325711, 567, 343, 512]
+    assert o.acronyms_to_id(acronyms, mode=None) == [567, 343, 512, 997, 8, 1009, 73, 1024, 304325711]
+    with pytest.raises(ValueError, match=".*Unsupported.*mode.*"):
+        o.acronyms_to_id(acronyms, mode="INVALID")
+    with pytest.raises(ValueError, match=".*Duplicates.*"):
+        o.acronyms_to_id(["root", "root"]) # duplicate acronymss
+
 @pytest.mark.parametrize("ontology,region,expected", [
     ("allen_ontology_complete", "root", ["root"]),
     ("allen_ontology_complete", "OLF", ["Isocortex", "OLF", "HPF"]),
@@ -426,9 +450,9 @@ def test_get_sibiling_regions_raises(ontology: AllenBrainOntology, region, reque
         o.get_sibiling_regions(region)
 
 @pytest.mark.parametrize("ontology,regions,expected", [
-    ("allen_ontology_complete", ["CTX", "BS", "HPF", "CA1"], {"CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
-    ("allen_ontology_complete_blacklisted_hpf", ["CTX", "BS", "HPF", "CA1"], {"CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
-    ("allen_ontology_complete_unreferenced_hpf", ["CTX", "BS", "HPF", "CA1"], {"CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
+    ("allen_ontology_complete", ["root", "CTX", "BS", "HPF", "CA1"], {"root": None, "CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
+    ("allen_ontology_complete_blacklisted_hpf", ["root", "CTX", "BS", "HPF", "CA1"], {"root": None, "CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
+    ("allen_ontology_complete_unreferenced_hpf", ["root", "CTX", "BS", "HPF", "CA1"], {"root": None, "CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
 ])
 def test_get_parent_regions(ontology, regions, expected, request):
     o: AllenBrainOntology = request.getfixturevalue(ontology)
@@ -436,7 +460,7 @@ def test_get_parent_regions(ontology, regions, expected, request):
     assert expected == parents
 
 def test_get_parent_regions_raises(allen_ontology_complete: AllenBrainOntology):
-    regions = ["CTX", "NOT_A_REGION"]
+    regions = ["root", "CTX", "NOT_A_REGION"]
     with pytest.raises(KeyError, match=".*not found.*"):
         allen_ontology_complete.get_parent_regions(regions)
 
@@ -467,6 +491,7 @@ def test_list_all_subregions_raises(acronym, allen_ontology_unreferenced_hpf):
         o.list_all_subregions(acronym, unreferenced=False)
 
 @pytest.mark.parametrize("ontology,acronym,expected", [
+    ("allen_ontology_complete", "root", []),
     ("allen_ontology_complete", "HPF", ["CTXpl", "CTX", "CH", "grey", "root"]),
     ("allen_ontology_complete", "CA1", ["CA", "HIP", "HPF", "CTXpl", "CTX", "CH", "grey", "root"]),
     ("allen_ontology_complete_blacklisted_hpf", "HPF", ["CTXpl", "CTX", "CH", "grey", "root"]),
@@ -488,8 +513,9 @@ def test_get_regions_above_raises(acronym, allen_ontology_complete_unreferenced_
 
 @pytest.mark.parametrize("ontology, acronyms, expected", [
     ("allen_ontology_complete",
-        ["CTX", "BS", "HPF", "CA1"],
+        ["root", "CTX", "BS", "HPF", "CA1"],
         OrderedDict([
+            ("root", None),
             ("CTX", None),
             ("BS", None),
             ("HPF", "HPF"),
@@ -514,6 +540,8 @@ def test_get_corresponding_md_raises(acronym, allen_ontology_complete_unreferenc
     o: AllenBrainOntology = allen_ontology_complete_unreferenced_hpf
     with pytest.raises(KeyError, match=".*not found.*"):
         o.get_corresponding_md(acronym)
+    with pytest.raises(ValueError, match="Duplicate.*"):
+        o.get_corresponding_md(acronym, acronym)
 
 @pytest.mark.parametrize("ontology, acronym, full_name, colour", [
     ("allen_ontology_complete", "HPF", "Hippocampal formation", "#7ED04B"),
