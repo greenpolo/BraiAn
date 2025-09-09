@@ -222,6 +222,9 @@ class AllenBrainOntology:
             A value that uniquely indentifies a brain region (e.g. its acronym).
         key
             The key in Allen's structural graph used to identify `r`.
+        unreferenced
+            If True, it considers as region also those structures that have no reference
+            in the atlas annotation.
 
         Returns
         -------
@@ -242,7 +245,7 @@ class AllenBrainOntology:
         key
             The key in Allen's structural graph used to identify `a`.
         unreferenced
-            If True, it considers a region also those structures that have no reference
+            If True, it considers a regions also those structures that have no reference
             in the atlas annotation.
 
         Returns
@@ -977,7 +980,8 @@ class AllenBrainOntology:
         Finds the corresponding major division for each on the the `acronyms`.
         The returned dictionary is sorted in depth-first-search order.
 
-        It does not take into account blacklisted regions
+        While it accepts blacklisted regions, it raises `KeyError`
+        if given a region with no reference in the atlas annotations.
 
         Parameters
         ----------
@@ -991,20 +995,31 @@ class AllenBrainOntology:
 
         Raises
         ------
-        ValueError
-            If it can't find some of the given `acronym` in the ontology.
+        KeyError
+            If it can't find some `acronym` in the ontology
         """
-        def get_region_mjd(node: dict, depth: int):
-            if node["major_division"]:
-                get_region_mjd.curr_mjd = node["acronym"]
-            if node["acronym"] in (acronym, *acronyms):
-                get_region_mjd.res[node["acronym"]] = get_region_mjd.curr_mjd
         acronyms = (acronym, *acronyms)
-        self._check_regions(acronyms, key="acronym", unreferenced=True)
-        get_region_mjd.curr_mjd = None
-        get_region_mjd.res = OrderedDict()
-        visit_dict.visit_dfs(self.dict, "children", get_region_mjd)
-        return get_region_mjd.res
+        self._check_regions(acronyms, key="acronym", unreferenced=False)
+        # def get_region_mjd(node: dict, depth: int):
+        #     if node["major_division"]:
+        #         get_region_mjd.curr_mjd = node["acronym"]
+        #     if node["acronym"] in acronyms:
+        #         get_region_mjd.res[node["acronym"]] = get_region_mjd.curr_mjd
+        # self._check_regions(acronyms, key="acronym", unreferenced=True)
+        # get_region_mjd.curr_mjd = None
+        # get_region_mjd.res = OrderedDict()
+        # visit_dict.visit_dfs(self.dict, "children", get_region_mjd)
+        # return get_region_mjd.res
+        mds = OrderedDict()
+        for acronym in acronyms:
+            for ancestor in (acronym, *self.get_regions_above(acronym)):
+                if ancestor in MAJOR_DIVISIONS:
+                    mds[acronym] = ancestor
+                    break
+            if acronym not in mds:
+                mds[acronym] = None
+        return mds
+
 
     def get_layer1(self) -> list[str]:
         """

@@ -4,7 +4,6 @@ import numpy.testing as npt
 import pytest
 from braian import AllenBrainOntology
 from braian import visit_dict
-from braian.ontology import MAJOR_DIVISIONS
 from collections import OrderedDict
 
 @pytest.fixture
@@ -487,13 +486,34 @@ def test_get_regions_above_raises(acronym, allen_ontology_complete_unreferenced_
     with pytest.raises(KeyError, match=".*not found.*"):
         o.get_regions_above(acronym)
 
-@pytest.mark.parametrize("acronym,acronyms,expected", [
-    ("CTX", ["BS"], OrderedDict([("CTX", "CH"), ("BS", "grey")])),
+@pytest.mark.parametrize("ontology, acronyms, expected", [
+    ("allen_ontology_complete",
+        ["CTX", "BS", "HPF", "CA1"],
+        OrderedDict([
+            ("CTX", None),
+            ("BS", None),
+            ("HPF", "HPF"),
+            ("CA1", "HPF")
+    ])),
+    ("allen_ontology_complete_blacklisted_hpf",
+        ["CA1"],
+        OrderedDict([
+            ("CA1", "HPF")
+    ])),
 ])
-def test_get_corresponding_md(allen_ontology, acronym, acronyms, expected):
-    result = allen_ontology.get_corresponding_md(acronym, *acronyms)
-    for k, v in expected.items():
-        assert result[k] == v
+def test_get_corresponding_md(ontology, acronyms, expected, request):
+    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    assert o.get_corresponding_md(*acronyms) == expected
+
+@pytest.mark.parametrize("acronym", [
+    "HPF",
+    "CA1",
+    "NOT_A_REGION",
+])
+def test_get_corresponding_md_raises(acronym, allen_ontology_complete_unreferenced_hpf):
+    o: AllenBrainOntology = allen_ontology_complete_unreferenced_hpf
+    with pytest.raises(KeyError, match=".*not found.*"):
+        o.get_corresponding_md(acronym)
 
 def test_full_names_and_get_region_colors(allen_ontology):
     assert allen_ontology.full_name["HPF"] == "Hippocampal formation"
