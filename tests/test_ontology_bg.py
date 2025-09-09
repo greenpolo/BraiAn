@@ -45,15 +45,50 @@ def allen_ontology_complete():
     return AtlasOntology("allen_mouse_10um", blacklisted_acronyms=[], unreferenced=True)
 
 @pytest.fixture
-def allen_ontology_complete_blacklisted_hpf(allen_ontology_complete: AllenBrainOntology):
+def allen_ontology_complete_blacklisted_hpf(allen_ontology_complete: AtlasOntology):
     allen_ontology_complete.blacklist_regions(["HPF"], has_reference=True)
     return allen_ontology_complete
 
 @pytest.fixture
-def allen_ontology_complete_unreferenced_hpf(allen_ontology_complete: AllenBrainOntology):
+def allen_ontology_complete_unreferenced_hpf(allen_ontology_complete: AtlasOntology):
     allen_ontology_complete.blacklist_regions(["HPF"], has_reference=False)
     return allen_ontology_complete
 
+@pytest.fixture
+def allen_ontology():
+    return AtlasOntology("allen_mouse_10um", blacklisted_acronyms=[], unreferenced=False)
+
+@pytest.fixture
+def allen_ontology_blacklisted_all(allen_ontology: AtlasOntology):
+    allen_ontology.blacklist_regions(["root"], has_reference=True)
+    return allen_ontology
+
+@pytest.fixture
+def allen_ontology_blacklisted_all_no_reference(allen_ontology: AtlasOntology):
+    allen_ontology.blacklist_regions(["root"], has_reference=False)
+    return allen_ontology
+
+@pytest.fixture
+def allen_ontology_blacklisted_depth3(allen_ontology: AtlasOntology):
+    # NOTE: differently from AllenBrainOntology, AtlasOntology has no trace of "retina"
+    allen_ontology.blacklist_regions(["CTX", "CNU", "IB", "MB", "HB", "CBX", "CBN", "fiber tracts", "VS"], has_reference=True)
+    return allen_ontology
+
+@pytest.fixture
+def allen_ontology_blacklisted_depth3_no_reference(allen_ontology: AtlasOntology):
+    # NOTE: differently from AllenBrainOntology, AtlasOntology has no trace of "retina"
+    allen_ontology.blacklist_regions(["CTX", "CNU", "IB", "MB", "HB", "CBX", "CBN", "fiber tracts", "VS"], has_reference=False)
+    return allen_ontology
+
+@pytest.fixture
+def allen_ontology_blacklisted_hpf(allen_ontology: AtlasOntology):
+    allen_ontology.blacklist_regions(["HPF"], has_reference=True)
+    return allen_ontology
+
+@pytest.fixture
+def allen_ontology_unreferenced_hpf(allen_ontology: AtlasOntology):
+    allen_ontology.blacklist_regions(["HPF"], has_reference=False)
+    return allen_ontology
 
 @pytest.mark.parametrize(
     "ontology, unreferenced, expected",
@@ -67,7 +102,7 @@ def allen_ontology_complete_unreferenced_hpf(allen_ontology_complete: AllenBrain
     ]
 )
 def test_get_blacklisted_trees(ontology, unreferenced, expected, request):
-    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    o: AtlasOntology = request.getfixturevalue(ontology)
     if ontology.endswith("_hpf"):
         o.blacklist_regions(("CA",)) # blacklisting something below HPF should not affect the result
         o.blacklist_regions(("ENT",), has_reference=True)
@@ -85,7 +120,7 @@ def test_get_blacklisted_trees(ontology, unreferenced, expected, request):
     ]
 )
 def test_blacklist_regions(ontology, blacklisted_branches, should_raise, request):
-    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    o: AtlasOntology = request.getfixturevalue(ontology)
     if should_raise:
         with pytest.raises(KeyError, match=".*not found.*"):
             o.blacklist_regions(blacklisted_branches, has_reference=True)
@@ -95,7 +130,7 @@ def test_blacklist_regions(ontology, blacklisted_branches, should_raise, request
         if ontology.endswith("_unreferenced_hpf"):
             assert o.get_blacklisted_trees(unreferenced=False) == ["Isocortex"]
 
-def test_blacklist_regions_duplicate(allen_ontology_complete: AllenBrainOntology):
+def test_blacklist_regions_duplicate(allen_ontology_complete: AtlasOntology):
     with pytest.raises(ValueError, match=".*Duplicates.*"):
         allen_ontology_complete.blacklist_regions(["HPF", "HPF"], has_reference=True)
 
@@ -108,7 +143,27 @@ def test_blacklist_regions_duplicate(allen_ontology_complete: AllenBrainOntology
     ]
 )
 def test_blacklist_regions_unreferenced(ontology, regions, request):
-    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    o: AtlasOntology = request.getfixturevalue(ontology)
     o.blacklist_regions(regions, has_reference=False)
     assert o.get_blacklisted_trees(unreferenced=True) == regions
     assert len(o.get_blacklisted_trees(unreferenced=False)) == 0
+
+@pytest.mark.parametrize(
+    "ontology, acronym, expected",
+    [
+        ("allen_ontology", "root", True),
+        ("allen_ontology_blacklisted_all", "root", True),
+        ("allen_ontology_blacklisted_all_no_reference", "root", False),
+        ("allen_ontology_blacklisted_depth3", "root", True),
+        ("allen_ontology", "HPF", True),
+        ("allen_ontology_blacklisted_hpf", "HPF", True),
+        ("allen_ontology_unreferenced_hpf", "HPF", False),
+        ("allen_ontology_blacklisted_depth3", "HPF", True),
+        ("allen_ontology", "NOT_A_REGION", False)
+    ]
+)
+def test_is_region(ontology, acronym, expected, request):
+    o: AtlasOntology = request.getfixturevalue(ontology)
+    assert o.is_region(acronym, unreferenced=False) == expected
+    if ontology.endswith("_no_reference"):
+        assert o.is_region(acronym, unreferenced=True)

@@ -165,8 +165,7 @@ class AtlasOntology:
         ids = self._to_ids(regions, unreferenced=True, check_all=False)
         for id in ids: #self._tree_full.filter_nodes
             if unreferenced and id in self._tree: # ids contains regions that may already be unreferenced
-                # self._tree.remove_node(id) # might want to use 'remove_subtree' if we want to modify the nodes below
-                subtree = self._tree.remove_subtree(id)
+                subtree = self._tree.remove_subtree(id) # self._tree.remove_node(id) is not enough
                 # we want to blacklist all regions below so that get_blacklisted_trees(unreferenced=True) works
                 for subregion_id in subtree.expand_tree():
                     subregion: RegionNode = subtree[subregion_id]
@@ -187,11 +186,18 @@ class AtlasOntology:
         blacklisted_trees = first_subtrees(tree, lambda n: n.blacklisted)
         return self._nodes_to_attr(blacklisted_trees, attr=key)
 
-    # def is_region(self, r: int|str, key: str="acronym", unreferenced: bool=False) -> bool:
-    #     for node in self._tree_full.all_nodes():
-    #         if node.data and key in node.data and node.data[key] == r:
-    #             return True
-    #     return False
+    def is_region(self,
+                  value: int|str,
+                  unreferenced: bool=False) -> bool:
+        try:
+            id = int(value)
+        except ValueError:
+            if value not in self._acronym2id:
+                return False
+            id = self._acronym2id[value]
+        if unreferenced:
+            return True
+        return id in self._tree
 
     # def are_regions(self, a: Iterable, key: str="acronym", unreferenced: bool=False):
     #     a = list(a)
