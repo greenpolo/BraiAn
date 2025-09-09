@@ -808,7 +808,7 @@ class AllenBrainOntology:
         """
         Finds, for each of the given brain regions, their parent region in the ontology
 
-        It does not take into account blacklisted regions
+        It includes blacklisted and regions with no reference in the atlas annotations.
 
         Parameters
         ----------

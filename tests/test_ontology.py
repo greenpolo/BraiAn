@@ -440,13 +440,20 @@ def test_get_sibiling_regions_raises(ontology: AllenBrainOntology, region, reque
     with pytest.raises(KeyError, match=".*not found.*"):
         o.get_sibiling_regions(region)
 
-@pytest.mark.parametrize("regions,key,expected", [
-    (["CTX", "BS"], "acronym", {"CTX": "CH", "BS": "grey"}),
+@pytest.mark.parametrize("ontology,regions,expected", [
+    ("allen_ontology_complete", ["CTX", "BS", "HPF", "CA1"], {"CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
+    ("allen_ontology_complete_blacklisted_hpf", ["CTX", "BS", "HPF", "CA1"], {"CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
+    ("allen_ontology_complete_unreferenced_hpf", ["CTX", "BS", "HPF", "CA1"], {"CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
 ])
-def test_get_parent_regions(allen_ontology: AllenBrainOntology, regions, key, expected):
-    parents = allen_ontology.get_parent_regions(regions, key=key)
-    for k, v in expected.items():
-        assert parents[k] == v
+def test_get_parent_regions(ontology, regions, expected, request):
+    o: AllenBrainOntology = request.getfixturevalue(ontology)
+    parents = o.get_parent_regions(regions, key="acronym")
+    assert expected == parents
+
+def test_get_parent_regions_raises(allen_ontology_complete: AllenBrainOntology):
+    regions = ["CTX", "NOT_A_REGION"]
+    with pytest.raises(KeyError, match=".*not found.*"):
+        allen_ontology_complete.get_parent_regions(regions)
 
 @pytest.mark.parametrize("acronym,mode,blacklisted,unreferenced,expected", [
     ("CA1", "breadth", False, False, []),
