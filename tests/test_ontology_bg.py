@@ -220,6 +220,34 @@ def test_are_regions_should_raise(allen_ontology: AllenBrainOntology):
     with pytest.raises(ValueError, match=".*Duplicates.*"):
         allen_ontology.are_regions(["Isocortex", "FRP", "Isocortex", "MOp"])
 
+@pytest.mark.parametrize(
+    "ontology, acronyms, include_blacklisted, include_unreferenced, expected",
+    [
+        ("allen_ontology_complete",
+         [], True, True, set()),
+        ("allen_ontology_unreferenced_hpf",
+         ["Isocortex", "OLF", "HPF", "TH", "HY"], True, True, {"CTXpl", "IB"}),
+        ("allen_ontology_unreferenced_hpf",
+         ["RE", "Xi", "PVT", "PT", "TH"], True, True, {"MTN", "TH"}),
+        ("allen_ontology_unreferenced_hpf",
+         ["P", "MB", "TH", "MY", "CB", "HY"], True, True, {"BS", "CB"}),
+        ("allen_ontology_blacklisted_hpf",
+         ["Isocortex", "OLF", "TH", "HY"], True, False, {"Isocortex", "OLF", "IB"}), # 'HPF' is blacklisted, so 'CTXpl' is an ancestor region that covers the input acronyms
+        ("allen_ontology_unreferenced_hpf",
+         ["Isocortex", "OLF", "TH", "HY"], True, False, {"CTXpl", "IB"}), # 'HPF' is blacklisted, so 'CTXpl' is an ancestor region that covers the input acronyms
+        ("allen_ontology_unreferenced_hpf",
+         ["Isocortex", "OLF", "TH", "HY"], True, True, {"Isocortex", "OLF", "IB"}), # 'HPF' is missing for the input acronyms to cover 'CTXpl' completely
+        ("allen_ontology_unreferenced_hpf",
+         ["Isocortex", "OLF", "TH", "HY"], False, True, {"Isocortex", "OLF", "IB"}), # 'HPF' is missing for the input acronyms to cover 'CTXpl' completely
+        ("allen_ontology_unreferenced_hpf",
+         ["CA1", "CA2", "CA3", "NOT_A_REGION"], True, True, {"CA"}),
+    ]
+)
+def test_minimum_treecover(ontology, acronyms, include_blacklisted, include_unreferenced, expected, request):
+    ontology: AllenBrainOntology = request.getfixturevalue(ontology)
+    result = ontology.minimum_treecover(acronyms, blacklisted=include_blacklisted, unreferenced=include_unreferenced)
+    assert set(result) == expected
+
 @pytest.mark.parametrize("ontology,region,expected", [
     ("allen_ontology_complete", "root", ["root"]),
     ("allen_ontology_complete", "OLF", ["Isocortex", "OLF", "HPF"]),

@@ -74,6 +74,14 @@ def convert_to_region_nodes(atlas: bga.BrainGlobeAtlas) -> Tree:
 def first_subtrees(tree: Tree, func: Callable[[Node],bool]) -> list[Node]:
     return tree.filter_nodes(lambda n: func(n) and (not func(tree.parent(n.identifier) or tree.root == n.id)))
 
+def minimum_treecover(tree: Tree, nids: Iterable) -> set:
+    nids = set(nids)
+    nids_ = {tree.parent(nid).identifier if all(child.identifier in nids for child in tree.children(tree.parent(nid).identifier)) else nid
+            for nid in nids}
+    if nids_ == nids:
+        return nids
+    return minimum_treecover(tree, nids_)
+
 class AtlasOntology:
     def __init__(self,
                  atlas: str|bga.BrainGlobeAtlas,
@@ -240,6 +248,54 @@ class AtlasOntology:
         ids = self._to_ids(values, unreferenced=unreferenced, check_all=True)
         return np.array([id is not None for id in ids], dtype=bool)
 
+    def minimum_treecover(self,
+                          regions: Iterable,
+                          *,
+                          unreferenced: bool=False,
+                          blacklisted: bool=True,
+                          key: Literal["id","acronym"]="acronym") -> list[str]:
+        """
+        Returns the minimum set of regions that covers all the given regions, and not more.
+
+        Parameters
+        ----------
+        acronyms
+            The acronyms of the regions to cover
+        unreferenced
+            If False, it does not consider from the cover all those brain regions that have no references in the atlas annotations.
+        blacklisted
+            If False, it does not consider from the cover all those brain regions that are currently blacklisted from the ontology.\
+            If `unreferenced` is True, it is ignored.
+        key
+            The region identifier of the returned sibling structures.
+
+        Returns
+        -------
+        :
+            A list of acronyms of regions
+
+        Examples
+        --------
+        >>> atlas_ontology = braian.AtlasOntology("allen_mouse_10um")
+        >>> sorted(atlas_ontology.minimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY']))
+        ['BS', 'CB']
+
+        >>> sorted(atlas_ontology.minimum_treecover(["RE", "Xi", "PVT", "PT", "TH"]))
+        ['MTN', 'TH']
+        """
+        tree = self._tree_full if unreferenced else self._tree
+        if not unreferenced and not blacklisted:
+            tree = Tree(tree, deep=False)
+            for blacklisted_id in self.blacklisted(unreferenced=False, key="id"):
+                if blacklisted_id in tree:
+                    tree.remove_node(blacklisted_id)
+        ids = self._to_ids(regions, unreferenced=unreferenced, check_all=True)
+        ids = [id for id in ids if id is not None]
+        treecover_ids = minimum_treecover(tree, ids)
+        # sort depth-first
+        sorted_ids = tree.expand_tree()
+        return self._nodes_to_attr([tree[id] for id in sorted_ids if id in treecover_ids], attr=key)
+
     @deprecated(since="1.1.0", message="Use 'siblings' instead.")
     def get_sibiling_regions(self,
                              region: str|int,
@@ -371,10 +427,6 @@ class AtlasOntology:
 
     # def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]="depth") -> list[str]:
     #     """Converts the given brain regions IDs into their corresponding acronyms."""
-    #     raise NotImplementedError
-
-    # def minimum_treecover(self, acronyms: Iterable[str], unreferenced: bool=False, blacklisted: bool=True) -> set[str]:
-    #     """Returns the minimum set of regions that covers all the given regions, and not more."""
     #     raise NotImplementedError
 
     # def select_at_depth(self, depth: int):
