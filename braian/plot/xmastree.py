@@ -112,7 +112,10 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         regions_mjd = brain_ontology.get_corresponding_md(*selected_regions)
         selected_regions = list(regions_mjd.keys())
     else:
-        regions = merge_ordered(*[g.regions for g in groups]) #, selected_regions)
+        if hemisphere is BrainHemisphere:
+            regions = merge_ordered(*[g.regions for g in groups]) #, selected_regions)
+        else:
+            regions = merge_ordered(*[g.hemiregions[hem] for g in groups for hem in hemisphere]) #, selected_regions)
         groups = [
             group.apply(lambda brain: brain.select(regions, fill_nan=True, inplace=False))
             for group in groups
