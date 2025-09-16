@@ -412,14 +412,22 @@ class AtlasOntology:
         siblings = self._tree.siblings(id)
         return self._nodes_to_attr(siblings, attr=key)
 
+    @deprecated(since="1.1.0", message="Use 'to_acronym' instead.")
     def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
-        regions = self._to_nodes(ids, unreferenced=True, duplicated=False)
+        return self.ids_to_acronym(ids, mode=mode)
+
+    def to_acronym(self, regions: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
+        regions = self._to_nodes(regions, unreferenced=True, duplicated=False)
         if mode is not None:
             regions = self._sort(regions, mode=mode)
         return self._nodes_to_attr(regions, attr="acronym")
 
+    @deprecated(since="1.1.0", message="Use 'to_id' instead.")
     def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
-        ids = self._to_ids(acronyms, unreferenced=True, duplicated=False, check_all=False)
+        return self.to_id(acronyms, mode=mode)
+
+    def to_id(self, regions: Container[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
+        ids = self._to_ids(regions, unreferenced=True, duplicated=False, check_all=False)
         if mode is not None:
             return self._sort(ids, mode=mode)
         return ids
