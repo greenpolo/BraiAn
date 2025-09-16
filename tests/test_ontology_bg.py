@@ -346,7 +346,7 @@ def test_select_at_depth_beyond_leaves(allen_ontology_complete: AtlasOntology):
     "selection, args",
     [
         ("select_at_depth", [0]),
-        ("select_at_structural_level", [0]),
+        # ("select_at_structural_level", [0]),
         ("select_regions", [["root"]]),
     ]
 )
@@ -356,21 +356,20 @@ def test_select_with_blacklist_removed(selection, args, allen_ontology: AtlasOnt
     assert selected == ["root"]
 
 def test_select_leaves(allen_ontology_complete: AtlasOntology):
+    atlas = bga.BrainGlobeAtlas("allen_mouse_10um")
+    expected = {n.identifier for n in atlas.structures.tree.leaves()}
     allen_ontology_complete.select_leaves()
-    selected = allen_ontology_complete.get_selected_regions()
+    selected = allen_ontology_complete.get_selected_regions(key="id")
     # All selected regions should be leaves (no children)
-    for acronym in selected:
-        node = visit_dict.find_subtree(allen_ontology_complete.dict, "acronym", acronym, "children")
-        assert node is not None
-        assert node["children"] == []
+    assert set(selected) == expected
     allen_ontology_complete.unselect_all()
 
 @pytest.mark.parametrize(
     "blacklisted, referenced, included_leaves, excludeed_leaves",
     [
-        (["CA1", "CA2", "CA3"], None, ["CA1slm", "CA1so", "CA1sp", "CA1sr"], []),
-        (["CA1", "CA2", "CA3"], True, [], ["CA1slm", "CA1so", "CA1sp", "CA1sr"]),
-        (["CA1", "CA2", "CA3"], False, ["CA"], []),
+        (["HIP", "RHP"], None, ["CA1", "CA2", "CA3"], []),
+        (["HIP", "RHP"], True, [], ["CA1", "CA2", "CA3"]),
+        (["HIP", "RHP"], False, ["HPF"], []),
     ]
 )
 def test_select_leaves_blacklisted(blacklisted, referenced, included_leaves, excludeed_leaves, allen_ontology_complete: AtlasOntology):

@@ -533,9 +533,8 @@ class AtlasOntology:
     #     """Select all non-overlapping brain regions at the same structural level in the ontology."""
     #     raise NotImplementedError
 
-    # def select_leaves(self):
-    #     """Select all the non-overlapping smallest brain regions in the ontology."""
-    #     raise NotImplementedError
+    def select_leaves(self):
+        self._select(self._tree.leaves())
 
     # def select_summary_structures(self):
     #     """Select all summary structures in the ontology."""
