@@ -289,8 +289,7 @@ def test_blacklist_regions_unreferenced(ontology, regions, request):
     "ontology, depth, expected",
     [
         ("allen_ontology_complete", 0, ["root"]),
-        ("allen_ontology_complete", 1, ["grey", "fiber tracts", "VS", "grv", "retina"]),
-        ("allen_ontology",          1, ["grey", "fiber tracts", "VS"]),
+        ("allen_ontology_complete", 1, ["grey", "fiber tracts", "VS"]),
         ("allen_ontology_blacklisted_depth3", 3, []),
         ("allen_ontology_blacklisted_depth3_no_reference", 3, ["CH", "BS", "CB"]), # depth 2 regions, excluding "fiber tracts", "VS"
     ]

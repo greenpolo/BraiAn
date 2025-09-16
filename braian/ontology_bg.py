@@ -74,8 +74,10 @@ def convert_to_region_nodes(atlas: bga.BrainGlobeAtlas) -> Tree:
         tree.add_node(new_node, parent=parent_id)
     return tree
 
-def first_subtrees(tree: Tree, func: Callable[[Node],bool]) -> list[Node]:
-    return tree.filter_nodes(lambda n: func(n) and (not func(tree.parent(n.identifier) or tree.root == n.id)))
+def first_subtrees(tree: Tree, func: Callable[[Node],bool]) -> Iterable[Node]:
+    def first(n: Node) -> bool:
+        return func(n) and (n.is_root(tree.identifier) or not func(tree.parent(n.identifier)))
+    return tree.filter_nodes(first)
 
 def minimum_treecover(tree: Tree, nids: Iterable) -> set:
     nids = set(nids)
@@ -96,6 +98,7 @@ class AtlasOntology:
         self._acronym2id: dict[str,int] = deepcopy(atlas.structures.acronym_to_id_map)
         self._tree_full: Tree = convert_to_region_nodes(self._atlas)
         self._tree: Tree = Tree(self._tree_full, deep=False)
+        self._selected: bool = False
         if not unreferenced:
             unreferenced_regions = self._unreferenced(key="id") # in allen_mouse_50um, only 'RSPd4 (545)' is unreferenced
             self.blacklist(unreferenced_regions, unreferenced=True)
@@ -495,9 +498,36 @@ class AtlasOntology:
     #     """Translates the current brain ontology into an igraph directed Graph."""
     #     raise NotImplementedError
 
-    # def select_at_depth(self, depth: int):
-    #     """Select all non-overlapping brain regions at the same depth in the ontology."""
-    #     raise NotImplementedError
+    def has_selection(self) -> bool:
+        return self._selected
+
+    def unselect_all(self):
+        for n in self._tree_full.all_nodes():
+            n.selected = False
+        self._selected = False
+
+    def _select(self, regions: Iterable[RegionNode]):
+        for n in regions:
+            n.selected = True
+        self._selected = True
+
+    @deprecated(since="1.1.0", message="Use 'selected' instead.")
+    def get_selected_regions(self,
+                            *,
+                            key: Literal["id","acronym"]="acronym") -> list:
+        return self.selected(key=key)
+
+    def selected(self,
+                 *,
+                 key: Literal["id","acronym"]="acronym") -> list:
+        selected_trees = first_subtrees(self._tree, lambda n: not n.blacklisted and n.selected)
+        return self._nodes_to_attr(selected_trees, attr=key)
+
+    def select_at_depth(self, depth: int):
+        def select(n: RegionNode) -> bool:
+            depth_ = self._tree.depth(n)
+            return depth_ == depth or (depth_ < depth and n.is_leaf(self._tree.identifier))
+        self._select(first_subtrees(self._tree, select))
 
     # def select_at_structural_level(self, level: int):
     #     """Select all non-overlapping brain regions at the same structural level in the ontology."""
@@ -517,18 +547,6 @@ class AtlasOntology:
 
     # def add_to_selection(self, regions: Iterable, key: str="acronym"):
     #     """Add the given brain regions to the current selection in the ontology"""
-    #     raise NotImplementedError
-
-    # def has_selection(self) -> bool:
-    #     """Check whether the current ontology is currently selecting any brain region."""
-    #     raise NotImplementedError
-
-    # def get_selected_regions(self, key: str="acronym") -> list:
-    #     """Returns a non-overlapping list of selected non-blacklisted brain regions"""
-    #     raise NotImplementedError
-
-    # def unselect_all(self):
-    #     """Resets the selection in the ontology"""
     #     raise NotImplementedError
 
     # def get_regions(self, selection_method: str) -> list[str]:
