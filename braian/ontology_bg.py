@@ -57,8 +57,11 @@ class RegionNode(Node):
 
 def convert_to_region_nodes(atlas: bga.BrainGlobeAtlas) -> Tree:
     tree = Tree(node_class=RegionNode)
-    old_nodes: dict[int,Node] = atlas.structures.tree.nodes # expand_tree(mode=Tree.DEPTH):
+    old_nodes: dict[int,Node] = atlas.structures.tree.nodes
     for nid, old_node in old_nodes.items():
+    # ids: list[int] = atlas.structures.tree.expand_tree(sorting=False)
+    # for nid in ids:
+    #     old_node = atlas.structures.tree[nid]
         new_node = RegionNode(
             acronym=atlas.structures[nid]["acronym"],
             identifier=nid,
@@ -85,7 +88,7 @@ def minimum_treecover(tree: Tree, nids: Iterable) -> set:
 class AtlasOntology:
     def __init__(self,
                  atlas: str|bga.BrainGlobeAtlas,
-                 blacklisted_acronyms: Iterable[str]=[],
+                 blacklisted: Iterable[str]=[],
                  unreferenced: bool=False):
         if not isinstance(atlas, bga.BrainGlobeAtlas):
             atlas = bga.BrainGlobeAtlas(atlas)
@@ -95,9 +98,10 @@ class AtlasOntology:
         self._tree: Tree = Tree(self._tree_full, deep=False)
         if not unreferenced:
             unreferenced_regions = self._unreferenced(key="id") # in allen_mouse_50um, only 'RSPd4 (545)' is unreferenced
-            self.blacklist_regions(unreferenced_regions, has_reference=False)
-        if blacklisted_acronyms:
-            self.blacklist_regions(blacklisted_acronyms)
+            self.blacklist(unreferenced_regions, unreferenced=True)
+        if blacklisted:
+            blacklisted_ids = self._to_ids(blacklisted, unreferenced=True, check_all=False)
+            self.blacklist(blacklisted_ids, unreferenced=False)
 
     def _nodes_to_attr(self,
                        regions: Iterable[RegionNode],
@@ -158,6 +162,7 @@ class AtlasOntology:
                 regions: Sequence,
                 *,
                 unreferenced: bool, # include them or no?
+                duplicated: bool, # check for duplicated regions or not?
                 check_all: bool) -> list[int]:
         """
         Checks the existance of a list of regions and returns the corresponding IDs.
@@ -168,6 +173,9 @@ class AtlasOntology:
             A sequence of regions, identified by their ID or their acronym.
         unreferenced
             If `True`, it accepts `regions` that have no reference in the atlas annotations.
+        duplicated
+            If `True`, it accepts the same region to appear twice (or more) in `regions`.\
+            Otherwise, it raises `ValueError`.
         check_all
             If `True`, the returned list may contain some `None` values, corresponding to unknown regions.
 
@@ -178,6 +186,8 @@ class AtlasOntology:
 
         Raises
         ------
+        ValueError
+            If `duplicated=False` and there is at least one region that appears twice in `regions`.
         KeyError
             If `check_all=False` and at least one of the given `regions` is not found in the ontology.
         """
@@ -191,19 +201,61 @@ class AtlasOntology:
                 else:
                     raise
             ids.append(id)
+        if not duplicated and len(ids) > 1:
+            duplicates = np.rec.find_duplicate(np.array(ids)) # may contain None
+            duplicates = [self._tree_full[id].tag for id in duplicates if id is not None]
+            if len(duplicates) > 0:
+                raise ValueError(f"Duplicates detected in the list of regions: '{', '.join(duplicates)}'")
         return ids
 
+    def _to_nodes(self,
+                  regions: Container[int],
+                  unreferenced: bool,
+                  duplicated: bool) -> list[RegionNode]:
+        ids = self._to_ids(regions, unreferenced=unreferenced, duplicated=duplicated, check_all=False)
+        return [self._tree_full[id] for id in ids]
+
+    def _sort(self,
+              regions: Container[RegionNode|int],
+              mode: Literal["breadth", "depth"]|None="depth") -> list[RegionNode]:
+        if len(regions) == 0:
+            return []
+        match mode:
+            case "breadth":
+                mode = Tree.WIDTH
+            case "depth":
+                mode = Tree.DEPTH
+            case _:
+                raise ValueError(f"Unsupported sorting mode: '{mode}'. Available modes are 'breadth' or 'depth'.")
+        # NOTE: avoiding to sort to match the order used in the ontology
+        sorted_ids = self._tree_full.expand_tree(mode=mode, sorting=False)
+        regions = list(regions)
+        if isinstance(regions[0], RegionNode):
+            # NOTE: no check whether 'regions' are actually in self._tree_full
+            ids = {r.id for r in regions}
+            return [self._tree_full[id] for id in sorted_ids if id in ids]
+        else: # isinstance(regions[0], int):
+            # NOTE: no check whether the IDs are actually in self._tree_full
+            return [id for id in sorted_ids if id in regions]
+
+    @deprecated(since="1.1.0", message="Use 'blacklist' instead.")
     def blacklist_regions(self,
                           regions: Iterable,
                           *,
                           unreferenced: bool=False,
                           has_reference: bool=None):
-        """Blacklists from further analysis the given `regions` the ontology, as well as all their sub-regions."""
         if has_reference is not None:
             warning_message = "'has_reference' is deprecated since 1.1.0 and may be removed in future versions. Use 'unreferenced' instead."
             warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
             unreferenced = not has_reference
-        ids = self._to_ids(regions, unreferenced=True, check_all=False)
+        self.blacklist(regions, unreferenced=unreferenced)
+
+    def blacklist(self,
+                  regions: Iterable,
+                  *,
+                  unreferenced: bool=False):
+        """Blacklists from further analysis the given `regions` the ontology, as well as all their sub-regions."""
+        ids = self._to_ids(regions, unreferenced=True, duplicated=False, check_all=False)
         for id in ids: #self._tree_full.filter_nodes
             if unreferenced and id in self._tree: # ids contains regions that may already be unreferenced
                 subtree = self._tree.remove_subtree(id) # self._tree.remove_node(id) is not enough
@@ -244,8 +296,9 @@ class AtlasOntology:
 
     def are_regions(self,
                     values: Iterable,
-                    unreferenced: bool=False):
-        ids = self._to_ids(values, unreferenced=unreferenced, check_all=True)
+                    unreferenced: bool=False,
+                    duplicated: bool=True):
+        ids = self._to_ids(values, unreferenced=unreferenced, duplicated=duplicated, check_all=True)
         return np.array([id is not None for id in ids], dtype=bool)
 
     def minimum_treecover(self,
@@ -289,12 +342,13 @@ class AtlasOntology:
             for blacklisted_id in self.blacklisted(unreferenced=False, key="id"):
                 if blacklisted_id in tree:
                     tree.remove_node(blacklisted_id)
-        ids = self._to_ids(regions, unreferenced=unreferenced, check_all=True)
+        ids = self._to_ids(regions, unreferenced=unreferenced, duplicated=True, check_all=True)
         ids = [id for id in ids if id is not None]
         treecover_ids = minimum_treecover(tree, ids)
-        # sort depth-first
-        sorted_ids = tree.expand_tree()
-        return self._nodes_to_attr([tree[id] for id in sorted_ids if id in treecover_ids], attr=key)
+        # NOTE: we don't use self._to_nodes() because we don't need to check the IDs
+        treecover = [self._tree_full[id] for id in treecover_ids]
+        treecover = self._sort(treecover, mode="depth")
+        return self._nodes_to_attr(treecover, attr=key)
 
     @deprecated(since="1.1.0", message="Use 'siblings' instead.")
     def get_sibiling_regions(self,
@@ -358,6 +412,18 @@ class AtlasOntology:
         siblings = self._tree.siblings(id)
         return self._nodes_to_attr(siblings, attr=key)
 
+    def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
+        regions = self._to_nodes(ids, unreferenced=True, duplicated=False)
+        if mode is not None:
+            regions = self._sort(regions, mode=mode)
+        return self._nodes_to_attr(regions, attr="acronym")
+
+    def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
+        ids = self._to_ids(acronyms, unreferenced=True, duplicated=False, check_all=False)
+        if mode is not None:
+            return self._sort(ids, mode=mode)
+        return ids
+
     # def get_parent_regions(self, regions: Iterable, key: str="acronym") -> dict:
     #     result = {}
     #     for region in regions:
@@ -419,14 +485,6 @@ class AtlasOntology:
 
     # def to_igraph(self, unreferenced: bool=False, blacklisted: bool=True):
     #     """Translates the current brain ontology into an igraph directed Graph."""
-    #     raise NotImplementedError
-
-    # def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]="depth") -> list[int]:
-    #     """Converts the given brain regions acronyms into their corresponding IDs"""
-    #     raise NotImplementedError
-
-    # def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]="depth") -> list[str]:
-    #     """Converts the given brain regions IDs into their corresponding acronyms."""
     #     raise NotImplementedError
 
     # def select_at_depth(self, depth: int):

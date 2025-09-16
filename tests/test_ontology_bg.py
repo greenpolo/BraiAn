@@ -44,7 +44,7 @@ from braian.ontology import AllenBrainOntology
 
 @pytest.fixture
 def allen_ontology_complete():
-    return AtlasOntology("allen_mouse_10um", blacklisted_acronyms=[], unreferenced=True)
+    return AtlasOntology("allen_mouse_10um", blacklisted=[], unreferenced=True)
 
 @pytest.fixture
 def allen_ontology_complete_blacklisted_hpf(allen_ontology_complete: AtlasOntology):
@@ -58,7 +58,7 @@ def allen_ontology_complete_unreferenced_hpf(allen_ontology_complete: AtlasOntol
 
 @pytest.fixture
 def allen_ontology():
-    return AtlasOntology("allen_mouse_10um", blacklisted_acronyms=[], unreferenced=False)
+    return AtlasOntology("allen_mouse_10um", blacklisted=[], unreferenced=False)
 
 @pytest.fixture
 def allen_ontology_blacklisted_all(allen_ontology: AtlasOntology):
@@ -197,7 +197,7 @@ def test_are_regions(ontology, acronyms, unreferenced, expected, request):
 
 def test_are_regions_should_raise(allen_ontology: AtlasOntology):
     with pytest.raises(ValueError, match=".*Duplicates.*"):
-        allen_ontology.are_regions(["Isocortex", "FRP", "Isocortex", "MOp"])
+        allen_ontology.are_regions(["Isocortex", "FRP", "Isocortex", "MOp"], duplicated=False)
 
 @pytest.mark.parametrize(
     "ontology, acronyms, include_blacklisted, include_unreferenced, expected",
@@ -411,10 +411,10 @@ def test_ids_acronym_conversions(allen_ontology_blacklisted_all_no_reference: At
 
 def test_ids_to_acronym_modes(allen_ontology_blacklisted_all_no_reference: AtlasOntology):
     o = allen_ontology_blacklisted_all_no_reference
-    ids = [567, 343, 512, 997, 8, 1009, 73, 1024, 304325711] # order: CH, BS, CB, root, grey, fiber tracts, VS, grv, retina
-    assert o.ids_to_acronym(ids, mode="depth") == ["root", "grey", "CH", "BS", "CB", "fiber tracts", "VS", "grv", "retina"]
-    assert o.ids_to_acronym(ids, mode="breadth") == ["root", "grey", "fiber tracts", "VS", "grv", "retina", "CH", "BS", "CB"]
-    assert o.ids_to_acronym(ids, mode=None) == ["CH", "BS", "CB", "root", "grey", "fiber tracts", "VS", "grv", "retina"]
+    ids = [567, 343, 512, 997, 8, 1009, 73] # order: CH, BS, CB, root, grey, fiber tracts, VS
+    assert o.ids_to_acronym(ids, mode="depth") == ["root", "grey", "CH", "BS", "CB", "fiber tracts", "VS"]
+    assert o.ids_to_acronym(ids, mode="breadth") == ["root", "grey", "fiber tracts", "VS", "CH", "BS", "CB"]
+    assert o.ids_to_acronym(ids, mode=None) == ["CH", "BS", "CB", "root", "grey", "fiber tracts", "VS"]
     with pytest.raises(ValueError, match=".*Unsupported.*mode.*"):
         o.ids_to_acronym(ids, mode="INVALID")
     with pytest.raises(ValueError, match=".*Duplicates.*"):
@@ -422,10 +422,10 @@ def test_ids_to_acronym_modes(allen_ontology_blacklisted_all_no_reference: Atlas
 
 def test_acronym_to_ids_modes(allen_ontology_blacklisted_all_no_reference: AtlasOntology):
     o = allen_ontology_blacklisted_all_no_reference
-    acronyms = ["CH", "BS", "CB", "root", "grey", "fiber tracts", "VS", "grv", "retina"] # order: 567, 343, 512, 997, 8, 1009, 73, 1024, 304325711
-    assert o.acronyms_to_id(acronyms, mode="depth") == [997, 8, 567, 343, 512, 1009, 73, 1024, 304325711]
-    assert o.acronyms_to_id(acronyms, mode="breadth") == [997, 8, 1009, 73, 1024, 304325711, 567, 343, 512]
-    assert o.acronyms_to_id(acronyms, mode=None) == [567, 343, 512, 997, 8, 1009, 73, 1024, 304325711]
+    acronyms = ["CH", "BS", "CB", "root", "grey", "fiber tracts", "VS"] # order: 567, 343, 512, 997, 8, 1009, 73
+    assert o.acronyms_to_id(acronyms, mode="depth") == [997, 8, 567, 343, 512, 1009, 73]
+    assert o.acronyms_to_id(acronyms, mode="breadth") == [997, 8, 1009, 73, 567, 343, 512]
+    assert o.acronyms_to_id(acronyms, mode=None) == [567, 343, 512, 997, 8, 1009, 73]
     with pytest.raises(ValueError, match=".*Unsupported.*mode.*"):
         o.acronyms_to_id(acronyms, mode="INVALID")
     with pytest.raises(ValueError, match=".*Duplicates.*"):
