@@ -75,9 +75,19 @@ def convert_to_region_nodes(atlas: bga.BrainGlobeAtlas) -> Tree:
     return tree
 
 def first_subtrees(tree: Tree, func: Callable[[Node],bool]) -> Iterable[Node]:
-    def first(n: Node) -> bool:
-        return func(n) and (n.is_root(tree.identifier) or not func(tree.parent(n.identifier)))
-    return tree.filter_nodes(first)
+    root = tree[tree.root]
+    if func(root):
+        yield root
+        return
+    queue = [tree[i] for i in root.successors(tree.identifier)]
+    while queue:
+        n = queue[0]
+        queue = queue[1:]
+        if func(n):
+            yield n
+        else:
+            expansion = [tree[i] for i in n.successors(tree.identifier)]
+            queue = expansion + queue  # depth-first
 
 def minimum_treecover(tree: Tree, nids: Iterable) -> set:
     nids = set(nids)
@@ -162,7 +172,7 @@ class AtlasOntology:
         return id
 
     def _to_ids(self,
-                regions: Sequence,
+                regions: Iterable,
                 *,
                 unreferenced: bool, # include them or no?
                 duplicated: bool, # check for duplicated regions or not?
@@ -212,7 +222,7 @@ class AtlasOntology:
         return ids
 
     def _to_nodes(self,
-                  regions: Container[int],
+                  regions: Iterable[int],
                   unreferenced: bool,
                   duplicated: bool) -> list[RegionNode]:
         ids = self._to_ids(regions, unreferenced=unreferenced, duplicated=duplicated, check_all=False)
@@ -417,9 +427,9 @@ class AtlasOntology:
 
     @deprecated(since="1.1.0", message="Use 'to_acronym' instead.")
     def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
-        return self.ids_to_acronym(ids, mode=mode)
+        return self.to_acronym(ids, mode=mode)
 
-    def to_acronym(self, regions: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
+    def to_acronym(self, regions: Iterable[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
         regions = self._to_nodes(regions, unreferenced=True, duplicated=False)
         if mode is not None:
             regions = self._sort(regions, mode=mode)
@@ -429,7 +439,7 @@ class AtlasOntology:
     def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
         return self.to_id(acronyms, mode=mode)
 
-    def to_id(self, regions: Container[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
+    def to_id(self, regions: Iterable[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
         ids = self._to_ids(regions, unreferenced=True, duplicated=False, check_all=False)
         if mode is not None:
             return self._sort(ids, mode=mode)
@@ -506,10 +516,27 @@ class AtlasOntology:
             n.selected = False
         self._selected = False
 
-    def _select(self, regions: Iterable[RegionNode]):
+    def _select(self, regions: Iterable[RegionNode], *, add: bool):
+        if not add:
+            self.unselect_all()
         for n in regions:
             n.selected = True
         self._selected = True
+
+    @deprecated(since="1.1.0", message="Use 'select' instead.")
+    def select_regions(self, regions: Iterable, key: str="acronym"):
+        return self.select(regions)
+
+    def select(self, regions: Iterable):
+        regions = self._to_nodes(regions, unreferenced=False, duplicated=False)
+        self._select(regions, add=False)
+
+    def add_to_selection(self, regions: Iterable, key: str=None):
+        if key is not None:
+            warning_message = "'key' is deprecated since 1.1.0 and may be removed in future versions."
+            warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
+        regions = self._to_nodes(regions, unreferenced=False, duplicated=True)
+        self._select(regions, add=True)
 
     @deprecated(since="1.1.0", message="Use 'selected' instead.")
     def get_selected_regions(self,
@@ -527,25 +554,17 @@ class AtlasOntology:
         def select(n: RegionNode) -> bool:
             depth_ = self._tree.depth(n)
             return depth_ == depth or (depth_ < depth and n.is_leaf(self._tree.identifier))
-        self._select(first_subtrees(self._tree, select))
+        self._select(first_subtrees(self._tree, select), add=False)
 
     # def select_at_structural_level(self, level: int):
     #     """Select all non-overlapping brain regions at the same structural level in the ontology."""
     #     raise NotImplementedError
 
     def select_leaves(self):
-        self._select(self._tree.leaves())
+        self._select(self._tree.leaves(), add=False)
 
     # def select_summary_structures(self):
     #     """Select all summary structures in the ontology."""
-    #     raise NotImplementedError
-
-    # def select_regions(self, regions: Iterable, key: str="acronym"):
-    #     """Select the given regions in the ontology"""
-    #     raise NotImplementedError
-
-    # def add_to_selection(self, regions: Iterable, key: str="acronym"):
-    #     """Add the given brain regions to the current selection in the ontology"""
     #     raise NotImplementedError
 
     # def get_regions(self, selection_method: str) -> list[str]:

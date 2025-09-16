@@ -393,6 +393,8 @@ def test_select_regions_and_add_to_selection(allen_ontology: AllenBrainOntology)
     allen_ontology.select_regions(["HPF", "HIP", "CA"])
     assert allen_ontology.has_selection()
     assert allen_ontology.get_selected_regions() == ["HPF"]
+    allen_ontology.select_regions(["TH", "HY"])
+    assert allen_ontology.get_selected_regions() == ["TH", "HY"]
     with pytest.raises(KeyError, match=".*not found.*"):
         allen_ontology.select_regions(["CTXpl", "BS", "NOT_A_REGION"])
     allen_ontology.add_to_selection(["CTXpl", "BS"])

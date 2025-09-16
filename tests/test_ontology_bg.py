@@ -383,6 +383,18 @@ def test_select_leaves_blacklisted(blacklisted, referenced, included_leaves, exc
     for excluded_leaf in excludeed_leaves:
         assert excluded_leaf not in result
 
+def test_first_tree():
+    from braian.ontology_bg import first_subtrees
+    from treelib import Tree
+    tree = Tree()
+    tree.create_node("Root", "root")
+    tree.create_node("Child A", "a", parent="root")
+    tree.create_node("Child B", "b", parent="root")
+    tree.create_node("Grandchild", "a1", parent="a")
+    assert [n.identifier for n in first_subtrees(tree, func=lambda n: tree.depth(n) >= 0)] == ["root"]
+    assert [n.identifier for n in first_subtrees(tree, func=lambda n: tree.depth(n) >= 1)] == ["a", "b"]
+    assert [n.identifier for n in first_subtrees(tree, func=lambda n: tree.depth(n) >= 2)] == ["a1"]
+    assert [n.identifier for n in first_subtrees(tree, func=lambda n: tree.depth(n) >= 3)] == []
 
 def test_select_regions_and_add_to_selection(allen_ontology: AtlasOntology):
     with pytest.raises(KeyError, match=".*not found.*"):
@@ -391,6 +403,8 @@ def test_select_regions_and_add_to_selection(allen_ontology: AtlasOntology):
     allen_ontology.select_regions(["HPF", "HIP", "CA"])
     assert allen_ontology.has_selection()
     assert allen_ontology.get_selected_regions() == ["HPF"]
+    allen_ontology.select_regions(["TH", "HY"])
+    assert allen_ontology.get_selected_regions() == ["TH", "HY"]
     with pytest.raises(KeyError, match=".*not found.*"):
         allen_ontology.select_regions(["CTXpl", "BS", "NOT_A_REGION"])
     allen_ontology.add_to_selection(["CTXpl", "BS"])
