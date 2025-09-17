@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Self
 from collections.abc import Iterable
 
-from braian.brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnknownBrainRegionsError
-from braian.ontology import AllenBrainOntology
+from braian._brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnknownBrainRegionsError
+from braian._ontology import AllenBrainOntology
 from braian.utils import search_file_or_simlink
 
 __all__ = ["BrainSlice"]

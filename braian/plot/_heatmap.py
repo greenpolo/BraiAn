@@ -1,5 +1,5 @@
 from braian import BrainData
-from braian.deflector import deflect
+from braian._deflector import deflect
 from collections.abc import Sequence
 from pathlib import Path
 

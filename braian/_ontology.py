@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from collections import OrderedDict
 from collections.abc import Iterable, Container
 from copy import deepcopy
-from braian import visit_dict, graph_utils
+from braian import _visit_dict, _graph_utils
 from braian.utils import deprecated
 from pathlib import Path
 from typing import Literal
@@ -123,8 +123,8 @@ class AllenBrainOntology:
             assert isinstance(allen_json, dict)
             self.dict = allen_json
         # First label every region as "not blacklisted"
-        visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
-        visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_reference(n, True))
+        _visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
+        _visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_reference(n, True))
         if blacklisted_acronyms:
             self.blacklist_regions(blacklisted_acronyms, key="acronym")
             # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
@@ -181,7 +181,7 @@ class AllenBrainOntology:
         if not atlas_meshes_dir.exists():
             raise ValueError(f"BrainGlobe atlas not downloaded: '{bg_atlas_name}'")
         regions_w_annotation = [int(p.stem) for p in atlas_meshes_dir.iterdir() if p.suffix == ".obj"]
-        regions_wo_annotation = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dict.visit_dfs)
+        regions_wo_annotation = _visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, _visit_dict.visit_dfs)
         return [region["id"] for region in regions_wo_annotation]
 
     def _get_unannoted_regions(self) -> tuple[list[str], str]:
@@ -210,7 +210,7 @@ class AllenBrainOntology:
         except ValueError:
             print(f"WARNING: could not remove unannoted regions from {self.annotation_version} ontology")
             return [], None
-        regions_wo_annotation = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, visit_dict.visit_dfs)
+        regions_wo_annotation = _visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, _visit_dict.visit_dfs)
         return [region["id"] for region in regions_wo_annotation]
 
     def is_region(self, r: int|str, key: str="acronym", unreferenced: bool=False) -> bool:
@@ -232,7 +232,7 @@ class AllenBrainOntology:
         :
             True, if a region identifiable by `r` exists in the ontoloy. False otherwise.
         """
-        region_tree = visit_dict.find_subtree(self.dict, key, r, "children")
+        region_tree = _visit_dict.find_subtree(self.dict, key, r, "children")
         return region_tree is not None and (unreferenced or has_reference(region_tree))
 
     def are_regions(self, a: Iterable, key: str="acronym", unreferenced: bool=False) -> npt.NDArray:
@@ -269,7 +269,7 @@ class AllenBrainOntology:
             id = node[key]
             if (unreferenced or has_reference(node)) and id in s:
                 is_region[a.index(id)] = True # NOTE: if it wont work properly if 'a' has duplicates
-        visit_dict.visit_dfs(self.dict, "children", check_region)
+        _visit_dict.visit_dfs(self.dict, "children", check_region)
         return is_region
 
     def _check_regions(self, regions: Iterable, key: str, unreferenced: bool):
@@ -328,7 +328,7 @@ class AllenBrainOntology:
         {'MTN', 'TH'}
         """
         g = self.to_igraph(unreferenced=unreferenced, blacklisted=blacklisted)
-        vs = graph_utils.minimum_treecover(g.vs.select(name_in=acronyms))
+        vs = _graph_utils.minimum_treecover(g.vs.select(name_in=acronyms))
         return {v["name"] for v in vs}
 
     def blacklist_regions(self,
@@ -361,10 +361,10 @@ class AllenBrainOntology:
             unreferenced = not has_reference
         self._check_regions(regions, key=key, unreferenced=True)
         for region_value in regions:
-            region_node = visit_dict.find_subtree(self.dict, key, region_value, "children")
-            visit_dict.visit_bfs(region_node, "children", lambda n,d: set_blacklisted(n, True))
+            region_node = _visit_dict.find_subtree(self.dict, key, region_value, "children")
+            _visit_dict.visit_bfs(region_node, "children", lambda n,d: set_blacklisted(n, True))
             if unreferenced:
-                visit_dict.visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
+                _visit_dict.visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
         if unreferenced:
             self.direct_subregions = self._get_all_subregions()
             self.parent_region = self._get_all_parent_areas()
@@ -392,16 +392,16 @@ class AllenBrainOntology:
         else:
             def select_node(n: dict, d: int):
                 return is_blacklisted(n) and has_reference(n)
-        regions = visit_dict.non_overlapping_where(self.dict, "children", select_node, mode="bfs")
+        regions = _visit_dict.non_overlapping_where(self.dict, "children", select_node, mode="bfs")
         return [region[key] for region in regions]
 
     def _mark_major_divisions(self):
-        visit_dict.add_boolean_attribute(self.dict, "children", "major_division", lambda node,d: node["acronym"] in MAJOR_DIVISIONS)
+        _visit_dict.add_boolean_attribute(self.dict, "children", "major_division", lambda node,d: node["acronym"] in MAJOR_DIVISIONS)
 
     def _add_depth_to_regions(self):
         def add_depth(node, depth):
             node["depth"] = depth
-        visit_dict.visit_bfs(self.dict, "children", add_depth)
+        _visit_dict.visit_bfs(self.dict, "children", add_depth)
 
     def select_at_depth(self, depth: int):
         """
@@ -428,7 +428,7 @@ class AllenBrainOntology:
         def is_selected(node, _depth):
             return _depth == depth or (_depth < depth and (not node["children"] or
                                                            not any(has_reference(child) for child in node["children"])))
-        visit_dict.add_boolean_attribute(self.dict, "children", "selected", is_selected)
+        _visit_dict.add_boolean_attribute(self.dict, "children", "selected", is_selected)
 
     def select_at_structural_level(self, level: int):
         """
@@ -454,7 +454,7 @@ class AllenBrainOntology:
         [`select_regions`][braian.AllenBrainOntology.select_regions]
         [`get_regions`][braian.AllenBrainOntology.get_regions]
         """
-        visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["st_level"] == level)
+        _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["st_level"] == level)
 
     def select_leaves(self):
         """
@@ -474,7 +474,7 @@ class AllenBrainOntology:
         [`select_regions`][braian.AllenBrainOntology.select_regions]
         [`get_regions`][braian.AllenBrainOntology.get_regions]
         """
-        visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node, d: visit_dict.is_leaf(node, "children") or \
+        _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node, d: _visit_dict.is_leaf(node, "children") or \
                                          has_reference(node) and all([not has_reference(child) for child in node["children"]]))
         # not is_blacklisted(node) and all([has_reference(child) for child in node["children"]])) # some regions (see CA1 in CCFv3) have all subregions unannoted
 
@@ -535,7 +535,7 @@ class AllenBrainOntology:
         [`get_regions`][braian.AllenBrainOntology.get_regions]
         """
         self._check_regions(regions, key=key, unreferenced=False)
-        visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node[key] in regions)
+        _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node[key] in regions)
 
     def add_to_selection(self, regions: Iterable, key: str="acronym"):
         """
@@ -562,7 +562,7 @@ class AllenBrainOntology:
         """
         assert all(is_region:=self.are_regions(regions, key=key)), \
             f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}"
-        visit_dict.add_boolean_attribute(self.dict, "children", "selected",
+        _visit_dict.add_boolean_attribute(self.dict, "children", "selected",
                               lambda node,d: ("selected" in node and node["selected"]) or node[key] in regions)
 
     def has_selection(self) -> bool:
@@ -616,7 +616,7 @@ class AllenBrainOntology:
         """
         if not self.has_selection():
             return []
-        regions = visit_dict.non_overlapping_where(self.dict, "children", lambda n,d: n["selected"] and not is_blacklisted(n), mode="dfs")
+        regions = _visit_dict.non_overlapping_where(self.dict, "children", lambda n,d: n["selected"] and not is_blacklisted(n), mode="dfs")
         return [region[key] for region in regions]
 
     def unselect_all(self):
@@ -636,7 +636,7 @@ class AllenBrainOntology:
         [`get_regions`][braian.AllenBrainOntology.get_regions]
         """
         if "selected" in self.dict:
-            visit_dict.del_attribute(self.dict, "children", "selected")
+            _visit_dict.del_attribute(self.dict, "children", "selected")
 
     def get_regions(self, selection_method: str) -> list[str]:
         """
@@ -730,13 +730,13 @@ class AllenBrainOntology:
         """
         match mode:
             case "breadth":
-                visit_alg = visit_dict.visit_bfs
+                visit_alg = _visit_dict.visit_bfs
             case "depth" | None:
-                visit_alg = visit_dict.visit_dfs
+                visit_alg = _visit_dict.visit_dfs
             case _:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth', 'depth' or None.")
         self._check_regions(ids, key="id", unreferenced=True)
-        areas = visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] in ids, visit_alg)
+        areas = _visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] in ids, visit_alg)
         if mode is None:
             areas.sort(key=lambda r: list(ids).index(r["id"]))
         return [area["acronym"] for area in areas]
@@ -768,13 +768,13 @@ class AllenBrainOntology:
         """
         match mode:
             case "breadth":
-                visit_alg = visit_dict.visit_bfs
+                visit_alg = _visit_dict.visit_bfs
             case "depth" | None:
-                visit_alg = visit_dict.visit_dfs
+                visit_alg = _visit_dict.visit_dfs
             case _:
                 raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
         self._check_regions(acronyms, key="acronym", unreferenced=True)
-        regions = visit_dict.get_where(self.dict, "children", lambda n,d: n["acronym"] in acronyms, visit_alg)
+        regions = _visit_dict.get_where(self.dict, "children", lambda n,d: n["acronym"] in acronyms, visit_alg)
         if mode is None:
             regions.sort(key=lambda r: list(acronyms).index(r["acronym"]))
         return [r["id"] for r in regions]
@@ -802,7 +802,7 @@ class AllenBrainOntology:
         KeyError
             If the given `region` is not found in the ontology.
         """
-        parents = visit_dict.get_parents_where(self.dict,
+        parents = _visit_dict.get_parents_where(self.dict,
                                                "children",
                                                lambda parent,child: child[key] == region and has_reference(child),
                                                key)
@@ -839,7 +839,7 @@ class AllenBrainOntology:
         KeyError
             If it can't find the parent of one of the given `regions`
         """
-        parents = visit_dict.get_parents_where(self.dict, "children", lambda parent,child: child[key] in regions, key)
+        parents = _visit_dict.get_parents_where(self.dict, "children", lambda parent,child: child[key] in regions, key)
         for region in regions:
             if region not in parents.keys():
                 raise KeyError(f"Parent region not found ('{key}'={region})")
@@ -872,7 +872,7 @@ class AllenBrainOntology:
     def _get_edges(self, key: str="id", unreferenced: bool=True) -> list[tuple]:
         assert key in ("id", "acronym", "graph_order"), "'key' parameter must be  'id', 'acronym' or 'graph_order'"
         edges = []
-        visit_dict.visit_parents(self.dict,
+        _visit_dict.visit_parents(self.dict,
                                  "children",
                                  lambda region,subregion:
                                     edges.append((region[key], subregion[key]))
@@ -903,7 +903,7 @@ class AllenBrainOntology:
         def add_subregions(node, depth):
             if node["children"] and has_reference(node) and any([has_reference(child) for child in node["children"]]):
                 subregions[node[key]] = [child[key] for child in node["children"] if has_reference(child)]
-        visit_dict.visit_bfs(self.dict, "children", add_subregions)
+        _visit_dict.visit_bfs(self.dict, "children", add_subregions)
         return subregions
 
     def list_all_subregions(self,
@@ -940,17 +940,17 @@ class AllenBrainOntology:
         """
         match mode:
             case "breadth":
-                visit_alg = visit_dict.visit_bfs
+                visit_alg = _visit_dict.visit_bfs
             case "depth":
-                visit_alg = visit_dict.visit_dfs
+                visit_alg = _visit_dict.visit_dfs
             case _:
                 raise ValueError(f"Unsupported mode '{mode}'. Available modes are 'breadth' and 'depth'.")
 
         attr = "acronym"
-        region = visit_dict.find_subtree(self.dict, attr, acronym, "children")
+        region = _visit_dict.find_subtree(self.dict, attr, acronym, "children")
         if not region or (not unreferenced and not has_reference(region)):
             raise KeyError(f"Region not found ('{attr}'='{acronym}')")
-        subregions = visit_dict.get_all_nodes(region, "children", visit=visit_alg)
+        subregions = _visit_dict.get_all_nodes(region, "children", visit=visit_alg)
         return [subregion[attr] for subregion in subregions if (blacklisted or not is_blacklisted(subregion)) and (unreferenced or has_reference(subregion))]
 
     def get_regions_above(self, acronym: str) -> list[str]:
@@ -1016,7 +1016,7 @@ class AllenBrainOntology:
         #         get_region_mjd.res[node["acronym"]] = get_region_mjd.curr_mjd
         # get_region_mjd.curr_mjd = None
         # get_region_mjd.res = OrderedDict()
-        # visit_dict.visit_dfs(self.dict, "children", get_region_mjd)
+        # _visit_dict.visit_dfs(self.dict, "children", get_region_mjd)
         # return get_region_mjd.res
         mds = OrderedDict()
         for acronym in acronyms:
@@ -1050,7 +1050,7 @@ class AllenBrainOntology:
         :
             A dictionary that maps acronyms→name
         """
-        all_nodes = visit_dict.get_all_nodes(self.dict, "children")
+        all_nodes = _visit_dict.get_all_nodes(self.dict, "children")
         return {area["acronym"]: area["name"] for area in all_nodes}
 
     def get_region_colors(self) -> dict[str,str]:
@@ -1062,7 +1062,7 @@ class AllenBrainOntology:
         :
             A dictionary that maps acronyms→color
         """
-        all_areas = visit_dict.get_all_nodes(self.dict, "children")
+        all_areas = _visit_dict.get_all_nodes(self.dict, "children")
         return {area["acronym"]: "#"+area["color_hex_triplet"] for area in all_areas}
 
     def to_igraph(self,
@@ -1097,7 +1097,7 @@ class AllenBrainOntology:
             return visit
 
         g = ig.Graph(edges=self._get_edges(key="graph_order"), directed=True)
-        visit_dict.visit_bfs(self.dict, "children", add_attributes(g))
+        _visit_dict.visit_bfs(self.dict, "children", add_attributes(g))
         # if self.dict was modified removing some nodes, 'graph_order' creates some empty vertices
         # in that case, we remove those vertices
 
@@ -1106,13 +1106,13 @@ class AllenBrainOntology:
         unrefs_trees = blacklisted_unrefs_trees - blacklisted_trees
         if not unreferenced:
             if not blacklisted:
-                graph_utils.remove_branch(g, blacklisted_unrefs_trees)
+                _graph_utils.remove_branch(g, blacklisted_unrefs_trees)
             else:
-                graph_utils.remove_branch(g, unrefs_trees)
-                graph_utils.blacklist_regions(g, blacklisted_trees)
+                _graph_utils.remove_branch(g, unrefs_trees)
+                _graph_utils.blacklist_regions(g, blacklisted_trees)
         else: # if regions unreferenced are kept in the graph, it means it will also keep the
               # blacklisted ones because unreferenced regions are obligatorily blacklisted from any analysis.
-            graph_utils.blacklist_regions(g, blacklisted_trees, unreferenced=unrefs_trees)
+            _graph_utils.blacklist_regions(g, blacklisted_trees, unreferenced=unrefs_trees)
         if self.has_selection():
-            graph_utils.select_regions(g, self.get_selected_regions())
+            _graph_utils.select_regions(g, self.get_selected_regions())
         return g

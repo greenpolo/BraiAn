@@ -6,7 +6,7 @@ from collections.abc import Collection, Iterable, Sequence
 from typing import Self, Callable
 from numbers import Number
 
-from braian.deflector import deflect
+from braian._deflector import deflect
 from braian import AllenBrainOntology
 
 __all__ = ["BrainData"]

@@ -7,9 +7,9 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
-from braian.ontology import AllenBrainOntology
-from braian.brain_data import BrainData
-from braian.brain_slice import BrainSlice,\
+from braian._ontology import AllenBrainOntology
+from braian._brain_data import BrainData
+from braian._brain_slice import BrainSlice,\
                         BrainSliceFileError, \
                         ExcludedAllRegionsError, \
                         ExcludedRegionsNotFoundError, \

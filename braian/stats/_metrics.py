@@ -1,8 +1,8 @@
 import enum
 
-from braian.brain_data import BrainData
-from braian.animal_brain import AnimalBrain
-from braian.animal_group import AnimalGroup
+from braian._brain_data import BrainData
+from braian._animal_brain import AnimalBrain
+from braian._animal_group import AnimalGroup
 from collections.abc import Callable
 
 # NOTE: some arithmetic operations (e.g. division by zero) are not correctly converted to pd.NA,

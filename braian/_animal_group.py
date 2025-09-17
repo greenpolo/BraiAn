@@ -8,10 +8,10 @@ from itertools import product
 from pathlib import Path
 from typing import Self
 
-from braian.animal_brain import AnimalBrain, SliceMetrics
-from braian.brain_data import BrainData
-from braian.ontology import AllenBrainOntology
-from braian.sliced_brain import SlicedBrain
+from braian._animal_brain import AnimalBrain, SliceMetrics
+from braian._brain_data import BrainData
+from braian._ontology import AllenBrainOntology
+from braian._sliced_brain import SlicedBrain
 from braian.utils import save_csv, merge_ordered
 
 __all__ = ["AnimalGroup", "SlicedGroup"]

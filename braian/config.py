@@ -4,6 +4,8 @@ from pathlib import Path
 from braian import AllenBrainOntology, AnimalBrain, Experiment, SlicedGroup, SlicedExperiment
 import braian.utils
 
+__all__ = ["BraiAnConfig"]
+
 class BraiAnConfig:
     def __init__(self,
                  config_file: Path|str,

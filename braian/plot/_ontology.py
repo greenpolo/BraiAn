@@ -5,7 +5,7 @@ import numpy.typing as npt
 import plotly.colors as plc
 import plotly.graph_objects as go
 
-from braian import graph_utils
+from braian import _graph_utils
 
 from collections.abc import Iterable, Callable
 
@@ -213,7 +213,7 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: braian.AllenBrain
 
 def draw_selection(g: ig.Graph, layout: ig.Layout, width: float):
     coords = []
-    contiguous_selections = graph_utils.brainwide_selection(g, attr="index")
+    contiguous_selections = _graph_utils.brainwide_selection(g, attr="index")
     for contiguous_selection in contiguous_selections:
         for v in contiguous_selection:
             coords.append(layout.coords[v])
