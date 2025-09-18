@@ -12,7 +12,7 @@ from typing import Generator, Self
 
 from braian import AllenBrainOntology, BrainData, BrainHemisphere, EmptyBrainError, SlicedBrain
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
-from braian.utils import save_csv, deprecated
+from braian.utils import deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
 
@@ -28,9 +28,10 @@ def coefficient_variation(x: np.ndarray) -> np.float64:
         return x.apply(coefficient_variation, axis=0)
 
 def _combined_regions(*bd: BrainData) -> list[str]:
-    # TODO: use utils.merge
-    all_regions = [set(bd_.regions) for bd_ in bd]
-    return list(functools.reduce(set.__or__, all_regions))
+    return {
+        hem: merge_ordered(*[_bd for _bd in bd if _bd.hemisphere is hem])
+        for hem in BrainHemisphere
+    }
 
 def _to_legacy_index(bd: BrainData) -> pd.Series:
     if bd.hemisphere is not BrainHemisphere.BOTH:
