@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import re
+
 from dataclasses import dataclass
 from enum import Enum
 from pandas.api.types import is_numeric_dtype
@@ -8,11 +9,24 @@ from pathlib import Path
 from typing import Self
 from collections.abc import Iterable, Sequence
 
-from braian.brain_data import sort_by_ontology, BrainHemisphere, UnknownBrainRegionsError, InvalidRegionsHemisphereError, extract_legacy_hemispheres
-from braian.ontology import AllenBrainOntology
+from braian import AllenBrainOntology, BrainHemisphere, UnknownBrainRegionsError, InvalidRegionsHemisphereError
+from braian._brain_data import extract_legacy_hemispheres, sort_by_ontology
 from braian.utils import search_file_or_simlink
 
-__all__ = ["BrainSlice", "QuPathMeasurementType"]
+__all__ = [
+    "BrainSlice",
+    "QuPathMeasurementType",
+    "BrainSliceFileError",
+    "ExcludedRegionsNotFoundError",
+    "ExcludedAllRegionsError",
+    "EmptyResultsError",
+    "NanResultsError",
+    "InvalidResultsError",
+    "MissingResultsMeasurementError",
+    "RegionsWithNoCountError",
+    "InvalidRegionsHemisphereError",
+    "InvalidExcludedRegionsHemisphereError",
+]
 
 # global MODE_PathAnnotationObjectError
 global MODE_ExcludedRegionNotRecognisedError
@@ -555,11 +569,6 @@ class BrainSlice:
     def merge_hemispheres(self) -> Self:
         """
         For each brain region, sums the data of left and right hemispheres into one single datum
-
-        Parameters
-        ----------
-        slice
-            A brain section to merge
 
         Returns
         -------

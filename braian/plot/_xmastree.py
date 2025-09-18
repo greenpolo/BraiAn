@@ -4,14 +4,12 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from braian.animal_group import AnimalGroup
-from braian.brain_data import BrainData, BrainHemisphere
-from braian.experiment import Experiment
-from braian.plot.generic import bar_sample
-from braian.ontology import AllenBrainOntology
-from braian.utils import merge_ordered
 from collections.abc import Collection, Sequence
 from plotly.subplots import make_subplots
+
+from braian import AllenBrainOntology, AnimalGroup, BrainData, BrainHemisphere, Experiment
+from braian.utils import merge_ordered
+from braian.plot._generic import bar_sample
 
 __all__ = [
     "xmas_tree",

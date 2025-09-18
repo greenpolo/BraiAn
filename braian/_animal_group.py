@@ -7,10 +7,7 @@ from functools import reduce
 from pathlib import Path
 from typing import Self
 
-from braian.animal_brain import AnimalBrain, SliceMetrics
-from braian.brain_data import BrainData, BrainHemisphere
-from braian.ontology import AllenBrainOntology
-from braian.sliced_brain import SlicedBrain
+from braian import AllenBrainOntology, AnimalBrain, BrainData, BrainHemisphere, SlicedBrain, SliceMetrics
 from braian.utils import save_csv, merge_ordered
 
 __all__ = ["AnimalGroup", "SlicedGroup"]

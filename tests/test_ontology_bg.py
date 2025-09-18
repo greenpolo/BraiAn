@@ -2,8 +2,8 @@ import brainglobe_atlasapi as bga
 import numpy as np
 import numpy.testing as npt
 import pytest
-from braian.ontology_bg import AtlasOntology
-from braian.ontology import AllenBrainOntology
+from braian._ontology_bg import AtlasOntology
+from braian._ontology import AllenBrainOntology
 
 # @pytest.fixture(scope="module")
 # def allen_mouse_ontology():
@@ -384,7 +384,7 @@ def test_select_leaves_blacklisted(blacklisted, referenced, included_leaves, exc
         assert excluded_leaf not in result
 
 def test_first_tree():
-    from braian.ontology_bg import first_subtrees
+    from braian._ontology_bg import first_subtrees
     from treelib import Tree
     tree = Tree()
     tree.create_node("Root", "root")

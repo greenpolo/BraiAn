@@ -1,5 +1,6 @@
-import braian.stats as bas
 import plotly.graph_objects as go
+
+import braian.stats as bas
 
 __all__ = [
     "permutation",

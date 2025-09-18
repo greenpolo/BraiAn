@@ -3,7 +3,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 from braian import AllenBrainOntology
-from braian import visit_dict
+from braian import _visit_dict
 from collections import OrderedDict
 
 @pytest.fixture
@@ -361,7 +361,7 @@ def test_select_leaves(allen_ontology_complete: AllenBrainOntology):
     selected = allen_ontology_complete.get_selected_regions()
     # All selected regions should be leaves (no children)
     for acronym in selected:
-        node = visit_dict.find_subtree(allen_ontology_complete.dict, "acronym", acronym, "children")
+        node = _visit_dict.find_subtree(allen_ontology_complete.dict, "acronym", acronym, "children")
         assert node is not None
         assert node["children"] == []
     allen_ontology_complete.unselect_all()

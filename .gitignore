@@ -12,5 +12,6 @@ plots/
 !docs/custom_theme/**/*.html
 docs/BraiAn_output/
 docs/QuPath_output/
+site/
 .vscode/
 .DS_Store

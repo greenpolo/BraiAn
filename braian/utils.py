@@ -9,11 +9,24 @@ import platform
 import requests
 import sys
 import warnings
+
 from collections.abc import Sequence
 from importlib import resources
-from pathlib import Path
+from pathlib import Path, WindowsPath
 
-from braian import resolve_symlink
+__all__ = ["cache", "deprecated", "get_resource_path", "resource"]
+
+match platform.system():
+    case "Windows":
+        import win32com.client
+        shell = win32com.client.Dispatch("WScript.Shell")
+        def resolve_symlink(path: str|WindowsPath):
+            if isinstance(path, WindowsPath):
+                return shell.CreateShortCut(path).Targetpath if path.suffix == ".lnk" else path
+            return shell.CreateShortCut(path).Targetpath if path.endswith(".lnk") else path
+    case _:
+        def resolve_symlink(path: Path):
+            return path.resolve(strict=True)
 
 def cache(filepath: Path|str, url):
     if not isinstance(filepath, Path):
@@ -25,12 +38,6 @@ def cache(filepath: Path|str, url):
             .mkdir(parents=True, exist_ok=True)
     with open(filepath, "wb") as f:
         f.write(resp.content)
-
-def get_resource_path(resource_name: str):
-    with resources.as_file(resources.files(__package__)
-                                    .joinpath("resources")
-                                    .joinpath(resource_name)) as path:
-        return path
 
 def merge_ordered(*xs: Sequence) -> Sequence:
     vs_obj = list(functools.reduce(set.union, [set(x) for x in xs]))
@@ -86,18 +93,29 @@ def get_indices_where(where):
     rows = where.index[where.any(axis=1)]
     return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]
 
-def deprecated(*, since: str, message=None):
+def deprecated(*, since: str, message=None, alternatives: list[str]=None):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            # If a custom message is provided, use it; otherwise, use a default message
             warning_message = f"{func.__name__} is deprecated since {since} and may be removed in future versions."
+            if alternatives:
+                warning_message += f" Use any of the following alternatives, instead: '{'\', \''.join(alternatives)}'."
             if message:
                 warning_message += " "+message
             warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
             return func(*args, **kwargs)
         return wrapper
     return decorator
+
+@deprecated(since="1.1.0", alternatives=["braian.utils.resource"])
+def get_resource_path(resource_name: str):
+    return resource(resource_name)
+
+def resource(name: str):
+    with resources.as_file(resources.files(__package__)
+                                    .joinpath("resources")
+                                    .joinpath(name)) as path:
+        return path
 
 def silvalab_remote_dirs(
                 experiment_dir_name: Path|str,

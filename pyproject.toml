@@ -43,6 +43,7 @@ mkdocs-include-markdown-plugin = "^7.1.7"
 mkdocs-multi-theme-plugin = {git = "https://github.com/carlocastoldi/mkdocs-multi-theme-plugin.git", rev = "master"}
 mkdocs-open-in-new-tab = "^1.0.8"
 markdown-captions = "^2.1.2"
+griffe-warnings-deprecated = {git = "https://github.com/carlocastoldi/griffe-warnings-deprecated"}
 
 
 [tool.poetry.group.dev.dependencies]

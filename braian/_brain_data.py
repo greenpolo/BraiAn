@@ -6,10 +6,17 @@ from enum import Enum
 from typing import Self, Callable
 from numbers import Number
 
-from braian.deflector import deflect
 from braian import AllenBrainOntology
+from braian._deflector import deflect
 
-__all__ = ["sort_by_ontology", "BrainHemisphere", "extract_legacy_hemispheres", "BrainData"]
+__all__ = [
+    "extract_legacy_hemispheres",
+    "sort_by_ontology",
+    "BrainData",
+    "BrainHemisphere",
+    "UnknownBrainRegionsError",
+    "InvalidRegionsHemisphereError",
+]
 
 class UnknownBrainRegionsError(Exception):
     def __init__(self, unknown_regions: Iterable[str]):

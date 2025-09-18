@@ -1,8 +1,9 @@
-import braian.graph_utils
 import enum
 
-from braian import AllenBrainOntology, AnimalBrain, AnimalGroup, BrainData, BrainHemisphere
 from collections.abc import Callable
+
+from braian import AllenBrainOntology, AnimalBrain, AnimalGroup, BrainData, BrainHemisphere
+from braian._graph_utils import brainwide_selection, is_brainwide_selection
 
 # NOTE: some arithmetic operations (e.g. division by zero) are not correctly converted to pd.NA,
 # which results in having BrainData filled with np.nan.
@@ -202,8 +203,8 @@ def relative_density(brain: AnimalBrain,
     _enforce_rawdata(brain)
 
     g = atlas_ontology.to_igraph(unreferenced=False, blacklisted=False)
-    if not braian.graph_utils.is_brainwide_selection(g):
-        _,uncovered = braian.graph_utils.brainwide_selection(g, attr="name", advanced=True)
+    if not is_brainwide_selection(g):
+        _,uncovered = brainwide_selection(g, attr="name", advanced=True)
         raise ValueError(f"Current ontology selection does not cover the whole brain. The following regions are left out: {uncovered}")
     if brain.is_split:
         brain_merged = brain.merge_hemispheres()

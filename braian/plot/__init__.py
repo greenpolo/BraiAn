@@ -1,9 +1,5 @@
-from .generic import *
-from .heatmap import *
-from .ontology import *
-from .pls import *
-from .xmastree import *
-
-del generic
-#del heatmap
-del ontology
+from braian.plot._generic import *
+from braian.plot._heatmap import *
+from braian.plot._ontology import *
+from braian.plot._pls import *
+from braian.plot._xmastree import *

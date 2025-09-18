@@ -94,7 +94,7 @@ plugins:
     custom_templates: docs/custom_theme
     handlers:
       python:
-        import:
+        inventories:
         - https://docs.python.org/3/objects.inv                     # python
         - https://numpy.org/doc/stable/objects.inv                  # numpy
         - https://python.igraph.org/en/stable/api/objects.inv       # igraph
@@ -103,6 +103,7 @@ plugins:
         - https://pandas.pydata.org/pandas-docs/stable/objects.inv  # pandas
         - https://plotly.com/python-api-reference/objects.inv       # plotly
         - https://matplotlib.org/stable/objects.inv                 # matplotlib
+        # load_external_modules: true
         options:
           #########
           # GENERAL
@@ -143,8 +144,11 @@ plugins:
           separate_signature: true
           signature_crossrefs: true
           unwrap_annotated: true
-          # extensions:
+          extensions:
           #   - griffe_attrs
+          - griffe_warnings_deprecated:
+              kind: danger
+              title: Deprecated
 
 markdown_extensions:
   - admonition

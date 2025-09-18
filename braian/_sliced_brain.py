@@ -6,20 +6,21 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
-from braian.ontology import AllenBrainOntology
-from braian.brain_data import BrainData, BrainHemisphere
-from braian.brain_slice import BrainSlice,\
-                        BrainSliceFileError, \
-                        ExcludedAllRegionsError, \
-                        ExcludedRegionsNotFoundError, \
-                        EmptyResultsError, \
-                        NanResultsError, \
-                        InvalidResultsError, \
-                        MissingResultsMeasurementError, \
-                        InvalidRegionsHemisphereError, \
-                        InvalidExcludedRegionsHemisphereError
+from braian import AllenBrainOntology, BrainData, BrainHemisphere, BrainSlice,\
+                   BrainSliceFileError, \
+                   ExcludedAllRegionsError, \
+                   ExcludedRegionsNotFoundError, \
+                   EmptyResultsError, \
+                   NanResultsError, \
+                   InvalidResultsError, \
+                   MissingResultsMeasurementError, \
+                   InvalidRegionsHemisphereError, \
+                   InvalidExcludedRegionsHemisphereError
 
-__all__ = ["SlicedBrain"]
+__all__ = [
+    "SlicedBrain",
+    "EmptyBrainError",
+]
 
 global MODE_ExcludedAllRegionsError
 global MODE_ExcludedRegionsNotFoundError
@@ -256,11 +257,6 @@ class SlicedBrain:
         """
         Creates a new `SlicedBrain` from all merged [`BrainSlice`][braian.BrainSlice]
         in `sliced_brain`.
-
-        Parameters
-        ----------
-        sliced_brain
-            A sliced brain to merge.
 
         Returns
         -------

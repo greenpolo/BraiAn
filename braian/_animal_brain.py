@@ -10,9 +10,8 @@ from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
 from typing import Generator, Self
 
-from braian.ontology import AllenBrainOntology
-from braian.sliced_brain import SlicedBrain, EmptyBrainError
-from braian.brain_data import BrainData, BrainHemisphere, extract_legacy_hemispheres #, sort_by_ontology
+from braian import AllenBrainOntology, BrainData, BrainHemisphere, EmptyBrainError, SlicedBrain
+from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
 from braian.utils import save_csv, deprecated
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
@@ -29,6 +28,7 @@ def coefficient_variation(x: np.ndarray) -> np.float64:
         return x.apply(coefficient_variation, axis=0)
 
 def _combined_regions(*bd: BrainData) -> list[str]:
+    # TODO: use utils.merge
     all_regions = [set(bd_.regions) for bd_ in bd]
     return list(functools.reduce(set.__or__, all_regions))
 
@@ -241,7 +241,7 @@ class AnimalBrain:
         return self._sizes
 
     @property
-    @deprecated(since="1.0.3", message="Use sizes instead.")
+    @deprecated(since="1.0.3", alternatives=["braian.AnimalBrain.sizes"])
     def areas(self) -> BrainData:
         return self.sizes
 
@@ -441,11 +441,11 @@ class AnimalBrain:
         return tuple(f1(data) if data.hemisphere is hemisphere else f2(data)
                      for data in hemidata)
 
-    @deprecated("Use AnimalBrain.select instead.")
+    @deprecated(since="1.1.0", alternatives=["braian.AnimalBrain.select"])
     def select_from_list(self, regions: Sequence[str], *args, **kwargs):
         return self.select(regions, *args, **kwargs)
 
-    @deprecated("Use AnimalBrain.select instead.")
+    @deprecated(since="1.1.0", alternatives=["braian.AnimalBrain.select"])
     def select_from_ontology(self, brain_ontology: AllenBrainOntology, *args, **kwargs):
         return self.select(brain_ontology, *args, **kwargs)
 

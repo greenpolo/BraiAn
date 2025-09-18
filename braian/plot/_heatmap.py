@@ -1,5 +1,3 @@
-from braian import BrainData
-from braian.deflector import deflect
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -8,6 +6,9 @@ import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+
+from braian import BrainData
+from braian._deflector import deflect
 
 __all__ = [
     "heatmap",

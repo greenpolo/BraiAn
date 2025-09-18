@@ -1,5 +1,2 @@
-from .metrics import *
-from .pls import *
-
-del metrics
-del pls
+from braian.stats._metrics import *
+from braian.stats._pls import *
