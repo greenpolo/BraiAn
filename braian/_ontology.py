@@ -12,10 +12,11 @@ from bs4 import BeautifulSoup
 from collections import OrderedDict
 from collections.abc import Iterable, Container
 from copy import deepcopy
-from braian import _visit_dict, _graph_utils
-from braian.utils import deprecated
 from pathlib import Path
 from typing import Literal
+
+from braian import _visit_dict, _graph_utils
+from braian.utils import deprecated
 
 __all__ = ["AllenBrainOntology", "MAJOR_DIVISIONS"]
 

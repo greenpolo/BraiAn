@@ -1,13 +1,12 @@
-import braian
 import igraph as ig
 import numpy as np
 import numpy.typing as npt
 import plotly.colors as plc
 import plotly.graph_objects as go
 
-from braian import _graph_utils
-
 from collections.abc import Iterable, Callable
+
+from braian import _graph_utils, AllenBrainOntology, BrainData
 
 __all__ = [
     "hierarchy",
@@ -15,8 +14,8 @@ __all__ = [
     "draw_nodes"
 ]
 
-def hierarchy(brain_ontology: braian.AllenBrainOntology,
-              bdata: braian.BrainData=None,
+def hierarchy(brain_ontology: AllenBrainOntology,
+              bdata: BrainData=None,
               selection: bool=True,
               unreferenced: bool=False,
               blacklisted: bool=True) -> go.Figure:
@@ -125,7 +124,7 @@ def draw_edges(G: ig.Graph, layout: ig.Layout, width: int, directed: bool=True) 
 
     return edges_trace
 
-def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: braian.AllenBrainOntology,
+def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: AllenBrainOntology,
                node_size: int, fill_mode: str="region",
                outline_size: float=0.5, outline_mode: str="region",
                centrality_metric: str=None,
@@ -242,7 +241,7 @@ def _region_color(mode: str,
                 raise ValueError("No clustering was made on the provided connectome")
             return lambda v: plc.qualitative.Plotly[v["cluster"] % len(plc.qualitative.Plotly)]  # noqa: E731
 
-def _nodes_hover_info(brain_ontology: braian.AllenBrainOntology, G: ig.Graph,
+def _nodes_hover_info(brain_ontology: AllenBrainOntology, G: ig.Graph,
                      title_dict: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={}
                      ) -> tuple[npt.NDArray,str]:
     """

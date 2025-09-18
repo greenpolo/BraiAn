@@ -2,11 +2,12 @@ import brainglobe_atlasapi as bga
 import numpy as np
 import warnings
 
-from braian.utils import deprecated
 from collections import OrderedDict
 from copy import deepcopy
 from treelib import Tree, Node
 from typing import Sequence, Iterable, Callable, Container, Literal
+
+from braian.utils import deprecated
 
 __all__ = ["AtlasOntology"]
 

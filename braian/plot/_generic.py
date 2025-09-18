@@ -6,14 +6,11 @@ import plotly.colors as plc
 import plotly.graph_objects as go
 import random
 
-from braian._sliced_brain import SlicedBrain
-from braian._animal_brain import AnimalBrain
-from braian._animal_group import AnimalGroup, SlicedGroup
-from braian._ontology import AllenBrainOntology, UPPER_REGIONS
-from braian._experiment import Experiment, SlicedExperiment
 from collections.abc import Iterable, Collection, Sequence
 from plotly.subplots import make_subplots
 
+from braian import AllenBrainOntology, AnimalBrain, AnimalGroup, Experiment, SlicedBrain, SlicedExperiment, SlicedGroup
+from braian._ontology import UPPER_REGIONS
 
 __all__ = [
     "to_rgba",

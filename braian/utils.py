@@ -9,6 +9,7 @@ import platform
 import requests
 import sys
 import warnings
+
 from collections.abc import Sequence
 from importlib import resources
 from pathlib import Path, WindowsPath

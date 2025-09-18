@@ -4,9 +4,10 @@ import numpy.typing as npt
 import pandas as pd
 import scipy.stats
 
-from braian import AnimalGroup, BrainData
 from collections.abc import Sequence
 from numbers import Number
+
+from braian import AnimalGroup, BrainData
 
 __all__ = [
     "PLS",

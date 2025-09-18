@@ -1,5 +1,4 @@
 import copy
-import functools
 import numpy as np
 import pandas as pd
 import re
@@ -7,20 +6,21 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
-from braian._ontology import AllenBrainOntology
-from braian._brain_data import BrainData
-from braian._brain_slice import BrainSlice,\
-                        BrainSliceFileError, \
-                        ExcludedAllRegionsError, \
-                        ExcludedRegionsNotFoundError, \
-                        EmptyResultsError, \
-                        NanResultsError, \
-                        InvalidResultsError, \
-                        MissingResultsMeasurementError, \
-                        InvalidRegionsHemisphereError, \
-                        InvalidExcludedRegionsHemisphereError
+from braian import AllenBrainOntology, BrainData, BrainSlice,\
+                   BrainSliceFileError, \
+                   ExcludedAllRegionsError, \
+                   ExcludedRegionsNotFoundError, \
+                   EmptyResultsError, \
+                   NanResultsError, \
+                   InvalidResultsError, \
+                   MissingResultsMeasurementError, \
+                   InvalidRegionsHemisphereError, \
+                   InvalidExcludedRegionsHemisphereError
 
-__all__ = ["SlicedBrain"]
+__all__ = [
+    "SlicedBrain",
+    "EmptyBrainError",
+]
 
 global MODE_ExcludedAllRegionsError
 global MODE_ExcludedRegionsNotFoundError

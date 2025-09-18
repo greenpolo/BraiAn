@@ -1,16 +1,29 @@
 import pandas as pd
 import re
+
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Self
 from collections.abc import Iterable
 
-from braian._brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology, UnknownBrainRegionsError
-from braian._ontology import AllenBrainOntology
+from braian import AllenBrainOntology, UnknownBrainRegionsError
+from braian._brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology
 from braian.utils import search_file_or_simlink
 
-__all__ = ["BrainSlice"]
+__all__ = [
+    "BrainSlice",
+    "BrainSliceFileError",
+    "ExcludedRegionsNotFoundError",
+    "ExcludedAllRegionsError",
+    "EmptyResultsError",
+    "NanResultsError",
+    "InvalidResultsError",
+    "MissingResultsMeasurementError",
+    "RegionsWithNoCountError",
+    "InvalidRegionsHemisphereError",
+    "InvalidExcludedRegionsHemisphereError",
+]
 
 # global MODE_PathAnnotationObjectError
 global MODE_ExcludedRegionNotRecognisedError

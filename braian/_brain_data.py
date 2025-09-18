@@ -2,14 +2,18 @@ import itertools
 import numpy as np
 import pandas as pd
 import re
+
 from collections.abc import Collection, Iterable, Sequence
 from typing import Self, Callable
 from numbers import Number
 
-from braian._deflector import deflect
 from braian import AllenBrainOntology
+from braian._deflector import deflect
 
-__all__ = ["BrainData"]
+__all__ = [
+    "BrainData",
+    "UnknownBrainRegionsError",
+]
 
 class UnknownBrainRegionsError(Exception):
     def __init__(self, unknown_regions: Iterable[str]):

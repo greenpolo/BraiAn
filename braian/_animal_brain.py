@@ -9,9 +9,7 @@ from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
 from typing import Generator, Self
 
-from braian._ontology import AllenBrainOntology
-from braian._sliced_brain import SlicedBrain, EmptyBrainError
-from braian._brain_data import BrainData
+from braian import AllenBrainOntology, BrainData, EmptyBrainError, SlicedBrain
 from braian.utils import save_csv, deprecated
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
