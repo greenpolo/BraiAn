@@ -93,12 +93,13 @@ def get_indices_where(where):
     rows = where.index[where.any(axis=1)]
     return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]
 
-def deprecated(*, since: str, message=None):
+def deprecated(*, since: str, message=None, alternatives: list[str]=None):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            # If a custom message is provided, use it; otherwise, use a default message
             warning_message = f"{func.__name__} is deprecated since {since} and may be removed in future versions."
+            if alternatives:
+                warning_message += f" Use any of the following alternatives, instead: '{'\', \''.join(alternatives)}'."
             if message:
                 warning_message += " "+message
             warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
@@ -106,7 +107,7 @@ def deprecated(*, since: str, message=None):
         return wrapper
     return decorator
 
-@deprecated(since="1.1.0", message="Use 'resource' instead.")
+@deprecated(since="1.1.0", alternatives=["braian.utils.resource"])
 def get_resource_path(resource_name: str):
     return resource(resource_name)
 

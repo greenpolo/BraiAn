@@ -227,11 +227,6 @@ class SlicedBrain:
         Creates a new `SlicedBrain` from all merged [`BrainSlice`][braian.BrainSlice]
         in `sliced_brain`.
 
-        Parameters
-        ----------
-        sliced_brain
-            A sliced brain to merge.
-
         Returns
         -------
         :

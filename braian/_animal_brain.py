@@ -176,7 +176,7 @@ class AnimalBrain:
         return
 
     @property
-    @deprecated(since="1.0.3", message="Use sizes instead.")
+    @deprecated(since="1.0.3", alternatives=["braian.AnimalBrain.sizes"])
     def areas(self) -> BrainData:
         return self.sizes
 

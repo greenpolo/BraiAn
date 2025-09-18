@@ -517,11 +517,6 @@ class BrainSlice:
         """
         For each brain region, sums the data of left and right hemispheres into one single datum
 
-        Parameters
-        ----------
-        slice
-            A brain section to merge
-
         Returns
         -------
         :

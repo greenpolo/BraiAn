@@ -252,7 +252,7 @@ class AtlasOntology:
             # NOTE: no check whether the IDs are actually in self._tree_full
             return [id for id in sorted_ids if id in regions]
 
-    @deprecated(since="1.1.0", message="Use 'blacklist' instead.")
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.blacklist"])
     def blacklist_regions(self,
                           regions: Iterable,
                           *,
@@ -285,10 +285,26 @@ class AtlasOntology:
                     child_rn: RegionNode = self._tree_full[child_id]
                     child_rn.blacklisted = True
 
-    @deprecated(since="1.1.0", message="Use 'blacklisted' instead.")
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.blacklisted"])
     def get_blacklisted_trees(self,
                               unreferenced: bool=False,
                               key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Returns the biggest brain region of each branch in the ontology that was blacklisted.
+
+        Parameters
+        ----------
+        unreferenced
+            If True, it includes also the brain regions that were blacklisted from the ontology because they don't have an annotation in the atlas.
+            Otherwise, it returns only those blacklisted regions that has a reference in the annotation volume.
+        key
+            The key in Allen's structural graph used to indentify the returned regions
+
+        Returns
+        -------
+        :
+            A list of blacklisted regions, each of which is identifiable with `key`
+        """
         return self.blacklisted(unreferenced=unreferenced, key=key)
 
     def blacklisted(self,
@@ -326,8 +342,8 @@ class AtlasOntology:
 
         Parameters
         ----------
-        acronyms
-            The acronyms of the regions to cover
+        regions
+            The regions to cover
         unreferenced
             If False, it does not consider from the cover all those brain regions that have no references in the atlas annotations.
         blacklisted
@@ -364,7 +380,7 @@ class AtlasOntology:
         treecover = self._sort(treecover, mode="depth")
         return self._nodes_to_attr(treecover, attr=key)
 
-    @deprecated(since="1.1.0", message="Use 'siblings' instead.")
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.siblings"])
     def get_sibiling_regions(self,
                              region: str|int,
                              key: Literal["id","acronym"]="acronym") -> list:
@@ -426,7 +442,7 @@ class AtlasOntology:
         siblings = self._tree.siblings(id)
         return self._nodes_to_attr(siblings, attr=key)
 
-    @deprecated(since="1.1.0", message="Use 'to_acronym' instead.")
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.to_acronym"])
     def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
         return self.to_acronym(ids, mode=mode)
 
@@ -436,7 +452,7 @@ class AtlasOntology:
             regions = self._sort(regions, mode=mode)
         return self._nodes_to_attr(regions, attr="acronym")
 
-    @deprecated(since="1.1.0", message="Use 'to_id' instead.")
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.to_id"])
     def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
         return self.to_id(acronyms, mode=mode)
 
@@ -524,7 +540,7 @@ class AtlasOntology:
             n.selected = True
         self._selected = True
 
-    @deprecated(since="1.1.0", message="Use 'select' instead.")
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.select"])
     def select_regions(self, regions: Iterable, key: str="acronym"):
         return self.select(regions)
 
@@ -539,7 +555,7 @@ class AtlasOntology:
         regions = self._to_nodes(regions, unreferenced=False, duplicated=True)
         self._select(regions, add=True)
 
-    @deprecated(since="1.1.0", message="Use 'selected' instead.")
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.selected"])
     def get_selected_regions(self,
                             *,
                             key: Literal["id","acronym"]="acronym") -> list:
