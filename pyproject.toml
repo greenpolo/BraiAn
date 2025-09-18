@@ -4,7 +4,7 @@
 
 [project]
 name = "braian"
-version = "1.0.6a0"
+version = "1.1.0a0"
 description = "A python library for easy navigation, visualisation, and analysis of whole-brain quantification data."
 homepage = "https://silvalab.codeberg.page/BraiAn/"
 repository = "https://codeberg.org/SilvaLab/BraiAn"
@@ -19,17 +19,15 @@ requires-python = ">=3.11,<3.14"
 packages = [{include = "braian"}]
 dependencies = [
     "python-igraph (>=0.11.8,<1.0.0)",
-    "numpy (>=2.0.2,<2.2.0)",                   # for 2.2 wait for numba 0.62: https://github.com/numba/numba/issues/9838
+    "numpy (>=2.0.2,<3.0.0)",
     "pandas (>=2.2.3,<3.0.0)",
     "plotly (>=5.24.1,<6.0.0)",
     "scipy (>=1.15.1,<2.0.0)",
-    "kaleido (==0.2.1)",                        # used to export plotly images. "0.2.1.post1" version can't be installed
     "beautifulsoup4 (>=4.12.3,<=5.0.0)",        # used to blacklist regions from Allen's ontology that have no annotation
-    "brainglobe-heatmap (>=0.5.4,<1.0.0)",      # used to visualize brain heatmap for IEGs overlaps
-    "urllib3 (>=1.26.16,<2.0.0)",               # fix poetry+conda bug: https://github.com/python-poetry/poetry/issues/7936
-    "tables (>=3.9.2,<4.0.0)",                  # fix problem with h5py installation
+    "brainglobe-heatmap (>=0.6.0,<1.0.0)",      # used to visualize brain heatmap for IEGs overlaps
     "pywin32 (>=306) ; sys_platform == 'win32'",
     "pyyaml (>=6.0.2,<7.0.0)",
+    "treelib (>=1.8.0,<2.0.0)",
 ]
 
 [tool.poetry.group.docs]
@@ -37,19 +35,23 @@ optional = true
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = {git = "https://github.com/carlocastoldi/mkdocs.git", rev = "on-template"}
-mkdocstrings = {extras = ["python"], version = "^0.26.2"}
+mkdocstrings = {extras = ["python"], version = "^0.30.0"}
 mkdocs-plugin-progress = "^1.2.0"
-mkdocs-material = "^9.5.50"
+mkdocs-material = "^9.6.18"
 mkdocs-jupyter = "^0.25.1"
-mkdocs-include-markdown-plugin = "^7.1.2"
+mkdocs-include-markdown-plugin = "^7.1.7"
 mkdocs-multi-theme-plugin = {git = "https://github.com/carlocastoldi/mkdocs-multi-theme-plugin.git", rev = "master"}
 mkdocs-open-in-new-tab = "^1.0.8"
 markdown-captions = "^2.1.2"
 
 
 [tool.poetry.group.dev.dependencies]
-ipykernel = "^6.29.5"
+ipykernel = "^6.30.1"
 nbformat = "^5.10.4"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.4.1"
 
 [build-system]
 requires = ["poetry-core>=2.0"]
