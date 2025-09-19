@@ -91,13 +91,14 @@ def allen_ontology_blacklisted_hpf(allen_ontology: AtlasOntology):
 def allen_ontology_unreferenced_hpf(allen_ontology: AtlasOntology):
     allen_ontology.blacklist_regions(["HPF"], has_reference=False)
     return allen_ontology
+
 def test_direct_adjacent_regions(allen_ontology_complete):
     o: AtlasOntology = allen_ontology_complete
     with pytest.raises(KeyError):
         _ = o.parent_region["root"]
-    assert o.parent_region["CA1slm"] == "CA1"
+    assert o.parent_region["CA1"] == "CA"
     with pytest.raises(KeyError):
-        _ = o.direct_subregions["CA1slm"] # leaf region
+        _ = o.direct_subregions["CA1"] # leaf region
     assert o.parent_region["HPF"] == "CTXpl"
     assert o.direct_subregions["CTXpl"] == ["Isocortex", "OLF", "HPF"]
     o.blacklist_regions(["HPF"], has_reference=True)
@@ -107,15 +108,15 @@ def test_direct_adjacent_regions(allen_ontology_complete):
 
 def test_direct_adjacent_regions_unreferenced(allen_ontology_complete: AtlasOntology):
     o: AtlasOntology = allen_ontology_complete
-    assert o.parent_region["CA1slm"] == "CA1"
-    assert o.direct_subregions["CA1"] == ["CA1slm", "CA1so", "CA1sp", "CA1sr"]
-    o.blacklist_regions(["CA1sp", "CA1sr"], has_reference=False) # unreference SOME subregions of CA1
-    assert o.direct_subregions["CA1"] == ["CA1slm", "CA1so"]
-    o.blacklist_regions(["CA1slm", "CA1so", "CA1sp", "CA1sr"], has_reference=False) # unreference all subregions of CA1
+    assert o.parent_region["CA1"] == "CA"
+    assert o.direct_subregions["CA"] == ["CA1", "CA2", "CA3"]
+    o.blacklist_regions(["CA2", "CA3"], has_reference=False) # unreference SOME subregions of CA1
+    assert o.direct_subregions["CA"] == ["CA1"]
+    o.blacklist_regions(["CA1", "CA2", "CA3"], has_reference=False) # unreference all subregions of CA1
     with pytest.raises(KeyError):
-        o.direct_subregions["CA1"]
+        o.direct_subregions["CA"]
     with pytest.raises(KeyError):
-        assert o.parent_region["CA1slm"]
+        assert o.parent_region["CA1"]
     assert o.parent_region["HPF"] == "CTXpl"
     assert o.direct_subregions["CTXpl"] == ["Isocortex", "OLF", "HPF"]
     o.blacklist_regions(["HPF"], has_reference=False)

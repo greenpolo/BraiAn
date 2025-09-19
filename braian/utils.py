@@ -18,7 +18,7 @@ __all__ = ["cache", "deprecated", "get_resource_path", "resource"]
 
 match platform.system():
     case "Windows":
-        import win32com.client
+        import win32com.client # type: ignore
         shell = win32com.client.Dispatch("WScript.Shell")
         def resolve_symlink(path: str|WindowsPath):
             if isinstance(path, WindowsPath):

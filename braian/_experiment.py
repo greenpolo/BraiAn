@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Callable
-from braian import AnimalBrain, AllenBrainOntology, AnimalGroup, SlicedBrain, SlicedGroup, SliceMetrics
+from braian import AllenBrainOntology, AnimalBrain, AnimalGroup, SlicedBrain, SlicedGroup, SliceMetrics
 from pathlib import Path
 from typing import Any, Self
 
