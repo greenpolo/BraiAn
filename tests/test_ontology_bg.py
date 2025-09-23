@@ -509,3 +509,24 @@ def test_list_all_subregions_raises(acronym, allen_ontology_unreferenced_hpf):
     o: AtlasOntology = allen_ontology_unreferenced_hpf
     with pytest.raises(KeyError, match=".*not found.*"):
         o.list_all_subregions(acronym, unreferenced=False)
+
+@pytest.mark.parametrize("ontology,acronym,expected", [
+    ("allen_ontology_complete", "root", []),
+    ("allen_ontology_complete", "HPF", ["CTXpl", "CTX", "CH", "grey", "root"]),
+    ("allen_ontology_complete", "CA1", ["CA", "HIP", "HPF", "CTXpl", "CTX", "CH", "grey", "root"]),
+    ("allen_ontology_complete_blacklisted_hpf", "HPF", ["CTXpl", "CTX", "CH", "grey", "root"]),
+    ("allen_ontology_complete_blacklisted_hpf", "CA1", ["CA", "HIP", "HPF", "CTXpl", "CTX", "CH", "grey", "root"]),
+])
+def test_get_regions_above(ontology, acronym, expected, request):
+    o: AtlasOntology = request.getfixturevalue(ontology)
+    assert expected == o.get_regions_above(acronym)
+
+@pytest.mark.parametrize("acronym", [
+    "HPF",
+    "CA1",
+    "NOT_A_REGION",
+])
+def test_get_regions_above_raises(acronym, allen_ontology_complete_unreferenced_hpf):
+    o: AtlasOntology = allen_ontology_complete_unreferenced_hpf
+    with pytest.raises(KeyError, match=".*not found.*"):
+        o.get_regions_above(acronym)

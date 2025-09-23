@@ -566,6 +566,17 @@ class AtlasOntology:
         subregions = list(tree.expand_tree(id, filter=visit_tree, mode=mode, sorting=False))
         return self._nodes_to_attr((tree[r] for r in subregions), attr="acronym")
 
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.ancestors"])
+    def get_regions_above(self, acronym: str) -> list[str]:
+        return self.ancestors(acronym)
+
+    def ancestors(self, acronym: str) -> list[str]:
+        node = self._tree[self._to_id(acronym, unreferenced=False)]
+        nodes = []
+        while (node:=self._tree.parent(node.id)) is not None:
+            nodes.append(node)
+        return self._nodes_to_attr(nodes, attr="acronym")
+
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.to_acronym"])
     def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
         return self.to_acronym(ids, mode=mode)
@@ -585,18 +596,6 @@ class AtlasOntology:
         if mode is not None:
             return self._sort(ids, mode=mode)
         return ids
-
-    # def get_regions_above(self, acronym: str) -> list[str]:
-    #     node = next((n for n in self._tree_full.all_nodes() if n.data and n.data.get("acronym") == acronym), None)
-    #     if node is None:
-    #         raise KeyError(f"Region not found ('acronym'='{acronym}')")
-    #     path = []
-    #     parent = self._tree_full.parent(node.identifier)
-    #     while parent is not None:
-    #         if parent.data and "acronym" in parent.data:
-    #             path.append(parent.data["acronym"])
-    #         parent = self._tree_full.parent(parent.identifier)
-    #     return path
 
     # def get_corresponding_md(self, acronym: str, *acronyms: str) -> OrderedDict[str, str]:
     #     """Finds the corresponding major division for each of the acronyms."""
