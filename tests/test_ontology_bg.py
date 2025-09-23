@@ -482,3 +482,30 @@ def test_get_parent_regions_raises(allen_ontology_complete: AtlasOntology):
     with pytest.raises(KeyError, match=".*not found.*"):
         allen_ontology_complete.get_parent_regions(regions)
 
+@pytest.mark.parametrize("acronym,mode,blacklisted,unreferenced,expected", [
+    ("CA", "breadth", False, False, []),
+    ("CA", "breadth", False, True, []),
+    ("CA", "breadth", True, False, ["CA"]),
+    ("CA", "breadth", True, True, ["CA", "CA1", "CA2", "CA3"]),
+    ("ATN", "breadth", True, True, ["ATN", "AV", "AM", "AD", "IAM", "IAD", "LD", "AMd", "AMv"]),
+    ("ATN", "depth", True, True, ["ATN", "AV", "AM", "AMd", "AMv", "AD", "IAM", "IAD", "LD"]),
+])
+def test_list_all_subregions(allen_ontology_complete,
+                             acronym, mode, blacklisted, unreferenced, expected):
+    o: AtlasOntology = allen_ontology_complete
+    o.blacklist(["HPF"], unreferenced=False)
+    o.blacklist(["CA1", "CA2", "CA3"], unreferenced=True)
+    assert o.list_all_subregions(
+        acronym, mode=mode,
+        blacklisted=blacklisted,
+        unreferenced=unreferenced
+    ) == expected
+
+@pytest.mark.parametrize("acronym", [
+    "NOT_A_REGION",
+    "CA1slm"
+])
+def test_list_all_subregions_raises(acronym, allen_ontology_unreferenced_hpf):
+    o: AtlasOntology = allen_ontology_unreferenced_hpf
+    with pytest.raises(KeyError, match=".*not found.*"):
+        o.list_all_subregions(acronym, unreferenced=False)

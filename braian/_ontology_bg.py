@@ -539,6 +539,33 @@ class AtlasOntology:
         siblings = self._tree.siblings(id)
         return self._nodes_to_attr(siblings, attr=key)
 
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.subregions"])
+    def list_all_subregions(self,
+                            region: str,
+                            mode: Literal["breadth", "depth"]="breadth",
+                            blacklisted: bool=True,
+                            unreferenced: bool=False) -> list:
+        return self.subregions(region, mode=mode, blacklisted=blacklisted, unreferenced=unreferenced)
+
+    def subregions(self,
+                   region: str,
+                   *,
+                   mode: Literal["breadth", "depth"]="breadth",
+                   blacklisted: bool=True,
+                   unreferenced: bool=False) -> list:
+        id = self._to_id(region, unreferenced=unreferenced)
+        match mode:
+            case "depth":
+                mode = Tree.DEPTH
+            case "breadth":
+                mode = Tree.WIDTH
+            case _:
+                raise ValueError(f"Unsupported mode '{mode}'. Available modes are 'breadth' and 'depth'.")
+        tree = self._tree_full if unreferenced else self._tree
+        visit_tree = (lambda _: True) if blacklisted else (lambda n: not n.blacklisted)
+        subregions = list(tree.expand_tree(id, filter=visit_tree, mode=mode, sorting=False))
+        return self._nodes_to_attr((tree[r] for r in subregions), attr="acronym")
+
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.to_acronym"])
     def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
         return self.to_acronym(ids, mode=mode)
@@ -558,29 +585,6 @@ class AtlasOntology:
         if mode is not None:
             return self._sort(ids, mode=mode)
         return ids
-
-    # def list_all_subregions(self, acronym: str, mode: Literal["breadth", "depth"]="breadth", blacklisted: bool=True, unreferenced: bool=False) -> list:
-    #     node = next((n for n in self._tree_full.all_nodes() if n.data and n.data.get("acronym") == acronym), None)
-    #     if node is None:
-    #         raise KeyError(f"Region not found ('acronym'='{acronym}')")
-    #     subregions = []
-    #     if mode == "breadth":
-    #         queue = list(self._tree_full.children(node.identifier))
-    #         while queue:
-    #             n = queue.pop(0)
-    #             if n.data and (blacklisted or not n.data.get("blacklisted", False)) and (unreferenced or n.data.get("has_reference", True)):
-    #                 subregions.append(n.data["acronym"])
-    #             queue.extend(self._tree_full.children(n.identifier))
-    #     elif mode == "depth":
-    #         stack = list(self._tree_full.children(node.identifier))
-    #         while stack:
-    #             n = stack.pop()
-    #             if n.data and (blacklisted or not n.data.get("blacklisted", False)) and (unreferenced or n.data.get("has_reference", True)):
-    #                 subregions.append(n.data["acronym"])
-    #             stack.extend(self._tree_full.children(n.identifier))
-    #     else:
-    #         raise ValueError(f"Unsupported mode '{mode}'. Available modes are 'breadth' and 'depth'.")
-    #     return subregions
 
     # def get_regions_above(self, acronym: str) -> list[str]:
     #     node = next((n for n in self._tree_full.all_nodes() if n.data and n.data.get("acronym") == acronym), None)
