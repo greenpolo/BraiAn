@@ -3,44 +3,6 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 from braian._ontology_bg import AtlasOntology
-from braian._ontology import AllenBrainOntology
-
-# @pytest.fixture(scope="module")
-# def allen_mouse_ontology():
-#     return AtlasOntology("allen_mouse_10um")
-
-# @pytest.fixture(scope="module")
-# def allen_brain_ontology():
-#     import json
-#     with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
-#         data = json.load(f)
-#     allen_dict = data["msg"][0] if "msg" in data else data
-#     return AllenBrainOntology(allen_dict, name="allen_mouse_10um_java", version="CCFv3")
-
-# def test_root_node(allen_mouse_ontology, allen_brain_ontology):
-#     assert allen_mouse_ontology.get_root() == allen_brain_ontology.dict["acronym"]
-
-# def test_all_acronyms(allen_mouse_ontology, allen_brain_ontology):
-#     acronyms_bg = set(allen_mouse_ontology.get_all_acronyms())
-#     acronyms_ab = set([n["acronym"] for n in allen_brain_ontology._get_all_nodes()])
-#     assert acronyms_bg == acronyms_ab
-
-# def test_is_region(allen_mouse_ontology, allen_brain_ontology):
-#     for acronym in ["Isocortex", "FRP", "MOp", "NOT_A_REGION"]:
-#         assert allen_mouse_ontology.is_region(acronym) == allen_brain_ontology.is_region(acronym)
-
-# def test_get_children(allen_mouse_ontology, allen_brain_ontology):
-#     for acronym in ["root", "grey", "CH", "BS"]:
-#         assert set(allen_mouse_ontology.get_children(acronym)) == set(allen_brain_ontology.direct_subregions.get(acronym, []))
-
-# def test_get_parent(allen_mouse_ontology, allen_brain_ontology):
-#     for acronym in ["CH", "BS", "CB", "CTX", "CNU"]:
-#         assert allen_mouse_ontology.get_parent(acronym) == allen_brain_ontology.parent_region.get(acronym)
-
-# def test_get_leaves(allen_mouse_ontology, allen_brain_ontology):
-#     leaves_bg = set(allen_mouse_ontology.get_leaves())
-#     leaves_ab = set([n["acronym"] for n in allen_brain_ontology._get_all_nodes() if n.get("children") == []])
-#     assert leaves_bg == leaves_ab
 
 @pytest.fixture
 def allen_ontology_complete():
@@ -544,3 +506,19 @@ def test_full_names_and_get_region_colors(ontology, acronym, full_name, colour, 
     assert o.full_name[acronym] == full_name
     colors = o.get_region_colors()
     assert colors[acronym] == colour
+
+def test_constructor_variants():
+    # Default: no blacklist, unreferenced False
+    o1 = AtlasOntology("allen_mouse_10um")
+    assert o1.get_blacklisted_trees(unreferenced=False) == []
+    assert o1.name == "allen_mouse_10um"
+    o2 = AtlasOntology("allen_mouse_10um", blacklisted=["root"])
+    assert o2.get_blacklisted_trees() == ["root"]
+    o3 = AtlasOntology("allen_mouse_10um", blacklisted=["CH", "BS", "grey", "fiber tracts"])
+    assert set(o3.get_blacklisted_trees()) == {"grey", "fiber tracts"}
+    o4 = AtlasOntology("allen_mouse_50um", unreferenced=True) # 50um version has 'RSPd4 (545)' missing
+    assert len(o4.get_blacklisted_trees(unreferenced=True)) == 0
+    o5 = AtlasOntology("allen_mouse_50um", unreferenced=False)
+    assert o5.get_blacklisted_trees(unreferenced=True) == ["RSPd4"]
+    with pytest.raises(ValueError):
+        AtlasOntology("other_allen_atlas", unreferenced=False)

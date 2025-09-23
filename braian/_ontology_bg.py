@@ -29,23 +29,23 @@ class RegionNode(Node):
         self.selected = selected
 
     @property
-    def acronym(self):
+    def acronym(self) -> str:
         return self.tag
 
     @property
-    def blacklisted(self):
+    def blacklisted(self) -> bool:
         return self.expanded
 
     @blacklisted.setter
-    def blacklisted(self, value):
+    def blacklisted(self, value: bool):
         self.expanded = value
 
     @property
-    def id(self):
+    def id(self) -> int:
         return self.identifier
 
     @property
-    def hex_color(self):
+    def hex_color(self) -> str:
         return f"#{self.rgb_triplet[0]:02X}{self.rgb_triplet[1]:02X}{self.rgb_triplet[2]:02X}"
 
     def __repr__(self):
@@ -118,7 +118,7 @@ class AtlasOntology:
             unreferenced_regions = self._unreferenced(key="id") # in allen_mouse_50um, only 'RSPd4 (545)' is unreferenced
             self.blacklist(unreferenced_regions, unreferenced=True)
         if blacklisted:
-            blacklisted_ids = self._to_ids(blacklisted, unreferenced=True, check_all=False)
+            blacklisted_ids = self._to_ids(blacklisted, unreferenced=True, duplicated=False, check_all=False)
             self.blacklist(blacklisted_ids, unreferenced=False)
         """The name of the atlas accordingly to ABBA/BrainGlobe"""
         self.full_name: dict[str,str] = self._map_to_name(key="acronym")
@@ -135,6 +135,10 @@ class AtlasOntology:
         >>> atlas_ontology.direct_subregions["ACAv"]
         ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"]   # all layers in ventral part
         """
+
+    @property
+    def name(self) -> str:
+        return self._atlas.atlas_name
 
     def _to_ids(self,
                 regions: Iterable,
