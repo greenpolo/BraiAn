@@ -4,8 +4,8 @@ import warnings
 
 from collections import OrderedDict
 from copy import deepcopy
-from treelib import Tree, Node
-from typing import Sequence, Iterable, Callable, Container, Literal
+from treelib import Node, Tree
+from typing import Callable, Container, Generator, Iterable, Literal, Sequence
 
 from braian.utils import deprecated
 
@@ -132,111 +132,6 @@ class AtlasOntology:
         ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"]   # all layers in ventral part
         """
 
-    def _map_to_name(self, key: Literal["id","acronym"]="acronym") -> dict[str,str]:
-        if key not in ("acronym", "tag", "id", "identifier"):
-            raise ValueError(f"Unknown unique identifier of brain regions: '{key}'")
-        return {n.acronym: n.name for n in self._tree_full.all_nodes()}
-
-    def _map_to_parent(self, key: Literal["id","acronym"]="acronym") -> dict:
-        """
-        Finds, for each brain region in the ontology, the corresponding parent region.
-        The "root" region has no entry in the returned dictionary
-
-        The resulting dictionary does not include unreferenced brain regions.
-
-        Parameters
-        ----------
-        key
-            The region identifier used in the returned dictionary.
-
-        Returns
-        -------
-        :
-            A dictionary mapping region→parent
-        """
-        if key not in ("acronym", "tag", "id", "identifier"):
-            raise ValueError(f"Unknown unique identifier of brain regions: '{key}'")
-        return {node.__getattribute__(key): self._tree.parent(id).__getattribute__(key)
-                for id,node in self._tree.nodes.items() if id != self._tree.root}
-
-    def _map_to_subregion(self, key: Literal["id","acronym"]="acronym") -> dict:
-        """
-        returns a dictionary where all parent regions are the keys,
-        and the subregions that belong to the parent are stored
-        in a list as the value corresponding to the key.
-        Regions with no subregions have no entries in the dictionary.
-
-        The resulting dictionary does not include unreferenced brain regions.
-
-        Parameters
-        ----------
-        key
-            The region identifier used in the returned dictionary.
-
-        Returns
-        -------
-        :
-            a dictionary that maps region→[subregions...]
-        """
-        subregions = {node.__getattribute__(key): self._nodes_to_attr(self._tree.children(id), attr=key)
-                for id,node in self._tree.nodes.items()}
-        return {parent: children for parent,children in subregions.items() if children}
-
-    def _nodes_to_attr(self,
-                       regions: Iterable[RegionNode],
-                       *,
-                       attr: Literal["acronym","id"]
-                       ) -> list:
-        if attr not in ("acronym", "tag", "id", "identifier"):
-            raise ValueError(f"Unknown unique identifier of brain regions: '{attr}'")
-        return [r.__getattribute__(attr) for r in regions]
-
-    def _unreferenced(self,
-                      *,
-                      key: Literal["id","acronym"]="acronym") -> list:
-        atlas_meshes_dir = self._atlas.root_dir/"meshes"
-        if not atlas_meshes_dir.exists():
-            raise ValueError(f"BrainGlobe atlas meshes not downloaded: '{self._atlas.atlas_name}'")
-        regions_w_annotation = [int(p.stem) for p in atlas_meshes_dir.iterdir() if p.suffix == ".obj"]
-        regions_wo_annotation = self._tree_full.filter_nodes(lambda n: n.identifier not in regions_w_annotation)
-        return self._nodes_to_attr(regions_wo_annotation, attr=key)
-
-    def _to_id(self,
-               region: int|str,
-               *,
-               unreferenced: bool) -> int:
-        """
-        Checks the existance of a region and returns the corresponding IDs.
-
-        Parameters
-        ----------
-        region
-            A region, identified by its ID or its acronym.
-        unreferenced
-            If `True`, it accepts a `region` that has no reference in the atlas annotations.
-
-        Returns
-        -------
-        :
-            A region ID.
-
-        Raises
-        ------
-        KeyError
-            If the given `region` is not found in the ontology.
-        """
-        id = self._acronym2id.get(region)
-        if id is None:
-            try:
-                id = int(region)
-            except ValueError:
-                pass
-        if id is None:
-            raise KeyError(f"Region not found ({repr(region)})")
-        if not unreferenced and id not in self._tree:
-            raise KeyError(f"Region not found ({repr(region)}). The region may be unreferenced.")
-        return id
-
     def _to_ids(self,
                 regions: Iterable,
                 *,
@@ -288,11 +183,126 @@ class AtlasOntology:
         return ids
 
     def _to_nodes(self,
-                  regions: Iterable[int],
+                  regions: Iterable,
                   unreferenced: bool,
                   duplicated: bool) -> list[RegionNode]:
         ids = self._to_ids(regions, unreferenced=unreferenced, duplicated=duplicated, check_all=False)
         return [self._tree_full[id] for id in ids]
+
+    def _check_node_attr(self, attr: str):
+        if attr not in ("acronym", "tag", "id", "identifier"):
+            raise ValueError(f"Unknown unique identifier of brain regions: '{attr}'")
+
+    def _node_to_attr(self,
+                       region: RegionNode,
+                       *,
+                       attr: Literal["acronym","id"]
+                       ) -> str|int:
+        return region.__getattribute__(attr)
+
+    def _nodes_to_attr(self,
+                       regions: Iterable[RegionNode],
+                       *,
+                       attr: Literal["acronym","id"]
+                       ) -> list:
+        self._check_node_attr(attr)
+        return [self._node_to_attr(r, attr=attr) for r in regions]
+
+    def _unreferenced(self,
+                      *,
+                      key: Literal["id","acronym"]="acronym") -> Generator:
+        atlas_meshes_dir = self._atlas.root_dir/"meshes"
+        if not atlas_meshes_dir.exists():
+            raise ValueError(f"BrainGlobe atlas meshes not downloaded: '{self._atlas.atlas_name}'")
+        regions_w_annotation = [int(p.stem) for p in atlas_meshes_dir.iterdir() if p.suffix == ".obj"]
+        regions_wo_annotation = self._tree_full.filter_nodes(lambda n: n.identifier not in regions_w_annotation)
+        return self._nodes_to_attr(regions_wo_annotation, attr=key)
+
+    def _map_to_name(self, key: Literal["id","acronym"]="acronym") -> dict[str,str]:
+        if key not in ("acronym", "tag", "id", "identifier"):
+            raise ValueError(f"Unknown unique identifier of brain regions: '{key}'")
+        return {n.acronym: n.name for n in self._tree_full.all_nodes()}
+
+    def _map_to_parent(self, key: Literal["id","acronym"]="acronym") -> dict:
+        """
+        Finds, for each brain region in the ontology, the corresponding parent region.
+        The "root" region has no entry in the returned dictionary
+
+        The resulting dictionary does not include unreferenced brain regions.
+
+        Parameters
+        ----------
+        key
+            The region identifier used in the returned dictionary.
+
+        Returns
+        -------
+        :
+            A dictionary mapping region→parent
+        """
+        if key not in ("acronym", "tag", "id", "identifier"):
+            raise ValueError(f"Unknown unique identifier of brain regions: '{key}'")
+        return {node.__getattribute__(key): self._tree.parent(id).__getattribute__(key)
+                for id,node in self._tree.nodes.items() if id != self._tree.root}
+
+    def _map_to_subregion(self, key: Literal["id","acronym"]="acronym") -> dict:
+        """
+        returns a dictionary where all parent regions are the keys,
+        and the subregions that belong to the parent are stored
+        in a list as the value corresponding to the key.
+        Regions with no subregions have no entries in the dictionary.
+
+        The resulting dictionary does not include unreferenced brain regions.
+
+        Parameters
+        ----------
+        key
+            The region identifier used in the returned dictionary.
+
+        Returns
+        -------
+        :
+            a dictionary that maps region→[subregions...]
+        """
+        subregions = {self._node_to_attr(node, attr=key): self._nodes_to_attr(self._tree.children(id), attr=key)
+                for id,node in self._tree.nodes.items()}
+        return {parent: children for parent,children in subregions.items() if children}
+
+    def _to_id(self,
+               region: int|str,
+               *,
+               unreferenced: bool) -> int:
+        """
+        Checks the existance of a region and returns the corresponding IDs.
+
+        Parameters
+        ----------
+        region
+            A region, identified by its ID or its acronym.
+        unreferenced
+            If `True`, it accepts a `region` that has no reference in the atlas annotations.
+
+        Returns
+        -------
+        :
+            A region ID.
+
+        Raises
+        ------
+        KeyError
+            If the given `region` is not found in the ontology.
+        """
+        id = self._acronym2id.get(region)
+        if id is None:
+            try:
+                id = int(region)
+            except ValueError:
+                pass
+        if id is None:
+            raise KeyError(f"Region not found ({repr(region)})")
+        if not unreferenced and id not in self._tree:
+            raise KeyError(f"Region not found ({repr(region)}). The region may be unreferenced.")
+        return id
 
     def _sort(self,
               regions: Container[RegionNode|int],
@@ -447,6 +457,26 @@ class AtlasOntology:
         treecover = self._sort(treecover, mode="depth")
         return self._nodes_to_attr(treecover, attr=key)
 
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.parents"])
+    def get_parent_regions(self,
+                           regions: Iterable,
+                           *,
+                           key: Literal["id","acronym"]="acronym") -> dict:
+        return self.parents(regions, key=key)
+
+    def parents(self,
+                regions: Iterable,
+                *,
+                key: Literal["id","acronym"]="acronym") -> dict:
+        self._check_node_attr(key)
+        children = self._to_nodes(regions, unreferenced=True, duplicated=False)
+        parents = (self._node_to_attr(self._tree_full.parent(child.id), attr=key)
+                   if child.id != self._tree_full.root
+                   else None
+                   for child in children)
+        children = self._nodes_to_attr(children, attr=key)
+        return dict(zip(children, parents))
+
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.siblings"])
     def get_sibiling_regions(self,
                              region: str|int,
@@ -528,16 +558,6 @@ class AtlasOntology:
         if mode is not None:
             return self._sort(ids, mode=mode)
         return ids
-
-    # def get_parent_regions(self, regions: Iterable, key: str="acronym") -> dict:
-    #     result = {}
-    #     for region in regions:
-    #         node = next((n for n in self._tree_full.all_nodes() if n.data and n.data.get(key) == region), None)
-    #         if node is None:
-    #             raise KeyError(f"Parent region not found ('{key}'={region})")
-    #         parent = self._tree_full.parent(node.identifier)
-    #         result[region] = parent.data[key] if parent and parent.data and key in parent.data else None
-    #     return result
 
     # def list_all_subregions(self, acronym: str, mode: Literal["breadth", "depth"]="breadth", blacklisted: bool=True, unreferenced: bool=False) -> list:
     #     node = next((n for n in self._tree_full.all_nodes() if n.data and n.data.get("acronym") == acronym), None)

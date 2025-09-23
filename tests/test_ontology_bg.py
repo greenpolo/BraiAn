@@ -466,3 +466,19 @@ def test_get_sibiling_regions_raises(ontology, region, request):
     o: AtlasOntology = request.getfixturevalue(ontology)
     with pytest.raises(KeyError, match=".*not found.*"):
         o.get_sibiling_regions(region)
+
+@pytest.mark.parametrize("ontology,regions,expected", [
+    ("allen_ontology_complete", ["root", "CTX", "BS", "HPF", "CA1"], {"root": None, "CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
+    ("allen_ontology_complete_blacklisted_hpf", ["root", "CTX", "BS", "HPF", "CA1"], {"root": None, "CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
+    ("allen_ontology_complete_unreferenced_hpf", ["root", "CTX", "BS", "HPF", "CA1"], {"root": None, "CTX": "CH", "BS": "grey", "HPF": "CTXpl", "CA1": "CA"}),
+])
+def test_get_parent_regions(ontology, regions, expected, request):
+    o: AtlasOntology = request.getfixturevalue(ontology)
+    parents = o.get_parent_regions(regions, key="acronym")
+    assert expected == parents
+
+def test_get_parent_regions_raises(allen_ontology_complete: AtlasOntology):
+    regions = ["root", "CTX", "NOT_A_REGION"]
+    with pytest.raises(KeyError, match=".*not found.*"):
+        allen_ontology_complete.get_parent_regions(regions)
+
