@@ -530,3 +530,17 @@ def test_get_regions_above_raises(acronym, allen_ontology_complete_unreferenced_
     o: AtlasOntology = allen_ontology_complete_unreferenced_hpf
     with pytest.raises(KeyError, match=".*not found.*"):
         o.get_regions_above(acronym)
+
+@pytest.mark.parametrize("ontology, acronym, full_name, colour", [
+    ("allen_ontology_complete", "HPF", "Hippocampal formation", "#7ED04B"),
+    ("allen_ontology_complete", "CA1", "Field CA1", "#7ED04B"),
+    ("allen_ontology_complete_blacklisted_hpf", "HPF", "Hippocampal formation", "#7ED04B"),
+    ("allen_ontology_complete_blacklisted_hpf", "CA1", "Field CA1", "#7ED04B"),
+    ("allen_ontology_complete_unreferenced_hpf", "HPF", "Hippocampal formation", "#7ED04B"),
+    ("allen_ontology_complete_unreferenced_hpf", "CA1", "Field CA1", "#7ED04B"),
+])
+def test_full_names_and_get_region_colors(ontology, acronym, full_name, colour, request):
+    o: AtlasOntology = request.getfixturevalue(ontology)
+    assert o.full_name[acronym] == full_name
+    colors = o.get_region_colors()
+    assert colors[acronym] == colour

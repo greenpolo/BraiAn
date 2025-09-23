@@ -44,6 +44,10 @@ class RegionNode(Node):
     def id(self):
         return self.identifier
 
+    @property
+    def hex_color(self):
+        return f"#{self.rgb_triplet[0]:02X}{self.rgb_triplet[1]:02X}{self.rgb_triplet[2]:02X}"
+
     def __repr__(self):
         name = self.__class__.__name__
         kwargs = [
@@ -120,7 +124,7 @@ class AtlasOntology:
         self.full_name: dict[str,str] = self._map_to_name(key="acronym")
         """A dictionary mapping a regions' acronym to its full name. It also contains the names for the blacklisted and unreferenced regions."""
         self.parent_region: dict[str,str] = self._map_to_parent(key="acronym") #: A dictionary mapping region's acronyms to the parent region. It does not have 'root'.
-        self.direct_subregions: dict[str,list[str]] = self._map_to_subregion(key="acronym")
+        self.direct_subregions: dict[str,list[str]] = self._map_to_subregions(key="acronym")
         """A dictionary mappin region's acronyms to a list of direct subregions.
 
         Examples
@@ -245,7 +249,7 @@ class AtlasOntology:
         return {node.__getattribute__(key): self._tree.parent(id).__getattribute__(key)
                 for id,node in self._tree.nodes.items() if id != self._tree.root}
 
-    def _map_to_subregion(self, key: Literal["id","acronym"]="acronym") -> dict:
+    def _map_to_subregions(self, key: Literal["id","acronym"]="acronym") -> dict:
         """
         returns a dictionary where all parent regions are the keys,
         and the subregions that belong to the parent are stored
@@ -267,6 +271,9 @@ class AtlasOntology:
         subregions = {self._node_to_attr(node, attr=key): self._nodes_to_attr(self._tree.children(id), attr=key)
                 for id,node in self._tree.nodes.items()}
         return {parent: children for parent,children in subregions.items() if children}
+
+    def get_region_colors(self) -> dict[str,str]:
+        return {n.acronym: n.hex_color for n in self._tree_full.all_nodes()}
 
     def _to_id(self,
                region: int|str,
@@ -359,7 +366,7 @@ class AtlasOntology:
                 for child_id in self._tree_full.expand_tree(id):
                     child_rn: RegionNode = self._tree_full[child_id]
                     child_rn.blacklisted = True
-        self.direct_subregions = self._map_to_subregion(key="acronym")
+        self.direct_subregions = self._map_to_subregions(key="acronym")
         self.parent_region = self._map_to_parent(key="acronym")
 
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.blacklisted"])
@@ -604,9 +611,6 @@ class AtlasOntology:
     # def get_layer1(self) -> list[str]:
     #     """Returns the layer 1 in the Isocortex accordingly to CCFv3"""
     #     raise NotImplementedError
-
-    # def get_region_colors(self) -> dict[str,str]:
-    #     return {n.acronym: "#"+n.data["color_hex_triplet"] for n in self._tree_full.all_nodes() if n.data and "acronym" in n.data and "color_hex_triplet" in n.data}
 
     # def to_igraph(self, unreferenced: bool=False, blacklisted: bool=True):
     #     """Translates the current brain ontology into an igraph directed Graph."""
