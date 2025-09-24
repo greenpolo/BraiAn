@@ -117,12 +117,12 @@ class AllenBrainOntology:
             with open(allen_json, "r") as file:
                 allen_data = json.load(file)
             if "msg" in allen_data:
-                self.dict = deepcopy(allen_data["msg"][0])
+                self.dict = allen_data["msg"][0]
             else:
-                self.dict = deepcopy(allen_data)
+                self.dict = allen_data
         else:
             assert isinstance(allen_json, dict)
-            self.dict = allen_json
+            self.dict = deepcopy(allen_json)
         # First label every region as "not blacklisted"
         _visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
         _visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_reference(n, True))

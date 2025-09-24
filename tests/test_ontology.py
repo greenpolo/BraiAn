@@ -4,14 +4,16 @@ import numpy.testing as npt
 import pytest
 from braian import AllenBrainOntology
 from braian import _visit_dict
+from braian import utils
 from collections import OrderedDict
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 @pytest.fixture
 def allen_ontology():
-    with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
-        data = json.load(f)
-    allen_dict = data["msg"][0] if "msg" in data else data
-    return AllenBrainOntology(allen_dict,
+    allen_ontology_json = Path(TemporaryDirectory(prefix="braian").name)/"allen_ontology_ccfv3.json"
+    utils.cache(allen_ontology_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+    return AllenBrainOntology(allen_ontology_json,
                               blacklisted_acronyms=[],
                               name="allen_mouse_10um_java",
                               version="CCFv3",
@@ -19,10 +21,9 @@ def allen_ontology():
 
 @pytest.fixture
 def allen_ontology_complete():
-    with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
-        data = json.load(f)
-    allen_dict = data["msg"][0] if "msg" in data else data
-    return AllenBrainOntology(allen_dict,
+    allen_ontology_json = Path(TemporaryDirectory(prefix="braian").name)/"allen_ontology_ccfv3.json"
+    utils.cache(allen_ontology_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+    return AllenBrainOntology(allen_ontology_json,
                               blacklisted_acronyms=[],
                               name="allen_mouse_10um_java",
                               version="CCFv3",
@@ -563,34 +564,33 @@ def test_full_names_and_get_region_colors(ontology, acronym, full_name, colour, 
     assert colors[acronym] == colour
 
 def test_constructor_variants():
-    with open("/home/castoldi/Projects/BraiAn/data/allen_ontology_ccfv3.json") as f:
-        data = json.load(f)
-    allen_dict = data["msg"][0] if "msg" in data else data
+    allen_ontology_json = Path(TemporaryDirectory(prefix="braian").name)/"allen_ontology_ccfv3.json"
+    utils.cache(allen_ontology_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
     # Default: name and version deduced, no blacklist, unreferenced False
-    o1 = AllenBrainOntology(allen_dict)
+    o1 = AllenBrainOntology(allen_ontology_json)
     assert o1.get_blacklisted_trees(unreferenced=False) == []
     assert o1.name == "allen_mouse_10um_java"
     assert o1.annotation_version == "ccf_2017"
-    o2 = AllenBrainOntology(allen_dict, blacklisted_acronyms=["root"])
+    o2 = AllenBrainOntology(allen_ontology_json, blacklisted_acronyms=["root"])
     assert o2.get_blacklisted_trees() == ["root"]
-    o3 = AllenBrainOntology(allen_dict, blacklisted_acronyms=["CH", "BS", "grey", "fiber tracts"])
+    o3 = AllenBrainOntology(allen_ontology_json, blacklisted_acronyms=["CH", "BS", "grey", "fiber tracts"])
     assert set(o3.get_blacklisted_trees()) == {"grey", "fiber tracts"}
-    o4 = AllenBrainOntology(allen_dict, unreferenced=True, version="CCFv3")
+    o4 = AllenBrainOntology(allen_ontology_json, unreferenced=True, version="CCFv3")
     assert len(o4.get_blacklisted_trees(unreferenced=True)) == 0 # CCFv3 has some unreferenced regions in its ontology
-    o5 = AllenBrainOntology(allen_dict, unreferenced=False, version="CCFv3")
+    o5 = AllenBrainOntology(allen_ontology_json, unreferenced=False, version="CCFv3")
     assert len(o5.get_blacklisted_trees(unreferenced=True)) > 0
-    o6 = AllenBrainOntology(allen_dict, name="other_allen_atlas", version="CCFv4", unreferenced=False)
+    o6 = AllenBrainOntology(allen_ontology_json, name="other_allen_atlas", version="CCFv4", unreferenced=False)
     assert o6.annotation_version == "ccf_2022"
     with pytest.raises(ValueError, match=".*provide.*version.*"):
-        AllenBrainOntology(allen_dict, name="other_allen_atlas")
+        AllenBrainOntology(allen_ontology_json, name="other_allen_atlas")
     # Name as BrainGlobe alias (should not raise if atlas is available)
     try:
-        o9 = AllenBrainOntology(allen_dict, name="allen_mouse_10um", version="CCFv3")
+        o9 = AllenBrainOntology(allen_ontology_json, name="allen_mouse_10um", version="CCFv3")
         assert o9.name == "allen_mouse_10um"
     except ValueError:
         pass  # Acceptable if atlas is not available locally
     # Version deduction from name
-    o10 = AllenBrainOntology(allen_dict, name="allen_mouse_10um_java")
+    o10 = AllenBrainOntology(allen_ontology_json, name="allen_mouse_10um_java")
     assert o10.annotation_version == "ccf_2017"
-    o11 = AllenBrainOntology(allen_dict, name="allen_mouse_10um")
+    o11 = AllenBrainOntology(allen_ontology_json, name="allen_mouse_10um")
     assert o11.annotation_version == "ccf_2017"

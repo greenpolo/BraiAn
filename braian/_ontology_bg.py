@@ -1,7 +1,9 @@
 import brainglobe_atlasapi as bga
+import igraph as ig
 import numpy as np
 import warnings
 
+from braian import _graph_utils
 from collections import OrderedDict
 from copy import deepcopy
 from treelib import Node, Tree
@@ -45,7 +47,7 @@ class RegionNode(Node):
         return self.identifier
 
     @property
-    def hex_color(self) -> str:
+    def hex_triplet(self) -> str:
         return f"#{self.rgb_triplet[0]:02X}{self.rgb_triplet[1]:02X}{self.rgb_triplet[2]:02X}"
 
     def __repr__(self):
@@ -108,19 +110,21 @@ class AtlasOntology:
                  blacklisted: Iterable[str]=[],
                  unreferenced: bool=False):
         if not isinstance(atlas, bga.BrainGlobeAtlas):
-            atlas = bga.BrainGlobeAtlas(atlas)
+            atlas = bga.BrainGlobeAtlas(atlas, check_latest=False)
         self._atlas: bga.BrainGlobeAtlas = atlas
         self._acronym2id: dict[str,int] = deepcopy(atlas.structures.acronym_to_id_map)
         self._tree_full: Tree = convert_to_region_nodes(self._atlas)
         self._tree: Tree = Tree(self._tree_full, deep=False)
         self._selected: bool = False
         if not unreferenced:
-            unreferenced_regions = self._unreferenced(key="id") # in allen_mouse_50um, only 'RSPd4 (545)' is unreferenced
-            self.blacklist(unreferenced_regions, unreferenced=True)
+            unreferenced_ids = self._unreferenced(key="id")
+            # In allen_mouse 25um & 50um, 'RSPd4 (545)' is the only unreferenced brain region that exists
+            # However, it is reported as 'unreferenced' also in allen_mouse_10um, due to this issue:
+            # https://github.com/brainglobe/brainglobe-atlasapi/issues/647
+            self.blacklist(unreferenced_ids, unreferenced=True)
         if blacklisted:
             blacklisted_ids = self._to_ids(blacklisted, unreferenced=True, duplicated=False, check_all=False)
             self.blacklist(blacklisted_ids, unreferenced=False)
-        """The name of the atlas accordingly to ABBA/BrainGlobe"""
         self.full_name: dict[str,str] = self._map_to_name(key="acronym")
         """A dictionary mapping a regions' acronym to its full name. It also contains the names for the blacklisted and unreferenced regions."""
         self.parent_region: dict[str,str] = self._map_to_parent(key="acronym") #: A dictionary mapping region's acronyms to the parent region. It does not have 'root'.
@@ -138,6 +142,7 @@ class AtlasOntology:
 
     @property
     def name(self) -> str:
+        """The name of the atlas accordingly to BrainGlobe"""
         return self._atlas.atlas_name
 
     def _to_ids(self,
@@ -277,7 +282,7 @@ class AtlasOntology:
         return {parent: children for parent,children in subregions.items() if children}
 
     def get_region_colors(self) -> dict[str,str]:
-        return {n.acronym: n.hex_color for n in self._tree_full.all_nodes()}
+        return {n.acronym: n.hex_triplet for n in self._tree_full.all_nodes()}
 
     def _to_id(self,
                region: int|str,
@@ -616,10 +621,6 @@ class AtlasOntology:
     #     """Returns the layer 1 in the Isocortex accordingly to CCFv3"""
     #     raise NotImplementedError
 
-    # def to_igraph(self, unreferenced: bool=False, blacklisted: bool=True):
-    #     """Translates the current brain ontology into an igraph directed Graph."""
-    #     raise NotImplementedError
-
     def has_selection(self) -> bool:
         return self._selected
 
@@ -682,3 +683,33 @@ class AtlasOntology:
     # def get_regions(self, selection_method: str) -> list[str]:
     #     """Returns a list of acronyms of non-overlapping regions based on the selection method."""
     #     raise NotImplementedError
+
+    def to_igraph(self, unreferenced: bool=False, blacklisted: bool=True):
+        tree = self._tree_full if unreferenced else self._tree
+        id2n = dict()
+        edges = []
+        for n,id in enumerate(tree.expand_tree(mode=Tree.DEPTH, sorting=False)):
+            id2n[id] = n
+            parent = tree.parent(id)
+            if parent is None:
+                continue
+            pid = parent.identifier
+            edges.append((id2n[pid], n))
+        g = ig.Graph(edges=edges, directed=True)
+        for region in tree.all_nodes():
+            graph_order = id2n[region.id]
+            v = g.vs[graph_order]
+            v["id"] = region.id
+            v["name"] = region.acronym
+            # v["full_name"] = region.name
+            # v["depth"] = depth
+            # v["color"] = region.hex_triplet
+            # v["structural_level"] = region["st_level"]
+        blacklisted_trees = set(self.get_blacklisted_trees(unreferenced=False, key="acronym"))
+        if blacklisted:
+            _graph_utils.blacklist_regions(g, blacklisted_trees)
+        else:
+            _graph_utils.remove_branch(g, blacklisted_trees)
+        if self.has_selection():
+            _graph_utils.select_regions(g, self.get_selected_regions())
+        return g

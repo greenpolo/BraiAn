@@ -3,6 +3,9 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 from braian._ontology_bg import AtlasOntology
+from braian import AllenBrainOntology, utils
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 @pytest.fixture
 def allen_ontology_complete():
@@ -506,6 +509,20 @@ def test_full_names_and_get_region_colors(ontology, acronym, full_name, colour, 
     assert o.full_name[acronym] == full_name
     colors = o.get_region_colors()
     assert colors[acronym] == colour
+
+def test_igraph():
+    atlas = AtlasOntology("allen_mouse_10um", unreferenced=False)
+    allen_ontology_json = Path(TemporaryDirectory(prefix="braian").name)/"allen_ontology_ccfv3.json"
+    utils.cache(allen_ontology_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+    atlas_legacy = AllenBrainOntology(allen_ontology_json, version="CCFv3", unreferenced=False)
+    g = atlas.to_igraph(unreferenced=False, blacklisted=False)
+    g_legacy = atlas_legacy.to_igraph(unreferenced=False, blacklisted=False)
+    # BrainGlobe thinks that RSPd4 (id=545) does not exists in 'allen_mouse_10um'
+    # see: https://github.com/brainglobe/brainglobe-atlasapi/issues/647
+    assert (set([v["id"] for v in g.vs])|{545}) == set([v["id"] for v in g_legacy.vs])
+    edges = [(g.vs[e.source]["id"], g.vs[e.target]["id"]) for e in g.es]
+    edges_legacy = [(g_legacy.vs[e.source]["id"], g_legacy.vs[e.target]["id"]) for e in g_legacy.es]
+    assert (set(edges)|{(879,545)}) == set(edges_legacy)
 
 def test_constructor_variants():
     # Default: no blacklist, unreferenced False
