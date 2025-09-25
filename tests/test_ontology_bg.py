@@ -2,8 +2,7 @@ import brainglobe_atlasapi as bga
 import numpy as np
 import numpy.testing as npt
 import pytest
-from braian._ontology_bg import AtlasOntology
-from braian import AllenBrainOntology, utils
+from braian import AllenBrainOntology, AtlasOntology, utils
 from pathlib import Path
 from tempfile import TemporaryDirectory
 

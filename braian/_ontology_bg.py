@@ -224,12 +224,14 @@ class AtlasOntology:
     def _unreferenced(self,
                       *,
                       key: Literal["id","acronym"]="acronym") -> Generator:
-        atlas_meshes_dir = self._atlas.root_dir/"meshes"
-        if not atlas_meshes_dir.exists():
-            raise ValueError(f"BrainGlobe atlas meshes not downloaded: '{self._atlas.atlas_name}'")
-        regions_w_annotation = [int(p.stem) for p in atlas_meshes_dir.iterdir() if p.suffix == ".obj"]
-        regions_wo_annotation = self._tree_full.filter_nodes(lambda n: n.identifier not in regions_w_annotation)
-        return self._nodes_to_attr(regions_wo_annotation, attr=key)
+        self._check_node_attr(key)
+        return [s[key] for s in self._atlas.structures_list if not s["mesh_filename"].exists()]
+        # atlas_meshes_dir = self._atlas.root_dir/"meshes"
+        # if not atlas_meshes_dir.exists():
+        #     raise ValueError(f"BrainGlobe atlas meshes not downloaded: '{self._atlas.atlas_name}'")
+        # regions_w_annotation = [int(p.stem) for p in atlas_meshes_dir.iterdir() if p.suffix == ".obj"]
+        # regions_wo_annotation = self._tree_full.filter_nodes(lambda n: n.identifier not in regions_w_annotation)
+        # return self._nodes_to_attr(regions_wo_annotation, attr=key)
 
     def _map_to_name(self, key: Literal["id","acronym"]="acronym") -> dict[str,str]:
         if key not in ("acronym", "tag", "id", "identifier"):
