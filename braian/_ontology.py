@@ -396,6 +396,12 @@ class AllenBrainOntology:
         regions = _visit_dict.non_overlapping_where(self.dict, "children", select_node, mode="bfs")
         return [region[key] for region in regions]
 
+    def _get_unreferenced_trees(self, key: str="acronym") -> list:
+        def select_node(n: dict, d: int):
+            return not has_reference(n)
+        regions = _visit_dict.non_overlapping_where(self.dict, "children", select_node, mode="bfs")
+        return [region[key] for region in regions]
+
     def _mark_major_divisions(self):
         _visit_dict.add_boolean_attribute(self.dict, "children", "major_division", lambda node,d: node["acronym"] in MAJOR_DIVISIONS)
 
@@ -1102,11 +1108,11 @@ class AllenBrainOntology:
         # if self.dict was modified removing some nodes, 'graph_order' creates some empty vertices
         # in that case, we remove those vertices
 
-        blacklisted_unrefs_trees = set(self.get_blacklisted_trees(unreferenced=True, key="acronym"))
         blacklisted_trees = set(self.get_blacklisted_trees(unreferenced=False, key="acronym"))
-        unrefs_trees = blacklisted_unrefs_trees - blacklisted_trees
+        unrefs_trees = set(self._get_unreferenced_trees(key="acronym"))
         if not unreferenced:
             if not blacklisted:
+                blacklisted_unrefs_trees = set(self.get_blacklisted_trees(unreferenced=True, key="acronym"))
                 _graph_utils.remove_branch(g, blacklisted_unrefs_trees)
             else:
                 _graph_utils.remove_branch(g, unrefs_trees)

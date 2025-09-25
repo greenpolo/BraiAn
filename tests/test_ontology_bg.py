@@ -509,19 +509,35 @@ def test_full_names_and_get_region_colors(ontology, acronym, full_name, colour, 
     colors = o.get_region_colors()
     assert colors[acronym] == colour
 
-def test_igraph():
-    atlas = AtlasOntology("allen_mouse_10um", unreferenced=False)
+@pytest.mark.parametrize("unreferenced, blacklisted", [
+    (False, True),
+    (False, False)
+    # unreferenced=True can't be tested because BrainGlobe removes many of the unrefenced structures
+])
+def test_igraph(unreferenced: bool, blacklisted: bool):
+    atlas = AtlasOntology("allen_mouse_10um",
+                          blacklisted=["Isocortex", "fiber tracts", "VS"],
+                          unreferenced=False)
     allen_ontology_json = Path(TemporaryDirectory(prefix="braian").name)/"allen_ontology_ccfv3.json"
     utils.cache(allen_ontology_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-    atlas_legacy = AllenBrainOntology(allen_ontology_json, version="CCFv3", unreferenced=False)
-    g = atlas.to_igraph(unreferenced=False, blacklisted=False)
-    g_legacy = atlas_legacy.to_igraph(unreferenced=False, blacklisted=False)
+    atlas_legacy = AllenBrainOntology(allen_ontology_json,
+                                      version="CCFv3",
+                                      blacklisted_acronyms=["Isocortex", "fiber tracts", "VS"],
+                                      unreferenced=False)
+    g = atlas.to_igraph(unreferenced=unreferenced, blacklisted=blacklisted)
+    g_legacy = atlas_legacy.to_igraph(unreferenced=unreferenced, blacklisted=blacklisted)
+    vs = set([v["id"] for v in g.vs])
+    vs_legacy = set([v["id"] for v in g_legacy.vs])
+    es = {(g.vs[e.source]["id"], g.vs[e.target]["id"]) for e in g.es}
+    es_legacy = {(g_legacy.vs[e.source]["id"], g_legacy.vs[e.target]["id"]) for e in g_legacy.es}
     # BrainGlobe thinks that RSPd4 (id=545) does not exists in 'allen_mouse_10um'
     # see: https://github.com/brainglobe/brainglobe-atlasapi/issues/647
-    assert (set([v["id"] for v in g.vs])|{545}) == set([v["id"] for v in g_legacy.vs])
-    edges = [(g.vs[e.source]["id"], g.vs[e.target]["id"]) for e in g.es]
-    edges_legacy = [(g_legacy.vs[e.source]["id"], g_legacy.vs[e.target]["id"]) for e in g_legacy.es]
-    assert (set(edges)|{(879,545)}) == set(edges_legacy)
+    if blacklisted: # The whole Isocortex is in the graph, RSPd4 included
+        assert (vs|{545}) == vs_legacy
+        assert (es|{(879,545)}) == es_legacy
+    else:
+        assert vs == vs_legacy
+        assert es == es_legacy
 
 def test_constructor_variants():
     # Default: no blacklist, unreferenced False
