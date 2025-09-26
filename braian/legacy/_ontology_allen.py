@@ -5,7 +5,6 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import requests
-import warnings
 
 from brainglobe_atlasapi import list_atlases
 from bs4 import BeautifulSoup
@@ -83,6 +82,11 @@ class AllenBrainOntology:
         To know more where to get the structure graphs, read the
         [official guide](https://community.brain-map.org/t/downloading-an-ontologys-structure-graph/2880)
         from Allen Institute.
+
+        This implementation, compared to [`braian.AllenBrainOntology`][braian.AllenBrainOntology], relies
+        on public API from Allen Institute. Its reimplementation, instead, relies on
+        [`braian.AtlasOntology`][braian.AtlasOntology] which, internally, uses
+        [BrainGlobe](https://brainglobe.info/)'s API.
 
         Parameters
         ----------
@@ -337,8 +341,7 @@ class AllenBrainOntology:
     def blacklist_regions(self,
                           regions: Iterable,
                           key: str="acronym",
-                          unreferenced: bool=False,
-                          has_reference: bool=None):
+                          has_reference: bool=True):
         """
         Blacklists from further analysis the given `regions` the ontology, as well as all their sub-regions.
         If the reason of blacklisting is that `regions` no longer exist in the used version of the
@@ -358,10 +361,7 @@ class AllenBrainOntology:
         KeyError
             If it can't find at least one of the `regions` in the ontology
         """
-        if has_reference is not None:
-            warning_message = "'has_reference' is deprecated since 1.1.0 and may be removed in future versions. Use 'unreferenced' instead."
-            warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
-            unreferenced = not has_reference
+        unreferenced = not has_reference
         self._check_regions(regions, key=key, unreferenced=True)
         for region_value in regions:
             region_node = _visit_dict.find_subtree(self.dict, key, region_value, "children")

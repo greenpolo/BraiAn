@@ -1,6 +1,7 @@
 import errno
 import functools
 import igraph as ig
+import inspect
 import itertools
 import os
 import numpy as np
@@ -10,7 +11,7 @@ import requests
 import sys
 import warnings
 
-from collections.abc import Sequence
+from collections.abc import Callable, Collection, Sequence
 from importlib import resources
 from pathlib import Path, WindowsPath
 
@@ -111,17 +112,54 @@ def decorate_all(decorator):
             return decorated_func
     return updated_decorator
 
-def deprecated(*, since: str, message=None, alternatives: list[str]=None):
+def _deprecated_message_params(func: Callable,
+                               args: Sequence,
+                               kwargs: dict,
+                               deprecated_params: Collection[str],
+                               since: str,
+                               alternatives: dict[str,str]):
+    bindings = inspect.signature(func).bind(*args, **kwargs)
+    for deprecated_name in deprecated_params:
+        if deprecated_name not in bindings.arguments:
+            continue
+        warning_message = f"'{deprecated_name}' is deprecated since {since} and may be removed in future versions."
+        if deprecated_name in alternatives:
+            warning_message += f" Use '{alternatives[deprecated_name]}', instead."
+        warnings.warn(warning_message, category=DeprecationWarning, stacklevel=3)
+
+def _deprecated_message_func(func: Callable,
+                             since: str,
+                             message: str,
+                             alternatives: list[str]):
+    warning_message = f"{func.__name__} is deprecated since {since} and may be removed in future versions."
+    if alternatives:
+        warning_message += f" Use any of the following alternatives, instead: '{'\', \''.join(alternatives)}'."
+    if message:
+        warning_message += " "+message
+    # print(warning_message)
+    warnings.warn(warning_message, category=DeprecationWarning, stacklevel=3)
+
+def deprecated(*,
+               since: str,
+               params: list[str]=None,
+               message: str=None,
+               alternatives: list[str]|dict[str,str]=None):
+    if params is None or len(params) == 0:
+        params = []
+    else: # some deprecated params are specified
+        if len(alternatives) != 0 and not isinstance(alternatives, dict):
+            raise TypeError(f"'alternatives' argument must be a dictionary, if 'param' is specified too. Not '{type(alternatives)}'")
+        for param in alternatives.keys():
+            if param not in params:
+                raise ValueError(f"No deprecated parameter found: '{param}'")
     @decorate_all
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            warning_message = f"{func.__name__} is deprecated since {since} and may be removed in future versions."
-            if alternatives:
-                warning_message += f" Use any of the following alternatives, instead: '{'\', \''.join(alternatives)}'."
-            if message:
-                warning_message += " "+message
-            warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
+            if len(params) > 0:
+                _deprecated_message_params(func, args, kwargs, params, since, alternatives)
+            else:
+                _deprecated_message_func(func, since, message, alternatives)
             return func(*args, **kwargs)
         return wrapper
     return decorator

@@ -349,13 +349,8 @@ class AtlasOntology:
     def blacklist_regions(self,
                           regions: Iterable,
                           *,
-                          unreferenced: bool=False,
                           has_reference: bool=None):
-        if has_reference is not None:
-            warning_message = "'has_reference' is deprecated since 1.1.0 and may be removed in future versions. Use 'unreferenced' instead."
-            warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
-            unreferenced = not has_reference
-        self.blacklist(regions, unreferenced=unreferenced)
+        self.blacklist(regions, unreferenced=not has_reference)
 
     def blacklist(self,
                   regions: Iterable,
@@ -670,10 +665,6 @@ class AtlasOntology:
             depth_ = self._tree.depth(n)
             return depth_ == depth or (depth_ < depth and n.is_leaf(self._tree.identifier))
         self._select(first_subtrees(self._tree, select), add=False)
-
-    # def select_at_structural_level(self, level: int):
-    #     """Select all non-overlapping brain regions at the same structural level in the ontology."""
-    #     raise NotImplementedError
 
     def select_leaves(self):
         self._select(self._tree.leaves(), add=False)
