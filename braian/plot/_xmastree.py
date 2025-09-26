@@ -7,7 +7,8 @@ import plotly.graph_objects as go
 from collections.abc import Collection, Sequence
 from plotly.subplots import make_subplots
 
-from braian import AllenBrainOntology, AnimalGroup, BrainData, Experiment
+from braian import AnimalGroup, BrainData, Experiment
+from braian.legacy import AllenBrainOntology
 from braian.utils import merge_ordered
 from braian.plot._generic import bar_sample
 

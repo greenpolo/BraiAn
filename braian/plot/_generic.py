@@ -9,8 +9,9 @@ import random
 from collections.abc import Iterable, Collection, Sequence
 from plotly.subplots import make_subplots
 
-from braian import AllenBrainOntology, AnimalBrain, AnimalGroup, Experiment, SlicedBrain, SlicedExperiment, SlicedGroup
-from braian._ontology import UPPER_REGIONS
+from braian import AnimalBrain, AnimalGroup, Experiment, SlicedBrain, SlicedExperiment, SlicedGroup
+from braian.legacy import AllenBrainOntology
+from braian.legacy._ontology_allen import UPPER_REGIONS
 
 __all__ = [
     "to_rgba",

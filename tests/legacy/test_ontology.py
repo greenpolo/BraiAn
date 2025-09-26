@@ -1,10 +1,8 @@
-import json
 import numpy as np
 import numpy.testing as npt
 import pytest
-from braian import AllenBrainOntology
-from braian import _visit_dict
 from braian import utils
+from braian.legacy import AllenBrainOntology, _visit_dict
 from collections import OrderedDict
 from pathlib import Path
 from tempfile import TemporaryDirectory

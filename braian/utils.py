@@ -93,7 +93,26 @@ def get_indices_where(where):
     rows = where.index[where.any(axis=1)]
     return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]
 
+def decorate_all(decorator):
+    # its a decorator for decorators:
+    # if 'decorator' is applied to a class object, it applies it to the __init__ function
+    # else, it applies it directly to the object (i.e. the function it decorates)
+    def updated_decorator(instance):
+        if isinstance(instance, type): # it's a class
+            func = instance.__init__
+        else: # it's a function
+            func = instance
+        func.__name__ = instance.__name__
+        decorated_func = decorator(func)
+        if isinstance(instance, type): # it's a class
+            instance.__init__ = decorated_func
+            return instance
+        else: # it's a function
+            return decorated_func
+    return updated_decorator
+
 def deprecated(*, since: str, message=None, alternatives: list[str]=None):
+    @decorate_all
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):

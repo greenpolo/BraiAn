@@ -15,7 +15,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Literal
 
-from braian import _visit_dict, _graph_utils
+from braian import _graph_utils
+from braian.legacy import _visit_dict
 from braian.utils import deprecated
 
 __all__ = ["AllenBrainOntology", "MAJOR_DIVISIONS"]
@@ -68,6 +69,7 @@ def _get_brainglobe_name(name: str) -> bool:
     bg_atlas_name = (name+"_v"+last_version)
     return bg_atlas_name
 
+@deprecated(since="1.1.0", alternatives=["braian.AtlasOntology"])
 class AllenBrainOntology:
     # https://community.brain-map.org/t/allen-mouse-ccf-accessing-and-using-related-data-and-tools/359
     def __init__(self,
@@ -156,7 +158,7 @@ class AllenBrainOntology:
         Examples
         --------
         >>> braian.utils.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        >>> brain_ontology = braian.AllenBrainOntology("ontology.json", [])
+        >>> brain_ontology = braian.legacy.AllenBrainOntology("ontology.json", [])
         >>> brain_ontology.direct_subregions["ACA"]
         ["ACAv", "ACAd"]                                    # dorsal and ventral part
         >>> brain_ontology.direct_subregions["ACAv"]
@@ -321,7 +323,7 @@ class AllenBrainOntology:
         Examples
         --------
         >>> braian.utils.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        >>> brain_ontology = braian.AllenBrainOntology("ontology.json", [], version="v3")
+        >>> brain_ontology = braian.legacy.AllenBrainOntology("ontology.json", [], version="v3")
         >>> sorted(brain_ontology.minimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY']))
         {'BS', 'CB'}
 
@@ -422,15 +424,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
+        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         def is_selected(node, _depth):
             return _depth == depth or (_depth < depth and (not node["children"] or
@@ -451,15 +453,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
+        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["st_level"] == level)
 
@@ -471,15 +473,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
+        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node, d: _visit_dict.is_leaf(node, "children") or \
                                          has_reference(node) and all([not has_reference(child) for child in node["children"]]))
@@ -495,15 +497,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
+        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         # if self.annotation_version is not None:
         # # if self.annotation_version!= "ccf_2017":
@@ -531,15 +533,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         self._check_regions(regions, key=key, unreferenced=False)
         _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node[key] in regions)
@@ -557,15 +559,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
+        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         assert all(is_region:=self.are_regions(regions, key=key)), \
             f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}"
@@ -583,15 +585,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
+        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
+        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         return "selected" in self.dict
 
@@ -611,15 +613,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
+        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         if not self.has_selection():
             return []
@@ -632,15 +634,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
+        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         if "selected" in self.dict:
             _visit_dict.del_attribute(self.dict, "children", "selected")
@@ -666,15 +668,15 @@ class AllenBrainOntology:
 
         See also
         --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
         """
         old_selection = self.get_selected_regions(key="id")
         if old_selection:

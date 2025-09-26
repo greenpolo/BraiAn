@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
-from braian import AllenBrainOntology, BrainData, BrainSlice,\
+from braian import BrainData, BrainSlice,\
                    BrainSliceFileError, \
                    ExcludedAllRegionsError, \
                    ExcludedRegionsNotFoundError, \
@@ -16,6 +16,7 @@ from braian import AllenBrainOntology, BrainData, BrainSlice,\
                    MissingResultsMeasurementError, \
                    InvalidRegionsHemisphereError, \
                    InvalidExcludedRegionsHemisphereError
+from braian.legacy import AllenBrainOntology
 
 __all__ = [
     "SlicedBrain",

@@ -6,7 +6,8 @@ import plotly.graph_objects as go
 
 from collections.abc import Iterable, Callable
 
-from braian import _graph_utils, AllenBrainOntology, BrainData
+from braian import _graph_utils, BrainData
+from braian.legacy import AllenBrainOntology
 
 __all__ = [
     "hierarchy",

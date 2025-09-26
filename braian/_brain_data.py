@@ -7,7 +7,7 @@ from collections.abc import Collection, Iterable, Sequence
 from typing import Self, Callable
 from numbers import Number
 
-from braian import AllenBrainOntology
+from braian.legacy import AllenBrainOntology
 from braian._deflector import deflect
 
 __all__ = [

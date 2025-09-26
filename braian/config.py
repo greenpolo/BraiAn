@@ -1,7 +1,8 @@
 import yaml
 from pathlib import Path
 
-from braian import AllenBrainOntology, AnimalBrain, Experiment, SlicedGroup, SlicedExperiment
+from braian import AnimalBrain, Experiment, SlicedGroup, SlicedExperiment
+from braian.legacy import AllenBrainOntology
 import braian.utils
 
 __all__ = ["BraiAnConfig"]

@@ -28,6 +28,7 @@ nav:
   - braian.stats: api-stats.md
   - braian.plot: api-plot.md
   - braian.config: api-config.md
+  - braian.legacy: api-legacy.md
 - See also:
   - Atlas registration with ABBA: https://go.epfl.ch/abba
 watch:
@@ -73,6 +74,7 @@ plugins:
       - api-stats.md
       - api-plot.md
       - api-config.md
+      - api-legacy.md
       theme:
         name: material
         custom_dir: docs/custom_theme/material
