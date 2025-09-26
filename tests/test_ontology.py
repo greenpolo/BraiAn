@@ -350,7 +350,7 @@ def test_select_leaves_blacklisted(blacklisted, referenced, included_leaves, exc
         assert excluded_leaf not in result
 
 def test_first_tree():
-    from braian._ontology_bg import first_subtrees
+    from braian._ontology import first_subtrees
     from treelib import Tree
     tree = Tree()
     tree.create_node("Root", "root")

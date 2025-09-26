@@ -1,4 +1,4 @@
-from braian._ontology_bg import *
+from braian._ontology import *
 from braian._brain_data import *
 from braian._brain_slice import *
 from braian._sliced_brain import *
