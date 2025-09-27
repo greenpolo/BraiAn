@@ -94,7 +94,7 @@ def get_indices_where(where):
     rows = where.index[where.any(axis=1)]
     return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]
 
-def decorate_all(decorator):
+def decorate_whatever(decorator):
     # its a decorator for decorators:
     # if 'decorator' is applied to a class object, it applies it to the __init__ function
     # else, it applies it directly to the object (i.e. the function it decorates)
@@ -136,7 +136,6 @@ def _deprecated_message_func(func: Callable,
         warning_message += f" Use any of the following alternatives, instead: '{'\', \''.join(alternatives)}'."
     if message:
         warning_message += " "+message
-    # print(warning_message)
     warnings.warn(warning_message, category=DeprecationWarning, stacklevel=3)
 
 def deprecated(*,
@@ -147,12 +146,14 @@ def deprecated(*,
     if params is None or len(params) == 0:
         params = []
     else: # some deprecated params are specified
+        if message:
+            warnings.warn("'message' argument is ignored, if 'param' is specified.", SyntaxWarning, stacklevel=2)
         if len(alternatives) != 0 and not isinstance(alternatives, dict):
             raise TypeError(f"'alternatives' argument must be a dictionary, if 'param' is specified too. Not '{type(alternatives)}'")
         for param in alternatives.keys():
             if param not in params:
                 raise ValueError(f"No deprecated parameter found: '{param}'")
-    @decorate_all
+    @decorate_whatever
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
