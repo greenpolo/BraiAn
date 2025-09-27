@@ -104,7 +104,7 @@ class AllenBrainOntology:
         unreferenced
             If True, it considers as part of the ontology all those brain regions that have no references in the atlas annotations.
             Otherwise, it removes them from the ontology.
-            On Allen's website, unreferenced brain regions are identified by grey italic text: [](https://atlas.brain-map.org).
+            On Allen's website, unreferenced brain regions are identified in grey italic text: [](https://atlas.brain-map.org).
 
         Raises
         ------
@@ -116,7 +116,7 @@ class AllenBrainOntology:
         ValueError
             If the provided `version` is not recognised.
         ValueError
-            If any of the `blacklisted_acronyms` is not recognised as part of the ontology.
+            If any of the `blacklisted_acronyms` is not found in the ontology.
         """
         # TODO: we should probably specify the size (10nm, 25nm, 50nm) to which the data was registered
         if isinstance(allen_json, (str, Path)):
@@ -222,7 +222,7 @@ class AllenBrainOntology:
 
     def is_region(self, r: int|str, key: str="acronym", unreferenced: bool=False) -> bool:
         """
-        Check whether a region is recognised in the current ontology or not.
+        Checks whether a region is in the ontology.
 
         Parameters
         ----------
@@ -244,7 +244,7 @@ class AllenBrainOntology:
 
     def are_regions(self, a: Iterable, key: str="acronym", unreferenced: bool=False) -> npt.NDArray:
         """
-        Check whether each of the elements of the iterable are a brain region of the current ontology or not.
+        Checks whether each of the elements of the iterable are in the ontology.
 
         Parameters
         ----------
@@ -570,7 +570,7 @@ class AllenBrainOntology:
         [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
         """
         assert all(is_region:=self.are_regions(regions, key=key)), \
-            f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}"
+            f"Some regions are not part of the ontology: {np.asarray(regions)[~is_region]}"
         _visit_dict.add_boolean_attribute(self.dict, "children", "selected",
                               lambda node,d: ("selected" in node and node["selected"]) or node[key] in regions)
 
