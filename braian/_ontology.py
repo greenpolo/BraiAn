@@ -13,12 +13,12 @@ from braian.utils import deprecated
 
 __all__ = [
     "AtlasOntology",
-    "WholeBrainPartitionMissingError"
+    "MissingWholeBrainPartitionError"
 ]
 
-class WholeBrainPartitionMissingError(FileNotFoundError):
+class MissingWholeBrainPartitionError(FileNotFoundError):
     def __init__(self, atlas: str, partition: str):
-        super().__init__(f"Unknown '{partition}' for atlas '{atlas}'")
+        super().__init__(f"Unknown '{partition}' partition for '{atlas}' atlas. If you think think BraiAn should support this atlas, please open an issue on https://codeberg.org/SilvaLab/BraiAn")
 
 class RegionNode(Node):
     def __init__(self,
@@ -683,7 +683,7 @@ class AtlasOntology:
     def _select_partition(self, partition: str):
         file = utils.resource(f"partitions/{self.name}/{partition.replace(' ', '_')}.csv")
         if not file.exists():
-            raise WholeBrainPartitionMissingError(self.name, partition)
+            raise MissingWholeBrainPartitionError(self.name, partition)
         key = "id"
         regions = pd.read_csv(file, sep="\t", index_col=0)
         self.select_regions(regions[key].values, key=key)
