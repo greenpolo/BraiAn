@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Self
 from collections.abc import Iterable
 
-from braian import UnknownBrainRegionsError
+from braian import AtlasOntology, UnknownBrainRegionsError
 from braian.legacy import AllenBrainOntology
 from braian._brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology
 from braian.utils import search_file_or_simlink
@@ -136,7 +136,7 @@ class BrainSlice:
 
     @staticmethod
     def from_qupath(csv: str|Path|pd.DataFrame, ch2marker: dict[str,str],
-                    atlas: str=None,
+                    atlas: AtlasOntology=None,
                     *args, **kwargs) -> Self:
         """
         Creates a [`BrainSlice`][braian.BrainSlice] from a file exported with
@@ -153,7 +153,7 @@ class BrainSlice:
             A dictionary mapping the QuPath channel names to markers.
             A cell segmentation algorithm must have previously run on each of the given channels.
         atlas
-            The name of the brain atlas used to align the section.
+            The atlas ontology used to align the section.
             If None, it won't use it as a sanity check of the `csv` data.
         *args
             Other arguments are passed to [`BrainSlice`][braian.BrainSlice] constructor.
@@ -183,8 +183,8 @@ class BrainSlice:
             data_atlas = None
         else:
             data_atlas, data = BrainSlice._read_qupath_data(search_file_or_simlink(csv))
-            assert data_atlas is None or data_atlas == atlas,\
-                f"Brain slice was expected to be aligned against '{atlas}', but instead found '{data_atlas}': {csv}"
+            assert data_atlas is None or atlas.is_compatible(data_atlas),\
+                f"Brain slice was expected to be aligned against '{atlas.name}', but instead found '{data_atlas}': {csv}"
         BrainSlice._check_columns(data, (QUPATH_AREA,), csv)
         all_measurements = extract_qupath_measurement_types(data)
         unique_channels = {m.measurement for m in all_measurements}

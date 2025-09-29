@@ -769,6 +769,16 @@ class AtlasOntology:
                 partition[region] = None
         return partition
 
+    def is_compatible(self, atlas_name: str) -> bool:
+        return self.name == atlas_name or \
+        (self.name == "allen_mouse_10um" and atlas_name in {"allen_mouse_10um_java",
+                                                            "Adult Mouse Brain - Allen Brain Atlas V3p1",
+                                                            "Adult Mouse Brain - Allen Brain Atlas V3"}) or\
+        (self.name == "whs_sd_rat_39um" and atlas_name in {"whs_sd_rat_39um",
+                                                           "Rat - Waxholm Sprague Dawley V4p2",
+                                                           "Rat - Waxholm Sprague Dawley V4",
+                                                           "waxholm_sprague_dawley_rat_v4"})
+
     def to_igraph(self, unreferenced: bool=False, blacklisted: bool=True):
         tree = self._tree_full if unreferenced else self._tree
         id2n = dict()

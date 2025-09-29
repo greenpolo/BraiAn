@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
-from braian import BrainData, BrainSlice,\
+from braian import AtlasOntology, BrainData, BrainSlice,\
                    BrainSliceFileError, \
                    ExcludedAllRegionsError, \
                    ExcludedRegionsNotFoundError, \
@@ -49,7 +49,7 @@ class SlicedBrain:
     @staticmethod
     def from_qupath(name: str,
                     animal_dir: str|Path,
-                    brain_ontology: AllenBrainOntology,
+                    brain_ontology: AtlasOntology,
                     ch2marker: dict[str,str],
                     exclude_parent_regions: bool=False,
                     results_subdir: str="results",
@@ -116,7 +116,7 @@ class SlicedBrain:
                 # group analysis. Checking against the ontology for each slice would be too time consuming.
                 # We can do it afterwards, after the SlicedBrain is reduced to AnimalBrain
                 slice: BrainSlice = BrainSlice.from_qupath(results_file,
-                                               ch2marker, atlas=brain_ontology.name,
+                                               ch2marker, atlas=brain_ontology,
                                                animal=name, name=image, is_split=True,
                                                brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)

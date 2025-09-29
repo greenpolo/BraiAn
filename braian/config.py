@@ -1,7 +1,7 @@
 import yaml
 from pathlib import Path
 
-from braian import AnimalBrain, Experiment, SlicedGroup, SlicedExperiment
+from braian import AnimalBrain, AtlasOntology, Experiment, SlicedGroup, SlicedExperiment
 from braian.legacy import AllenBrainOntology
 import braian.utils
 
@@ -82,11 +82,17 @@ class BraiAnConfig:
         :
             The brain ontology associated with the whole-brain data of the experiment.
         """
-        cached_allen_json = self.cache_path/"AllenMouseBrainOntology.json"
-        braian.utils.cache(cached_allen_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        self._brain_ontology = AllenBrainOntology(cached_allen_json,
-                                                 self.config["atlas"]["excluded-branches"],
-                                                 version=self.config["atlas"]["version"])
+        if self.config["atlas"]["version"] is not None and\
+           self.config["atlas"]["version"].lower() in {"2017", "ccfv3", "v3"}:
+            self._brain_ontology = AtlasOntology("allen_mouse_10um",
+                                                 blacklisted=self.config["atlas"]["excluded-branches"],
+                                                 unreferenced=False)
+        else:
+            cached_allen_json = self.cache_path/"AllenMouseBrainOntology.json"
+            braian.utils.cache(cached_allen_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+            self._brain_ontology = AllenBrainOntology(cached_allen_json,
+                                                    self.config["atlas"]["excluded-branches"],
+                                                    version=self.config["atlas"]["version"])
         return self._brain_ontology
 
     def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True) -> Experiment:
