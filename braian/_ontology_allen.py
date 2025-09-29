@@ -17,7 +17,7 @@ class AllenBrainOntology(AtlasOntology):
                  blacklisted_acronyms: Iterable=[],
                  blacklisted: Iterable=[],
                  version: str|None=None,
-                 resolution: Literal[10,25,50]=None,
+                 resolution: Literal[10,25,50,100]=None,
                  unreferenced: bool=False,
                  ):
         """

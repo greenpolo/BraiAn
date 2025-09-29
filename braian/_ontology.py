@@ -1,9 +1,9 @@
 import brainglobe_atlasapi as bga
 import igraph as ig
 import numpy as np
-import warnings
+import pandas as pd
 
-from braian import _graph_utils
+from braian import utils, _graph_utils
 from collections import OrderedDict
 from copy import deepcopy
 from treelib import Node, Tree
@@ -11,7 +11,14 @@ from typing import Callable, Container, Generator, Iterable, Literal, Sequence
 
 from braian.utils import deprecated
 
-__all__ = ["AtlasOntology"]
+__all__ = [
+    "AtlasOntology",
+    "WholeBrainPartitionMissingError"
+]
+
+class WholeBrainPartitionMissingError(FileNotFoundError):
+    def __init__(self, atlas: str, partition: str):
+        super().__init__(f"Unknown '{partition}' for atlas '{atlas}'")
 
 class RegionNode(Node):
     def __init__(self,
@@ -426,7 +433,7 @@ class AtlasOntology:
                           *,
                           unreferenced: bool=False,
                           blacklisted: bool=True,
-                          key: Literal["id","acronym"]="acronym") -> list[str]:
+                          key: Literal["id","acronym"]="acronym") -> list:
         """
         Returns the minimum set of regions that covers all the given regions, and not more.
 
@@ -581,20 +588,30 @@ class AtlasOntology:
 
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.ancestors"])
     def get_regions_above(self, acronym: str) -> list[str]:
-        return self.ancestors(acronym)
+        return self.ancestors(acronym, key="acronym")
 
-    def ancestors(self, acronym: str) -> list[str]:
-        node = self._tree[self._to_id(acronym, unreferenced=False)]
-        nodes = []
-        while (node:=self._tree.parent(node.id)) is not None:
-            nodes.append(node)
-        return self._nodes_to_attr(nodes, attr="acronym")
+    def ancestors(self,
+                  region: str|int,
+                  *,
+                  key: Literal["id","acronym"]="acronym") -> list:
+        self._check_node_attr(key)
+        id = self._to_id(region, unreferenced=False)
+        ancestors_ids = self._atlas.structures[id]["structure_id_path"][-2::-1]
+        if key == "id":
+            return ancestors_ids
+        else:
+            return self.to_acronym(ancestors_ids, mode=None)
+        # node = self._tree[id]
+        # nodes = []
+        # while (node:=self._tree.parent(node.id)) is not None:
+        #     nodes.append(node)
+        # return self._nodes_to_attr(nodes, attr=key)
 
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.to_acronym"])
     def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
         return self.to_acronym(ids, mode=mode)
 
-    def to_acronym(self, regions: Iterable[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
+    def to_acronym(self, regions: Iterable, mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
         regions = self._to_nodes(regions, unreferenced=True, duplicated=False)
         if mode is not None:
             regions = self._sort(regions, mode=mode)
@@ -609,10 +626,6 @@ class AtlasOntology:
         if mode is not None:
             return self._sort(ids, mode=mode)
         return ids
-
-    # def get_corresponding_md(self, acronym: str, *acronyms: str) -> OrderedDict[str, str]:
-    #     """Finds the corresponding major division for each of the acronyms."""
-    #     raise NotImplementedError
 
     # def get_layer1(self) -> list[str]:
     #     """Returns the layer 1 in the Isocortex accordingly to CCFv3"""
@@ -641,10 +654,8 @@ class AtlasOntology:
         regions = self._to_nodes(regions, unreferenced=False, duplicated=False)
         self._select(regions, add=False)
 
+    @deprecated(since="1.1.0", params=["key"])
     def add_to_selection(self, regions: Iterable, key: str=None):
-        if key is not None:
-            warning_message = "'key' is deprecated since 1.1.0 and may be removed in future versions."
-            warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
         regions = self._to_nodes(regions, unreferenced=False, duplicated=True)
         self._select(regions, add=True)
 
@@ -669,13 +680,94 @@ class AtlasOntology:
     def select_leaves(self):
         self._select(self._tree.leaves(), add=False)
 
-    # def select_summary_structures(self):
-    #     """Select all summary structures in the ontology."""
-    #     raise NotImplementedError
+    def _select_partition(self, partition: str):
+        file = utils.resource(f"partitions/{self.name}/{partition.replace(' ', '_')}.csv")
+        if not file.exists():
+            raise WholeBrainPartitionMissingError(self.name, partition)
+        key = "id"
+        regions = pd.read_csv(file, sep="\t", index_col=0)
+        self.select_regions(regions[key].values, key=key)
 
-    # def get_regions(self, selection_method: str) -> list[str]:
-    #     """Returns a list of acronyms of non-overlapping regions based on the selection method."""
-    #     raise NotImplementedError
+    def select_major_divisions(self):
+        self._select_partition("major divisions")
+
+    def select_summary_structures(self):
+        self._select_partition("summary structures")
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.partition"])
+    def get_regions(self, selection_method: str) -> list[str]:
+        return self.partition(selection_method)
+
+    def _partition(self,
+                   selection: Sequence|Callable[[],None],
+                   *,
+                   key: Literal["id","acronym"]="acronym") -> list:
+        old_selection = self.selected(key="id")
+        if isinstance(selection, Callable):
+            selection()
+        else:
+            selection = self._to_nodes(selection, unreferenced=True, duplicated=True)
+            self._select(selection, add=False)
+        selected = self.selected(key=key)
+        self.select(old_selection)
+        return selected
+
+    def partition(self,
+                  selection_method: Literal["summary structures","major divisions","smallest","leaves","depth <n>"],
+                  *,
+                  key: Literal["id","acronym"]="acronym") -> list:
+        match selection_method:
+            case "summary structures":
+                select = self.select_summary_structures
+            case "major divisions":
+                select = self.select_major_divisions
+            case "smallest" | "leaves":
+                # excluded_from_leaves = set(braian.MAJOR_DIVISIONS) - {"Isocortex", "OLF", "CTXsp", "HPF", "STR", "PAL"}
+                # excluded_from_leaves = self.minimimum_treecover(excluded_from_leaves)
+                # self.blacklist_regions(excluded_from_leaves)
+                select = self.select_leaves
+            case s if s.startswith("depth"):
+                n = selection_method.split(" ")[-1]
+                try:
+                    depth = int(n)
+                except Exception:
+                    raise ValueError("Could not retrieve the <n> parameter of the 'depth' method for 'selection_method'")
+                select = lambda: self.select_at_depth(depth)
+            case _:
+                raise ValueError(f"Invalid value '{selection_method}' for selection_method")
+        return self._partition(select, key=key)
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.partitioned"])
+    def get_corresponding_md(self, acronym: str, *acronyms: str) -> OrderedDict[str, str]:
+        acronyms = (acronym, *acronyms)
+        return self.partitioned(acronyms, partition="major divisions", key="acronym")
+
+    def partitioned(self,
+                    regions: Sequence,
+                    *,
+                    partition: Sequence|Literal["selection","summary structures","major divisions","smallest","leaves","depth <n>"],
+                    key: Literal["id","acronym"]="acronym") -> OrderedDict[str|int,str|int]:
+        self._check_node_attr(key)
+        if key == "id":
+            _regions = self._to_ids(regions, unreferenced=True, duplicated=False, check_all=False)
+        else:
+            _regions = self.to_acronym(regions, mode=None)
+        if partition == "selection":
+            _partition = self.selected(key=key)
+        elif isinstance(partition, str):
+            _partition = self.partition(partition, key=key)
+        else:
+            _partition = self._partition(partition, key=key)
+        _partition = set(_partition)
+        partition = OrderedDict()
+        for region in _regions:
+            for ancestor in self.ancestors(region, key=key):
+                if ancestor in _partition:
+                    partition[region] = ancestor
+                    break
+            if region not in partition:
+                partition[region] = None
+        return partition
 
     def to_igraph(self, unreferenced: bool=False, blacklisted: bool=True):
         tree = self._tree_full if unreferenced else self._tree

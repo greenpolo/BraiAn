@@ -95,9 +95,11 @@ def get_indices_where(where):
     return [(row, col) for row in rows for col in where.columns if where.loc[row, col]]
 
 def decorate_whatever(decorator):
-    # its a decorator for decorators:
-    # if 'decorator' is applied to a class object, it applies it to the __init__ function
-    # else, it applies it directly to the object (i.e. the function it decorates)
+    """
+    Its a decorator for decorators:
+    if 'decorator' is applied to a class object, it applies it to the __init__ function,
+    else it is applied directly to the object (i.e. the function it decorates)
+    """
     def updated_decorator(instance):
         if isinstance(instance, type): # it's a class
             func = instance.__init__
@@ -145,6 +147,8 @@ def deprecated(*,
                alternatives: list[str]|dict[str,str]=None):
     if params is None or len(params) == 0:
         params = []
+    elif alternatives is None:
+        pass
     else: # some deprecated params are specified
         if message:
             warnings.warn("'message' argument is ignored, if 'param' is specified.", SyntaxWarning, stacklevel=2)
@@ -166,10 +170,10 @@ def deprecated(*,
     return decorator
 
 @deprecated(since="1.1.0", alternatives=["braian.utils.resource"])
-def get_resource_path(resource_name: str):
+def get_resource_path(resource_name: str) -> Path:
     return resource(resource_name)
 
-def resource(name: str):
+def resource(name: str) -> Path:
     with resources.as_file(resources.files(__package__)
                                     .joinpath("resources")
                                     .joinpath(name)) as path:
