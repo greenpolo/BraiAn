@@ -510,6 +510,37 @@ def test_full_names_and_get_region_colors(ontology, acronym, full_name, colour, 
     colors = o.get_region_colors()
     assert colors[acronym] == colour
 
+@pytest.mark.parametrize("ontology, partition, regions, expected", [
+    ("allen_ontology_complete",
+     "major divisions",
+     ["RE", "CA1", "CA", "HPF", "CTXpl", "root"],
+     {"RE": "TH", "CA1": "HPF", "CA": "HPF", "HPF": "HPF", "CTXpl": None, "root": None}),
+    ("allen_ontology_complete_blacklisted_hpf",
+     "major divisions",
+     ["RE", "CA1", "CA", "HPF", "CTXpl", "root"],
+     {"RE": "TH", "CA1": "HPF", "CA": "HPF", "HPF": "HPF", "CTXpl": None, "root": None}),
+    ("allen_ontology_complete",
+     "summary structures",
+     ["RE", "CA1", "CA", "HPF", "CTXpl", "root"],
+     {"RE": "RE", "CA1": "CA1", "CA": None, "HPF": None, "CTXpl": None, "root": None}),
+    ("allen_ontology_complete",
+     ["grey", "fiber tracts"],
+     ["RE", "CA1", "CA", "HPF", "CTXpl", "root", "cm", "fp"],
+     {"RE": "grey", "CA1": "grey", "CA": "grey", "HPF": "grey", "CTXpl": "grey", "root": None, "cm": "fiber tracts", "fp": "fiber tracts"}),
+    ("allen_ontology_complete",
+     "major divisions",
+     [],
+     {}),
+])
+def test_partitioned(ontology, partition, regions, expected, request):
+    o: AtlasOntology = request.getfixturevalue(ontology)
+    o.partitioned(regions, partition=partition, key="acronym") == expected
+
+def test_partitioned_raises(allen_ontology_complete_unreferenced_hpf: AtlasOntology):
+    with pytest.raises(KeyError):
+        allen_ontology_complete_unreferenced_hpf.partitioned(
+            ["RE", "CA1", "CA", "HPF", "CTXpl", "root"], partition="major divisions")
+
 @pytest.mark.parametrize("unreferenced, blacklisted", [
     (False, True),
     (False, False)
