@@ -10,7 +10,7 @@ from typing import Self
 
 from braian import AnimalBrain, AtlasOntology, BrainData, SlicedBrain, SliceMetrics
 from braian.legacy import AllenBrainOntology
-from braian.utils import save_csv, merge_ordered
+from braian.utils import deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
@@ -543,11 +543,16 @@ class AnimalGroup:
 
 class SlicedGroup:
     @staticmethod
+    @deprecated(since="1.1.0", params=["exclude_parents"],
+                message="Quantifications in ancestor regions are now completely removed too. "+\
+                        "If you want the old behaviour, you can momentarily use braian.BrainSlice.exclude with ancestors=False")
     def from_qupath(name: str, brain_names: Iterable[str],
                     qupath_dir: Path|str,
                     brain_ontology: AtlasOntology,
                     ch2marker: dict[str,str],
+                    *,
                     exclude_parents: bool,
+                    exclude_layer1_ancestors: bool,
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
@@ -568,7 +573,9 @@ class SlicedGroup:
         ch2marker
             A dictionary mapping QuPath channel names to markers.
         exclude_parents
-            `exclude_parent_regions` from [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions].
+            `exclude_parents` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
+        layer1_ancestors
+            `layer1_ancestors` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         results_subdir
             The name of the subfolder in `qupath_dir/brain_name` that contains all cell counts files of each brain section.\\
             It can be `None` if no subfolder is used.
@@ -592,10 +599,13 @@ class SlicedGroup:
         """
         sliced_brains = []
         for brain_name in brain_names:
-            sliced_brain = SlicedBrain.from_qupath(brain_name, qupath_dir/brain_name, brain_ontology,
-                                                   ch2marker, exclude_parents,
-                                                   results_subdir, results_suffix,
-                                                   exclusions_subdir, exclusions_suffix)
+            sliced_brain = SlicedBrain.from_qupath(name=brain_name,
+                                                   animal_dir=qupath_dir/brain_name,
+                                                   brain_ontology=brain_ontology,
+                                                   ch2marker=ch2marker,
+                                                   exclude_layer1_ancestors=exclude_layer1_ancestors,
+                                                   results_subdir=results_subdir, results_suffix=results_suffix,
+                                                   exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)
             sliced_brains.append(sliced_brain)
         return SlicedGroup(name, sliced_brains, brain_ontology)
 

@@ -1,3 +1,4 @@
+import itertools
 import pandas as pd
 import re
 
@@ -10,7 +11,7 @@ from collections.abc import Iterable
 from braian import AtlasOntology, UnknownBrainRegionsError
 from braian.legacy import AllenBrainOntology
 from braian._brain_data import _is_split_left_right, extract_acronym, _sort_by_ontology
-from braian.utils import search_file_or_simlink
+from braian.utils import deprecated, search_file_or_simlink
 
 __all__ = [
     "BrainSlice",
@@ -425,35 +426,52 @@ class BrainSlice:
         """The name of the markers for which the current `BrainSlice` has data."""
         return list(self.data.columns[self.data.columns != "area"])
 
-
+    @deprecated(since="1.1.0", alternatives=["braian.BrainSlice.exclude"])
     def exclude_regions(self,
                         excluded_regions: Iterable[str],
-                        brain_ontology: AllenBrainOntology,
+                        brain_ontology: AtlasOntology,
                         exclude_parent_regions: bool):
+        self.exclude(regions=excluded_regions,
+                     ontology=brain_ontology,
+                     ancestors=exclude_parent_regions,
+                     layer1_ancestors=False)
+
+    @deprecated(since="1.1.0", params=["ancestors"],
+                message="Quantifications in ancestor regions should be completely removed too. "+\
+                        "That's because the data from a region is the data from ALL of it's subregions.")
+    def exclude(self,
+                regions: Iterable[str],
+                ontology: AtlasOntology,
+                *,
+                ancestors: bool=True,
+                layer1_ancestors: bool=True):
         """
-        Takes care of the regions to be excluded from the analysis.\\
-        If `exclude_parent_regions` is `False`, for each region:
+        Takes care of the regions to be excluded from the analysis due to issues like
+        mis-alignments to the atlas, broken tissue, aquisition problems,...\\
+        If `ancestors` is `True`, all regional quantifications in `regions`,
+        including subregions and _ancestors_, are deleted from the current `BrainSlice`.
 
-         1. the cell counts of that region is subtracted fromm all its parent regions
-         2. its cell counts are deleted from the current `BrainSlice`, along with all of its subregions
-
-        If `exclude_parent_regions` is `True`, the parent regions of an excluded region is also
-        deleted from the current `BrainSlice` since its cell count is determined also by that same region.
-
-        NOTE: Netherless, if a Layer 1 region is _explicitly_ excluded, it won't
-        impact (i.e. remove) the parent regions.
-        This decision was taken because Layer 1 is often mis-aligned but with
-        few detection. We don't want to delete too much data and we reckon that
-        this exception does not impact too much on the data of the whole Isocortex.
+        If `ancestors` is `False`, instead, the quantifications are only subtracted
+        from the ancestor regions of the quantifications found in the excluded `regions`.
 
         Parameters
         ----------
-        excluded_regions
+        regions
             a list of acronyms of the regions to be excluded from the analysis.
-        brain_ontology
+        ontology
             an ontology against whose version the brain section was aligned.
-        exclude_parent_regions
-            Whether the cell counts of the parent regions are excluded or subtracted.
+        ancestors
+            Whether to completely exclude the quantifications in the parent regions too, or not.\
+            If False, it keeps them after subtracting the quantifications of the excluded subregion.
+        layer1_ancestors
+            If False, the exclusions in layer 1 of the cortical regions will **not**
+            exclude completely the quantifications in all the ancestor regions.\
+            This might be useful when cortical layer 1 is expected to have _few_
+            quantifications (e.g. not many detected neurons). In this case, one might
+            prefer not to discard the data for the whole cortical regions in case of of
+            mis-alignments of layer 1 to the atlas. Especially so if layer 1 quantifications
+            don't have lots of impact on the quantifications in the cortical regions.\
+            NOTE: this option is currently available only for `allen_mouse` atlases.
 
         Raises
         ------
@@ -465,9 +483,15 @@ class BrainSlice:
         ExcludedAllRegionsError
             if there is no cell count left after the exclusion is done.
         """
+        if ancestors and not layer1_ancestors:
+            assert re.match(r"(allen|silvalab)_mouse_(10|25|50|100)um", ontology.name), \
+                    f"Could not extract layer 1 of the cortex. Incompatible atlas: '{ontology.name}'."+\
+                    " If you think think BraiAn should support this atlas, please open an issue on https://codeberg.org/SilvaLab/BraiAn"
+            layer1 = {s for s in
+                        itertools.chain(ontology.subregions("Isocortex"), ontology.subregions("OLF"))
+                        if s.endswith("1")}
         try:
-            layer1 = set(brain_ontology.get_layer1())
-            for exclusion in excluded_regions:
+            for exclusion in regions:
                 if self.is_split:
                     if ": " not in exclusion:
                         if MODE_ExcludedRegionNotRecognisedError != "silent":
@@ -478,16 +502,16 @@ class BrainSlice:
                     hem, region = exclusion.split(": ")
                 else:
                     region = exclusion
-                if not brain_ontology.is_region(region):
+                if not ontology.is_region(region):
                     raise UnknownBrainRegionsError((region,))
 
                 # Step 1: subtract counting results of the regions to be excluded
                 # from their parent regions.
-                regions_above = brain_ontology.get_regions_above(region)
-                for parent_region in regions_above:
+                _ancestors = ontology.ancestors(region, key="acronym")
+                for parent_region in _ancestors:
                     row = hem+": "+parent_region if self.is_split else parent_region
                     if row in self.data.index:
-                        if exclude_parent_regions and region not in layer1:
+                        if ancestors and (layer1_ancestors or region in layer1):
                             self.data.drop(row, inplace=True)
                         elif exclusion in self.data.index:
                             # Subtract the counting results from the parent region.
@@ -496,7 +520,7 @@ class BrainSlice:
 
                 # Step 2: Remove the regions that should be excluded
                 # together with their daughter regions.
-                subregions = brain_ontology.list_all_subregions(region)
+                subregions = ontology.subregions(region, blacklisted=True, unreferenced=True, key="acronym")
                 for subregion in subregions:
                     row = hem+": "+subregion if self.is_split else subregion
                     if row in self.data.index:

@@ -290,8 +290,13 @@ class AtlasOntology:
                 for id,node in self._tree.nodes.items()}
         return {parent: children for parent,children in subregions.items() if children}
 
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.colors"])
     def get_region_colors(self) -> dict[str,str]:
-        return {n.acronym: n.hex_triplet for n in self._tree_full.all_nodes()}
+        return self.colors(key="acronym")
+
+    def colors(self, *, key: Literal["id","acronym"]="acronym") -> dict[int|str,str]:
+        self._check_node_attr(key)
+        return {self._node_to_attr(n, attr=key): n.hex_triplet for n in self._tree_full.all_nodes()}
 
     def _to_id(self,
                region: int|str,
@@ -424,7 +429,7 @@ class AtlasOntology:
     def are_regions(self,
                     values: Iterable,
                     unreferenced: bool=False,
-                    duplicated: bool=True):
+                    duplicated: bool=True) -> np.ndarray:
         ids = self._to_ids(values, unreferenced=unreferenced, duplicated=duplicated, check_all=True)
         return np.array([id is not None for id in ids], dtype=bool)
 
@@ -565,14 +570,17 @@ class AtlasOntology:
                             mode: Literal["breadth", "depth"]="breadth",
                             blacklisted: bool=True,
                             unreferenced: bool=False) -> list:
-        return self.subregions(region, mode=mode, blacklisted=blacklisted, unreferenced=unreferenced)
+        return self.subregions(region, mode=mode,
+                               blacklisted=blacklisted, unreferenced=unreferenced,
+                               key="acronym")
 
     def subregions(self,
                    region: str,
                    *,
                    mode: Literal["breadth", "depth"]="breadth",
                    blacklisted: bool=True,
-                   unreferenced: bool=False) -> list:
+                   unreferenced: bool=False,
+                   key: Literal["id", "acronym"]="acronym") -> list:
         id = self._to_id(region, unreferenced=unreferenced)
         match mode:
             case "depth":
@@ -584,7 +592,7 @@ class AtlasOntology:
         tree = self._tree_full if unreferenced else self._tree
         visit_tree = (lambda _: True) if blacklisted else (lambda n: not n.blacklisted)
         subregions = list(tree.expand_tree(id, filter=visit_tree, mode=mode, sorting=False))
-        return self._nodes_to_attr((tree[r] for r in subregions), attr="acronym")
+        return self._nodes_to_attr((tree[r] for r in subregions), attr=key)
 
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.ancestors"])
     def get_regions_above(self, acronym: str) -> list[str]:
@@ -626,10 +634,6 @@ class AtlasOntology:
         if mode is not None:
             return self._sort(ids, mode=mode)
         return ids
-
-    # def get_layer1(self) -> list[str]:
-    #     """Returns the layer 1 in the Isocortex accordingly to CCFv3"""
-    #     raise NotImplementedError
 
     def has_selection(self) -> bool:
         return self._selected
@@ -778,6 +782,20 @@ class AtlasOntology:
                                                            "Rat - Waxholm Sprague Dawley V4p2",
                                                            "Rat - Waxholm Sprague Dawley V4",
                                                            "waxholm_sprague_dawley_rat_v4"})
+
+    @deprecated(since="1.1.0")
+    def get_layer1(self, *, key: Literal["id","acronym"]) -> list:
+        self._check_node_attr(key)
+        import itertools
+        import re
+        assert re.match(r"allen_mouse_(10|25|50|100)um", self.name), \
+            f"Could not extract layer 1 of the cortex. Incompatible atlas: '{self.name}'."
+        layer1 = [s for s in
+                    itertools.chain(self.subregions("Isocortex", key="acronym"), self.subregions("OLF", key="acronym"))
+                    if s.endswith("1")]
+        if key == "acronym":
+            return layer1
+        return self._to_ids(layer1, unreferenced=False, duplicated=True, check_all=False)
 
     def to_igraph(self, unreferenced: bool=False, blacklisted: bool=True):
         tree = self._tree_full if unreferenced else self._tree

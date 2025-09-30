@@ -17,6 +17,7 @@ from braian import AtlasOntology, BrainData, BrainSlice,\
                    InvalidRegionsHemisphereError, \
                    InvalidExcludedRegionsHemisphereError
 from braian.legacy import AllenBrainOntology
+from braian.utils import deprecated
 
 __all__ = [
     "SlicedBrain",
@@ -47,11 +48,15 @@ class EmptyBrainError(Exception):
 
 class SlicedBrain:
     @staticmethod
+    @deprecated(since="1.1.0", params=["exclude_parent_regions"],
+                message="Quantifications in ancestor regions are now completely removed too. "+\
+                        "If you want the old behaviour, you can momentarily use braian.BrainSlice.exclude with ancestors=False")
     def from_qupath(name: str,
                     animal_dir: str|Path,
                     brain_ontology: AtlasOntology,
                     ch2marker: dict[str,str],
-                    exclude_parent_regions: bool=False,
+                    exclude_parent_regions: bool=True,
+                    exclude_layer1_ancestors: bool=True,
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
@@ -78,7 +83,9 @@ class SlicedBrain:
         ch2marker
             A dictionary mapping QuPath channel names to markers.
         exclude_parent_regions
-            `exclude_parent_regions` from [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions].
+            `exclude_parent_regions` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
+        layer1_ancestors
+            `layer1_ancestors` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         results_subdir
             The name of the subfolder in `animal_dir` that contains all cell counts files of each brain section.\\
             It can be `None` if no subfolder is used.
@@ -98,7 +105,7 @@ class SlicedBrain:
         See also
         --------
         [`BrainSlice.from_qupath`][braian.BrainSlice.from_qupath]
-        [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions]
+        [`BrainSlice.exclude`][braian.BrainSlice.exclude]
         """
         if not isinstance(animal_dir, Path):
             animal_dir = Path(animal_dir)
@@ -120,7 +127,8 @@ class SlicedBrain:
                                                animal=name, name=image, is_split=True,
                                                brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
-                slice.exclude_regions(exclude, brain_ontology, exclude_parent_regions)
+                slice.exclude(exclude, ontology=brain_ontology,
+                              layer1_ancestors=exclude_layer1_ancestors)
             except BrainSliceFileError as e:
                 mode = SlicedBrain._get_default_error_mode(e)
                 SlicedBrain._handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)

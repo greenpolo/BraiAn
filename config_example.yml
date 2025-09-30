@@ -4,7 +4,7 @@
 
 experiment:
   name: "example"
-  output_dir: "data/BraiAn_output"
+  output-dir: "data/BraiAn"
 
 groups:
   HC: ["287HC", "342HC", "343HC", "346HC", "371HC"]
@@ -12,8 +12,8 @@ groups:
   FC: ["367FC", "368FC", "369FC", "426FC", "427FC", "428FC"]
 
 atlas:
-  version: "v3"
-  excluded-branches: ["retina", "VS", "grv", "fiber tracts", "CB"]
+  name: "allen_mouse_10um"
+  excluded-branches: ["VS", "fiber tracts", "CB"]
 
 brains:
   raw-metric: "sum"
@@ -21,14 +21,14 @@ brains:
 qupath:
   files:
     dirs:
-      output: "data/QuPath_output"
-      results_subdir: "results"
-      exclusions_subdir: "regions_to_exclude"
+      output: "data/BraiAnDetect"
+      results-subdir: "results"
+      exclusions-subdir: "regions_to_exclude"
     suffix:
-      results: "_regions.txt"
+      results: "_regions.tsv"
       exclusions: "_regions_to_exclude.txt"
     markers:
       AF568: "cFos"
       AF647: "Arc"
-  exclude-parents: true
+  exclude-layer1-ancestors: false
   min-slices: 0
