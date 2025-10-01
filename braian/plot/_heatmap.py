@@ -131,7 +131,8 @@ def heatmap(bd1: BrainData,
             vmax=cmax,
             format="2D",
             hemisphere=hem,
-            atlas_name=atlas_name
+            atlas_name=atlas_name,
+            check_latest=False
         )
         for d,hem,cm in zip(data, hems, cmaps)
     ]
