@@ -3,7 +3,6 @@ import warnings
 from pathlib import Path
 
 from braian import AnimalBrain, AtlasOntology, Experiment, SlicedGroup, SlicedExperiment
-from braian.legacy import AllenBrainOntology
 
 __all__ = ["BraiAnConfig"]
 
@@ -76,9 +75,9 @@ class BraiAnConfig:
         else:
             output_dir = self.config["experiment"]["output-dir"]
         self.output_dir = _resolve_dir(output_dir, relative=self.config_file.absolute().parent)
-        self._brain_ontology: AllenBrainOntology = None
+        self._brain_ontology: AtlasOntology = None
 
-    def read_atlas_ontology(self) -> AllenBrainOntology:
+    def read_atlas_ontology(self) -> AtlasOntology:
         """
         Reads the brain ontology specified in the configuration file, and, if necessary, it dowloads it from the web.
 

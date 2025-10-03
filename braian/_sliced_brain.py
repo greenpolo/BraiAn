@@ -16,7 +16,6 @@ from braian import AtlasOntology, BrainData, BrainSlice,\
                    MissingResultsMeasurementError, \
                    InvalidRegionsHemisphereError, \
                    InvalidExcludedRegionsHemisphereError
-from braian.legacy import AllenBrainOntology
 from braian.utils import deprecated
 
 __all__ = [
@@ -213,7 +212,7 @@ class SlicedBrain:
                           pd.concat((slice.data["area"], slice.markers_density), axis=1)
                           for slice in self._slices])
 
-    def count(self, brain_ontology: AllenBrainOntology=None) -> BrainData:
+    def count(self, brain_ontology: AtlasOntology=None) -> BrainData:
         """
         Counts the number of slices that contains data for each brain region.
 

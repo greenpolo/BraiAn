@@ -9,8 +9,7 @@ import random
 from collections.abc import Iterable, Collection, Sequence
 from plotly.subplots import make_subplots
 
-from braian import AnimalBrain, AnimalGroup, Experiment, SlicedBrain, SlicedExperiment, SlicedGroup
-from braian.legacy import AllenBrainOntology
+from braian import AnimalBrain, AnimalGroup, AtlasOntology, Experiment, SlicedBrain, SlicedExperiment, SlicedGroup
 from braian.legacy._ontology_allen import UPPER_REGIONS
 
 __all__ = [
@@ -143,7 +142,7 @@ def group(group: AnimalGroup, selected_regions: list[str]|np.ndarray[str],
     fig.update_layout(legend=dict(tracegroupgap=0), scattermode="group")
     return fig
 
-def pie_ontology(brain_ontology: AllenBrainOntology, selected_regions: Collection[str],
+def pie_ontology(brain_ontology: AtlasOntology, selected_regions: Collection[str],
         use_acronyms: bool=True, hole: float=0.3, line_width: float=2, text_size: float=12) -> go.Figure:
     """
     Pie plot of the major divisions weighted on the number of corresponding selected subregions.
@@ -170,11 +169,11 @@ def pie_ontology(brain_ontology: AllenBrainOntology, selected_regions: Collectio
 
     See also
     --------
-    [braian.AllenBrainOntology.get_corresponding_md][]
+    [braian.AtlasOntology.partitioned][]
     """
-    active_mjd = tuple(brain_ontology.get_corresponding_md(*selected_regions).values())
+    active_mjd = tuple(brain_ontology.partitioned(selected_regions, partition="major divisions", key="acronym").values())
     mjd_occurrences = [(mjd, active_mjd.count(mjd)) for mjd in UPPER_REGIONS]
-    allen_colours = brain_ontology.get_region_colors()
+    allen_colours = brain_ontology.colors()
     fig = go.Figure(
                     go.Pie(
                         labels=[mjd if use_acronyms else brain_ontology.full_name[mjd] for mjd,n in mjd_occurrences if n != 0],
@@ -378,7 +377,7 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
     return fig
 
 
-def region_scores(scores: pd.Series, brain_ontology: AllenBrainOntology,
+def region_scores(scores: pd.Series, brain_ontology: AtlasOntology,
                   title: str=None, title_size: int=20,
                   regions_size: int=15, use_acronyms: bool=True, use_acronyms_in_mjd: bool=True,
                   mjd_opacity: float=0.5, thresholds: float|Collection[float]=None, width: int=800,
@@ -416,10 +415,10 @@ def region_scores(scores: pd.Series, brain_ontology: AllenBrainOntology,
 
     See also
     --------
-    [braian.AllenBrainOntology.get_corresponding_md][]
+    [braian.AtlasOntology.partitioned][]
     """
-    active_mjd = tuple(brain_ontology.get_corresponding_md(*scores.index).values())
-    allen_colours = brain_ontology.get_region_colors()
+    active_mjd = tuple(brain_ontology.partitioned(scores.index, partition="major divisions", key="acronym").values())
+    allen_colours = brain_ontology.colors()
     fig = go.Figure([
         go.Bar(
             x=scores,

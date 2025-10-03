@@ -7,8 +7,7 @@ import plotly.graph_objects as go
 from collections.abc import Collection, Sequence
 from plotly.subplots import make_subplots
 
-from braian import AnimalGroup, BrainData, Experiment
-from braian.legacy import AllenBrainOntology
+from braian import AnimalGroup, AtlasOntology, BrainData, Experiment
 from braian.utils import merge_ordered
 from braian.plot._generic import bar_sample
 
@@ -19,7 +18,7 @@ __all__ = [
 def xmas_tree(groups: Experiment|Collection[AnimalGroup],
               selected_regions: Collection[str],
               marker1: str, marker2: str=None,
-              brain_ontology: AllenBrainOntology=None,
+              brain_ontology: AtlasOntology=None,
               pls_n_permutation: int=None, pls_n_bootstrap: int=None,
               pls_threshold: float=None, pls_seed: int=None,
               markers_salience_scores: dict[str, BrainData]=None,
@@ -53,7 +52,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         If specified, the name of the second marker's data to plot.
     brain_ontology
         If specified, the `selected_regions` are checked against the ontology and sorted by
-        [major divisions][braian.AllenBrainOntology.get_corresponding_md]. If a brain region is missing from `groups`
+        [major divisions][braian.AtlasOntology.partitioned]. If a brain region is missing from `groups`
         but present in `selected_regions`, it is shown with all-[NA][pandas.NA] values.
     pls_n_permutation
         If specified, it corresponds to the parameter used for defining
@@ -106,7 +105,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
 
     if brain_ontology is not None:
         groups = [group.sort_by_ontology(brain_ontology, fill_nan=True, inplace=False) for group in groups]
-        regions_mjd = brain_ontology.get_corresponding_md(*selected_regions)
+        regions_mjd = brain_ontology.partitioned(selected_regions, partition="major divisions", key="acronym")
         selected_regions = list(regions_mjd.keys())
     else:
         regions = merge_ordered(*[g.regions for g in groups]) #, selected_regions)
@@ -207,7 +206,7 @@ def marker_traces(groups: list[AnimalGroup],
                   marker: str, groups_colours: list,
                   selected_regions: Collection[str],
                   plot_scatter: bool,
-                  brain_ontology: AllenBrainOntology,
+                  brain_ontology: AtlasOntology,
                   pls_n_bootstrap: int, pls_n_permutation: int,
                   pls_threshold: float, pls_seed: int,
                   markers_salience_scores: dict[str, BrainData]):

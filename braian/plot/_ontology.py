@@ -6,8 +6,7 @@ import plotly.graph_objects as go
 
 from collections.abc import Iterable, Callable
 
-from braian import _graph_utils, BrainData
-from braian.legacy import AllenBrainOntology
+from braian import _graph_utils, AtlasOntology, BrainData
 
 __all__ = [
     "hierarchy",
@@ -15,7 +14,7 @@ __all__ = [
     "draw_nodes"
 ]
 
-def hierarchy(brain_ontology: AllenBrainOntology,
+def hierarchy(brain_ontology: AtlasOntology,
               bdata: BrainData=None,
               selection: bool=True,
               unreferenced: bool=False,
@@ -125,7 +124,7 @@ def draw_edges(G: ig.Graph, layout: ig.Layout, width: int, directed: bool=True) 
 
     return edges_trace
 
-def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: AllenBrainOntology,
+def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: AtlasOntology,
                node_size: int, fill_mode: str="region",
                outline_size: float=0.5, outline_mode: str="region",
                centrality_metric: str=None,
@@ -176,7 +175,7 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: AllenBrainOntolog
         If `fill_mode` or `outline_mode` are set to `"centrality"`,
         but `G` vertices have no attributes named as defined by `centrality_metric`.
     """
-    region_colors = brain_ontology.get_region_colors()
+    region_colors = brain_ontology.colors()
     vertex_fill =       _region_color(fill_mode, G, region_colors, centrality_metric)
     vertex_outline = _region_color(outline_mode, G, region_colors, centrality_metric)
     nodes_color = []
@@ -242,7 +241,7 @@ def _region_color(mode: str,
                 raise ValueError("No clustering was made on the provided connectome")
             return lambda v: plc.qualitative.Plotly[v["cluster"] % len(plc.qualitative.Plotly)]  # noqa: E731
 
-def _nodes_hover_info(brain_ontology: AllenBrainOntology, G: ig.Graph,
+def _nodes_hover_info(brain_ontology: AtlasOntology, G: ig.Graph,
                      title_dict: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={}
                      ) -> tuple[npt.NDArray,str]:
     """

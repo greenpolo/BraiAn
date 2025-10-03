@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Self
 
 from braian import AnimalBrain, AtlasOntology, BrainData, SlicedBrain, SliceMetrics
-from braian.legacy import AllenBrainOntology
 from braian.utils import deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
@@ -26,7 +25,7 @@ def _have_same_regions(animals: list[AnimalBrain]) -> bool:
 
 class AnimalGroup:
     def __init__(self, name: str, animals: Sequence[AnimalBrain], hemisphere_distinction: bool=True,
-                 brain_ontology: AllenBrainOntology=None, fill_nan: bool=True) -> None:
+                 brain_ontology: AtlasOntology=None, fill_nan: bool=True) -> None:
         """
         Creates an experimental cohort from a set of `AnimalBrain`.\\
         In order for a cohort to be valid, it must consist of brains with
@@ -64,7 +63,7 @@ class AnimalGroup:
         self.name = name
         """The name of the group."""
         # if not animals or not brain_ontology:
-        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AllenBrainOntology.")
+        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AtlasOntology.")
         assert len(animals) > 0, "A group must be made of at least one animal." # TODO: should we enforce a statistical signficant n? E.g. MIN=4
         _all_markers = {marker for brain in animals for marker in brain.markers}
         assert all(marker in brain.markers for marker in _all_markers for brain in animals), "All AnimalBrain in a group must have the same markers."
@@ -265,7 +264,7 @@ class AnimalGroup:
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
-              brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> Self:
+              brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> Self:
         """
         Applies a function to each animal of the group and creates a new `AnimalGroup`.
         Especially useful when applying some sort of metric to the brain data.
@@ -312,7 +311,7 @@ class AnimalGroup:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
         return self._animals[0].get_units(marker)
 
-    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
+    def sort_by_ontology(self, brain_ontology: AtlasOntology,
                          fill_nan=True, inplace=True) -> None:
         """
         Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
@@ -503,7 +502,7 @@ class AnimalGroup:
         return AnimalGroup.from_pandas(df, name)
 
     @staticmethod
-    def to_prism(marker, brain_ontology: AllenBrainOntology,
+    def to_prism(marker, brain_ontology: AtlasOntology,
                  group1: Self, group2: Self, *groups: Self) -> pd.DataFrame:
         """
         Prepares the marker data from multiple groups in a table structure that is convenient
@@ -536,7 +535,7 @@ class AnimalGroup:
         if not all(group1.is_comparable(g) for g in groups[1:]):
             raise ValueError("The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)")
         df = pd.concat({g.name: g.to_pandas(marker) for g in groups}, axis=1)
-        major_divisions = brain_ontology.get_corresponding_md(*df.index)
+        major_divisions = brain_ontology.partitioned(df.index, partition="major divisions", key="acronym")
         df["major_divisions"] = [major_divisions[region] for region in df.index]
         df.set_index("major_divisions", append=True, inplace=True)
         return df
@@ -610,7 +609,7 @@ class SlicedGroup:
         return SlicedGroup(name, sliced_brains, brain_ontology)
 
     def __init__(self, name: str, animals: Iterable[SlicedBrain],
-                 brain_ontology: AllenBrainOntology) -> None:
+                 brain_ontology: AtlasOntology) -> None:
         """
         Creates an experimental cohort from a set of `SlicedBrain`.\\
         It is meant to help keeping organised raw data coming multiple sections per-animal.
