@@ -381,7 +381,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             data[regions] = pd.NA
         else:
             data = data[~data.index.isin(regions)]
-        
+
         if inplace:
             self.data = data
             return self

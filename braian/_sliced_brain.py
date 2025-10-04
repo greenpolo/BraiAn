@@ -83,7 +83,7 @@ class SlicedBrain:
             A dictionary mapping QuPath channel names to markers.
         exclude_parent_regions
             `exclude_parent_regions` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
-        layer1_ancestors
+        exclude_layer1_ancestors
             `layer1_ancestors` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         results_subdir
             The name of the subfolder in `animal_dir` that contains all cell counts files of each brain section.\\

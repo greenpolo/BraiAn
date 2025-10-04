@@ -34,7 +34,7 @@ class PLS:
 
     The implementation follows a [tutorial from Krishnan et al., 2011](https://doi.org/10.1016/j.neuroimage.2010.07.034);
     for better understanding this method, we _strongly_ suggest reading it.
-    
+
     _NOTE_: if a region is missing from at least one observation, it wont' be taken into account in the analysis.
     """
     def __init__(self, regions: Sequence[str],
@@ -60,7 +60,7 @@ class PLS:
         ------
         ValueError
             If `marker` is empty, and the given `groups` don't have a single marker to choose from.
-        """        
+        """
         groups = [group1, group2, *groups]
         if marker is None or (isinstance(marker, Sequence) and len(marker) < 1):
             if any(len(g.markers) > 1 for g in groups):
@@ -233,7 +233,7 @@ class PLS:
         Within each sample, the brains' group remains unchanged while the composition of such groups may change.
         Mean-centered task PLS is computed on each sample, effectively creating a large number
         of $u$ and $v$ salience scores samples.
-        
+
         _NOTE_: any interpretation of the resulting normalized scores should be coupled with the
         result of a [permutation test][braian.stats.PLS.random_permutation].
 
@@ -365,7 +365,7 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
         A `BrainData` of the regions salience scores based on `marker` activity.\
         If `marker=None` and the groups have multiple markers, it returns a dictionary
         mapping each marker into the respective regions salience.
-    """    
+    """
     markers = group1.markers if marker is None else (marker,)
     salience_scores = dict()
     for m in markers:

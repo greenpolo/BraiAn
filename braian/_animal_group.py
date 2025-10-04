@@ -435,7 +435,7 @@ class AnimalGroup:
         -------
         :
             The file path to the saved CSV file.
-        
+
         Raises
         ------
         FileExistsError
@@ -557,7 +557,7 @@ class SlicedGroup:
                     exclusions_subdir: str="regions_to_exclude",
                     exclusions_suffix: str="_regions_to_exclude.txt") -> Self:
         """
-        Creates an experimental cohort from the section files exported with QuPath. 
+        Creates an experimental cohort from the section files exported with QuPath.
 
         Parameters
         ----------
@@ -573,7 +573,7 @@ class SlicedGroup:
             A dictionary mapping QuPath channel names to markers.
         exclude_parents
             `exclude_parents` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
-        layer1_ancestors
+        exclude_layer1_ancestors
             `layer1_ancestors` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         results_subdir
             The name of the subfolder in `qupath_dir/brain_name` that contains all cell counts files of each brain section.\\

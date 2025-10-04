@@ -4,6 +4,7 @@ import numpy.testing as npt
 import pytest
 from braian import AtlasOntology, utils
 from braian.legacy import AllenBrainOntology
+from collections import OrderedDict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -164,6 +165,29 @@ def test_are_regions(ontology, acronyms, unreferenced, expected, request):
 def test_are_regions_should_raise(allen_ontology: AtlasOntology):
     with pytest.raises(ValueError, match=".*Duplicates.*"):
         allen_ontology.are_regions(["Isocortex", "FRP", "Isocortex", "MOp"], duplicated=False)
+
+@pytest.mark.parametrize(
+    "ontology, parent, regions, expected",
+    [
+        ("allen_ontology",
+         "CTXpl", ["Isocortex", "OLF", "HPF"], True),
+        ("allen_ontology_blacklisted_hpf",
+         "CTXpl", ["Isocortex", "OLF", "HPF"], True),
+        ("allen_ontology_unreferenced_hpf",
+         "CTXpl", ["Isocortex", "OLF", "HPF"], False),
+        ("allen_ontology",
+         "CTXpl", ["CTXpl"], False),
+        ("allen_ontology",
+         "CTXpl", ["CA1", "CA2", "CA3"], False),
+        ("allen_ontology",
+         "CTXpl", ["Isocortex", "OLF", "PAL", "TH", "HY"], False),
+        ("allen_ontology",
+         "CA", ["CA1", "NOT_A_REGION"], False),
+    ]
+)
+def test_contains_all_children(ontology, parent, regions, expected, request):
+    o: AtlasOntology = request.getfixturevalue(ontology)
+    assert o.contains_all_children(parent, regions) == expected
 
 @pytest.mark.parametrize(
     "ontology, acronyms, include_blacklisted, include_unreferenced, expected",
@@ -495,6 +519,39 @@ def test_get_regions_above_raises(acronym, allen_ontology_complete_unreferenced_
     o: AtlasOntology = allen_ontology_complete_unreferenced_hpf
     with pytest.raises(KeyError, match=".*not found.*"):
         o.get_regions_above(acronym)
+
+@pytest.mark.parametrize("ontology, acronyms, expected", [
+    ("allen_ontology_complete",
+        ["root", "CTX", "BS", "HPF", "CA1"],
+        OrderedDict([
+            ("root", None),
+            ("CTX", None),
+            ("BS", None),
+            ("HPF", "HPF"),
+            ("CA1", "HPF")
+    ])),
+    ("allen_ontology_complete_blacklisted_hpf",
+        ["CA1"],
+        OrderedDict([
+            ("CA1", "HPF")
+    ])),
+])
+def test_get_corresponding_md(ontology, acronyms, expected, request):
+    o: AtlasOntology = request.getfixturevalue(ontology)
+    assert o.get_corresponding_md(*acronyms) == expected
+
+@pytest.mark.parametrize("acronym", [
+    "HPF",
+    "CA1",
+    "NOT_A_REGION",
+])
+def test_get_corresponding_md_raises(acronym, allen_ontology_complete_unreferenced_hpf):
+    o: AtlasOntology = allen_ontology_complete_unreferenced_hpf
+    with pytest.raises(KeyError, match=".*not found.*"):
+        o.get_corresponding_md(acronym)
+    if acronym != "NOT_A_REGION":
+        with pytest.raises(ValueError, match="Duplicate.*"):
+            o.get_corresponding_md(acronym, acronym)
 
 @pytest.mark.parametrize("ontology, acronym, full_name, colour", [
     ("allen_ontology_complete", "HPF", "Hippocampal formation", "#7ED04B"),

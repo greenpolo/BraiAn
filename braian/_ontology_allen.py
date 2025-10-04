@@ -2,7 +2,7 @@ import warnings
 
 from braian import AtlasOntology
 from braian.utils import deprecated
-from collections.abc import Iterable, Container
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal
 
@@ -59,25 +59,6 @@ class AllenBrainOntology(AtlasOntology):
             blacklisted=blacklisted,
             unreferenced=unreferenced
         )
-
-    @deprecated(since="1.1.0")
-    def contains_all_children(self, parent: str, regions: Container[str]) -> bool:
-        """
-        Check whether a brain region contains all the given regions
-
-        Parameters
-        ----------
-        parent
-            An acronym of a brain region
-        regions
-            The regions to check as subregions of `parent`
-
-        Returns
-        -------
-        :
-            True if all `regions` are direct subregions of `parent`
-        """
-        return set(self.direct_subregions[parent]) == set(regions)
 
     @deprecated(since="1.1.0", message="In BrainGlobe's atlases, structural level information is missing. Use braian.legacy.AllenBrainOntology if you really need it.")
     def select_at_structural_level(self, level: int):

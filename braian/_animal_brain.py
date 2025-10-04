@@ -164,7 +164,7 @@ class AnimalBrain:
         assert len(markers_data) > 0 and sizes is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the size of each region"
         self._markers: tuple[str] = tuple(markers_data.keys())
         self._markers_data: dict[str,BrainData] = markers_data
-        
+
         self.sizes: BrainData = sizes
         """The data corresponding to the size of each brain region of the current AnimalBrain."""
         self.raw: bool = raw

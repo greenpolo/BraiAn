@@ -156,7 +156,7 @@ def pie_ontology(brain_ontology: AtlasOntology, selected_regions: Collection[str
     use_acronyms
         If True, it displays brain region names as acronyms. If False, it uses their full name.
     hole
-        The size of the hole in the pie chart. Must be between 0 and 1. 
+        The size of the hole in the pie chart. Must be between 0 and 1.
     line_width
         The thickness of pie's slices.
     text_size

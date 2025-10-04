@@ -37,7 +37,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
 
     If `pls_n_permutation` and `pls_n_bootstrap`—or, alternatively, `markers_salience_scores`—are specified, it dims out the
     brain regions that are not salient in a [partial least squared analysis][braian.stats.PLS] between the given `groups`.
-    it is only supported when there are only two groups. 
+    it is only supported when there are only two groups.
 
     Parameters
     ----------
@@ -65,7 +65,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         If not specified, it applies a threshold of $~1.96$.
     pls_seed
         The random seed used for PLS's permutation and bootstrap operations.
-        If specified, the salient regions are always deterministic. 
+        If specified, the salient regions are always deterministic.
     markers_salience_scores
         The salience scores computed on `marker1` and, eventually, `marker2`.\\
         If specified, it does not use `pls_n_permutation` and `pls_bootstrap` parmeters and select the brain regions
@@ -77,13 +77,13 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         The ratio of the whole plot's width dedicated to the scatter plot. The remaining 1-scatter_width is occupied by the heatmap.
     space_between_markers
         The retio of the whole plot's width dedicated to the gap between markers and used to specify the major divisions.\\
-        If `marker2` and `brain_ontology` are not specified, it is not used. 
+        If `marker2` and `brain_ontology` are not specified, it is not used.
     groups_marker1_colours
         The list of colours used to identify `marker1` scatter data of each group.
     groups_marker2_colours
         The list of colours used to identify `marker2` scatter data of each group.
     max_value
-        If specified, it caps the visualization of the brain data to this value. 
+        If specified, it caps the visualization of the brain data to this value.
     color_heatmap
         The colormap used to display the data in the heatmap.
     width

@@ -156,7 +156,7 @@ class BraiAnConfig:
             results_subdir = "results-subdir"
         results_subir = qupath["files"]["dirs"].get(results_subdir, ".")
         if results_subir is None:
-            results_subir = "." 
+            results_subir = "."
         results_suffix = qupath["files"]["suffix"]["results"]
         if "exclusions_subdir" in qupath["files"]["dirs"]:
             warnings.warn("Option 'qupath|files|dirs|exclusions_subdir' is deprecated since '1.1.0' and support may be removed in future versions. Use 'qupath|files|dirs|exclusions-subdir' instead.", DeprecationWarning)
@@ -216,7 +216,6 @@ class BraiAnConfig:
                                     densities=False, # raw matrics will never be a density
                                     hemisphere_distinction=hemisphere_distinction,
                                     validate=validate)
-        
 
 def _resolve_dir(path: Path|str, relative: Path|str) -> Path:
     if not isinstance(path, Path):

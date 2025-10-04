@@ -259,7 +259,7 @@ class AllenBrainOntology:
         Returns
         -------
         :
-            An array of bools being True where the corresponding value in `a` is a region and False otherwise.
+            A numpy array of bools being True where the corresponding value in `a` is a region and False otherwise.
 
         Raises
         ------
@@ -414,8 +414,10 @@ class AllenBrainOntology:
 
     def select_at_depth(self, depth: int):
         """
-        Select all non-overlapping brain regions at the same depth in the ontology.
+        Select all non-overlapping brain regions at the same depth in the ontology.\\
         If a brain region is above the given depth but has no sub-regions, it is selected anyway.
+        This grants that the list of [selected][braian.legacy.AllenBrainOntology.get_selected_regions] brain structures
+        will be non-overlapping and comprehensive of the whole-brain, excluding eventual blacklisted regions.
 
         Parameters
         ----------
@@ -467,7 +469,7 @@ class AllenBrainOntology:
 
     def select_leaves(self):
         """
-        Select all th enon-overlapping smallest brain regions in the ontology.
+        Select all the non-overlapping smallest brain regions in the ontology.
         A region is also selected if it's not the smallest possible,
         but all of its sub-regions have no reference in the atlas annotations.
 
@@ -517,19 +519,19 @@ class AllenBrainOntology:
 
     def select_regions(self, regions: Iterable, key: str="acronym"):
         """
-        Select the given regions in the ontology
+        Select `regions` in the ontology.
 
         Parameters
         ----------
         regions
-            The brain regions to select
-        key
-            The key in Allen's structural graph used to indentify the regions
+            The brain structures uniquely identified by their IDs or their acronyms.
 
         Raises
         ------
         KeyError
-            If it can't find at least one of the `regions` in the ontology
+            If it can't find at least one of the `regions` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
 
         See also
         --------
@@ -553,9 +555,16 @@ class AllenBrainOntology:
         Parameters
         ----------
         regions
-            The brain regions to add to selection
+            The brain structures uniquely identified by their IDs or their acronyms.
         key
-            The key in Allen's structural graph used to indentify the regions
+            The region identifier of the returned sibling structures.
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
 
         See also
         --------
@@ -576,12 +585,12 @@ class AllenBrainOntology:
 
     def has_selection(self) -> bool:
         """
-        Check whether the current ontology is currently selecting any brain region.
+        Checks if there are structures currently selected in the ontology.
 
         Returns
         -------
         :
-            True, if the current ontology had a selection method previosuly called. Otherwise, False.
+            True, if the ontology has at least one brain structure selected. Otherwise, False.
 
         See also
         --------
@@ -714,15 +723,15 @@ class AllenBrainOntology:
 
     def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]="depth") -> list[str]:
         """
-        Converts the given brain regions IDs into their corresponding acronyms.
+        Converts the given brain region IDs into their corresponding acronyms.
 
         Parameters
         ----------
         ids
-            The brain regions' IDs to convert
+            The brain structures uniquely identified by their IDs.
         mode
-            If None, it returns the acronyms in the same order as the given `ids`.
-            Otherwise, it must be either "breadth"—for breadth-first—or "depth"—for depth-first order.
+            If None, it returns the acronyms in the same order as `ids`.
+            Otherwise, it returns them in breadth-first or depth-first order.
 
         Returns
         -------
@@ -731,11 +740,12 @@ class AllenBrainOntology:
 
         Raises
         ------
-        ValueError
-            If given `mode` is not supported
-
         KeyError
-            If it can't find at least one of the `ids` in the ontology
+            If it can't find at least one of the `ids` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `ids`.
+        ValueError
+            When `mode` has an invalid value.
         """
         match mode:
             case "breadth":
@@ -752,15 +762,15 @@ class AllenBrainOntology:
 
     def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]="depth") -> list[int]:
         """
-        Converts the given brain regions acronyms into ther corresponding IDs
+        Converts the given brain region acronyms into their corresponding IDs.
 
         Parameters
         ----------
         acronyms
-            the brain regons' acronyms to convert
+            The brain structures uniquely identified by their acronyms.
         mode
-            If None, it returns the IDs in the same order as the given `acronyms`.
-            Otherwise, it must be either "breadth"—for breadth-first—or "depth"—for depth-first order.
+            If None, it returns the IDs in the same order as `acronyms`.
+            Otherwise, it returns them in breadth-first or depth-first order.
 
         Returns
         -------
@@ -769,11 +779,12 @@ class AllenBrainOntology:
 
         Raises
         ------
-        ValueError
-            If given `mode` is not supported
-
         KeyError
-            If it can't find at least one of the `acronyms` in the ontology
+            If it can't find at least one of the `acronyms` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `acronyms`.
+        ValueError
+            When `mode` has an invalid value.
         """
         match mode:
             case "breadth":
@@ -804,7 +815,7 @@ class AllenBrainOntology:
         Returns
         -------
         :
-            All `region`'s sibilings, including itself
+            All `region`'s siblings, including itself
 
         Raises
         ------
@@ -820,7 +831,7 @@ class AllenBrainOntology:
         parent = parents[region]
         if parent is None: # region is the root
             return [region]
-        return [sibiling[key] for sibiling in parent["children"] if has_reference(sibiling)]
+        return [sibling[key] for sibling in parent["children"] if has_reference(sibling)]
         ## Alternative implementation:
         # parent_id = find_subtree(self.dict, key, value, "children")["parent_structure_id"]
         # return [area[key] for area in find_subtree(self.dict, "id", parent_id, "children")["children"]]
@@ -928,7 +939,7 @@ class AllenBrainOntology:
         acronym
             The acronym of the brain region
         mode
-            Must be eithe "breadth" or "depth".
+            Must be either "breadth" or "depth".
             The order in which the returned acronyms will be: breadth-first or depth-first
         blacklisted
             If True, it includes in the returned list blacklisted structures
@@ -995,8 +1006,7 @@ class AllenBrainOntology:
 
     def get_corresponding_md(self, acronym: str, *acronyms: str) -> OrderedDict[str, str]:
         """
-        Finds the corresponding major division for each on the the `acronyms`.
-        The returned dictionary is sorted in depth-first-search order.
+        Finds the corresponding major division for each one of the `acronyms`.
 
         While it accepts blacklisted regions, it raises `KeyError`
         if given a region with no reference in the atlas annotations.
