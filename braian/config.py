@@ -3,13 +3,15 @@ import warnings
 from pathlib import Path
 
 from braian import AnimalBrain, AtlasOntology, Experiment, SlicedGroup, SlicedExperiment
+from braian.utils import deprecated
 
 __all__ = ["BraiAnConfig"]
 
 class BraiAnConfig:
+    @deprecated(since="1.1.0", params=["cache_path"])
     def __init__(self,
                  config_file: Path|str,
-                 cache_path: Path|str, # for now used only to load the ontology from. If it doesn't find it it also downloads it there (for allen ontologies).
+                 cache_path: Path|str=None, # for now used only to load the ontology from. If it doesn't find it it also downloads it there (for allen ontologies).
                  ) -> None:
         """
         Reads a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file for
@@ -59,7 +61,7 @@ class BraiAnConfig:
             The path to a valid YAML configuration file.
         cache_path
             A path to a folder used to store files downloaded from the web and used for computations.\\
-            At the moment this is used only to store the brain ontology to which the whole-brain data was aligned to.
+            Since '1.1.0' it's useless.
         """
         if not isinstance(config_file, Path):
             config_file = Path(config_file)
@@ -67,7 +69,7 @@ class BraiAnConfig:
         with open(self.config_file, "r") as f:
             self.config = yaml.safe_load(f)
 
-        self.cache_path = Path(cache_path)
+        # self.cache_path = Path(cache_path)
         self.experiment_name = self.config["experiment"]["name"]
         if "output_dir" in self.config["experiment"]:
             warnings.warn("Option 'experiment|output_dir' is deprecated since '1.1.0' and support may be removed in future versions. Use 'experiment|output-dir' instead.", DeprecationWarning)
@@ -86,7 +88,7 @@ class BraiAnConfig:
         :
             The brain ontology associated with the whole-brain data of the experiment.
         """
-        if self.config["atlas"]["version"] is not None:
+        if "version" in self.config["atlas"] is not None:
             warnings.warn("Option 'atlas|version' is deprecated since '1.1.0' and support may be removed in future versions. Use 'atlas|name' instead.", DeprecationWarning)
             if self.config["atlas"]["version"].lower() not in {"2017", "ccfv3", "v3"}:
                 raise ValueError(f"Unsupported version of the Allen Mouse Brain ontology: '{self.config['atlas']['version']}'. "+\
@@ -100,8 +102,13 @@ class BraiAnConfig:
             atlas_name = "allen_mouse_10um"
         else:
             atlas_name = self.config["atlas"]["name"]
+        if "excluded-branches" in self.config["atlas"]:
+            warnings.warn("Option 'atlas|excluded-branches' is deprecated since '1.1.0' and support may be removed in future versions. Use 'atlas|blacklisted' instead.", DeprecationWarning)
+            blacklisted = self.config["atlas"]["excluded-branches"]
+        else:
+            blacklisted = self.config["atlas"]["blacklisted"]
         self._brain_ontology = AtlasOntology(atlas_name,
-                                             blacklisted=self.config["atlas"]["excluded-branches"],
+                                             blacklisted=blacklisted,
                                              unreferenced=False)
         return self._brain_ontology
 
