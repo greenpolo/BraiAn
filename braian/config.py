@@ -1,15 +1,17 @@
 import yaml
+import warnings
 from pathlib import Path
 
-from braian import AllenBrainOntology, AnimalBrain, Experiment, SlicedGroup, SlicedExperiment
-import braian.utils
+from braian import AnimalBrain, AtlasOntology, Experiment, SlicedGroup, SlicedExperiment
+from braian.utils import deprecated
 
 __all__ = ["BraiAnConfig"]
 
 class BraiAnConfig:
+    @deprecated(since="1.1.0", params=["cache_path"])
     def __init__(self,
                  config_file: Path|str,
-                 cache_path: Path|str, # for now used only to load the ontology from. If it doesn't find it it also downloads it there (for allen ontologies).
+                 cache_path: Path|str=None, # for now used only to load the ontology from. If it doesn't find it it also downloads it there (for allen ontologies).
                  ) -> None:
         """
         Reads a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file for
@@ -22,35 +24,35 @@ class BraiAnConfig:
         # SPDX-License-Identifier: CC0-1.0
 
         experiment:
-        name: "example"
-        output_dir: "data/BraiAn_output"
+            name: "example"
+            output-dir: "data/BraiAn"
 
         groups:
-        HC: ["287HC", "342HC", "343HC", "346HC", "371HC"]
-        CTX: ["329CTX", "331CTX", "355CTX", "400CTX", "401CTX", "402CTX"]
-        FC: ["367FC", "368FC", "369FC", "426FC", "427FC", "428FC"]
+            HC: ["287HC", "342HC", "343HC", "346HC", "371HC"]
+            CTX: ["329CTX", "331CTX", "355CTX", "400CTX", "401CTX", "402CTX"]
+            FC: ["367FC", "368FC", "369FC", "426FC", "427FC", "428FC"]
 
         atlas:
-        version: "v3"
-        excluded-branches: ["retina", "VS", "grv", "fiber tracts", "CB"]
+            name: "allen_mouse_10um"
+            excluded-branches: ["retina", "VS", "grv", "fiber tracts", "CB"]
 
         brains:
-        raw-metric: "sum"
+            raw-metric: "sum"
 
         qupath:
-        files:
-            dirs:
-            output: "data/QuPath_output"
-            results_subdir: "results"
-            exclusions_subdir: "regions_to_exclude"
-            suffix:
-            results: "_regions.txt"
-            exclusions: "_regions_to_exclude.txt"
-            markers:
-            AF568: "cFos"
-            AF647: "Arc"
-        exclude-parents: true
-        min-slices: 0
+            files:
+                dirs:
+                    output: "data/BraiAnDetect"
+                    results-subdir: "results"
+                    exclusions-subdir: "regions_to_exclude"
+                suffix:
+                    results: "_regions.txt"
+                    exclusions: "_regions_to_exclude.txt"
+                markers:
+                    AF568: "cFos"
+                    AF647: "Arc"
+            exclude-layer1-ancestors: false
+            min-slices: 0
         ```
 
         Parameters
@@ -59,7 +61,7 @@ class BraiAnConfig:
             The path to a valid YAML configuration file.
         cache_path
             A path to a folder used to store files downloaded from the web and used for computations.\\
-            At the moment this is used only to store the brain ontology to which the whole-brain data was aligned to.
+            Since '1.1.0' it's useless.
         """
         if not isinstance(config_file, Path):
             config_file = Path(config_file)
@@ -67,12 +69,17 @@ class BraiAnConfig:
         with open(self.config_file, "r") as f:
             self.config = yaml.safe_load(f)
 
-        self.cache_path = Path(cache_path)
+        # self.cache_path = Path(cache_path)
         self.experiment_name = self.config["experiment"]["name"]
-        self.output_dir = _resolve_dir(self.config["experiment"]["output_dir"], relative=self.config_file.absolute().parent)
-        self._brain_ontology: AllenBrainOntology = None
+        if "output_dir" in self.config["experiment"]:
+            warnings.warn("Option 'experiment|output_dir' is deprecated since '1.1.0' and support may be removed in future versions. Use 'experiment|output-dir' instead.", DeprecationWarning)
+            output_dir = self.config["experiment"]["output_dir"]
+        else:
+            output_dir = self.config["experiment"]["output-dir"]
+        self.output_dir = _resolve_dir(output_dir, relative=self.config_file.absolute().parent)
+        self._brain_ontology: AtlasOntology = None
 
-    def read_atlas_ontology(self) -> AllenBrainOntology:
+    def read_atlas_ontology(self) -> AtlasOntology:
         """
         Reads the brain ontology specified in the configuration file, and, if necessary, it dowloads it from the web.
 
@@ -81,11 +88,28 @@ class BraiAnConfig:
         :
             The brain ontology associated with the whole-brain data of the experiment.
         """
-        cached_allen_json = self.cache_path/"AllenMouseBrainOntology.json"
-        braian.utils.cache(cached_allen_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        self._brain_ontology = AllenBrainOntology(cached_allen_json,
-                                                 self.config["atlas"]["excluded-branches"],
-                                                 version=self.config["atlas"]["version"])
+        if "version" in self.config["atlas"] is not None:
+            warnings.warn("Option 'atlas|version' is deprecated since '1.1.0' and support may be removed in future versions. Use 'atlas|name' instead.", DeprecationWarning)
+            if self.config["atlas"]["version"].lower() not in {"2017", "ccfv3", "v3"}:
+                raise ValueError(f"Unsupported version of the Allen Mouse Brain ontology: '{self.config['atlas']['version']}'. "+\
+                                 "If you think this version of the Common Coordinate Framework should be supported, please open an issue on https://github.com/brainglobe/brainglobe-atlasapi")
+                # import braian.utils
+                # cached_allen_json = self.cache_path/"AllenMouseBrainOntology.json"
+                # braian.utils.cache(cached_allen_json, "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
+                # self._brain_ontology = AllenBrainOntology(cached_allen_json,
+                #                                         self.config["atlas"]["excluded-branches"],
+                #                                         version=self.config["atlas"]["version"])
+            atlas_name = "allen_mouse_10um"
+        else:
+            atlas_name = self.config["atlas"]["name"]
+        if "excluded-branches" in self.config["atlas"]:
+            warnings.warn("Option 'atlas|excluded-branches' is deprecated since '1.1.0' and support may be removed in future versions. Use 'atlas|blacklisted' instead.", DeprecationWarning)
+            blacklisted = self.config["atlas"]["excluded-branches"]
+        else:
+            blacklisted = self.config["atlas"]["blacklisted"]
+        self._brain_ontology = AtlasOntology(atlas_name,
+                                             blacklisted=blacklisted,
+                                             unreferenced=False)
         return self._brain_ontology
 
     def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True, legacy: bool=True) -> Experiment:
@@ -132,26 +156,42 @@ class BraiAnConfig:
         """
         qupath = self.config["qupath"]
         qupath_dir = _resolve_dir(qupath["files"]["dirs"]["output"], relative=self.config_file.absolute().parent)
-        results_subir = qupath["files"]["dirs"].get("results_subdir", ".")
+        if "results_subdir" in qupath["files"]["dirs"]:
+            warnings.warn("Option 'qupath|files|dirs|results_subdir' is deprecated since '1.1.0' and support may be removed in future versions. Use 'qupath|files|dirs|results-subdir' instead.", DeprecationWarning)
+            results_subdir = "results_subdir"
+        else:
+            results_subdir = "results-subdir"
+        results_subir = qupath["files"]["dirs"].get(results_subdir, ".")
         if results_subir is None:
-            results_subir = "." 
+            results_subir = "."
         results_suffix = qupath["files"]["suffix"]["results"]
-        exclusions_subdir = qupath["files"]["dirs"].get("exclusions_subdir", ".")
+        if "exclusions_subdir" in qupath["files"]["dirs"]:
+            warnings.warn("Option 'qupath|files|dirs|exclusions_subdir' is deprecated since '1.1.0' and support may be removed in future versions. Use 'qupath|files|dirs|exclusions-subdir' instead.", DeprecationWarning)
+            exclusions_subdir = "exclusions_subdir"
+        else:
+            exclusions_subdir = "exclusions_subdir"
+        exclusions_subdir = qupath["files"]["dirs"].get(exclusions_subdir, ".")
         if exclusions_subdir is None:
             exclusions_subdir = "."
         exclusions_suffix = qupath["files"]["suffix"]["exclusions"]
         markers = qupath["files"]["markers"]
-        
-        exclude_parents = qupath["exclude-parents"]
+
+        if "exclude-parents" in qupath:
+            warnings.warn("Option 'exclude-parents' is now ignored. "+\
+                          "Quantifications in ancestor regions are now always completely removed too.")
+        exclude_layer1_ancestors = qupath.get("exclude-layer1-ancestors", True)
         group2brains: dict[str,str] = self.config["groups"]
         groups = []
         if self._brain_ontology is None:
             self.read_atlas_ontology()
         for g_name, brain_names in group2brains.items():
-            group = SlicedGroup.from_qupath(g_name, brain_names, qupath_dir,
-                                            self._brain_ontology, markers, exclude_parents,
-                                            results_subir, results_suffix,
-                                            exclusions_subdir, exclusions_suffix)
+            group = SlicedGroup.from_qupath(name=g_name, brain_names=brain_names,
+                                            qupath_dir=qupath_dir,
+                                            brain_ontology=self._brain_ontology,
+                                            ch2marker=markers, #exclude_parents,
+                                            exclude_layer1_ancestors=exclude_layer1_ancestors,
+                                            results_subdir=results_subir, results_suffix=results_suffix,
+                                            exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)
             groups.append(group)
 
         sliced_exp = SlicedExperiment(self.experiment_name, *groups)
@@ -183,7 +223,6 @@ class BraiAnConfig:
                                     densities=False, # raw matrics will never be a density
                                     hemisphere_distinction=hemisphere_distinction,
                                     validate=validate)
-        
 
 def _resolve_dir(path: Path|str, relative: Path|str) -> Path:
     if not isinstance(path, Path):

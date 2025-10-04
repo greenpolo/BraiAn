@@ -10,7 +10,7 @@ from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
 from typing import Generator, Self
 
-from braian import AllenBrainOntology, BrainData, BrainHemisphere, EmptyBrainError, SlicedBrain
+from braian import AtlasOntology, BrainData, BrainHemisphere, EmptyBrainError, SlicedBrain
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
 from braian.utils import deprecated, merge_ordered, save_csv
 
@@ -394,7 +394,7 @@ class AnimalBrain:
             case _:
                 raise ValueError(f"Unknown kind '{kind}'.")
 
-    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
+    def sort_by_ontology(self, brain_ontology: AtlasOntology,
                          fill_nan: bool=False, inplace: bool=False) -> Self:
         """
         Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
@@ -447,24 +447,24 @@ class AnimalBrain:
         return self.select(regions, *args, **kwargs)
 
     @deprecated(since="1.1.0", alternatives=["braian.AnimalBrain.select"])
-    def select_from_ontology(self, brain_ontology: AllenBrainOntology, *args, **kwargs):
+    def select_from_ontology(self, brain_ontology: AtlasOntology, *args, **kwargs):
         return self.select(brain_ontology, *args, **kwargs)
 
-    def select(self, regions: Sequence[str]|AllenBrainOntology,
+    def select(self, regions: Sequence[str]|AtlasOntology,
                          fill_nan: bool=False, inplace: bool=False,
                          hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
                          select_other_hemisphere: bool=False) -> Self:
         """
         Filters the data from a given list of regions.\
-        If, instead, an [ontology][braian.AllenBrainOntology] is given, it filters
+        If, instead, an [ontology][braian.AtlasOntology] is given, it filters
         the data accordingly to a non-overlapping list of regions previously selected.\
-        If the ontology has no [active selection][braian.AllenBrainOntology.has_selection], it fails.
+        If the ontology has no [active selection][braian.AtlasOntology.has_selection], it fails.
 
         Parameters
         ----------
         regions
             The acronyms of the regions to select from the data.\
-            Otherwise, an ontology with an [active selection][braian.AllenBrainOntology.has_selection].
+            Otherwise, an ontology with an [active selection][braian.AtlasOntology.has_selection].
         fill_nan
             If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.
@@ -485,20 +485,19 @@ class AnimalBrain:
 
         See also
         --------
-        [`AllenBrainOntology.get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`AllenBrainOntology.unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`AllenBrainOntology.add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`AllenBrainOntology.select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`AllenBrainOntology.select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`AllenBrainOntology.select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`AllenBrainOntology.select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`AllenBrainOntology.select_regions`][braian.AllenBrainOntology.select_regions]
-        [`AllenBrainOntology.get_regions`][braian.AllenBrainOntology.get_regions]
+        [`AtlasOntology.selected`][braian.AtlasOntology.selected]
+        [`AtlasOntology.unselect_all`][braian.AtlasOntology.unselect_all]
+        [`AtlasOntology.add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`AtlasOntology.select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`AtlasOntology.select_leaves`][braian.AtlasOntology.select_leaves]
+        [`AtlasOntology.select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`AtlasOntology.select_regions`][braian.AtlasOntology.select]
+        [`AtlasOntology.get_regions`][braian.AtlasOntology.partition]
         """
         hemisphere = BrainHemisphere(hemisphere)
         if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
             raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
-        if isinstance(regions, AllenBrainOntology):
+        if isinstance(regions, AtlasOntology):
             def f1(bd: BrainData):
                 return bd.select_from_ontology(regions, fill_nan=fill_nan, inplace=inplace)
         else:

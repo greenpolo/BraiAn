@@ -7,8 +7,8 @@ from functools import reduce
 from pathlib import Path
 from typing import Self
 
-from braian import AllenBrainOntology, AnimalBrain, BrainData, BrainHemisphere, SlicedBrain, SliceMetrics
-from braian.utils import save_csv, merge_ordered
+from braian import AnimalBrain, AtlasOntology, BrainData, BrainHemisphere, SlicedBrain, SliceMetrics
+from braian.utils import deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
@@ -28,7 +28,7 @@ def _have_same_regions(animals: list[AnimalBrain]) -> bool:
 
 class AnimalGroup:
     def __init__(self, name: str, animals: Sequence[AnimalBrain], hemisphere_distinction: bool=True,
-                 brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> None:
+                 brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> None:
         """
         Creates an experimental cohort from a set of `AnimalBrain`.\\
         In order for a cohort to be valid, it must consist of brains with
@@ -65,7 +65,7 @@ class AnimalGroup:
         self.name = name
         """The name of the group."""
         # if not animals or not brain_ontology:
-        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AllenBrainOntology.")
+        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AtlasOntology.")
         assert len(animals) > 0, "A group must be made of at least one animal." # TODO: should we enforce a statistical signficant n? E.g. MIN=4
         _all_markers = {marker for brain in animals for marker in brain.markers}
         assert all(marker in brain.markers for marker in _all_markers for brain in animals), "All AnimalBrain in a group must have the same markers."
@@ -234,7 +234,7 @@ class AnimalGroup:
                 self.metric == other.metric # and \
                 # set(self.regions) == set(other.regions)
 
-    def select(self, regions: Sequence[str]|AllenBrainOntology,
+    def select(self, regions: Sequence[str]|AtlasOntology,
                fill_nan: bool=False, inplace: bool=False,
                hemisphere: BrainHemisphere|str|int=BrainHemisphere.BOTH,
                select_other_hemisphere: bool=False) -> Self:
@@ -311,7 +311,7 @@ class AnimalGroup:
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
-              brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> Self:
+              brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> Self:
         """
         Applies a function to each animal of the group and creates a new `AnimalGroup`.
         Especially useful when applying some sort of metric to the brain data.
@@ -359,7 +359,7 @@ class AnimalGroup:
             assert marker in self.markers, f"Could not get units for marker '{marker}'!"
         return self._animals[0].get_units(marker)
 
-    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
+    def sort_by_ontology(self, brain_ontology: AtlasOntology,
                          fill_nan: bool=True, inplace: bool=True) -> None:
         """
         Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
@@ -493,7 +493,7 @@ class AnimalGroup:
         -------
         :
             The file path to the saved CSV file.
-        
+
         Raises
         ------
         FileExistsError
@@ -572,7 +572,7 @@ class AnimalGroup:
         return AnimalGroup.from_pandas(df, name, legacy=legacy)
 
     @staticmethod
-    def to_prism(marker, brain_ontology: AllenBrainOntology,
+    def to_prism(marker, brain_ontology: AtlasOntology,
                  group1: Self, group2: Self, *groups: Self) -> pd.DataFrame:
         """
         Prepares the marker data from multiple groups in a table structure that is convenient
@@ -610,24 +610,29 @@ class AnimalGroup:
             regions = df.index
         else:
             regions = df.index.get_level_values(1)
-        major_divisions = brain_ontology.get_corresponding_md(*regions.unique())
+        major_divisions = brain_ontology.partitioned(regions.unique(), partition="major divisions", key="acronym")
         df["major_divisions"] = [major_divisions[region] for region in regions]
         df.set_index("major_divisions", append=True, inplace=True)
         return df
 
 class SlicedGroup:
     @staticmethod
+    @deprecated(since="1.1.0", params=["exclude_parents"],
+                message="Quantifications in ancestor regions are now completely removed too. "+\
+                        "If you want the old behaviour, you can momentarily use braian.BrainSlice.exclude with ancestors=False")
     def from_qupath(name: str, brain_names: Iterable[str],
                     qupath_dir: Path|str,
-                    brain_ontology: AllenBrainOntology,
+                    brain_ontology: AtlasOntology,
                     ch2marker: dict[str,str],
-                    exclude_parents: bool,
+                    *,
+                    exclude_layer1_ancestors: bool,
+                    exclude_parents: bool=None,
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
                     exclusions_suffix: str="_regions_to_exclude.txt") -> Self:
         """
-        Creates an experimental cohort from the section files exported with QuPath. 
+        Creates an experimental cohort from the section files exported with QuPath.
 
         Parameters
         ----------
@@ -642,7 +647,9 @@ class SlicedGroup:
         ch2marker
             A dictionary mapping QuPath channel names to markers.
         exclude_parents
-            `exclude_parent_regions` from [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions].
+            `exclude_parents` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
+        exclude_layer1_ancestors
+            `layer1_ancestors` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         results_subdir
             The name of the subfolder in `qupath_dir/brain_name` that contains all cell counts files of each brain section.\\
             It can be `None` if no subfolder is used.
@@ -666,15 +673,18 @@ class SlicedGroup:
         """
         sliced_brains = []
         for brain_name in brain_names:
-            sliced_brain = SlicedBrain.from_qupath(brain_name, qupath_dir/brain_name, brain_ontology,
-                                                   ch2marker, exclude_parents,
-                                                   results_subdir, results_suffix,
-                                                   exclusions_subdir, exclusions_suffix)
+            sliced_brain = SlicedBrain.from_qupath(name=brain_name,
+                                                   animal_dir=qupath_dir/brain_name,
+                                                   brain_ontology=brain_ontology,
+                                                   ch2marker=ch2marker,
+                                                   exclude_layer1_ancestors=exclude_layer1_ancestors,
+                                                   results_subdir=results_subdir, results_suffix=results_suffix,
+                                                   exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)
             sliced_brains.append(sliced_brain)
         return SlicedGroup(name, sliced_brains, brain_ontology)
 
     def __init__(self, name: str, animals: Iterable[SlicedBrain],
-                 brain_ontology: AllenBrainOntology) -> None:
+                 brain_ontology: AtlasOntology) -> None:
         """
         Creates an experimental cohort from a set of `SlicedBrain`.\\
         It is meant to help keeping organised raw data coming multiple sections per-animal.

@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
-from braian import AllenBrainOntology, BrainData, BrainHemisphere, BrainSlice,\
+from braian import AtlasOntology, BrainData, BrainHemisphere, BrainSlice,\
                    BrainSliceFileError, \
                    ExcludedAllRegionsError, \
                    ExcludedRegionsNotFoundError, \
@@ -16,6 +16,7 @@ from braian import AllenBrainOntology, BrainData, BrainHemisphere, BrainSlice,\
                    MissingResultsMeasurementError, \
                    InvalidRegionsHemisphereError, \
                    InvalidExcludedRegionsHemisphereError
+from braian.utils import deprecated
 
 __all__ = [
     "SlicedBrain",
@@ -54,11 +55,15 @@ class InconsistentRegionsSplitError(Exception):
 
 class SlicedBrain:
     @staticmethod
+    @deprecated(since="1.1.0", params=["exclude_parent_regions"],
+                message="Quantifications in ancestor regions are now completely removed too. "+\
+                        "If you want the old behaviour, you can momentarily use braian.BrainSlice.exclude with ancestors=False")
     def from_qupath(name: str,
                     animal_dir: str|Path,
-                    brain_ontology: AllenBrainOntology,
+                    brain_ontology: AtlasOntology,
                     ch2marker: dict[str,str],
-                    exclude_parent_regions: bool=False,
+                    exclude_parent_regions: bool=True,
+                    exclude_layer1_ancestors: bool=True,
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
@@ -85,7 +90,9 @@ class SlicedBrain:
         ch2marker
             A dictionary mapping QuPath channel names to markers.
         exclude_parent_regions
-            `exclude_parent_regions` from [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions].
+            `exclude_parent_regions` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
+        exclude_layer1_ancestors
+            `layer1_ancestors` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         results_subdir
             The name of the subfolder in `animal_dir` that contains all cell counts files of each brain section.\\
             It can be `None` if no subfolder is used.
@@ -105,7 +112,7 @@ class SlicedBrain:
         See also
         --------
         [`BrainSlice.from_qupath`][braian.BrainSlice.from_qupath]
-        [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions]
+        [`BrainSlice.exclude`][braian.BrainSlice.exclude]
         """
         if not isinstance(animal_dir, Path):
             animal_dir = Path(animal_dir)
@@ -123,11 +130,12 @@ class SlicedBrain:
                 # group analysis. Checking against the ontology for each slice would be too time consuming.
                 # We can do it afterwards, after the SlicedBrain is reduced to AnimalBrain
                 slice: BrainSlice = BrainSlice.from_qupath(results_file,
-                                               ch2marker, atlas=brain_ontology.name,
+                                               ch2marker, atlas=brain_ontology,
                                                animal=name, name=image,
                                                brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
-                slice.exclude_regions(exclude, brain_ontology, exclude_parent_regions)
+                slice.exclude(exclude, ontology=brain_ontology,
+                              layer1_ancestors=exclude_layer1_ancestors)
             except BrainSliceFileError as e:
                 mode = SlicedBrain._get_default_error_mode(e)
                 SlicedBrain._handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)
@@ -227,7 +235,7 @@ class SlicedBrain:
                           pd.concat((slice.data["area"], slice.markers_density), axis=1)
                           for slice in self._slices])
 
-    def count(self, brain_ontology: AllenBrainOntology=None) -> BrainData|dict[BrainHemisphere, BrainData]:
+    def count(self, brain_ontology: AtlasOntology=None) -> BrainData|dict[BrainHemisphere, BrainData]:
         """
         Counts the number of slices that contains data for each brain region.
 

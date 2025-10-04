@@ -1,229 +1,654 @@
-import braian.utils
+import brainglobe_atlasapi as bga
 import igraph as ig
-import json
 import numpy as np
-import numpy.typing as npt
 import pandas as pd
-import requests
-import warnings
 
-from brainglobe_atlasapi import list_atlases
-from bs4 import BeautifulSoup
+from braian import utils, _graph_utils
 from collections import OrderedDict
-from collections.abc import Iterable, Container
 from copy import deepcopy
-from pathlib import Path
-from typing import Literal
+from treelib import Node, Tree
+from typing import Callable, Container, Generator, Iterable, Literal, Sequence
 
-from braian import _visit_dict, _graph_utils
 from braian.utils import deprecated
 
-__all__ = ["AllenBrainOntology", "MAJOR_DIVISIONS"]
-
-MAJOR_DIVISIONS = [
-    "Isocortex",
-    "OLF",
-    "HPF",
-    "CTXsp",
-    "STR",
-    "PAL",
-    "TH",
-    "HY",
-    "MB",
-    "P",
-    "MY",
-    "CB"
+__all__ = [
+    "AtlasOntology",
+    "MissingWholeBrainPartitionError"
 ]
 
-UPPER_REGIONS = ["root", *MAJOR_DIVISIONS]
+class MissingWholeBrainPartitionError(FileNotFoundError):
+    def __init__(self, atlas: str, partition: str):
+        super().__init__(f"Unknown '{partition}' partition for '{atlas}' atlas. If you think think BraiAn should support this atlas, please open an issue on https://codeberg.org/SilvaLab/BraiAn")
 
-def set_blacklisted(node, is_blacklisted):
-    node["blacklisted"] = is_blacklisted
-
-def is_blacklisted(node) -> bool:
-    return "blacklisted" in node and node["blacklisted"]
-
-def set_reference(node, has_reference):
-    node["has_reference"] = has_reference
-
-def has_reference(node) -> bool:
-    return "has_reference" in node and node["has_reference"]
-
-def _version_from_abba_name(name: str) -> str:
-    match name:
-        case "Adult Mouse Brain - Allen Brain Atlas V3" | "Adult Mouse Brain - Allen Brain Atlas V3p1" | "allen_mouse_10um_java":
-            return "CCFv3"
-        case _:
-            raise ValueError(f"Name not recognised as an Allen Mouse Brain-compatible atlas: '{name}'. Please, provide the version of the Common Coordinate Framework (CCF) manually.")
-
-def _is_brainglobe_atlas(name: str) -> bool:
-    last_atlases_versions: dict[str,str] = list_atlases.get_all_atlases_lastversions()
-    return name in last_atlases_versions
-
-def _get_brainglobe_name(name: str) -> bool:
-    last_atlases_versions: dict[str,str] = list_atlases.get_all_atlases_lastversions()
-    if name not in last_atlases_versions:
-        raise ValueError(f"BrainGlobe atlas not found: '{name}'")
-    last_version = last_atlases_versions[name]
-    bg_atlas_name = (name+"_v"+last_version)
-    return bg_atlas_name
-
-class AllenBrainOntology:
-    # https://community.brain-map.org/t/allen-mouse-ccf-accessing-and-using-related-data-and-tools/359
+class RegionNode(Node):
     def __init__(self,
-                 allen_json: str|Path|dict,
-                 blacklisted_acronyms: Iterable=[],
-                 name: str="allen_mouse_10um_java",
-                 version: str|None=None,
+                 acronym: str,
+                 identifier: int,
+                 name: str,
+                 rgb_triplet: Sequence[int],
+                 blacklisted: bool,
+                 selected: bool):
+        super().__init__(
+            tag=acronym,
+            identifier=identifier,
+            expanded=blacklisted
+        )
+        self.name = name
+        self.rgb_triplet = rgb_triplet
+        self.selected = selected
+
+    @property
+    def acronym(self) -> str:
+        return self.tag
+
+    @property
+    def blacklisted(self) -> bool:
+        return self.expanded
+
+    @blacklisted.setter
+    def blacklisted(self, value: bool):
+        self.expanded = value
+
+    @property
+    def id(self) -> int:
+        return self.identifier
+
+    @property
+    def hex_triplet(self) -> str:
+        return f"#{self.rgb_triplet[0]:02X}{self.rgb_triplet[1]:02X}{self.rgb_triplet[2]:02X}"
+
+    def __repr__(self):
+        name = self.__class__.__name__
+        kwargs = [
+            f"acronym={repr(self.tag)}",
+            f"id={repr(self.identifier)}",
+            f"name={repr(self.name)}",
+            f"rgb_triplet={repr(self.rgb_triplet)}",
+            f"blacklisted={repr(self.expanded)}",
+            f"selected={repr(self.selected)}"
+        ]
+        return f"{name}({', '.join(kwargs)})"
+
+def convert_to_region_nodes(atlas: bga.BrainGlobeAtlas) -> Tree:
+    tree = Tree(node_class=RegionNode)
+    old_nodes: dict[int,Node] = atlas.structures.tree.nodes
+    for nid, old_node in old_nodes.items():
+    # ids: list[int] = atlas.structures.tree.expand_tree(sorting=False)
+    # for nid in ids:
+    #     old_node = atlas.structures.tree[nid]
+        new_node = RegionNode(
+            acronym=atlas.structures[nid]["acronym"],
+            identifier=nid,
+            name=atlas.structures[nid]["name"],
+            rgb_triplet=atlas.structures[nid]["rgb_triplet"],
+            blacklisted=False,
+            selected=False
+            )
+        parent_id = old_node.predecessor(atlas.structures.tree.identifier)
+        tree.add_node(new_node, parent=parent_id)
+    return tree
+
+def first_subtrees(tree: Tree, func: Callable[[Node],bool]) -> Iterable[Node]:
+    root = tree[tree.root]
+    if func(root):
+        yield root
+        return
+    queue = [tree[i] for i in root.successors(tree.identifier)]
+    while queue:
+        n = queue[0]
+        queue = queue[1:]
+        if func(n):
+            yield n
+        else:
+            expansion = [tree[i] for i in n.successors(tree.identifier)]
+            queue = expansion + queue  # depth-first
+
+def minimum_treecover(tree: Tree, nids: Iterable) -> set:
+    nids = set(nids)
+    nids_ = {tree.parent(nid).identifier if all(child.identifier in nids for child in tree.children(tree.parent(nid).identifier)) else nid
+            for nid in nids}
+    if nids_ == nids:
+        return nids
+    return minimum_treecover(tree, nids_)
+
+class AtlasOntology:
+    def __init__(self,
+                 atlas: str|bga.BrainGlobeAtlas,
+                 blacklisted: Iterable[str]=[],
                  unreferenced: bool=False):
         """
-        Crates an ontology of brain regions based on Allen Institute's structure graphs.
-        To know more where to get the structure graphs, read the
-        [official guide](https://community.brain-map.org/t/downloading-an-ontologys-structure-graph/2880)
-        from Allen Institute.
+        Crates an ontology of the structures as defined by the corresponding
+        [BrainGlobe](https://brainglobe.info/documentation/brainglobe-atlasapi) atlas.
+
+        This is the basic module for any whole-brain analysis.
+        The atlas should be the same one that was used to register the whole-brain data to.
 
         Parameters
         ----------
-        allen_json
-            The path to an Allen structural graph json
-        blacklisted_acronyms
-            Acronyms of branches from the onthology to exclude completely from the analysis
-        name
-            The name of a Allen-compatible mouse brain atlas from ABBA, BrainGlobe or others.
-            (e.g., "allen_mouse_10um" or "Adult Mouse Brain - Allen Brain Atlas V3p1").
-        version
-            The version of the Common Coordinates Framework from Allen's mouse brain atlas.
-            Must be `"CCFv1"`, `"CCFv2"`, `"CCFv3"`, `"CCFv4"` or `None`.
-            If `version` is None, it defaults tries to deduce it from the `name` of the atlas.
+        atlas
+            The atlas or the corresponding codename, as defined by
+            [BrainGlobe's API](https://brainglobe.info/documentation/brainglobe-atlasapi/index.html#atlases-available)
+        blacklisted
+            The brain regions that should be excluded completely from the analysis.
+            Any data manipulated, analysed and exported by the ontology, then, will not have
+            any reference of the blacklisted regions and subregions.
         unreferenced
             If True, it considers as part of the ontology all those brain regions that have no references in the atlas annotations.
             Otherwise, it removes them from the ontology.
-            On Allen's website, unreferenced brain regions are identified by grey italic text: [](https://atlas.brain-map.org).
+            These "unreferenced" regions are structures that the atlas creators might consider as
+            existing, but thought that the scientific community did not yet reach a consesus on their
+            shape and position.
+            As an example, on Allen's website, unreferenced brain regions are identified in grey italic text: [](https://atlas.brain-map.org).
 
         Raises
         ------
         ValueError
-            If no `version` is provided and the given `name` is not compatible with ABBA nor with BrainGlobe,
-            thus making it impossible to deduce the version of the Common Coordinate Framework.
+            If `atlas` is not a valid atlas name, accordingly to BrainGlobe.
+        KeyError
+            If any of the `blacklisted` structures is not found in the ontology.
         ValueError
-            If the provided `name` is from a BrainGlobe atlas but its not available locally on the computer.
-        ValueError
-            If the provided `version` is not recognised.
-        ValueError
-            If any of the `blacklisted_acronyms` is not recognised as part of the ontology.
+            If `blacklisted` contains the same brain structure more than once.
         """
-        # TODO: we should probably specify the size (10nm, 25nm, 50nm) to which the data was registered
-        if isinstance(allen_json, (str, Path)):
-            with open(allen_json, "r") as file:
-                allen_data = json.load(file)
-            if "msg" in allen_data:
-                self.dict = deepcopy(allen_data["msg"][0])
-            else:
-                self.dict = deepcopy(allen_data)
-        else:
-            assert isinstance(allen_json, dict)
-            self.dict = allen_json
-        # First label every region as "not blacklisted"
-        _visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
-        _visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_reference(n, True))
-        if blacklisted_acronyms:
-            self.blacklist_regions(blacklisted_acronyms, key="acronym")
-            # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
-            # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
-        self.name = name
-        if version is None:
-            if _is_brainglobe_atlas(self.name):
-                version = "CCFv3"
-            else:
-                version = _version_from_abba_name(self.name)
-        self.annotation_version = self._get_allen_version(version) # used to remove unreferenced regions and to select isocortex layer 1
+        if not isinstance(atlas, bga.BrainGlobeAtlas):
+            atlas = bga.BrainGlobeAtlas(atlas, check_latest=False)
+        self._atlas: bga.BrainGlobeAtlas = atlas
+        self._acronym2id: dict[str,int] = deepcopy(atlas.structures.acronym_to_id_map)
+        self._tree_full: Tree = convert_to_region_nodes(self._atlas)
+        self._tree: Tree = Tree(self._tree_full, deep=False)
+        self._selected: bool = False
         if not unreferenced:
-            if _is_brainglobe_atlas(self.name):
-                unannoted_regions = self._get_unannoted_bg_regions() # throws ValueError if the atlas is not downloaded
-            else:
-                unannoted_regions = self._get_unannoted_regions()
-            self.blacklist_regions(unannoted_regions, key="id", has_reference=False)
-
-        self._add_depth_to_regions()
-        self._mark_major_divisions()
-        """The name of the atlas accordingly to ABBA/BrainGlobe"""
-        self.full_name: dict[str,str] = self._get_full_names()
+            unreferenced_ids = self._unreferenced(key="id")
+            # In allen_mouse 25um & 50um, 'RSPd4 (545)' is the only unreferenced brain region that exists
+            # However, it is reported as 'unreferenced' also in allen_mouse_10um, due to this issue:
+            # https://github.com/brainglobe/brainglobe-atlasapi/issues/647
+            self.blacklist(unreferenced_ids, unreferenced=True)
+        if blacklisted:
+            blacklisted_ids = self._to_ids(blacklisted, unreferenced=True, duplicated=False, check_all=False)
+            self.blacklist(blacklisted_ids, unreferenced=False)
+        self.full_name: dict[str,str] = self._map_to_name(key="acronym")
         """A dictionary mapping a regions' acronym to its full name. It also contains the names for the blacklisted and unreferenced regions."""
-        self.parent_region: dict[str,str] = self._get_all_parent_areas() #: A dictionary mapping region's acronyms to the parent region. It does not have 'root'.
-        self.direct_subregions: dict[str,list[str]] = self._get_all_subregions()
+        self.parent_region: dict[str,str] = self._map_to_parent(key="acronym")
+        """A dictionary mapping region's acronyms to the parent region. It does not have 'root'."""
+        self.direct_subregions: dict[str,list[str]] = self._map_to_subregions(key="acronym")
         """A dictionary mappin region's acronyms to a list of direct subregions.
 
         Examples
         --------
-        >>> braian.utils.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        >>> brain_ontology = braian.AllenBrainOntology("ontology.json", [])
-        >>> brain_ontology.direct_subregions["ACA"]
+        >>> atlas_ontology = braian.AtlasOntology("allen_mouse_50um")
+        >>> atlas_ontology.direct_subregions["ACA"]
         ["ACAv", "ACAd"]                                    # dorsal and ventral part
-        >>> brain_ontology.direct_subregions["ACAv"]
+        >>> atlas_ontology.direct_subregions["ACAv"]
         ["ACAv5", "ACAv2/3", "ACAv6a", "ACAv1", "ACAv6b"]   # all layers in ventral part
         """
 
-    def _get_allen_version(self, version):
-        match version:
-            case "2015" | "CCFv1" | "ccfv1" | "v1" | 1:
-                return "ccf_2015"
-            case "2016" | "CCFv2" | "ccfv2" | "v2" | 2:
-                return "ccf_2016"
-            case "2017" | "CCFv3" | "ccfv3" | "v3" | 3:
-                return "ccf_2017"
-            case "2022" | "CCFv4" | "ccfv4" | "v4" | 4:
-                return "ccf_2022"
-            case _:
-                raise ValueError(f"Unrecognised Allen atlas version: '{version}'")
+    @property
+    def name(self) -> str:
+        """The codename of the atlas according to BrainGlobe"""
+        return self._atlas.atlas_name
 
-    def _get_unannoted_bg_regions(self) -> list[int]:
-        bg_atlas_name = _get_brainglobe_name(self.name)
-        atlas_meshes_dir = Path.home()/".brainglobe"/bg_atlas_name/"meshes"
-        if not atlas_meshes_dir.exists():
-            raise ValueError(f"BrainGlobe atlas not downloaded: '{bg_atlas_name}'")
-        regions_w_annotation = [int(p.stem) for p in atlas_meshes_dir.iterdir() if p.suffix == ".obj"]
-        regions_wo_annotation = _visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, _visit_dict.visit_dfs)
-        return [region["id"] for region in regions_wo_annotation]
-
-    def _get_unannoted_regions(self) -> tuple[list[str], str]:
-        # alternative implementation: use annotation's nrrd file - https://help.brain-map.org/display/mousebrain/API#API-DownloadAtlas3-DReferenceModels
-        # this way is not totally precise, because some masks files are present even if they're empty
-        #
-        # Regarding ccf_2022, little is known about future plans of publishing strucutral masks for resolutions lower than 10nm
-        # https://community.brain-map.org/t/2022-ccfv3-mouse-atlas/2287
-        url = f"http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/{self.annotation_version}/structure_masks/structure_masks_10"
-        try:
-            site_content = requests.get(url).content
-        except requests.ConnectionError:
-            print(f"WARNING: could not remove unannoted regions from {self.annotation_version} ontology")
-            return [], None
-        soup = BeautifulSoup(site_content, "html.parser")
-        try:
-            if self.annotation_version == "ccf_2022":
-                regions_w_annotation = [int(link["href"].removeprefix("./").split("_")[0])
-                                        for link in soup.select('a[href*=".nii.gz"]')]
-            else:
-                regions_w_annotation = [int(link["href"].\
-                                            removeprefix("./").\
-                                            removeprefix("structure_").\
-                                            removesuffix(".nrrd")
-                                        ) for link in soup.select('a[href*=".nrrd"]')]
-        except ValueError:
-            print(f"WARNING: could not remove unannoted regions from {self.annotation_version} ontology")
-            return [], None
-        regions_wo_annotation = _visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] not in regions_w_annotation, _visit_dict.visit_dfs)
-        return [region["id"] for region in regions_wo_annotation]
-
-    def is_region(self, r: int|str, key: str="acronym", unreferenced: bool=False) -> bool:
+    def is_compatible(self, atlas_name: str) -> bool:
         """
-        Check whether a region is recognised in the current ontology or not.
+        Checks whether the ontology is compatible with another atlas, given its codename.
+
+        Currently, it only checks whether the current atlas is compatible with
+        [ABBA](https://go.epfl.ch/abba)'s atlases. For example,
+        ABBA's "Adult Mouse Brain - Allen Brain Atlas V3p1" is fully compatible
+        with [BrainGlobe](https://brainglobe.info/documentation/brainglobe-atlasapi)'s
+        "allen_mouse_10um".
 
         Parameters
         ----------
-        r
-            A value that uniquely indentifies a brain region (e.g. its acronym).
+        atlas_name
+            The name of an atlas.
+
+        Returns
+        -------
+        :
+            True, if `atlas_name` referes to an atlas that is equivalent the ontology's atlas.
+        """
+        return self.name == atlas_name or \
+        (self.name == "allen_mouse_10um" and atlas_name in {"allen_mouse_10um_java",
+                                                            "Adult Mouse Brain - Allen Brain Atlas V3p1",
+                                                            "Adult Mouse Brain - Allen Brain Atlas V3"}) or\
+        (self.name == "whs_sd_rat_39um" and atlas_name in {"whs_sd_rat_39um",
+                                                           "Rat - Waxholm Sprague Dawley V4p2",
+                                                           "Rat - Waxholm Sprague Dawley V4",
+                                                           "waxholm_sprague_dawley_rat_v4"})
+
+    def _to_ids(self,
+                regions: Iterable,
+                *,
+                unreferenced: bool, # include them or no?
+                duplicated: bool, # check for duplicated regions or not?
+                check_all: bool) -> list[int]:
+        """
+        Checks the existance of a list of regions and returns the corresponding IDs.
+
+        Parameters
+        ----------
+        regions
+            A sequence of regions, identified by their ID or their acronym.
+        unreferenced
+            If `True`, it accepts `regions` that have no reference in the atlas annotations.
+        duplicated
+            If False, it raises `ValueError` if `values` contains the same region more than once.
+            Otherwise, it does nothing.
+        check_all
+            If `True`, the returned list may contain some `None` values, corresponding to unknown regions.
+
+        Returns
+        -------
+        :
+            A list of region IDs.
+
+        Raises
+        ------
+        ValueError
+            If `duplicated=False` and there is at least one brain structure that appears twice in `regions`.
+        KeyError
+            If `check_all=False` and at least one of the given `regions` is not found in the ontology.
+        """
+        ids = []
+        for region in regions:
+            try:
+                id = self._to_id(region, unreferenced=unreferenced)
+            except KeyError:
+                if check_all:
+                    id = None
+                else:
+                    raise
+            ids.append(id)
+        if not duplicated and len(ids) > 1:
+            duplicates = np.rec.find_duplicate(np.array(ids)) # may contain None
+            duplicates = [self._tree_full[id].tag for id in duplicates if id is not None]
+            if len(duplicates) > 0:
+                raise ValueError(f"Duplicates detected in the list of regions: '{', '.join(duplicates)}'")
+        return ids
+
+    def _to_nodes(self,
+                  regions: Iterable,
+                  unreferenced: bool,
+                  duplicated: bool) -> list[RegionNode]:
+        """
+        Raises
+        ------
+        KeyError
+            If at least one of the given `regions` is not found in the ontology.
+        ValueError
+            If `duplicated=False` and there is at least one brain structure that appears twice in `regions`.
+        """
+        ids = self._to_ids(regions, unreferenced=unreferenced, duplicated=duplicated, check_all=False)
+        return [self._tree_full[id] for id in ids]
+
+    def _check_node_attr(self, attr: str):
+        """
+        Raises
+        ------
+        ValueError
+            If `attr` is not known as an unique identifier for brain structures
+        """
+        if attr not in ("acronym", "tag", "id", "identifier"):
+            raise ValueError(f"Unknown unique identifier for brain structures: '{attr}'")
+
+    def _node_to_attr(self,
+                       region: RegionNode,
+                       *,
+                       attr: Literal["acronym","id"]
+                       ) -> str|int:
+        return region.__getattribute__(attr)
+
+    def _nodes_to_attr(self,
+                       regions: Iterable[RegionNode],
+                       *,
+                       attr: Literal["acronym","id"]
+                       ) -> list:
+        """
+        Raises
+        ------
+        ValueError
+            If `attr` is not known as an unique identifier for brain structures
+        """
+        self._check_node_attr(attr)
+        return [self._node_to_attr(r, attr=attr) for r in regions]
+
+    def _unreferenced(self,
+                      *,
+                      key: Literal["id","acronym"]="acronym") -> Generator:
+        """
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        self._check_node_attr(key)
+        return [s[key] for s in self._atlas.structures_list if not s["mesh_filename"].exists()]
+        # atlas_meshes_dir = self._atlas.root_dir/"meshes"
+        # if not atlas_meshes_dir.exists():
+        #     raise ValueError(f"BrainGlobe atlas meshes not downloaded: '{self._atlas.atlas_name}'")
+        # regions_w_annotation = [int(p.stem) for p in atlas_meshes_dir.iterdir() if p.suffix == ".obj"]
+        # regions_wo_annotation = self._tree_full.filter_nodes(lambda n: n.identifier not in regions_w_annotation)
+        # return self._nodes_to_attr(regions_wo_annotation, attr=key)
+
+    def _map_to_name(self, key: Literal["id","acronym"]="acronym") -> dict[str,str]:
+        """
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        self._check_node_attr(key)
+        return {n.acronym: n.name for n in self._tree_full.all_nodes()}
+
+    def _map_to_parent(self, key: Literal["id","acronym"]="acronym") -> dict:
+        """
+        Finds, for each brain region in the ontology, the corresponding parent region.
+        The "root" region has no entry in the returned dictionary
+
+        The resulting dictionary does not include unreferenced brain regions.
+
+        Parameters
+        ----------
         key
-            The key in Allen's structural graph used to identify `r`.
+            The region identifier used in the returned dictionary.
+
+        Returns
+        -------
+        :
+            A dictionary mapping region→parent
+
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        self._check_node_attr(key)
+        return {self._node_to_attr(node, attr=key): self._node_to_attr(self._tree.parent(id), attr=key)
+                for id,node in self._tree.nodes.items() if id != self._tree.root}
+
+    def _map_to_subregions(self, key: Literal["id","acronym"]="acronym") -> dict:
+        """
+        returns a dictionary where all parent regions are the keys,
+        and the subregions that belong to the parent are stored
+        in a list as the value corresponding to the key.
+        Regions with no subregions have no entries in the dictionary.
+
+        The resulting dictionary does not include unreferenced brain regions.
+
+        Parameters
+        ----------
+        key
+            The region identifier used in the returned dictionary.
+
+        Returns
+        -------
+        :
+            a dictionary that maps region→[subregions...]
+
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        self._check_node_attr(key)
+        subregions = {self._node_to_attr(node, attr=key): self._nodes_to_attr(self._tree.children(id), attr=key)
+                for id,node in self._tree.nodes.items()}
+        return {parent: children for parent,children in subregions.items() if children}
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.colors"])
+    def get_region_colors(self) -> dict[str,str]:
+        """
+        Gets the dictionary that maps brain structures to their hex color triplet,
+        as defined by the creators' of the atlas.\
+        If they didn't specify one, it defaults to white, as decided by BrainGlobe.
+
+        Returns
+        -------
+        :
+            A dictionary that maps region→color
+
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        return self.colors(key="acronym")
+
+    def colors(self, *, key: Literal["id","acronym"]="acronym") -> dict[int|str,str]:
+        """
+        Gets the dictionary that maps brain structures to their hex color triplet,
+        as defined by the creators' of the atlas.\
+        If they didn't specify one, it defaults to white, as decided by BrainGlobe.
+
+        Parameters
+        ----------
+        key
+            The unique identifier used to identify a brain structure
+
+        Returns
+        -------
+        :
+            A dictionary that maps region→color
+
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        self._check_node_attr(key)
+        return {self._node_to_attr(n, attr=key): n.hex_triplet for n in self._tree_full.all_nodes()}
+
+    def _to_id(self,
+               region: int|str,
+               *,
+               unreferenced: bool) -> int:
+        """
+        Checks the existance of a region and returns the corresponding ID.
+
+        Parameters
+        ----------
+        region
+            A region, identified by its ID or its acronym.
+        unreferenced
+            If `True`, it accepts a `region` that has no reference in the atlas annotations.
+
+        Returns
+        -------
+        :
+            A region ID.
+
+        Raises
+        ------
+        KeyError
+            If `region` is not found in the ontology.
+        """
+        id = self._acronym2id.get(region)
+        if id is None:
+            try:
+                id = int(region)
+            except ValueError:
+                pass
+        if id is None:
+            raise KeyError(f"Region not found ({repr(region)})")
+        if not unreferenced and id not in self._tree:
+            raise KeyError(f"Region not found ({repr(region)}). The region may be unreferenced.")
+        return id
+
+    def _sort(self,
+              regions: Container[RegionNode|int],
+              mode: Literal["breadth", "depth"]|None="depth") -> list[RegionNode|int]:
+        """
+        Parameters
+        ----------
+        regions
+            A list of brain structures to be sorted according to the ontology's hierarchy.
+            The structures can either be of `RegionNode`s or of IDs.
+            No check on the lists type is made
+
+        Raises
+        ------
+        ValueError
+            When `mode` has an invalid value.
+        """
+        if len(regions) == 0:
+            return []
+        match mode:
+            case "breadth":
+                mode = Tree.WIDTH
+            case "depth":
+                mode = Tree.DEPTH
+            case _:
+                raise ValueError(f"Unsupported sorting mode: '{mode}'. Available modes are 'breadth' or 'depth'.")
+        # NOTE: avoiding to sort to match the order used in the ontology
+        sorted_ids = self._tree_full.expand_tree(mode=mode, sorting=False)
+        regions = list(regions)
+        if isinstance(regions[0], RegionNode):
+            # NOTE: no check whether 'regions' are actually in self._tree_full
+            ids = {r.id for r in regions}
+            return [self._tree_full[id] for id in sorted_ids if id in ids]
+        else: # isinstance(regions[0], int):
+            # NOTE: no check whether the IDs are actually in self._tree_full
+            return [id for id in sorted_ids if id in regions]
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.blacklist"])
+    def blacklist_regions(self,
+                          regions: Iterable,
+                          *,
+                          has_reference: bool=None):
+        """
+        Blacklists from the ontology the brain regions that should be excluded completely from the analysis.
+        Any data manipulated, analysed and exported by the ontology, then, will not have
+        any reference of the blacklisted regions and subregions.
+
+        Parameters
+        ----------
+        regions
+            Regions to blacklist from the ontology
+        has_reference
+            Usually users should not use this parameter.
+            If True, it treats the blacklisted structures as if they didn't even have a reference in the atlas annotations.
+            This is a way to hide `regions` even deeper.
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology
+        ValueError
+            If `regions` contains the same brain structure more than once.
+        """
+        self.blacklist(regions, unreferenced=not has_reference)
+
+    def blacklist(self,
+                  regions: Iterable,
+                  *,
+                  unreferenced: bool=False):
+        """
+        Blacklists from the ontology the brain regions that should be excluded completely from the analysis.
+        Any data manipulated, analysed and exported by the ontology, then, will not have
+        any reference of the blacklisted regions and subregions.
+
+        Parameters
+        ----------
+        regions
+            Regions to blacklist from the ontology
+        unreferenced
+            Usually users should not use this parameter.
+            If False, it treats the blacklisted structures as if they didn't even have a reference in the atlas annotations.
+            This is a way to hide `regions` even deeper.
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology
+        ValueError
+            If `regions` contains the same brain structure more than once.
+        """
+        ids = self._to_ids(regions, unreferenced=True, duplicated=False, check_all=False)
+        for id in ids: #self._tree_full.filter_nodes
+            if unreferenced and id in self._tree: # ids contains regions that may already be unreferenced
+                subtree = self._tree.remove_subtree(id) # self._tree.remove_node(id) is not enough
+                # we want to blacklist all regions below so that get_blacklisted_trees(unreferenced=True) works
+                for subregion_id in subtree.expand_tree():
+                    subregion: RegionNode = subtree[subregion_id]
+                    subregion.blacklisted = True
+            elif not unreferenced:
+                rn: RegionNode = self._tree_full[id]
+                if rn.blacklisted:
+                    continue
+                for child_id in self._tree_full.expand_tree(id):
+                    child_rn: RegionNode = self._tree_full[child_id]
+                    child_rn.blacklisted = True
+        self.direct_subregions = self._map_to_subregions(key="acronym")
+        self.parent_region = self._map_to_parent(key="acronym")
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.blacklisted"])
+    def get_blacklisted_trees(self,
+                              unreferenced: bool=False,
+                              key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Returns the biggest brain region of each branch in the ontology that was blacklisted.
+
+        Parameters
+        ----------
+        unreferenced
+            If True, it includes also the brain regions that were blacklisted from the ontology
+            because they didn't have an annotation in the atlas.
+            Otherwise, it returns only those blacklisted structures that has a reference
+            in the annotation volume.
+        key
+            The unique identifier used to identify a brain structure
+
+        Returns
+        -------
+        :
+            A list of blacklisted regions, each of which is identifiable with `key`
+
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        return self.blacklisted(unreferenced=unreferenced, key=key)
+
+    def blacklisted(self,
+                    unreferenced: bool=False,
+                    key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Returns the biggest brain region of each branch in the ontology that was blacklisted.
+
+        Parameters
+        ----------
+        unreferenced
+            If True, it includes also the brain regions that were blacklisted from the ontology
+            because they didn't have an annotation in the atlas.
+            Otherwise, it returns only those blacklisted structures that has a reference
+            in the annotation volume.
+        key
+            The unique identifier used to identify a brain structure
+
+        Returns
+        -------
+        :
+            A list of blacklisted regions, each of which is identifiable with `key`
+
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        tree = self._tree_full if unreferenced else self._tree
+        blacklisted_trees = first_subtrees(tree, lambda n: n.blacklisted)
+        return self._nodes_to_attr(blacklisted_trees, attr=key)
+
+    def is_region(self,
+                  value: int|str,
+                  unreferenced: bool=False) -> bool:
+        """
+        Checks whether a region is in the ontology.
+
+        Parameters
+        ----------
+        value
+            A value that uniquely indentifies a brain region (e.g. its acronym or its ID).
         unreferenced
             If True, it considers as region also those structures that have no reference
             in the atlas annotation.
@@ -231,56 +656,111 @@ class AllenBrainOntology:
         Returns
         -------
         :
-            True, if a region identifiable by `r` exists in the ontoloy. False otherwise.
+            True, if a region identifiable by `value` exists in the ontoloy. False otherwise.
         """
-        region_tree = _visit_dict.find_subtree(self.dict, key, r, "children")
-        return region_tree is not None and (unreferenced or has_reference(region_tree))
+        try:
+            _ = self._to_id(value, unreferenced=unreferenced)
+        except KeyError:
+            return False
+        return True
 
-    def are_regions(self, a: Iterable, key: str="acronym", unreferenced: bool=False) -> npt.NDArray:
+    def are_regions(self,
+                    values: Iterable,
+                    unreferenced: bool=False,
+                    duplicated: bool=True) -> np.ndarray:
         """
-        Check whether each of the elements of the iterable are a brain region of the current ontology or not.
+        Checks whether each of the elements in `values` are in the ontology.
 
         Parameters
         ----------
-        a
-            List of values that identify uniquely a brain region (e.g. their acronyms).
-        key
-            The key in Allen's structural graph used to identify `a`.
+        values
+            List of values that identify uniquely a brain region (e.g. their acronyms or their IDs).
         unreferenced
-            If True, it considers regions also those structures that have no reference
+            If True, it considers as regions also those structures that have no reference
             in the atlas annotation.
+        duplicated
+            If False, it raises `ValueError` if `values` contains the same region more than once.
+            Otherwise, it does nothing.
 
         Returns
         -------
         :
-            An array of bools being True where the corresponding value in `a` is a region and False otherwise.
+            A numpy array of bools being True where the corresponding value in `values` is a region and False otherwise.
 
         Raises
         ------
         ValueError
             If duplicates are detected in the list of acronyms.
-        """
-        assert isinstance(a, Iterable), f"Expected a '{Iterable}' but get '{type(a)}'"
-        a = list(a)
-        s = set(a)
-        if len(a) != len(s):
-            raise ValueError(f"Duplicates detected in the list of '{key}' requested to be identified as brain regions")
-        is_region = np.full_like(a, False, dtype=bool)
-        def check_region(node, depth):
-            id = node[key]
-            if (unreferenced or has_reference(node)) and id in s:
-                is_region[a.index(id)] = True # NOTE: if it wont work properly if 'a' has duplicates
-        _visit_dict.visit_dfs(self.dict, "children", check_region)
-        return is_region
 
-    def _check_regions(self, regions: Iterable, key: str, unreferenced: bool):
-        if not all(is_region:=self.are_regions(regions, key=key, unreferenced=unreferenced)):
-            raise KeyError(f"Regions not found: '{key}(s)'={np.asarray(regions)[~is_region]}")
+        See also
+        --------
+        [`is_region`][braian.AtlasOntology.is_region]
+        """
+        ids = self._to_ids(values, unreferenced=unreferenced, duplicated=duplicated, check_all=True)
+        return np.array([id is not None for id in ids], dtype=bool)
+
+    def minimum_treecover(self,
+                          regions: Iterable,
+                          *,
+                          unreferenced: bool=False,
+                          blacklisted: bool=True,
+                          key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Gives the minimum set of structures that covers all the given regions, and _not more_.
+
+        Parameters
+        ----------
+        regions
+            The brain structures to cover, uniquely identified by their acronyms or their IDs.
+        unreferenced
+            If False, it does not consider from the cover all those brain regions that have
+            no references in the atlas annotations.
+        blacklisted
+            If False, it does not consider from the cover all those brain regions that are
+            currently blacklisted from the ontology.
+            If `unreferenced` is True, it is ignored.
+        key
+            The region identifier of the returned brain structures.
+
+        Returns
+        -------
+        :
+            A list of acronyms of regions
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+
+        Examples
+        --------
+        >>> atlas_ontology = braian.AtlasOntology("allen_mouse_10um")
+        >>> sorted(atlas_ontology.minimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY']))
+        ['BS', 'CB']
+
+        >>> sorted(atlas_ontology.minimum_treecover(["RE", "Xi", "PVT", "PT", "TH"]))
+        ['MTN', 'TH']
+        """
+        tree = self._tree_full if unreferenced else self._tree
+        if not unreferenced and not blacklisted:
+            tree = Tree(tree, deep=False)
+            for blacklisted_id in self.blacklisted(unreferenced=False, key="id"):
+                if blacklisted_id in tree:
+                    tree.remove_node(blacklisted_id)
+        ids = self._to_ids(regions, unreferenced=unreferenced, duplicated=True, check_all=True)
+        ids = [id for id in ids if id is not None]
+        treecover_ids = minimum_treecover(tree, ids)
+        # NOTE: we don't use self._to_nodes() because we don't need to check the IDs
+        treecover = [self._tree_full[id] for id in treecover_ids]
+        treecover = self._sort(treecover, mode="depth")
+        return self._nodes_to_attr(treecover, attr=key)
 
     @deprecated(since="1.1.0")
     def contains_all_children(self, parent: str, regions: Container[str]) -> bool:
         """
-        Check whether a brain region contains all the given regions
+        Checks whether a brain region contains all the given regions.
 
         Parameters
         ----------
@@ -293,542 +773,29 @@ class AllenBrainOntology:
         -------
         :
             True if all `regions` are direct subregions of `parent`
+
+        Raises
+        ------
+        KeyError
+            If it can't find `parent` in the ontology
         """
         return set(self.direct_subregions[parent]) == set(regions)
 
-    def minimum_treecover(self,
-                          acronyms: Iterable[str],
-                          unreferenced: bool=False,
-                          blacklisted: bool=True) -> set[str]:
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.parents"])
+    def get_parent_regions(self,
+                           regions: Iterable,
+                           *,
+                           key: Literal["id","acronym"]="acronym") -> dict:
         """
-        Returns the minimum set of regions that covers all the given regions, and not more.
-
-        Parameters
-        ----------
-        acronyms
-            The acronyms of the regions to cover
-        unreferenced
-            If False, it does not consider from the cover all those brain regions that have no references in the atlas annotations.
-        blacklisted
-            If False, it does not consider from the cover all those brain regions that are currently blacklisted from the ontology.\
-            If `unreferenced` is True, it is ignored.
-
-        Returns
-        -------
-        :
-            A list of acronyms of regions
-
-        Examples
-        --------
-        >>> braian.utils.cache("ontology.json", "http://api.brain-map.org/api/v2/structure_graph_download/1.json")
-        >>> brain_ontology = braian.AllenBrainOntology("ontology.json", [], version="v3")
-        >>> sorted(brain_ontology.minimum_treecover(['P', 'MB', 'TH', 'MY', 'CB', 'HY']))
-        {'BS', 'CB'}
-
-        >>> sorted(brain_ontology.minimum_treecover(["RE", "Xi", "PVT", "PT", "TH"]))
-        {'MTN', 'TH'}
-        """
-        g = self.to_igraph(unreferenced=unreferenced, blacklisted=blacklisted)
-        vs = _graph_utils.minimum_treecover(g.vs.select(name_in=acronyms))
-        return {v["name"] for v in vs}
-
-    def blacklist_regions(self,
-                          regions: Iterable,
-                          key: str="acronym",
-                          unreferenced: bool=False,
-                          has_reference: bool=None):
-        """
-        Blacklists from further analysis the given `regions` the ontology, as well as all their sub-regions.
-        If the reason of blacklisting is that `regions` no longer exist in the used version of the
-        Common Coordinate Framework, set `has_reference=False`
+        Finds, for each of the given brain regions, their parent region in the ontology.
+        It accepts blacklisted and unreferenced structures, too.
 
         Parameters
         ----------
         regions
-            Regions to blacklist
+            The brain structures to search the parent for.
         key
-            The key in Allen's structural graph used to identify the `regions` to blacklist
-        has_reference
-            If `regions` exist in the used version of the CCF or not
-
-        Raises
-        ------
-        KeyError
-            If it can't find at least one of the `regions` in the ontology
-        """
-        if has_reference is not None:
-            warning_message = "'has_reference' is deprecated since 1.1.0 and may be removed in future versions. Use 'unreferenced' instead."
-            warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
-            unreferenced = not has_reference
-        self._check_regions(regions, key=key, unreferenced=True)
-        for region_value in regions:
-            region_node = _visit_dict.find_subtree(self.dict, key, region_value, "children")
-            _visit_dict.visit_bfs(region_node, "children", lambda n,d: set_blacklisted(n, True))
-            if unreferenced:
-                _visit_dict.visit_bfs(region_node, "children", lambda n,d: set_reference(n, False))
-        if unreferenced:
-            self.direct_subregions = self._get_all_subregions()
-            self.parent_region = self._get_all_parent_areas()
-
-    def get_blacklisted_trees(self, unreferenced: bool=False, key: str="acronym") -> list:
-        """
-        Returns the biggest brain region of each branch in the ontology that was blacklisted.
-
-        Parameters
-        ----------
-        unreferenced
-            If True, it includes also the brain regions that were blacklisted from the ontology because they don't have an annotation in the atlas.
-            Otherwise, it returns only those blacklisted regions that has a reference in the annotation volume.
-        key
-            The key in Allen's structural graph used to indentify the returned regions
-
-        Returns
-        -------
-        :
-            A list of blacklisted regions, each of which is identifiable with `key`
-        """
-        if unreferenced:
-            def select_node(n: dict, d: int):
-                return is_blacklisted(n) or not has_reference(n)
-        else:
-            def select_node(n: dict, d: int):
-                return is_blacklisted(n) and has_reference(n)
-        regions = _visit_dict.non_overlapping_where(self.dict, "children", select_node, mode="bfs")
-        return [region[key] for region in regions]
-
-    def _mark_major_divisions(self):
-        _visit_dict.add_boolean_attribute(self.dict, "children", "major_division", lambda node,d: node["acronym"] in MAJOR_DIVISIONS)
-
-    def _add_depth_to_regions(self):
-        def add_depth(node, depth):
-            node["depth"] = depth
-        _visit_dict.visit_bfs(self.dict, "children", add_depth)
-
-    def select_at_depth(self, depth: int):
-        """
-        Select all non-overlapping brain regions at the same depth in the ontology.
-        If a brain region is above the given depth but has no sub-regions, it is selected anyway.
-
-        Parameters
-        ----------
-        depth
-            The desired depth in the ontology to select
-
-        See also
-        --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
-        """
-        def is_selected(node, _depth):
-            return _depth == depth or (_depth < depth and (not node["children"] or
-                                                           not any(has_reference(child) for child in node["children"])))
-        _visit_dict.add_boolean_attribute(self.dict, "children", "selected", is_selected)
-
-    def select_at_structural_level(self, level: int):
-        """
-        Select all non-overlapping brain regions at the same structural level in the ontology.
-        The _structural level_ is an attribute given to each region by Allen,
-        defining different level of granularity to study the brain.
-        If a brain region is above the given `level` and has no sub-regions, it is not selected.
-
-        Parameters
-        ----------
-        level
-            The structural level in the ontology to select
-
-        See also
-        --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
-        """
-        _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node["st_level"] == level)
-
-    def select_leaves(self):
-        """
-        Select all th enon-overlapping smallest brain regions in the ontology.
-        A region is also selected if it's not the smallest possible,
-        but all of its sub-regions have no reference in the atlas annotations.
-
-        See also
-        --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
-        """
-        _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node, d: _visit_dict.is_leaf(node, "children") or \
-                                         has_reference(node) and all([not has_reference(child) for child in node["children"]]))
-        # not is_blacklisted(node) and all([has_reference(child) for child in node["children"]])) # some regions (see CA1 in CCFv3) have all subregions unannoted
-
-    def select_summary_structures(self):
-        """
-        Select all summary structures in the ontology.
-        The list of Summary Structures is defined by Allen as a set of non-overlapping, finer divisions,
-        independent of their exact depth in the tree. They are a set of brain regions often used in the literature.
-
-        Summary Structures can be retrieved from Table S2 of this article: https://www.sciencedirect.com/science/article/pii/S0092867420304025
-
-        See also
-        --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
-        """
-        # if self.annotation_version is not None:
-        # # if self.annotation_version!= "ccf_2017":
-        #     raise ValueError("BraiAn does not support 'summary structures' selection_method on atlas versions different from CCFv3")
-        file = braian.utils.get_resource_path("CCFv3_summary_structures.csv")
-        key = "id"
-        regions = pd.read_csv(file, sep="\t", index_col=0)
-        self.select_regions(regions[key].values, key=key)
-
-    def select_regions(self, regions: Iterable, key: str="acronym"):
-        """
-        Select the given regions in the ontology
-
-        Parameters
-        ----------
-        regions
-            The brain regions to select
-        key
-            The key in Allen's structural graph used to indentify the regions
-
-        Raises
-        ------
-        KeyError
-            If it can't find at least one of the `regions` in the ontology
-
-        See also
-        --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
-        """
-        self._check_regions(regions, key=key, unreferenced=False)
-        _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node[key] in regions)
-
-    def add_to_selection(self, regions: Iterable, key: str="acronym"):
-        """
-        Add the given brain regions to the current selection in the ontology
-
-        Parameters
-        ----------
-        regions
-            The brain regions to add to selection
-        key
-            The key in Allen's structural graph used to indentify the regions
-
-        See also
-        --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
-        """
-        assert all(is_region:=self.are_regions(regions, key=key)), \
-            f"Some given regions are not recognised as part of the ontology: {np.asarray(regions)[~is_region]}"
-        _visit_dict.add_boolean_attribute(self.dict, "children", "selected",
-                              lambda node,d: ("selected" in node and node["selected"]) or node[key] in regions)
-
-    def has_selection(self) -> bool:
-        """
-        Check whether the current ontology is currently selecting any brain region.
-
-        Returns
-        -------
-        :
-            True, if the current ontology had a selection method previosuly called. Otherwise, False.
-
-        See also
-        --------
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
-        """
-        return "selected" in self.dict
-
-    def get_selected_regions(self, key: str="acronym") -> list:
-        """
-        Returns a non-overlapping list of selected non-blacklisted brain regions
-
-        Parameters
-        ----------
-        key
-            The key in Allen's structural graph used to indentify the regions
-
-        Returns
-        -------
-        :
-            A list of brain regions identified by `key`
-
-        See also
-        --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
-        """
-        if not self.has_selection():
-            return []
-        regions = _visit_dict.non_overlapping_where(self.dict, "children", lambda n,d: n["selected"] and not is_blacklisted(n), mode="dfs")
-        return [region[key] for region in regions]
-
-    def unselect_all(self):
-        """
-        Resets the selection in the ontology
-
-        See also
-        --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.AllenBrainOntology.get_regions]
-        """
-        if "selected" in self.dict:
-            _visit_dict.del_attribute(self.dict, "children", "selected")
-
-    def get_regions(self, selection_method: str) -> list[str]:
-        """
-        Returns a list of acronyms of non-overlapping regions based on the selection method.
-
-        Parameters
-        ----------
-        selection_method
-            Must be "summary structure", "major divisions", "leaves", "depth <d>" or "structural level <l>"
-
-        Returns
-        -------
-        :
-            A list of acronyms of brain regions
-
-        Raises
-        ------
-        ValueError
-            If `selection_method` is not recognised
-
-        See also
-        --------
-        [`has_selection`][braian.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.AllenBrainOntology.select_regions]
-        """
-        old_selection = self.get_selected_regions(key="id")
-        if old_selection:
-            self.unselect_all()
-        match selection_method:
-            case "summary structures":
-                self.select_summary_structures()
-            case "major divisions":
-                self.select_regions(MAJOR_DIVISIONS)
-            case "smallest" | "leaves":
-                # excluded_from_leaves = set(braian.MAJOR_DIVISIONS) - {"Isocortex", "OLF", "CTXsp", "HPF", "STR", "PAL"}
-                # excluded_from_leaves = self.minimimum_treecover(excluded_from_leaves)
-                # self.blacklist_regions(excluded_from_leaves)
-                self.select_leaves()
-            case s if s.startswith("depth"):
-                n = selection_method.split(" ")[-1]
-                try:
-                    depth = int(n)
-                except Exception:
-                    raise ValueError("Could not retrieve the <n> parameter of the 'depth' method for 'selection_method'")
-                self.select_at_depth(depth)
-            case s if s.startswith("structural level"):
-                n = selection_method.split(" ")[-1]
-                try:
-                    level = int(n)
-                except Exception:
-                    raise ValueError("Could not retrieve the <n> parameter of the 'structural level' method for 'selection_method'")
-                self.select_at_structural_level(level)
-            case _:
-                raise ValueError(f"Invalid value '{selection_method}' for selection_method")
-        selected_regions = self.get_selected_regions()
-        # print(f"You selected {len(selected_regions)} regions to plot.")
-        self.select_regions(old_selection, key="id")
-        return selected_regions
-
-    def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]="depth") -> list[str]:
-        """
-        Converts the given brain regions IDs into their corresponding acronyms.
-
-        Parameters
-        ----------
-        ids
-            The brain regions' IDs to convert
-        mode
-            If None, it returns the acronyms in the same order as the given `ids`.
-            Otherwise, it must be either "breadth"—for breadth-first—or "depth"—for depth-first order.
-
-        Returns
-        -------
-        :
-            A list of acronyms
-
-        Raises
-        ------
-        ValueError
-            If given `mode` is not supported
-
-        KeyError
-            If it can't find at least one of the `ids` in the ontology
-        """
-        match mode:
-            case "breadth":
-                visit_alg = _visit_dict.visit_bfs
-            case "depth" | None:
-                visit_alg = _visit_dict.visit_dfs
-            case _:
-                raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth', 'depth' or None.")
-        self._check_regions(ids, key="id", unreferenced=True)
-        areas = _visit_dict.get_where(self.dict, "children", lambda n,d: n["id"] in ids, visit_alg)
-        if mode is None:
-            areas.sort(key=lambda r: list(ids).index(r["id"]))
-        return [area["acronym"] for area in areas]
-
-    def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]="depth") -> list[int]:
-        """
-        Converts the given brain regions acronyms into ther corresponding IDs
-
-        Parameters
-        ----------
-        acronyms
-            the brain regons' acronyms to convert
-        mode
-            If None, it returns the IDs in the same order as the given `acronyms`.
-            Otherwise, it must be either "breadth"—for breadth-first—or "depth"—for depth-first order.
-
-        Returns
-        -------
-        :
-            A list of region IDs
-
-        Raises
-        ------
-        ValueError
-            If given `mode` is not supported
-
-        KeyError
-            If it can't find at least one of the `acronyms` in the ontology
-        """
-        match mode:
-            case "breadth":
-                visit_alg = _visit_dict.visit_bfs
-            case "depth" | None:
-                visit_alg = _visit_dict.visit_dfs
-            case _:
-                raise ValueError(f"Unsupported '{mode}' mode. Available modes are 'breadth' and 'depth'.")
-        self._check_regions(acronyms, key="acronym", unreferenced=True)
-        regions = _visit_dict.get_where(self.dict, "children", lambda n,d: n["acronym"] in acronyms, visit_alg)
-        if mode is None:
-            regions.sort(key=lambda r: list(acronyms).index(r["acronym"]))
-        return [r["id"] for r in regions]
-
-    def get_sibiling_regions(self, region:str|int, key: str="acronym") -> list:
-        """
-        Get all brain regions that, combined, make the whole parent of the given `region`.
-
-        It does not include the regions that have no reference in the atlas annotations.
-
-        Parameters
-        ----------
-        region
-            A region, identified by its ID or its acronym.
-        key
-            The key in Allen's structural graph used to indentify the regions
-
-        Returns
-        -------
-        :
-            All `region`'s sibilings, including itself
-
-        Raises
-        ------
-        KeyError
-            If the given `region` is not found in the ontology.
-        """
-        parents = _visit_dict.get_parents_where(self.dict,
-                                               "children",
-                                               lambda parent,child: child[key] == region and has_reference(child),
-                                               key)
-        if len(parents) != 1:
-            raise KeyError(f"Parent region not found ('{key}'={region})")
-        parent = parents[region]
-        if parent is None: # region is the root
-            return [region]
-        return [sibiling[key] for sibiling in parent["children"] if has_reference(sibiling)]
-        ## Alternative implementation:
-        # parent_id = find_subtree(self.dict, key, value, "children")["parent_structure_id"]
-        # return [area[key] for area in find_subtree(self.dict, "id", parent_id, "children")["children"]]
-
-    def get_parent_regions(self, regions: Iterable, key: str="acronym") -> dict:
-        """
-        Finds, for each of the given brain regions, their parent region in the ontology
-
-        It includes blacklisted and regions with no reference in the atlas annotations.
-
-        Parameters
-        ----------
-        regions
-            The brain regions to search the parent for
-        key
-            The key in Allen's structural graph used to indentify the regions
+            The unique identifier used to identify a brain structure
 
         Returns
         -------
@@ -838,157 +805,886 @@ class AllenBrainOntology:
         Raises
         ------
         KeyError
-            If it can't find the parent of one of the given `regions`
+            If it can't find at least one of the `regions` in the ontology
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
         """
-        parents = _visit_dict.get_parents_where(self.dict, "children", lambda parent,child: child[key] in regions, key)
-        for region in regions:
-            if region not in parents.keys():
-                raise KeyError(f"Parent region not found ('{key}'={region})")
-        return {region: (parent[key] if parent else None) for region,parent in parents.items()}
+        return self.parents(regions, key=key)
 
-        # parents = get_parents_where(self.dict, "children", lambda parent,child: child[key] in values, key)
-        # for area in values:
-        #     assert area in parents.keys(), f"Can't find the parent of an area with '{key}': {area}"
-        # return {area: (parent[key] if parent else None) for area,parent in parents.items()}
-
-    def _get_all_parent_areas(self, key: str="acronym") -> dict:
+    def parents(self,
+                regions: Iterable,
+                *,
+                key: Literal["id","acronym"]="acronym") -> dict:
         """
-        Finds, for each brain region in the ontology, the corresponding parent region.
-        The "root" region has no entry in the returned dictionary
-
-        The resulting dictionary does not include unreferenced brain regions.
+        Finds, for each of the given brain regions, their parent region in the ontology.
+        For the root brain region, its parent will be `None`.\\
+        It accepts blacklisted and unreferenced structures, too.
 
         Parameters
         ----------
+        regions
+            The brain structures to search the parent for.
         key
-            The key in Allen's structural graph used to indentify the regions
+            The unique identifier used to identify the returned brain structure
 
         Returns
         -------
         :
-            A dictionary mapping region→parent
+            A dicrtionary mapping region→parent
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
         """
-        return {subregion: region for region,subregion in self._get_edges(key, unreferenced=False)}
+        self._check_node_attr(key)
+        children = self._to_nodes(regions, unreferenced=True, duplicated=False)
+        parents = (self._node_to_attr(self._tree_full.parent(child.id), attr=key)
+                   if child.id != self._tree_full.root
+                   else None
+                   for child in children)
+        children = self._nodes_to_attr(children, attr=key)
+        return dict(zip(children, parents))
 
-    def _get_edges(self, key: str="id", unreferenced: bool=True) -> list[tuple]:
-        assert key in ("id", "acronym", "graph_order"), "'key' parameter must be  'id', 'acronym' or 'graph_order'"
-        edges = []
-        _visit_dict.visit_parents(self.dict,
-                                 "children",
-                                 lambda region,subregion:
-                                    edges.append((region[key], subregion[key]))
-                                        if region is not None and (unreferenced or has_reference(subregion))
-                                    else None)
-        return edges
-
-    def _get_all_subregions(self, key: str="acronym") -> dict:
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.siblings"])
+    def get_sibiling_regions(self,
+                             region: str|int,
+                             key: Literal["id","acronym"]="acronym") -> list:
         """
-        returns a dictionary where all parent regions are the keys,
-        and the subregions that belong to the parent are stored
-        in a list as the value corresponding to the key.
-        Regions with no subregions have no entries in the dictionary.
-
-        The resulting dictionary does not include unreferenced brain regions.
+        Get all brain structures that, combined, make the whole parent region of `region`.\\
+        It does not include the regions that have no reference in the atlas annotations.
 
         Parameters
         ----------
+        region
+            A region, identified by its ID or its acronym.
         key
-            The key in Allen's structural graph used to indentify the regions
+            The region identifier of the returned brain structures.
 
         Returns
         -------
         :
-            a dictionary that maps region→[subregions...]
-        """
-        subregions = dict()
-        def add_subregions(node, depth):
-            if node["children"] and has_reference(node) and any([has_reference(child) for child in node["children"]]):
-                subregions[node[key]] = [child[key] for child in node["children"] if has_reference(child)]
-        _visit_dict.visit_bfs(self.dict, "children", add_subregions)
-        return subregions
+            All `region`'s sibilngs, including itself
 
+        Raises
+        ------
+        KeyError
+            If `region` is not found in the ontology.
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        id = self._to_id(region, unreferenced=False)
+        pid = self._tree[id].predecessor(self._tree.identifier)
+        if pid is None:
+            siblings = [self._tree[id]]
+        else:
+            siblings = [self._tree[sid] for sid in self._tree[pid].successors(self._tree.identifier)]
+        return self._nodes_to_attr(siblings, attr=key)
+
+    def siblings(self,
+                 region: str|int,
+                 *,
+                 key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Retrieve the sibling structures of `region` such that, together with `region`, they make the parent region.\\
+        It does not include the regions that have no reference in the atlas annotations.
+
+        Parameters
+        ----------
+        region
+            A region, identified by its ID or its acronym.
+        key
+            The region identifier of the returned brain structures.
+
+        Returns
+        -------
+        :
+            All `region`'s sibilngs, excluding itself.
+
+        Raises
+        ------
+        KeyError
+            If `region` is not found in the ontology.
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        id = self._to_id(region, unreferenced=False)
+        siblings = self._tree.siblings(id)
+        return self._nodes_to_attr(siblings, attr=key)
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.subregions"])
     def list_all_subregions(self,
                             acronym: str,
                             mode: Literal["breadth", "depth"]="breadth",
                             blacklisted: bool=True,
                             unreferenced: bool=False) -> list:
         """
-        Lists all subregions of a brain region, at all hierarchical levels.
+        Gets the complete set of subregions of `acronym`, in hierarchical order.
 
         Parameters
         ----------
         acronym
-            The acronym of the brain region
+            The acronym of the brain region.
         mode
-            Must be eithe "breadth" or "depth".
-            The order in which the returned acronyms will be: breadth-first or depth-first
+            The hiearchical order in which the sequence of brain structures will be presented:
+            -breadth-first or depth-first.
         blacklisted
-            If True, it includes in the returned list blacklisted structures
+            If True, it considers as subregion any possible blacklisted structure, too.
         unreferenced
-            If True, it includes in the returned list structures with no reference in the atlas annotations
+            If True, it considers as subregion any possible structure having no reference
+            in the atlas annotations.
+
+        Raises
+        ------
+        KeyError
+            If `acronym` is not found in the ontology.
+        ValueError
+            When `mode` has an invalid value.
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        return self.subregions(acronym, mode=mode,
+                               blacklisted=blacklisted, unreferenced=unreferenced,
+                               key="acronym")
+
+    def subregions(self,
+                   region: str|int,
+                   *,
+                   mode: Literal["breadth", "depth"]="breadth",
+                   blacklisted: bool=True,
+                   unreferenced: bool=False,
+                   key: Literal["id", "acronym"]="acronym") -> list:
+        """
+        Gets the complete set of subregions of `region`, in hierarchical order.
+
+        Parameters
+        ----------
+        region
+            A region, identified by its ID or its acronym.
+        mode
+            The hiearchical order in which the sequence of brain structures will be presented:
+            -breadth-first or depth-first.
+        blacklisted
+            If True, it considers as subregion any possible blacklisted structure, too.
+        unreferenced
+            If True, it considers as subregion any possible structure having no reference
+            in the atlas annotations.
+        key
+            The unique identifier used to identify the returned brain structure
+
+        Raises
+        ------
+        KeyError
+            If `region` is not found in the ontology.
+        ValueError
+            When `mode` has an invalid value.
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        id = self._to_id(region, unreferenced=unreferenced)
+        match mode:
+            case "depth":
+                mode = Tree.DEPTH
+            case "breadth":
+                mode = Tree.WIDTH
+            case _:
+                raise ValueError(f"Unsupported mode '{mode}'. Available modes are 'breadth' and 'depth'.")
+        tree = self._tree_full if unreferenced else self._tree
+        visit_tree = (lambda _: True) if blacklisted else (lambda n: not n.blacklisted)
+        subregions = list(tree.expand_tree(id, filter=visit_tree, mode=mode, sorting=False))
+        return self._nodes_to_attr((tree[r] for r in subregions), attr=key)
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.ancestors"])
+    def get_regions_above(self, acronym: str) -> list[str]:
+        """
+        Gets all the regions for which `region` is a subregion.
+
+        It raises `KeyError` if `acronym` is an unreferenced brain structure.
+
+        Parameters
+        ----------
+        acronym
+            A region, identified by its acronym.
+
 
         Returns
         -------
         :
-            A list of subregions of `acronym`
+            The whole ancestry of structures containing `acronym`, excluding `acronym` itself
+
+        Raises
+        ------
+        KeyError
+            If `acronym` is not found in the ontology.
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        return self.ancestors(acronym, key="acronym")
+
+    def ancestors(self,
+                  region: str|int,
+                  *,
+                  unreferenced: bool=False,
+                  key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Gets all the regions for which `region` is a subregion.
+
+        It raises `KeyError` if `region` is an unreferenced brain structure.
+
+        Parameters
+        ----------
+        region
+            A region, identified by its ID or its acronym.
+        unreferenced
+            If True, `region` can also be a structure with no reference
+            in the atlas annotations.
+        key
+            The region identifier of the returned brain structures.
+
+
+        Returns
+        -------
+        :
+            The whole ancestry of structures containing `region`, excluding `region` itself
+
+        Raises
+        ------
+        KeyError
+            If `region` is not found in the ontology, or if `unreferenced=False`
+            and `region` is an unreferenced structure.
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        """
+        self._check_node_attr(key)
+        id = self._to_id(region, unreferenced=unreferenced)
+        ancestors_ids = self._atlas.structures[id]["structure_id_path"][-2::-1]
+        if key == "id":
+            return ancestors_ids
+        else:
+            return self.to_acronym(ancestors_ids, mode=None)
+        # node = self._tree[id]
+        # nodes = []
+        # while (node:=self._tree.parent(node.id)) is not None:
+        #     nodes.append(node)
+        # return self._nodes_to_attr(nodes, attr=key)
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.to_acronym"])
+    def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
+        """
+        Converts the given brain region IDs into their corresponding acronyms.
+
+        Parameters
+        ----------
+        ids
+            The brain structures uniquely identified by their IDs.
+        mode
+            If None, it returns the acronyms in the same order as `ids`.
+            Otherwise, it returns them in breadth-first or depth-first order.
+
+        Returns
+        -------
+        :
+            A list of acronyms
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `ids` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `ids`.
+        ValueError
+            When `mode` has an invalid value.
+        """
+        return self.to_acronym(ids, mode=mode)
+
+    def to_acronym(self, regions: Iterable, mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
+        """
+        Converts the given brain regions into their corresponding acronyms.
+
+        Parameters
+        ----------
+        regions
+            The brain structures uniquely identified by their IDs (or their acronyms, even).
+        mode
+            If None, it returns the acronyms in the same order as `regions`.
+            Otherwise, it returns them in breadth-first or depth-first order.
+
+        Returns
+        -------
+        :
+            A list of acronyms
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
+        ValueError
+            When `mode` has an invalid value.
+        """
+        regions = self._to_nodes(regions, unreferenced=True, duplicated=False)
+        if mode is not None:
+            regions = self._sort(regions, mode=mode)
+        return self._nodes_to_attr(regions, attr="acronym")
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.to_id"])
+    def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
+        """
+        Converts the given brain region acronyms into their corresponding IDs.
+
+        Parameters
+        ----------
+        acronyms
+            The brain structures uniquely identified by their acronyms.
+        mode
+            If None, it returns the IDs in the same order as `acronyms`.
+            Otherwise, it returns them in breadth-first or depth-first order.
+
+        Returns
+        -------
+        :
+            A list of region IDs
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `acronyms` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `acronyms`.
+        ValueError
+            When `mode` has an invalid value.
+        """
+        return self.to_id(acronyms, mode=mode)
+
+    def to_id(self, regions: Iterable[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
+        """
+        Converts the given brain regions into their corresponding IDs.
+
+        Parameters
+        ----------
+        regions
+            The brain structures uniquely identified by their acronyms (or their IDs, even).
+        mode
+            If None, it returns the IDs in the same order as `regions`.
+            Otherwise, it returns them in breadth-first or depth-first order.
+
+        Returns
+        -------
+        :
+            A list of region IDs
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
+        ValueError
+            When `mode` has an invalid value.
+        """
+        ids = self._to_ids(regions, unreferenced=True, duplicated=False, check_all=False)
+        if mode is not None:
+            return self._sort(ids, mode=mode)
+        return ids
+
+    def has_selection(self) -> bool:
+        """
+        Checks if there are structures currently selected in the ontology.
+
+        Returns
+        -------
+        :
+            True, if the ontology has at least one brain structure selected. Otherwise, False.
+
+        See also
+        --------
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        return self._selected
+
+    def unselect_all(self):
+        """
+        Resets the selection in the ontology.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        for n in self._tree_full.all_nodes():
+            n.selected = False
+        self._selected = False
+
+    def _select(self, regions: Iterable[RegionNode], *, add: bool):
+        # NOTE: it selects also unreferenced and blacklisted regions
+        if not add:
+            self.unselect_all()
+        for n in regions:
+            n.selected = True
+        self._selected = True
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.select"])
+    def select_regions(self, regions: Iterable, key: str="acronym"):
+        """
+        Select `regions` in the ontology.
+
+        Parameters
+        ----------
+        regions
+            The brain structures uniquely identified by their IDs or their acronyms.
+        key
+            The region identifier of the returned brain structures.
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        return self.select(regions)
+
+    def select(self, regions: Iterable):
+        """
+        Select `regions` in the ontology.
+
+        Parameters
+        ----------
+        regions
+            The brain structures uniquely identified by their IDs or their acronyms.
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        regions = self._to_nodes(regions, unreferenced=True, duplicated=False)
+        self._select(regions, add=False)
+
+    @deprecated(since="1.1.0", params=["key"])
+    def add_to_selection(self, regions: Iterable, key: str=None):
+        """
+        Add the given brain regions to the current selection in the ontology
+
+        Parameters
+        ----------
+        regions
+            The brain structures uniquely identified by their IDs or their acronyms.
+        key
+            The region identifier of the returned brain structures.
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        regions = self._to_nodes(regions, unreferenced=False, duplicated=True)
+        self._select(regions, add=True)
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.selected"])
+    def get_selected_regions(self,
+                            *,
+                            key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Gets the list of the selected, non-overlapping, non-blacklisted brain structures.\\
+        If a region $R$ and its subregions $R_1$, $R_2$,..., $R_n$ are selected,
+        it will return only $R$.
+
+        Parameters
+        ----------
+        key
+            The region identifier of the returned brain structures.
+
+        Returns
+        -------
+        :
+            A list of brain structures uniquely identified by `key`.
 
         Raises
         ------
         ValueError
-            If given `mode` is not supported
-        KeyError
-            If it can't find `acronym` in the ontology
+            If `key` is not known as an unique identifier for brain structures.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
         """
-        match mode:
-            case "breadth":
-                visit_alg = _visit_dict.visit_bfs
-            case "depth":
-                visit_alg = _visit_dict.visit_dfs
-            case _:
-                raise ValueError(f"Unsupported mode '{mode}'. Available modes are 'breadth' and 'depth'.")
+        return self.selected(blacklisted=False, unreferenced=False, key=key)
 
-        attr = "acronym"
-        region = _visit_dict.find_subtree(self.dict, attr, acronym, "children")
-        if not region or (not unreferenced and not has_reference(region)):
-            raise KeyError(f"Region not found ('{attr}'='{acronym}')")
-        subregions = _visit_dict.get_all_nodes(region, "children", visit=visit_alg)
-        return [subregion[attr] for subregion in subregions if (blacklisted or not is_blacklisted(subregion)) and (unreferenced or has_reference(subregion))]
-
-    def get_regions_above(self, acronym: str) -> list[str]:
+    def selected(self,
+                 *,
+                 blacklisted: bool=False,
+                 unreferenced: bool=False,
+                 key: Literal["id","acronym"]="acronym") -> list:
         """
-        Lists all the regions for which `acronym` is a subregion.
-
-        It raises `KeyError` if `acronym` is a region with no reference in the atlas annotations.
+        Gets the list of the selected, non-overlapping, non-blacklisted brain structures.\\
+        If a region $R$ and its subregions $R_1$, $R_2$,..., $R_n$ are selected,
+        it will return only $R$.
 
         Parameters
         ----------
-        acronym
-            Acronym of the brain region of which you want to know the regions above
+        blacklisted
+            If True, it includes also structures blacklisted in the ontology.
+        unreferenced
+            If True, it includes also structures with no reference in the atlas annotations.
+        key
+            The region identifier of the returned brain structures.
 
         Returns
         -------
         :
-            List of all regions above, excluding `acronym`
+            A list of brain structures uniquely identified by `key`.
 
         Raises
         ------
-        KeyError
-            If it can't find `acronym` in the ontology
-        """
-        path = []
-        # if self.is_region(acronym, key="acronym", unreferenced=unreferenced):
-        if acronym != self.dict["acronym"] and acronym not in self.parent_region: # if it's not the root
-            raise KeyError(f"Region not found ('acronym'='{acronym}')")
-        while acronym in self.parent_region.keys():
-            parent = self.parent_region[acronym]
-            path.append(parent)
-            acronym = parent
-        return path
+        ValueError
+            If `key` is not known as an unique identifier for brain structures.
 
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        tree = self._tree_full if unreferenced else self._tree
+        selected_trees = first_subtrees(tree, lambda n: (blacklisted or not n.blacklisted) and n.selected)
+        return self._nodes_to_attr(selected_trees, attr=key)
+
+    def select_at_depth(self, depth: int):
+        """
+        Select all non-overlapping brain regions at the same depth in the ontology.\\
+        If a brain region is above the given depth but has no sub-regions, it is selected anyway.
+        This grants that the list of [selected][braian.AtlasOntology.selected] brain structures
+        will be non-overlapping and comprehensive of the whole-brain, excluding eventual blacklisted regions.
+
+        Parameters
+        ----------
+        depth
+            The desired depth in the ontology to select
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        def select(n: RegionNode) -> bool:
+            depth_ = self._tree.depth(n)
+            return depth_ == depth or (depth_ < depth and n.is_leaf(self._tree.identifier))
+        self._select(first_subtrees(self._tree, select), add=False)
+
+    def select_leaves(self):
+        """
+        Select all the non-overlapping smallest brain regions in the ontology.
+        A region is also selected if it's not the smallest possible,
+        but all of its sub-regions have no reference in the atlas annotations.
+        This grants that the list of [selected][braian.AtlasOntology.selected] brain structures
+        will be non-overlapping and comprehensive of the whole-brain, excluding eventual blacklisted regions.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        self._select(self._tree.leaves(), add=False)
+
+    def _select_partition(self, partition: str):
+        """
+        Raises
+        ------
+        MissingWholeBrainPartitionError
+            If `partition` is not known for this atlas's ontology.
+        """
+        file = utils.resource(f"partitions/{self.name}/{partition.replace(' ', '_')}.csv")
+        if not file.exists():
+            raise MissingWholeBrainPartitionError(self.name, partition)
+        key = "id"
+        regions = pd.read_csv(file, sep="\t", index_col=0)
+        self.select(regions[key].values)
+
+    def select_major_divisions(self):
+        """
+        Select all major divisions in the ontology.\\
+        This is short list of larger macro brain structures.
+
+        The term "Major Divisions" comes from
+        [Wang et al., 2020](https://doi.org/10.1016/j.cell.2020.04.007)
+        by the Allen Institute.
+
+        Raises
+        ------
+        MissingWholeBrainPartitionError
+            If there is no known list of "major divisions" for this atlas's ontology.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        self._select_partition("major divisions")
+
+    def select_summary_structures(self):
+        """
+        Select all summary structures in the ontology.\\
+        This is a list of finer brain structures that usually reflects the
+        scientific community's interest when investigating brain circuits.
+
+        The term "Summary Structures" comes from the Allen Institute, when they defined
+        a set of non-overlapping, finer divisions in
+        [Wang et al., 2020](https://doi.org/10.1016/j.cell.2020.04.007)
+
+        Raises
+        ------
+        MissingWholeBrainPartitionError
+            If there is no known list of "summary structures" for this atlas's ontology.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`partition`][braian.AtlasOntology.partition]
+        """
+        self._select_partition("summary structures")
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.partition"])
+    def get_regions(self, selection_method: str) -> list[str]:
+        """
+        Returns a list of non-overlapping, brain structures representing
+        the whole non-blacklisted brain.
+
+        Parameters
+        ----------
+        selection_method
+            In order to retrieve the partition, it uses some of the available section methods.
+            Must be "summary structure", "major divisions", "leaves" or "depth <d>"
+
+        Returns
+        -------
+        :
+            A list of brain structures uniquely identified by `key`.
+
+        Raises
+        ------
+        MissingWholeBrainPartitionError
+            If `selection_method` is `"summary structures" or "major divisions",
+            but no corresponding list of regions is not known for this atlas's ontology.
+        ValueError
+            If `selection_method` is not recognised
+        ValueError
+            If `key` is not known as an unique identifier for brain structures.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        """
+        return self.partition(selection_method)
+
+    def _partition(self,
+                   selection: Sequence|Callable[[],None],
+                   *,
+                   blacklisted: bool=False,
+                   unreferenced: bool=False,
+                   key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Raises
+        ------
+        KeyError
+            If at least one of the given `selection` regions is not found in the ontology.
+        ValueError
+            If `key` is not known as an unique identifier for brain structures.
+        """
+        old_selection = self.selected(blacklisted=True, unreferenced=True, key="id")
+        if isinstance(selection, Callable):
+            selection()
+        else:
+            selection = self._to_nodes(selection, unreferenced=True, duplicated=True)
+            self._select(selection, add=False)
+        selected = self.selected(blacklisted=blacklisted, unreferenced=unreferenced, key=key)
+        self.select(old_selection)
+        return selected
+
+    def partition(self,
+                  selection_method: Literal["summary structures","major divisions","smallest","leaves","depth <n>"],
+                  *,
+                  blacklisted: bool=False,
+                  unreferenced: bool=False,
+                  key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Returns a list of non-overlapping, brain structures representing
+        the whole non-blacklisted brain.
+
+        Parameters
+        ----------
+        selection_method
+            In order to retrieve the partition, it uses some of the available section methods.
+            Must be "summary structure", "major divisions", "leaves" or "depth <d>"
+        blacklisted
+            If True, it includes also structures blacklisted in the ontology.
+        unreferenced
+            If True, it includes also structures with no reference in the atlas annotations.
+
+        Returns
+        -------
+        :
+            A list of brain structures uniquely identified by `key`.
+
+        Raises
+        ------
+        MissingWholeBrainPartitionError
+            If `selection_method` is `"summary structures"` or `"major divisions"`,
+            but no corresponding list of regions is not known for this atlas's ontology.
+        ValueError
+            If `selection_method` is not recognised
+        ValueError
+            If `key` is not known as an unique identifier for brain structures.
+
+        See also
+        --------
+        [`has_selection`][braian.AtlasOntology.has_selection]
+        [`selected`][braian.AtlasOntology.selected]
+        [`unselect_all`][braian.AtlasOntology.unselect_all]
+        [`select`][braian.AtlasOntology.select]
+        [`add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`select_leaves`][braian.AtlasOntology.select_leaves]
+        [`select_major_divisions`][braian.AtlasOntology.select_major_divisions]
+        [`select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        """
+        match selection_method:
+            case "summary structures":
+                select = self.select_summary_structures
+            case "major divisions":
+                select = self.select_major_divisions
+            case "smallest" | "leaves":
+                # excluded_from_leaves = set(braian.MAJOR_DIVISIONS) - {"Isocortex", "OLF", "CTXsp", "HPF", "STR", "PAL"}
+                # excluded_from_leaves = self.minimimum_treecover(excluded_from_leaves)
+                # self.blacklist_regions(excluded_from_leaves)
+                select = self.select_leaves
+            case s if s.startswith("depth"):
+                n = selection_method.split(" ")[-1]
+                try:
+                    depth = int(n)
+                except Exception:
+                    raise ValueError("Could not retrieve the <n> parameter of the 'depth' method for 'selection_method'")
+                select = lambda: self.select_at_depth(depth)  # noqa: E731
+            case _:
+                raise ValueError(f"Invalid value '{selection_method}' for selection_method")
+        return self._partition(select, blacklisted=blacklisted, unreferenced=unreferenced, key=key)
+
+    @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.partitioned"])
     def get_corresponding_md(self, acronym: str, *acronyms: str) -> OrderedDict[str, str]:
         """
-        Finds the corresponding major division for each on the the `acronyms`.
-        The returned dictionary is sorted in depth-first-search order.
+        Finds the corresponding major division for each one of the `acronyms`.
 
         While it accepts blacklisted regions, it raises `KeyError`
         if given a region with no reference in the atlas annotations.
@@ -1009,69 +1705,127 @@ class AllenBrainOntology:
             If it can't find some `acronym` in the ontology
         """
         acronyms = (acronym, *acronyms)
-        self._check_regions(acronyms, key="acronym", unreferenced=False)
-        # def get_region_mjd(node: dict, depth: int):
-        #     if node["major_division"]:
-        #         get_region_mjd.curr_mjd = node["acronym"]
-        #     if node["acronym"] in acronyms:
-        #         get_region_mjd.res[node["acronym"]] = get_region_mjd.curr_mjd
-        # get_region_mjd.curr_mjd = None
-        # get_region_mjd.res = OrderedDict()
-        # _visit_dict.visit_dfs(self.dict, "children", get_region_mjd)
-        # return get_region_mjd.res
-        mds = OrderedDict()
-        for acronym in acronyms:
-            for ancestor in (acronym, *self.get_regions_above(acronym)):
-                if ancestor in MAJOR_DIVISIONS:
-                    mds[acronym] = ancestor
+        return self.partitioned(acronyms, partition="major divisions", key="acronym")
+
+    def partitioned(self,
+                    regions: Sequence,
+                    *,
+                    partition: Sequence|Literal["selection","summary structures","major divisions","smallest","leaves","depth <n>"],
+                    blacklisted: bool=True,
+                    unreferenced: bool=False,
+                    key: Literal["id","acronym"]="acronym") -> OrderedDict[str|int,str|int]:
+        """
+        Partitions the given regions based on the specified partitioning method.
+
+        Parameters
+        ----------
+        regions
+            The brain structures uniquely identified by their IDs or their acronyms.
+        partition
+            The partitioning method to use.
+
+            This can be one of the [predefined][braian.AtlasOntology.partition]
+            partitioning strategies, as well as a custom partition defined by the current
+            selection (`partition="selection"`) or by a sequence of regions identified
+            by their IDs or their acronyms.
+        blacklisted
+            If True, `region` can also be a blacklisted structure.
+        unreferenced
+            If True, `region` can also be a structure with no reference
+            in the atlas annotations.
+        key
+            The region identifier of the returned brain structures.
+
+        Returns
+        -------
+        :
+            An OrderedDict mapping $\\text{region}→\\text{major division}$
+
+        Raises
+        ------
+        KeyError
+            If at least one of the structures in `regions` or `partition`
+            is not found in the ontology.
+        KeyError
+            If `unreferenced=False` one of the structures in `region` is an
+            unreferenced structure.
+        ValueError
+            If there is at least one brain structure that appears twice in
+            `regions` or `partition`.
+        ValueError
+            If `key` is not known as an unique identifier for brain structures.
+        ValueError
+            If `partition` is not recognised as a valid partitioning method.
+            Please refer to [the documentation][braian.AtlasOntology.partition]
+            for the list of valid partitioning methods.
+
+        See also
+        --------
+        [`ancestors`][braian.AtlasOntology.ancestors]
+        [`partition`][braian.AtlasOntology.partition]
+        [`selected`][braian.AtlasOntology.selected]
+        """
+        self._check_node_attr(key)
+        if key == "id":
+            _regions = self._to_ids(regions, unreferenced=unreferenced, duplicated=False, check_all=False)
+        else:
+            _regions = self.to_acronym(regions, mode=None)
+        if partition == "selection":
+            _partition = self.selected(blacklisted=blacklisted, unreferenced=unreferenced, key=key)
+        elif isinstance(partition, str):
+            _partition = self.partition(partition, blacklisted=blacklisted, unreferenced=unreferenced, key=key)
+        else:
+            _partition = self._partition(partition, blacklisted=blacklisted, unreferenced=unreferenced, key=key)
+        _partition = set(_partition)
+        partition = OrderedDict()
+        for region in _regions:
+            if region in _partition:
+                partition[region] = region
+                continue
+            for ancestor in self.ancestors(region, unreferenced=unreferenced, key=key):
+                if ancestor in _partition:
+                    partition[region] = ancestor
                     break
-            if acronym not in mds:
-                mds[acronym] = None
-        return mds
+            if region not in partition:
+                partition[region] = None
+        return partition
 
-
-    def get_layer1(self) -> list[str]:
+    @deprecated(since="1.1.0")
+    def get_layer1(self, *, key: Literal["id","acronym"]) -> list:
         """
-        Returns the layer 1 in the Isocortex accordingly to CCFv3
+        Returns the smallest regions in the cortical layer 1.
+
+        Parameters
+        ----------
+        key
+            The region identifier of the returned brain structures.
 
         Returns
         -------
         :
-            A list of acronyms of brain regions
-        """
-        assert self.annotation_version == "ccf_2017", "Unsupported version of the ontology. The current ontology does not know which regions make up the layer 1"
-        return ["FRP1", "MOp1", "MOs1", "SSp-n1", "SSp-bfd1", "SSp-ll1", "SSp-m1", "SSp-ul1", "SSp-tr1", "SSp-un1", "SSs1", "GU1", "VISC1", "AUDd1", "AUDp1", "AUDpo1", "AUDv1", "VISal1", "VISam1", "VISl1", "VISp1", "VISpl1", "VISpm1", "ACAd1", "ACAv1", "PL1", "ILA1", "ORBl1", "ORBm1", "ORBvl1", "AId1", "AIp1", "AIv1", "RSPagl1", "RSPd1", "RSPv1", "PTLp1", "TEa1", "PERI1", "ECT1", "PIR1", "OT1", "NLOT1", "COAa1", "COApl1", "COApm1", "PAA1", "TR1"]
+            A list of [leaf][braian.AtlasOntology.select_leaves] brains structures
 
-    def _get_full_names(self) -> dict[str,str]:
+        Raises
+        ------
+        ValueError
+            If the cortical layer1 is not known for this ontology.
         """
-        Computes a dictionary that translates acronym of a brain region in its full name
+        self._check_node_attr(key)
+        import itertools
+        import re
+        if not re.match(r"allen_mouse_(10|25|50|100)um", self.name):
+            raise ValueError(f"Could not extract layer 1 of the cortex. Incompatible atlas: '{self.name}'.")
+        layer1 = [s for s in
+                    itertools.chain(self.subregions("Isocortex", key="acronym"), self.subregions("OLF", key="acronym"))
+                    if s.endswith("1")]
+        if key == "acronym":
+            return layer1
+        return self._to_ids(layer1, unreferenced=False, duplicated=True, check_all=False)
 
-        Returns
-        -------
-        :
-            A dictionary that maps acronyms→name
+    def to_igraph(self, unreferenced: bool=False, blacklisted: bool=True):
         """
-        all_nodes = _visit_dict.get_all_nodes(self.dict, "children")
-        return {area["acronym"]: area["name"] for area in all_nodes}
-
-    def get_region_colors(self) -> dict[str,str]:
-        """
-        Computes a dictionary that translates acronym of a brain region into a hex color triplet
-
-        Returns
-        -------
-        :
-            A dictionary that maps acronyms→color
-        """
-        all_areas = _visit_dict.get_all_nodes(self.dict, "children")
-        return {area["acronym"]: "#"+area["color_hex_triplet"] for area in all_areas}
-
-    def to_igraph(self,
-                  unreferenced: bool=False,
-                  blacklisted: bool=True) -> ig.Graph:
-        """
-        Translates the current brain ontology into an igraph directed Graph,
-        where nodes are brain regions and edges region→subregion relationships
+        Translates the ontology into an `igraph` directed acyclic `Graph`,
+        where nodes are brain structures and edges are region→subregion relationships.
 
         Parameters
         ----------
@@ -1086,34 +1840,31 @@ class AllenBrainOntology:
         :
             A graph
         """
-        def add_attributes(graph: ig.Graph):
-            def visit(region, depth):
-                v = graph.vs[region["graph_order"]]
-                v["id"] = region["id"]
-                v["name"] = region["acronym"]
-                # v["full_name"] = region["name"]
-                v["depth"] = depth
-                # v["color"] = region["color_hex_triplet"]
-                v["structural_level"] = region["st_level"]
-            return visit
-
-        g = ig.Graph(edges=self._get_edges(key="graph_order"), directed=True)
-        _visit_dict.visit_bfs(self.dict, "children", add_attributes(g))
-        # if self.dict was modified removing some nodes, 'graph_order' creates some empty vertices
-        # in that case, we remove those vertices
-
-        blacklisted_unrefs_trees = set(self.get_blacklisted_trees(unreferenced=True, key="acronym"))
-        blacklisted_trees = set(self.get_blacklisted_trees(unreferenced=False, key="acronym"))
-        unrefs_trees = blacklisted_unrefs_trees - blacklisted_trees
-        if not unreferenced:
-            if not blacklisted:
-                _graph_utils.remove_branch(g, blacklisted_unrefs_trees)
-            else:
-                _graph_utils.remove_branch(g, unrefs_trees)
-                _graph_utils.blacklist_regions(g, blacklisted_trees)
-        else: # if regions unreferenced are kept in the graph, it means it will also keep the
-              # blacklisted ones because unreferenced regions are obligatorily blacklisted from any analysis.
-            _graph_utils.blacklist_regions(g, blacklisted_trees, unreferenced=unrefs_trees)
+        tree = self._tree_full if unreferenced else self._tree
+        id2n = dict()
+        edges = []
+        for n,id in enumerate(tree.expand_tree(mode=Tree.DEPTH, sorting=False)):
+            id2n[id] = n
+            parent = tree.parent(id)
+            if parent is None:
+                continue
+            pid = parent.identifier
+            edges.append((id2n[pid], n))
+        g = ig.Graph(edges=edges, directed=True)
+        for region in tree.all_nodes():
+            graph_order = id2n[region.id]
+            v = g.vs[graph_order]
+            v["id"] = region.id
+            v["name"] = region.acronym
+            # v["full_name"] = region.name
+            # v["depth"] = depth
+            # v["color"] = region.hex_triplet
+            # v["structural_level"] = region["st_level"]
+        blacklisted_trees = set(self.blacklisted(unreferenced=False, key="acronym"))
+        if blacklisted:
+            _graph_utils.blacklist_regions(g, blacklisted_trees)
+        else:
+            _graph_utils.remove_branch(g, blacklisted_trees)
         if self.has_selection():
-            _graph_utils.select_regions(g, self.get_selected_regions())
+            _graph_utils.select_regions(g, self.selected())
         return g

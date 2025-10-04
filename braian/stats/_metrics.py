@@ -2,7 +2,7 @@ import enum
 
 from collections.abc import Callable
 
-from braian import AllenBrainOntology, AnimalBrain, AnimalGroup, BrainData, BrainHemisphere
+from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainData, BrainHemisphere
 from braian._graph_utils import brainwide_selection, is_brainwide_selection
 
 # NOTE: some arithmetic operations (e.g. division by zero) are not correctly converted to pd.NA,
@@ -160,7 +160,7 @@ def percentage(brain: AnimalBrain) -> AnimalBrain:
         raw=False)
 
 def relative_density(brain: AnimalBrain,
-                     atlas_ontology: AllenBrainOntology) -> AnimalBrain:
+                     atlas_ontology: AtlasOntology) -> AnimalBrain:
     r"""
     For each region $r$ of `brain`, it computes the density fold change
     of each marker $m$ compared to brain-wide marker density:

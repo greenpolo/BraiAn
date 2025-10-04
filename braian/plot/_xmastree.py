@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from collections.abc import Collection, Sequence
 from plotly.subplots import make_subplots
 
-from braian import AllenBrainOntology, AnimalGroup, BrainData, BrainHemisphere, Experiment
+from braian import AnimalGroup, AtlasOntology, BrainData, BrainHemisphere, Experiment
 from braian.utils import merge_ordered
 from braian.plot._generic import bar_sample
 
@@ -19,7 +19,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
               selected_regions: Collection[str], # NOTE: it's order defines how regions are displayed
               marker1: str, marker2: str=None,
               hemisphere: BrainHemisphere|tuple[BrainHemisphere,BrainHemisphere]=None,
-              brain_ontology: AllenBrainOntology=None,
+              brain_ontology: AtlasOntology=None,
               pls_n_permutation: int=None, pls_n_bootstrap: int=None,
               pls_threshold: float=None, pls_seed: int=None,
               markers_salience_scores: dict[str, BrainData]=None,
@@ -39,7 +39,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
 
     If `pls_n_permutation` and `pls_n_bootstrap`—or, alternatively, `markers_salience_scores`—are specified, it dims out the
     brain regions that are not salient in a [partial least squared analysis][braian.stats.PLS] between the given `groups`.
-    it is only supported when there are only two groups. 
+    it is only supported when there are only two groups.
 
     Parameters
     ----------
@@ -54,7 +54,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         If specified, the name of the second marker's data to plot.
     brain_ontology
         If specified, the `selected_regions` are checked against the ontology and sorted by
-        [major divisions][braian.AllenBrainOntology.get_corresponding_md]. If a brain region is missing from `groups`
+        [major divisions][braian.AtlasOntology.partitioned]. If a brain region is missing from `groups`
         but present in `selected_regions`, it is shown with all-[NA][pandas.NA] values.
     pls_n_permutation
         If specified, it corresponds to the parameter used for defining
@@ -67,7 +67,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         If not specified, it applies a threshold of $~1.96$.
     pls_seed
         The random seed used for PLS's permutation and bootstrap operations.
-        If specified, the salient regions are always deterministic. 
+        If specified, the salient regions are always deterministic.
     markers_salience_scores
         The salience scores computed on `marker1` and, eventually, `marker2`.\\
         If specified, it does not use `pls_n_permutation` and `pls_bootstrap` parmeters and select the brain regions
@@ -79,13 +79,13 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         The ratio of the whole plot's width dedicated to the scatter plot. The remaining 1-scatter_width is occupied by the heatmap.
     space_between_markers
         The retio of the whole plot's width dedicated to the gap between markers and used to specify the major divisions.\\
-        If `marker2` and `brain_ontology` are not specified, it is not used. 
+        If `marker2` and `brain_ontology` are not specified, it is not used.
     groups_marker1_colours
         The list of colours used to identify `marker1` scatter data of each group.
     groups_marker2_colours
         The list of colours used to identify `marker2` scatter data of each group.
     max_value
-        If specified, it caps the visualization of the brain data to this value. 
+        If specified, it caps the visualization of the brain data to this value.
     color_heatmap
         The colormap used to display the data in the heatmap.
     width
@@ -107,7 +107,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
 
     if brain_ontology is not None:
         groups = [group.sort_by_ontology(brain_ontology, fill_nan=True, inplace=False) for group in groups]
-        regions_mjd = brain_ontology.get_corresponding_md(*selected_regions)
+        regions_mjd = brain_ontology.partitioned(selected_regions, partition="major divisions", key="acronym")
         selected_regions = list(regions_mjd.keys())
     else:
         if hemisphere is BrainHemisphere:
@@ -229,7 +229,7 @@ def marker_traces(groups: list[AnimalGroup],
                   groups_colours: list,
                   selected_regions: Collection[str],
                   plot_scatter: bool,
-                  brain_ontology: AllenBrainOntology,
+                  brain_ontology: AtlasOntology,
                   pls_n_bootstrap: int, pls_n_permutation: int,
                   pls_threshold: float, pls_seed: int,
                   markers_salience_scores: dict[str, BrainData]):

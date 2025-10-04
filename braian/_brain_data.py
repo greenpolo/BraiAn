@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Self, Callable
 from numbers import Number
 
-from braian import AllenBrainOntology
+from braian import AtlasOntology
 from braian._deflector import deflect
 
 __all__ = [
@@ -82,12 +82,12 @@ def extract_legacy_hemispheres(data: pd.DataFrame, reindex: bool=False, inplace:
     return data
 
 def sort_by_ontology(regions: Iterable|pd.DataFrame|pd.Series,
-                      brain_ontology: AllenBrainOntology,
+                      brain_ontology: AtlasOntology,
                       fill=False, fill_value=np.nan) -> np.ndarray|pd.DataFrame|pd.Series:
     """Sorts an Iterable/DataFrame/Series by depth-first search in the given ontology.
     The index of the data is the name of the regions.
     If fill=True, it adds data for the missing regions"""
-    all_regions = brain_ontology.list_all_subregions("root", mode="depth")
+    all_regions = brain_ontology.subregions("root", mode="depth")
     if isinstance(regions, (pd.Series, pd.DataFrame)): 
         regions_ = regions.index
     else:
@@ -223,7 +223,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     """The identifier used to specify the nature of raw data as 'metric' attribute in `BrainData`."""
 
     def __init__(self, data: pd.Series, name: str, metric: str, units: str, hemisphere: BrainHemisphere,
-                 brain_ontology: AllenBrainOntology|None=None, fill_nan=False) -> None:
+                 brain_ontology: AtlasOntology|None=None, fill_nan=False) -> None:
         """
         This class is the base structure for managing any data that associates values to brain regions.\
         You can access its interanal representation through [`BrainData.data`][braian.BrainData.data].
@@ -282,7 +282,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def __repr__(self) -> str:
         return str(self)
 
-    def sort_by_ontology(self, brain_ontology: AllenBrainOntology,
+    def sort_by_ontology(self, brain_ontology: AtlasOntology,
                          fill_nan=False, inplace=False) -> Self:
         """
         Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
@@ -401,7 +401,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             data[regions] = pd.NA
         else:
             data = data[~data.index.isin(regions)]
-        
+
         if inplace:
             self.data = data
             return self
@@ -409,7 +409,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             return BrainData(data, name=self.data_name, metric=self.metric, units=self.units, hemisphere=self.hemisphere)
 
     def set_regions(self, brain_regions: Collection[str],
-                    brain_ontology: AllenBrainOntology,
+                    brain_ontology: AtlasOntology,
                     fill: Number|Collection[Number]=pd.NA,
                     overwrite: bool=False, inplace: bool=False) -> Self:
         """
@@ -509,7 +509,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             return self
 
     def select_from_ontology(self,
-                             brain_ontology: AllenBrainOntology,
+                             brain_ontology: AtlasOntology,
                              fill_nan=False,
                              *args, **kwargs) -> Self:
         """
@@ -533,18 +533,17 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             A brain data filtered accordingly to the given ontology selection.
         See also
         --------
-        [`AllenBrainOntology.get_selected_regions`][braian.AllenBrainOntology.get_selected_regions]
-        [`AllenBrainOntology.unselect_all`][braian.AllenBrainOntology.unselect_all]
-        [`AllenBrainOntology.add_to_selection`][braian.AllenBrainOntology.add_to_selection]
-        [`AllenBrainOntology.select_at_depth`][braian.AllenBrainOntology.select_at_depth]
-        [`AllenBrainOntology.select_at_structural_level`][braian.AllenBrainOntology.select_at_structural_level]
-        [`AllenBrainOntology.select_leaves`][braian.AllenBrainOntology.select_leaves]
-        [`AllenBrainOntology.select_summary_structures`][braian.AllenBrainOntology.select_summary_structures]
-        [`AllenBrainOntology.select_regions`][braian.AllenBrainOntology.select_regions]
-        [`AllenBrainOntology.get_regions`][braian.AllenBrainOntology.get_regions]
+        [`AtlasOntology.selected`][braian.AtlasOntology.selected]
+        [`AtlasOntology.unselect_all`][braian.AtlasOntology.unselect_all]
+        [`AtlasOntology.add_to_selection`][braian.AtlasOntology.add_to_selection]
+        [`AtlasOntology.select_at_depth`][braian.AtlasOntology.select_at_depth]
+        [`AtlasOntology.select_leaves`][braian.AtlasOntology.select_leaves]
+        [`AtlasOntology.select_summary_structures`][braian.AtlasOntology.select_summary_structures]
+        [`AtlasOntology.select_regions`][braian.AtlasOntology.select]
+        [`AtlasOntology.get_regions`][braian.AtlasOntology.partition]
         """
         assert brain_ontology.has_selection(), "No selection found in the given ontology."
-        selected_allen_regions = brain_ontology.get_selected_regions()
+        selected_allen_regions = brain_ontology.selected()
         if not fill_nan:
             selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
         else:

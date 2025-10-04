@@ -25,7 +25,7 @@ def permutation(pls: bas.PLS, component: int=1) -> go.Figure:
     -------
     :
         A Plotly figure.
-    
+
     See also
     --------
     [`PLS.n_components`][braian.stats.PLS.n_components]
@@ -70,7 +70,7 @@ def groups_salience(pls: bas.PLS, component: int=1) -> go.Figure:
     -------
     :
         A Plotly figure.
-    
+
     See also
     --------
     [`PLS.n_components`][braian.stats.PLS.n_components]
@@ -101,7 +101,7 @@ def latent_variable(pls: bas.PLS, of: str="X", width: int=800, height: int=800) 
     """
     PCA-like plot of [_brain scores_][braian.stats.PLS.Lx] or [_group scores_][braian.stats.PLS.Ly] of a PLS.
     This might help see how animals or groups are discernable from each other.
-    
+
     It always plots the first component on the x-axis and the second component on the y-axis.
 
     Parameters

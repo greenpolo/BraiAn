@@ -16,6 +16,13 @@ SPDX-FileCopyrightText = "2024 Carlo Castoldi <carlo.castoldi@outlook.com>"
 SPDX-License-Identifier = "LGPL-3.0-or-later"
 
 [[annotations]]
+SPDX-FileComment = "atlas partitions"
+path = ["braian/resources/partitions/**/*.csv"]
+precedence = "override"
+SPDX-FileCopyrightText = "2024 Carlo Castoldi <carlo.castoldi@outlook.com>"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
 SPDX-FileComment = "logo"
 path = ["docs/assets/**", "docs/resources/favicon.svg"]
 precedence = "override"

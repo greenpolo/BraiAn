@@ -22,7 +22,7 @@ def heatmap(bd1: BrainData,
             depth: int|Sequence[int]=None, n: int=10,
             highlighted_regions: Sequence[str]|tuple[Sequence[str]]=None,
             cmin: float=None, cmax: float=None, cmap: str|mpl.colors.Colormap="magma_r",
-            centered_cmap: bool=False, ccenter: float=0, 
+            centered_cmap: bool=False, ccenter: float=0,
             show_acronyms: bool=False, title: str=None,
             ticks: Sequence[float]=None, ticks_labels: Sequence[str]=None,
             atlas_name: str="allen_mouse_25um",
@@ -131,7 +131,8 @@ def heatmap(bd1: BrainData,
             vmax=cmax,
             format="2D",
             hemisphere=hem,
-            atlas_name=atlas_name
+            atlas_name=atlas_name,
+            check_latest=False
         )
         for d,hem,cm in zip(data, hems, cmaps)
     ]

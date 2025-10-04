@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Callable
-from braian import AllenBrainOntology, AnimalBrain, AnimalGroup, SlicedBrain, SlicedGroup, SliceMetrics
+from braian import AnimalBrain, AnimalGroup, AtlasOntology, SlicedBrain, SlicedGroup, SliceMetrics
 from pathlib import Path
 from typing import Any, Self
 
@@ -90,7 +90,7 @@ class Experiment:
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
-              brain_ontology: AllenBrainOntology=None, fill_nan: bool=False) -> Self:
+              brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> Self:
         """
         Applies a function to each animal of the groups of the experiment and creates a new `Experiment`.
         Especially useful when applying some sort of metric to the brain data.
