@@ -625,7 +625,7 @@ class SlicedGroup:
                     brain_ontology: AtlasOntology,
                     ch2marker: dict[str,str],
                     *,
-                    exclude_layer1_ancestors: bool,
+                    exclude_ancestors_layer1: bool,
                     exclude_parents: bool=None,
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
@@ -648,8 +648,8 @@ class SlicedGroup:
             A dictionary mapping QuPath channel names to markers.
         exclude_parents
             `exclude_parents` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
-        exclude_layer1_ancestors
-            `layer1_ancestors` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
+        exclude_ancestors_layer1
+            `ancestors_layer1` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         results_subdir
             The name of the subfolder in `qupath_dir/brain_name` that contains all cell counts files of each brain section.\\
             It can be `None` if no subfolder is used.
@@ -677,7 +677,7 @@ class SlicedGroup:
                                                    animal_dir=qupath_dir/brain_name,
                                                    brain_ontology=brain_ontology,
                                                    ch2marker=ch2marker,
-                                                   exclude_layer1_ancestors=exclude_layer1_ancestors,
+                                                   exclude_ancestors_layer1=exclude_ancestors_layer1,
                                                    results_subdir=results_subdir, results_suffix=results_suffix,
                                                    exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)
             sliced_brains.append(sliced_brain)
