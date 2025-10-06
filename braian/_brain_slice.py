@@ -150,9 +150,9 @@ class BrainSlice:
 
     @staticmethod
     def from_qupath(csv: str|Path|pd.DataFrame, ch2marker: dict[str,str],
-                    animal:str, name: str, is_split: bool,
-                    atlas: AtlasOntology=None,
-                    *args, **kwargs) -> Self:
+                    *,
+                    animal:str, name: str,
+                    ontology: AtlasOntology, check: bool) -> Self:
         """
         Creates a [`BrainSlice`][braian.BrainSlice] from a file exported with
         [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian).
@@ -167,13 +167,16 @@ class BrainSlice:
         ch2marker
             A dictionary mapping the QuPath channel names to markers.
             A cell segmentation algorithm must have previously run on each of the given channels.
-        atlas
+        animal
+            The name of the animal from which the slice was cut.
+        name
+            The name of the brain slice.
+        ontology
             The atlas ontology used to align the section.
-            If None, it won't use it as a sanity check of the `csv` data.
-        *args
-            Other arguments are passed to [`BrainSlice`][braian.BrainSlice] constructor.
-        **kwargs
-            Other keyword arguments are passed to [`BrainSlice`][braian.BrainSlice] constructor.
+        check
+            If True, it checks that all quantifications read in `csv` are from regions in the `atlas`,
+            and then sorts them in depth-first order.
+            Otherwise, it skips the check and no sorting is applied, but it's _faster_.
 
         Returns
         -------
@@ -198,8 +201,8 @@ class BrainSlice:
             data_atlas = None
         else:
             data_atlas, data = BrainSlice._read_qupath_data(search_file_or_simlink(csv))
-            assert data_atlas is None or atlas.is_compatible(data_atlas),\
-                f"Brain slice was expected to be aligned against '{atlas.name}', but instead found '{data_atlas}': {csv}"
+            assert data_atlas is None or ontology.is_compatible(data_atlas),\
+                f"Brain slice was expected to be aligned against '{ontology.name}', but instead found '{data_atlas}': {csv}"
         BrainSlice._check_columns(data, (QUPATH_AREA,), csv)
         all_measurements = extract_qupath_measurement_types(data)
         unique_channels = {m.measurement for m in all_measurements}
@@ -221,7 +224,9 @@ class BrainSlice:
         BrainSlice._fix_nan_countings(data, [m.key for m in measurements if m.type is QuPathMeasurementType.CELL_COUNT])
         data.rename(columns={"Name": "acronym"}|{m.key: m.name for m in measurements}, inplace=True)
         units = {m.name: m.unit() for m in measurements}
-        return BrainSlice(data, animal=animal, name=name, is_split=is_split, atlas=data_atlas, units=units, **kwargs)
+        return BrainSlice(data=data, units=units,
+                          animal=animal, name=name,
+                          ontology=ontology, check=check)
 
     @staticmethod
     def _extract_qupath_hemispheres(data: pd.DataFrame, csv_file: str):
@@ -379,9 +384,10 @@ class BrainSlice:
     #             return False
     #     return True
 
-    def __init__(self, data: pd.DataFrame, animal:str, name: str,
-                 units: dict, brain_ontology: AtlasOntology|None=None,
-                 atlas: str|None=None) -> None:
+    def __init__(self, data: pd.DataFrame, units: dict,
+                 *,
+                 animal:str, name: str,
+                 ontology: AtlasOntology|str, check: bool) -> None:
         """
         Creates a `BrainSlice` from a [`DataFrame`][pandas.DataFrame]. Each row representes the data
         of a single brain region, whose acronym is used as index. If the data was collected
@@ -394,27 +400,33 @@ class BrainSlice:
         ----------
         data
             The data extracted from a brain slice.
+        units
+            The units of measurement corresponding to each columns in `data`.
         animal
             The name of the animal from which the slice was cut.
         name
-            The name of hte brain slice.
-        units
-            The units of measurement corresponding to each columns in `data`.
-        brain_ontology
-            If specified, it checks the brain regions in `data` against the given ontology
-            and it sorts the rows in depth-first order in ontology's hierarchy.
+            The name of the brain slice.
+        ontology
+            The atlas ontology to which the data was registered to.
+        check
+            If True, it checks that all quantifications in `data` are from regions in the `atlas`,
+            and then sorts them in depth-first order.
+            Otherwise, it skips the check and no sorting is applied, but it's _faster_.
 
         Raises
         ------
         ValueError
             If a specified unit of measurment in `units` is unknown.
+        UnknownBrainRegionsError
+            If `check=True` and `ontology` is an [`AtlasOntology`][braian.AtlasOntology], but `data`
+            contains structures not present in `ontology`.
         """
         self.animal: str = animal
         """The name of the animal from which the current `BrainSlice` is from."""
         self.name: str = name
         """The name of the image that captured the section from which the data of the current `BrainSlice` are from."""
         self.data = data
-        self.atlas = atlas
+        self.atlas = str(ontology) if isinstance(ontology, str) else ontology.name # AtlasOntology
         """The name of the brain atlas used to align the section. If None, it means that the cell-segmented data didn't specify it."""
         BrainSlice._check_columns(self.data, ("acronym", "hemisphere", "area"), self.name)
         assert self.data.shape[1] >= 4, "'data' should have at least one column, apart from 'acronym', 'hemisphere' and 'area', containing per-region data"
@@ -439,18 +451,18 @@ class BrainSlice:
         """The units of measurements corresponding to each [`marker`][braian.BrainSlice.markers] of the current `BrainSlice`."""
         assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
         self.data = self.data[self.data["area"] > 0]
-        if brain_ontology is not None:
+        if check:
             if not self.is_split:
                 self.data.reset_index(inplace=True)
                 self.data.set_index("acronym", inplace=True)
-                self.data = sort_by_ontology(self.data, brain_ontology, fill=False)
+                self.data = sort_by_ontology(self.data, ontology, fill=False)
                 self.data.reset_index(inplace=True)
                 self.data.set_index("index", inplace=True)
             else:
                 hem1 = self.data[self.data["hemisphere"] == BrainHemisphere.LEFT.value].reset_index().set_index("acronym")
                 hem2 = self.data[self.data["hemisphere"] == BrainHemisphere.RIGHT.value].reset_index().set_index("acronym")
-                hem1 = sort_by_ontology(hem1, brain_ontology, fill=True)
-                hem2 = sort_by_ontology(hem2, brain_ontology, fill=True)
+                hem1 = sort_by_ontology(hem1, ontology, fill=True)
+                hem2 = sort_by_ontology(hem2, ontology, fill=True)
                 self.data.reindex([*hem2["index"], *hem1["index"]], copy=False)
 
         self.markers_density: pd.DataFrame = self._marker_density()
@@ -609,7 +621,9 @@ class BrainSlice:
         data["hemisphere"] = BrainHemisphere.BOTH.value
         data["acronym"] = data.index
         data.index = data.index.set_names(None)
-        return BrainSlice(data=data, animal=self.animal, name=self.name, units=self.units)
+        return BrainSlice(data=data, units=self.units,
+                          animal=self.animal, name=self.name,
+                          ontology=self.atlas, check=False)
 
     def region(self, acronym: str, metric: str, as_density: bool=False) -> Sequence:
         """

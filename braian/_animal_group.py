@@ -627,6 +627,7 @@ class SlicedGroup:
                     *,
                     exclude_ancestors_layer1: bool,
                     exclude_parents: bool=None,
+                    check: bool=False,
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
@@ -646,10 +647,14 @@ class SlicedGroup:
             An ontology against whose version the brains were aligned.
         ch2marker
             A dictionary mapping QuPath channel names to markers.
-        exclude_parents
-            `exclude_parents` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         exclude_ancestors_layer1
             `ancestors_layer1` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
+        exclude_parents
+            `exclude_parents` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
+        check
+            If True, it checks that each structure in every `BrainSlice` is in the `brain_ontology`,
+            and then sorts them in depth-first order.
+            Otherwise, it skips the check and no sorting is applied, but it's _faster_.
         results_subdir
             The name of the subfolder in `qupath_dir/brain_name` that contains all cell counts files of each brain section.\\
             It can be `None` if no subfolder is used.
@@ -677,6 +682,7 @@ class SlicedGroup:
                                                    animal_dir=qupath_dir/brain_name,
                                                    brain_ontology=brain_ontology,
                                                    ch2marker=ch2marker,
+                                                   check=check,
                                                    exclude_ancestors_layer1=exclude_ancestors_layer1,
                                                    results_subdir=results_subdir, results_suffix=results_suffix,
                                                    exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)

@@ -619,11 +619,9 @@ def test_igraph(unreferenced: bool, blacklisted: bool):
     vs_legacy = set([v["id"] for v in g_legacy.vs])
     es = {(g.vs[e.source]["id"], g.vs[e.target]["id"]) for e in g.es}
     es_legacy = {(g_legacy.vs[e.source]["id"], g_legacy.vs[e.target]["id"]) for e in g_legacy.es}
-    # BrainGlobe thinks that RSPd4 (id=545) does not exists in 'allen_mouse_10um'
-    # see: https://github.com/brainglobe/brainglobe-atlasapi/issues/647
-    if blacklisted: # The whole Isocortex is in the graph, RSPd4 included
-        assert (vs|{545}) == vs_legacy
-        assert (es|{(879,545)}) == es_legacy
+    if blacklisted:
+        assert vs == vs_legacy
+        assert es == es_legacy
     else:
         assert vs == vs_legacy
         assert es == es_legacy

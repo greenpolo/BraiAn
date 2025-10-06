@@ -159,8 +159,6 @@ class AtlasOntology:
         if not unreferenced:
             unreferenced_ids = self._unreferenced(key="id")
             # In allen_mouse 25um & 50um, 'RSPd4 (545)' is the only unreferenced brain region that exists
-            # However, it is reported as 'unreferenced' also in allen_mouse_10um, due to this issue:
-            # https://github.com/brainglobe/brainglobe-atlasapi/issues/647
             self.blacklist(unreferenced_ids, unreferenced=True)
         if blacklisted:
             blacklisted_ids = self._to_ids(blacklisted, unreferenced=True, duplicated=False, check_all=False)
@@ -321,7 +319,12 @@ class AtlasOntology:
             If `key` is not known as an unique identifier for brain structures
         """
         self._check_node_attr(key)
-        return [s[key] for s in self._atlas.structures_list if not s["mesh_filename"].exists()]
+        return [s[key] for s in self._atlas.structures_list
+                if not s["mesh_filename"].exists() and\
+                    # BrainGlobe does not have a mesh for 'RSPd4 (545)' in allen_mouse_10um,
+                    # but it is not an unreferenced region.
+                    # see: https://github.com/brainglobe/brainglobe-atlasapi/issues/647
+                    (self._atlas.atlas_name != "allen_mouse_10um" or s["id"] != 545)]
         # atlas_meshes_dir = self._atlas.root_dir/"meshes"
         # if not atlas_meshes_dir.exists():
         #     raise ValueError(f"BrainGlobe atlas meshes not downloaded: '{self._atlas.atlas_name}'")

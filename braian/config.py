@@ -141,8 +141,10 @@ class BraiAnConfig:
             accordingly to the method specified in the configuration file.\\
             Otherwise, it keeps the raw data.
         validate
-            If True, it validates each region in each brain, checking that they are present
-            in the brain region ontology against which the brains were alligned.
+            If True, it checks that each structure in every `BrainSlice` is in the
+            [`atlas ontology`][braian.config.BraiAnConfig.read_atlas_ontology],
+            and then sorts them in depth-first order.
+            Otherwise, it skips the check and no sorting is applied (faster, when sliced=False).
 
         See also
         --------
@@ -190,6 +192,7 @@ class BraiAnConfig:
                                             qupath_dir=qupath_dir,
                                             brain_ontology=self._brain_ontology,
                                             ch2marker=markers, #exclude_parents,
+                                            check=validate if sliced else False, # if not sliced, it will be checked in experiment_from_sliced
                                             exclude_ancestors_layer1=exclude_ancestors_layer1,
                                             results_subdir=results_subir, results_suffix=results_suffix,
                                             exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)
