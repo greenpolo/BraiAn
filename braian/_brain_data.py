@@ -63,9 +63,16 @@ def _split_index(regions: Iterable[str]) -> list[str]:
 def _sort_by_ontology(data: pd.DataFrame|pd.Series,
                       brain_ontology: AtlasOntology,
                       fill=False, fill_value=np.nan) -> pd.DataFrame|pd.Series:
-    """Sorts a DataFrame/Series by depth-first search in the given ontology.
+    """
+    Sorts a DataFrame/Series by depth-first search in the given ontology.
     The index of the data is the name of the regions.
-    If fill=True, it adds data for the missing regions"""
+    If fill=True, it adds data for the missing regions
+
+    Raises
+    ------
+    UnknownBrainRegionsError
+        When `data` contains structures not present in `brain_ontology`.
+    """
     all_regions = brain_ontology.subregions("root", mode="depth")
     if _is_split_left_right(data.index):
         all_regions = _split_index(all_regions)
