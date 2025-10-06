@@ -136,6 +136,7 @@ class BrainSlice:
 
     @staticmethod
     def from_qupath(csv: str|Path|pd.DataFrame, ch2marker: dict[str,str],
+                    animal:str, name: str, is_split: bool,
                     atlas: AtlasOntology=None,
                     *args, **kwargs) -> Self:
         """
@@ -205,7 +206,7 @@ class BrainSlice:
         BrainSlice._fix_nan_countings(data, [m.key for m in measurements if m.type is QuPathMeasurementType.CELL_COUNT])
         data.rename(columns={m.key: m.name for m in measurements}, inplace=True)
         units = {m.name: m.unit() for m in measurements}
-        return BrainSlice(data, *args, atlas=data_atlas, units=units, **kwargs)
+        return BrainSlice(data, animal=animal, name=name, is_split=is_split, atlas=data_atlas, units=units, **kwargs)
 
     @staticmethod
     def _rename_selected_measurements(measurements: Iterable[QuPathMeasurement],
@@ -433,7 +434,7 @@ class BrainSlice:
         self.exclude(regions=excluded_regions,
                      ontology=brain_ontology,
                      ancestors=exclude_parent_regions,
-                     layer1_ancestors=False)
+                     ancestors_layer1=False)
 
     @deprecated(since="1.1.0", params=["ancestors"],
                 message="Quantifications in ancestor regions should be completely removed too. "+\
@@ -443,7 +444,7 @@ class BrainSlice:
                 ontology: AtlasOntology,
                 *,
                 ancestors: bool=True,
-                layer1_ancestors: bool=True):
+                ancestors_layer1: bool=True):
         """
         Takes care of the regions to be excluded from the analysis due to issues like
         mis-alignments to the atlas, broken tissue, aquisition problems,...\\
@@ -462,7 +463,7 @@ class BrainSlice:
         ancestors
             Whether to completely exclude the quantifications in the parent regions too, or not.\
             If False, it keeps them after subtracting the quantifications of the excluded subregion.
-        layer1_ancestors
+        ancestors_layer1
             If False, the exclusions in layer 1 of the cortical regions will **not**
             exclude completely the quantifications in all the ancestor regions.\
             This might be useful when cortical layer 1 is expected to have _few_
@@ -482,13 +483,14 @@ class BrainSlice:
         ExcludedAllRegionsError
             if there is no cell count left after the exclusion is done.
         """
-        if ancestors and not layer1_ancestors:
+        if ancestors and not ancestors_layer1:
             assert re.match(r"(allen|silvalab)_mouse_(10|25|50|100)um", ontology.name), \
                     f"Could not extract layer 1 of the cortex. Incompatible atlas: '{ontology.name}'."+\
                     " If you think think BraiAn should support this atlas, please open an issue on https://codeberg.org/SilvaLab/BraiAn"
-            layer1 = {s for s in
+            layer1 = [ontology.subregions(s, blacklisted=True, unreferenced=False) for s in
                         itertools.chain(ontology.subregions("Isocortex"), ontology.subregions("OLF"))
-                        if s.endswith("1")}
+                        if s.endswith("1")]
+            layer1 = {s for layer1_subs in layer1 for s in layer1_subs}
         try:
             for exclusion in regions:
                 if self.is_split:
@@ -510,7 +512,7 @@ class BrainSlice:
                 for parent_region in _ancestors:
                     row = hem+": "+parent_region if self.is_split else parent_region
                     if row in self.data.index:
-                        if ancestors and (layer1_ancestors or region in layer1):
+                        if ancestors and (ancestors_layer1 or region not in layer1):
                             self.data.drop(row, inplace=True)
                         elif exclusion in self.data.index:
                             # Subtract the counting results from the parent region.

@@ -90,7 +90,8 @@ class BraiAnConfig:
         """
         if "version" in self.config["atlas"] is not None:
             warnings.warn("Option 'atlas|version' is deprecated since '1.1.0' and support may be removed in future versions. Use 'atlas|name' instead.", DeprecationWarning)
-            if self.config["atlas"]["version"].lower() not in {"2017", "ccfv3", "v3"}:
+            version = self.config["atlas"]["version"]
+            if version != 3 and version.lower() not in {"2017", "ccfv3", "v3"}:
                 raise ValueError(f"Unsupported version of the Allen Mouse Brain ontology: '{self.config['atlas']['version']}'. "+\
                                  "If you think this version of the Common Coordinate Framework should be supported, please open an issue on https://github.com/brainglobe/brainglobe-atlasapi")
                 # import braian.utils
@@ -169,7 +170,7 @@ class BraiAnConfig:
             warnings.warn("Option 'qupath|files|dirs|exclusions_subdir' is deprecated since '1.1.0' and support may be removed in future versions. Use 'qupath|files|dirs|exclusions-subdir' instead.", DeprecationWarning)
             exclusions_subdir = "exclusions_subdir"
         else:
-            exclusions_subdir = "exclusions_subdir"
+            exclusions_subdir = "exclusions-subdir"
         exclusions_subdir = qupath["files"]["dirs"].get(exclusions_subdir, ".")
         if exclusions_subdir is None:
             exclusions_subdir = "."
@@ -179,7 +180,7 @@ class BraiAnConfig:
         if "exclude-parents" in qupath:
             warnings.warn("Option 'exclude-parents' is now ignored. "+\
                           "Quantifications in ancestor regions are now always completely removed too.")
-        exclude_layer1_ancestors = qupath.get("exclude-layer1-ancestors", True)
+        exclude_ancestors_layer1 = qupath.get("exclude-ancestors-layer1", True)
         group2brains: dict[str,str] = self.config["groups"]
         groups = []
         if self._brain_ontology is None:
@@ -189,7 +190,7 @@ class BraiAnConfig:
                                             qupath_dir=qupath_dir,
                                             brain_ontology=self._brain_ontology,
                                             ch2marker=markers, #exclude_parents,
-                                            exclude_layer1_ancestors=exclude_layer1_ancestors,
+                                            exclude_ancestors_layer1=exclude_ancestors_layer1,
                                             results_subdir=results_subir, results_suffix=results_suffix,
                                             exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)
             groups.append(group)

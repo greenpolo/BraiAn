@@ -125,7 +125,7 @@ def _deprecated_message_params(func: Callable,
         if deprecated_name not in bindings.arguments:
             continue
         warning_message = f"'{deprecated_name}' is deprecated since {since} and may be removed in future versions."
-        if deprecated_name in alternatives:
+        if alternatives is not None and deprecated_name in alternatives:
             warning_message += f" Use '{alternatives[deprecated_name]}', instead."
         warnings.warn(warning_message, category=DeprecationWarning, stacklevel=3)
 

@@ -55,7 +55,7 @@ class SlicedBrain:
                     brain_ontology: AtlasOntology,
                     ch2marker: dict[str,str],
                     exclude_parent_regions: bool=True,
-                    exclude_layer1_ancestors: bool=True,
+                    exclude_ancestors_layer1: bool=True,
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
@@ -83,8 +83,8 @@ class SlicedBrain:
             A dictionary mapping QuPath channel names to markers.
         exclude_parent_regions
             `exclude_parent_regions` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
-        exclude_layer1_ancestors
-            `layer1_ancestors` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
+        exclude_ancestors_layer1
+            `ancestors_layer1` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         results_subdir
             The name of the subfolder in `animal_dir` that contains all cell counts files of each brain section.\\
             It can be `None` if no subfolder is used.
@@ -127,7 +127,7 @@ class SlicedBrain:
                                                brain_ontology=None)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
                 slice.exclude(exclude, ontology=brain_ontology,
-                              layer1_ancestors=exclude_layer1_ancestors)
+                              ancestors_layer1=exclude_ancestors_layer1)
             except BrainSliceFileError as e:
                 mode = SlicedBrain._get_default_error_mode(e)
                 SlicedBrain._handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)
