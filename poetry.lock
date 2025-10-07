@@ -1026,7 +1026,7 @@ colorama = ">=0.4"
 
 [[package]]
 name = "griffe-warnings-deprecated"
-version = "0.1.dev10+gec2932c"
+version = "0.1.dev11+g194d275"
 description = "Griffe extension for `@warnings.deprecated` (PEP 702)."
 optional = false
 python-versions = ">=3.9"
@@ -1041,7 +1041,7 @@ griffe = ">=0.49"
 type = "git"
 url = "https://github.com/carlocastoldi/griffe-warnings-deprecated"
 reference = "HEAD"
-resolved_reference = "ec2932c08ac5d1fa7b5f189e465fb397907a99da"
+resolved_reference = "194d275c038d4e346227c2ecf75d4af890526a1c"
 
 [[package]]
 name = "h5py"
