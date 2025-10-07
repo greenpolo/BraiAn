@@ -9,7 +9,7 @@ import requests
 from brainglobe_atlasapi import list_atlases
 from bs4 import BeautifulSoup
 from collections import OrderedDict
-from collections.abc import Iterable, Container
+from collections.abc import Container, Iterable, Sequence
 from copy import deepcopy
 from pathlib import Path
 from typing import Literal
@@ -133,7 +133,7 @@ class AllenBrainOntology:
         _visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_blacklisted(n, False))
         _visit_dict.visit_bfs(self.dict, "children", lambda n,d: set_reference(n, True))
         if blacklisted_acronyms:
-            self.blacklist_regions(blacklisted_acronyms, key="acronym")
+            self.blacklist(blacklisted_acronyms, key="acronym", unreferenced=False)
             # we don't prune, otherwise we won't be able to work with region_to_exclude (QuPath output)
             # prune_where(self.dict, "children", lambda x: x["acronym"] in blacklisted_acronyms)
         self.name = name
@@ -148,7 +148,7 @@ class AllenBrainOntology:
                 unannoted_regions = self._get_unannoted_bg_regions() # throws ValueError if the atlas is not downloaded
             else:
                 unannoted_regions = self._get_unannoted_regions()
-            self.blacklist_regions(unannoted_regions, key="id", has_reference=False)
+            self.blacklist(unannoted_regions, key="id", unreferenced=True)
 
         self._add_depth_to_regions()
         self._mark_major_divisions()
@@ -338,6 +338,7 @@ class AllenBrainOntology:
         vs = _graph_utils.minimum_treecover(g.vs.select(name_in=acronyms))
         return {v["name"] for v in vs}
 
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.blacklist"])
     def blacklist_regions(self,
                           regions: Iterable,
                           key: str="acronym",
@@ -354,14 +355,38 @@ class AllenBrainOntology:
         key
             The key in Allen's structural graph used to identify the `regions` to blacklist
         has_reference
-            If `regions` exist in the used version of the CCF or not
+            If `regions` exist or not in the used version of the CCF.
 
         Raises
         ------
         KeyError
             If it can't find at least one of the `regions` in the ontology
         """
-        unreferenced = not has_reference
+        return self.blacklist(regions=regions, key=key, unreferenced=not has_reference)
+
+    def blacklist(self,
+                  regions: Iterable,
+                  key: str="acronym",
+                  unreferenced: bool=False):
+        """
+        Blacklists from further analysis the given `regions` the ontology, as well as all their sub-regions.
+        If the reason of blacklisting is that `regions` no longer exist in the used version of the
+        Common Coordinate Framework, set `has_reference=False`
+
+        Parameters
+        ----------
+        regions
+            Regions to blacklist
+        key
+            The key in Allen's structural graph used to identify the `regions` to blacklist
+        unreferenced
+            If `regions` exist or not in the used version of the CCF.
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology
+        """
         self._check_regions(regions, key=key, unreferenced=True)
         for region_value in regions:
             region_node = _visit_dict.find_subtree(self.dict, key, region_value, "children")
@@ -372,7 +397,29 @@ class AllenBrainOntology:
             self.direct_subregions = self._get_all_subregions()
             self.parent_region = self._get_all_parent_areas()
 
-    def get_blacklisted_trees(self, unreferenced: bool=False, key: str="acronym") -> list:
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.blacklisted"])
+    def get_blacklisted_trees(self,
+                              unreferenced: bool=False,
+                              key: str="acronym") -> list:
+        """
+        Returns the biggest brain region of each branch in the ontology that was blacklisted.
+
+        Parameters
+        ----------
+        unreferenced
+            If True, it includes also the brain regions that were blacklisted from the ontology because they don't have an annotation in the atlas.
+            Otherwise, it returns only those blacklisted regions that has a reference in the annotation volume.
+        key
+            The key in Allen's structural graph used to indentify the returned regions
+
+        Returns
+        -------
+        :
+            A list of blacklisted regions, each of which is identifiable with `key`
+        """
+        return self.blacklisted(unreferenced=unreferenced, key=key)
+
+    def blacklisted(self, unreferenced: bool=False, key: str="acronym") -> list:
         """
         Returns the biggest brain region of each branch in the ontology that was blacklisted.
 
@@ -515,8 +562,9 @@ class AllenBrainOntology:
         file = braian.utils.get_resource_path("CCFv3_summary_structures.csv")
         key = "id"
         regions = pd.read_csv(file, sep="\t", index_col=0)
-        self.select_regions(regions[key].values, key=key)
+        self.select(regions[key].values, key=key)
 
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.select"])
     def select_regions(self, regions: Iterable, key: str="acronym"):
         """
         Select `regions` in the ontology.
@@ -525,6 +573,8 @@ class AllenBrainOntology:
         ----------
         regions
             The brain structures uniquely identified by their IDs or their acronyms.
+        key
+            The region identifier of the returned brain structures.
 
         Raises
         ------
@@ -536,14 +586,46 @@ class AllenBrainOntology:
         See also
         --------
         [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
-        [`get_selected_regions`][braian.legacy.AllenBrainOntology.get_selected_regions]
+        [`selected`][braian.legacy.AllenBrainOntology.selected]
         [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
         [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
         [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
         [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
         [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
         [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
-        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
+        [`partition`][braian.legacy.AllenBrainOntology.partition]
+        """
+        return self.select(regions, key=key)
+
+    def select(self, regions: Iterable, key: str="acronym"):
+        """
+        Select `regions` in the ontology.
+
+        Parameters
+        ----------
+        regions
+            The brain structures uniquely identified by their IDs or their acronyms.
+        key
+            The region identifier of the returned brain structures.
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology.
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
+
+        See also
+        --------
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`selected`][braian.legacy.AllenBrainOntology.selected]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`partition`][braian.legacy.AllenBrainOntology.partition]
         """
         self._check_regions(regions, key=key, unreferenced=False)
         _visit_dict.add_boolean_attribute(self.dict, "children", "selected", lambda node,d: node[key] in regions)
@@ -606,9 +688,12 @@ class AllenBrainOntology:
         """
         return "selected" in self.dict
 
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.selected"])
     def get_selected_regions(self, key: str="acronym") -> list:
         """
-        Returns a non-overlapping list of selected non-blacklisted brain regions
+        Gets the list of the selected, non-overlapping, non-blacklisted brain structures.\\
+        If a region $R$ and its subregions $R_1$, $R_2$,..., $R_n$ are selected,
+        it will return only $R$.
 
         Parameters
         ----------
@@ -618,19 +703,67 @@ class AllenBrainOntology:
         Returns
         -------
         :
-            A list of brain regions identified by `key`
+            A list of brain structures uniquely identified by `key`.
+
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures.
 
         See also
         --------
         [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
         [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`select`][braian.legacy.AllenBrainOntology.select]
         [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
         [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
         [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
         [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
         [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
-        [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
-        [`get_regions`][braian.legacy.AllenBrainOntology.get_regions]
+        [`partition`][braian.legacy.AllenBrainOntology.partition]
+        """
+        return self.selected(key=key)
+
+    def selected(self,
+                 *,
+                 blacklisted: bool=False,
+                 unreferenced: bool=False,
+                 key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Gets the list of the selected, non-overlapping, non-blacklisted brain structures.\\
+        If a region $R$ and its subregions $R_1$, $R_2$,..., $R_n$ are selected,
+        it will return only $R$.
+
+        Parameters
+        ----------
+        blacklisted
+            This parameter is ignored.
+        unreferenced
+            This parameter is ignored.
+        key
+            The region identifier of the returned brain structures.
+
+        Returns
+        -------
+        :
+            A list of brain structures uniquely identified by `key`.
+
+        Raises
+        ------
+        ValueError
+            If `key` is not known as an unique identifier for brain structures.
+
+        See also
+        --------
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`select`][braian.legacy.AllenBrainOntology.select]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        [`partition`][braian.legacy.AllenBrainOntology.partition]
         """
         if not self.has_selection():
             return []
@@ -656,6 +789,7 @@ class AllenBrainOntology:
         if "selected" in self.dict:
             _visit_dict.del_attribute(self.dict, "children", "selected")
 
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.partition"])
     def get_regions(self, selection_method: str) -> list[str]:
         """
         Returns a list of acronyms of non-overlapping regions based on the selection method.
@@ -687,14 +821,48 @@ class AllenBrainOntology:
         [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
         [`select_regions`][braian.legacy.AllenBrainOntology.select_regions]
         """
-        old_selection = self.get_selected_regions(key="id")
+        return self.partition(selection_method=selection_method)
+
+    def partition(self, selection_method: str) -> list[str]:
+        """
+        Returns a list of non-overlapping, brain structures representing
+        the whole non-blacklisted brain.
+
+        Parameters
+        ----------
+        selection_method
+            In order to retrieve the partition, it uses some of the available section methods.
+            Must be "summary structure", "major divisions", "leaves", "depth <d>" or "structural level <l>"
+        Returns
+        -------
+        :
+            A list of brain structures uniquely identified by their acronym.
+
+        Raises
+        ------
+        ValueError
+            If `selection_method` is not recognised
+
+        See also
+        --------
+        [`has_selection`][braian.legacy.AllenBrainOntology.has_selection]
+        [`selected`][braian.legacy.AllenBrainOntology.selected]
+        [`unselect_all`][braian.legacy.AllenBrainOntology.unselect_all]
+        [`select`][braian.legacy.AllenBrainOntology.select]
+        [`add_to_selection`][braian.legacy.AllenBrainOntology.add_to_selection]
+        [`select_at_depth`][braian.legacy.AllenBrainOntology.select_at_depth]
+        [`select_at_structural_level`][braian.legacy.AllenBrainOntology.select_at_structural_level]
+        [`select_leaves`][braian.legacy.AllenBrainOntology.select_leaves]
+        [`select_summary_structures`][braian.legacy.AllenBrainOntology.select_summary_structures]
+        """
+        old_selection = self.selected(key="id")
         if old_selection:
             self.unselect_all()
         match selection_method:
             case "summary structures":
                 self.select_summary_structures()
             case "major divisions":
-                self.select_regions(MAJOR_DIVISIONS)
+                self.select(MAJOR_DIVISIONS)
             case "smallest" | "leaves":
                 # excluded_from_leaves = set(braian.MAJOR_DIVISIONS) - {"Isocortex", "OLF", "CTXsp", "HPF", "STR", "PAL"}
                 # excluded_from_leaves = self.minimimum_treecover(excluded_from_leaves)
@@ -716,9 +884,9 @@ class AllenBrainOntology:
                 self.select_at_structural_level(level)
             case _:
                 raise ValueError(f"Invalid value '{selection_method}' for selection_method")
-        selected_regions = self.get_selected_regions()
+        selected_regions = self.selected()
         # print(f"You selected {len(selected_regions)} regions to plot.")
-        self.select_regions(old_selection, key="id")
+        self.select(old_selection, key="id")
         return selected_regions
 
     def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]="depth") -> list[str]:
@@ -836,16 +1004,16 @@ class AllenBrainOntology:
         # parent_id = find_subtree(self.dict, key, value, "children")["parent_structure_id"]
         # return [area[key] for area in find_subtree(self.dict, "id", parent_id, "children")["children"]]
 
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.parents"])
     def get_parent_regions(self, regions: Iterable, key: str="acronym") -> dict:
         """
-        Finds, for each of the given brain regions, their parent region in the ontology
-
-        It includes blacklisted and regions with no reference in the atlas annotations.
+        Finds, for each of the given brain regions, their parent region in the ontology.
+        It accepts blacklisted and unreferenced structures, too.
 
         Parameters
         ----------
         regions
-            The brain regions to search the parent for
+            The brain structures to search the parent for.
         key
             The key in Allen's structural graph used to indentify the regions
 
@@ -857,7 +1025,43 @@ class AllenBrainOntology:
         Raises
         ------
         KeyError
-            If it can't find the parent of one of the given `regions`
+            If it can't find at least one of the `regions` in the ontology
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
+        """
+        return self.parents(regions, key=key)
+
+    def parents(self,
+                regions: Iterable,
+                *,
+                key: Literal["id","acronym"]="acronym") -> dict:
+        """
+        Finds, for each of the given brain regions, their parent region in the ontology.
+        For the root brain region, its parent will be `None`.\\
+        It accepts blacklisted and unreferenced structures, too.
+
+        Parameters
+        ----------
+        regions
+            The brain structures to search the parent for.
+        key
+            The unique identifier used to identify the returned brain structure
+
+        Returns
+        -------
+        :
+            A dicrtionary mapping region→parent
+
+        Raises
+        ------
+        KeyError
+            If it can't find at least one of the `regions` in the ontology
+        ValueError
+            If `key` is not known as an unique identifier for brain structures
+        ValueError
+            If there is at least one brain structure that appears twice in `regions`.
         """
         parents = _visit_dict.get_parents_where(self.dict, "children", lambda parent,child: child[key] in regions, key)
         for region in regions:
@@ -926,37 +1130,69 @@ class AllenBrainOntology:
         _visit_dict.visit_bfs(self.dict, "children", add_subregions)
         return subregions
 
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.subregions"])
     def list_all_subregions(self,
                             acronym: str,
                             mode: Literal["breadth", "depth"]="breadth",
                             blacklisted: bool=True,
                             unreferenced: bool=False) -> list:
         """
-        Lists all subregions of a brain region, at all hierarchical levels.
+        Gets the complete set of subregions of `acronym`, in hierarchical order.
 
         Parameters
         ----------
         acronym
-            The acronym of the brain region
+            The acronym of the brain region.
         mode
-            Must be either "breadth" or "depth".
-            The order in which the returned acronyms will be: breadth-first or depth-first
+            The hiearchical order in which the sequence of brain structures will be presented:
+            -breadth-first or depth-first.
         blacklisted
-            If True, it includes in the returned list blacklisted structures
+            If True, it considers as subregion any possible blacklisted structure, too.
         unreferenced
-            If True, it includes in the returned list structures with no reference in the atlas annotations
-
-        Returns
-        -------
-        :
-            A list of subregions of `acronym`
+            If True, it considers as subregion any possible structure having no reference
+            in the atlas annotations.
 
         Raises
         ------
-        ValueError
-            If given `mode` is not supported
         KeyError
-            If it can't find `acronym` in the ontology
+            If `acronym` is not found in the ontology.
+        ValueError
+            When `mode` has an invalid value.
+        """
+        return self.subregions(acronym, mode=mode,
+                               blacklisted=blacklisted, unreferenced=unreferenced)
+
+    def subregions(self,
+                   region: str|int,
+                   *,
+                   mode: Literal["breadth", "depth"]="breadth",
+                   blacklisted: bool=True,
+                   unreferenced: bool=False,
+                   key: Literal["id", "acronym"]="acronym") -> list:
+        """
+        Gets the complete set of subregions of `region`, in hierarchical order.
+
+        Parameters
+        ----------
+        region
+            A region, identified by its ID or its acronym.
+        mode
+            The hiearchical order in which the sequence of brain structures will be presented:
+            -breadth-first or depth-first.
+        blacklisted
+            If True, it considers as subregion any possible blacklisted structure, too.
+        unreferenced
+            If True, it considers as subregion any possible structure having no reference
+            in the atlas annotations.
+        key
+            This parameter is ignored.
+
+        Raises
+        ------
+        KeyError
+            If `region` is not found in the ontology.
+        ValueError
+            When `mode` has an invalid value.
         """
         match mode:
             case "breadth":
@@ -967,43 +1203,77 @@ class AllenBrainOntology:
                 raise ValueError(f"Unsupported mode '{mode}'. Available modes are 'breadth' and 'depth'.")
 
         attr = "acronym"
-        region = _visit_dict.find_subtree(self.dict, attr, acronym, "children")
+        region = _visit_dict.find_subtree(self.dict, attr, region, "children")
         if not region or (not unreferenced and not has_reference(region)):
-            raise KeyError(f"Region not found ('{attr}'='{acronym}')")
+            raise KeyError(f"Region not found ('{attr}'='{region}')")
         subregions = _visit_dict.get_all_nodes(region, "children", visit=visit_alg)
         return [subregion[attr] for subregion in subregions if (blacklisted or not is_blacklisted(subregion)) and (unreferenced or has_reference(subregion))]
 
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.ancestors"])
     def get_regions_above(self, acronym: str) -> list[str]:
         """
-        Lists all the regions for which `acronym` is a subregion.
+        Gets all the regions for which `acronym` is a subregion.
 
-        It raises `KeyError` if `acronym` is a region with no reference in the atlas annotations.
+        It raises `KeyError` if `acronym` is an unreferenced brain structure.
 
         Parameters
         ----------
         acronym
-            Acronym of the brain region of which you want to know the regions above
+            A region, identified by its acronym.
 
         Returns
         -------
         :
-            List of all regions above, excluding `acronym`
+            The whole ancestry of structures containing `acronym`, excluding `acronym` itself
 
         Raises
         ------
         KeyError
-            If it can't find `acronym` in the ontology
+            If `acronym` is not found in the ontology.
+        """
+        return self.ancestors(acronym)
+
+    def ancestors(self,
+                  region: str|int,
+                  *,
+                  unreferenced: bool=False,
+                  key: Literal["id","acronym"]="acronym") -> list:
+        """
+        Gets all the regions for which `region` is a subregion.
+
+        It raises `KeyError` if `region` is an unreferenced brain structure.
+
+        Parameters
+        ----------
+        region
+            A region, identified by its ID or its acronym.
+        unreferenced
+            This parameter is ignored.
+        key
+            This parameter is ignored.
+
+
+        Returns
+        -------
+        :
+            The whole ancestry of structures containing `region`, excluding `region` itself
+
+        Raises
+        ------
+        KeyError
+            If `region` is not found in the ontology.
         """
         path = []
         # if self.is_region(acronym, key="acronym", unreferenced=unreferenced):
-        if acronym != self.dict["acronym"] and acronym not in self.parent_region: # if it's not the root
-            raise KeyError(f"Region not found ('acronym'='{acronym}')")
-        while acronym in self.parent_region.keys():
-            parent = self.parent_region[acronym]
+        if region != self.dict["acronym"] and region not in self.parent_region: # if it's not the root
+            raise KeyError(f"Region not found ('acronym'='{region}')")
+        while region in self.parent_region.keys():
+            parent = self.parent_region[region]
             path.append(parent)
-            acronym = parent
+            region = parent
         return path
 
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.partitioned"])
     def get_corresponding_md(self, acronym: str, *acronyms: str) -> OrderedDict[str, str]:
         """
         Finds the corresponding major division for each one of the `acronyms`.
@@ -1026,8 +1296,51 @@ class AllenBrainOntology:
         KeyError
             If it can't find some `acronym` in the ontology
         """
-        acronyms = (acronym, *acronyms)
-        self._check_regions(acronyms, key="acronym", unreferenced=False)
+        regions = (acronym, *acronyms)
+        return self.partitioned(regions, partition="major divisions")
+
+    def partitioned(self,
+                    regions: Sequence,
+                    *,
+                    partition: Literal["major divisions"]="major divisions",
+                    key: str=None
+                    ) -> OrderedDict[str|int,str|int]:
+        """
+        Partitions the given regions based on the specified partitioning method.
+
+        Parameters
+        ----------
+        regions
+            The brain structures uniquely identified by their IDs or their acronyms.
+        partition
+            The partitioning method to use.
+
+            For compatibility reasons, it only accepts `"major divisions"`.
+        key
+            This parameter is ignored.
+
+        Returns
+        -------
+        :
+            An OrderedDict mapping $\\text{region}→\\text{major division}$
+
+        Raises
+        ------
+        ValueError
+            If there is at least one brain structure that appears twice in
+            `regions` or `partition`.
+        ValueError
+            If `partition` is not recognised as a valid partitioning method.
+
+        See also
+        --------
+        [`ancestors`][braian.legacy.AllenBrainOntology.ancestors]
+        [`partition`][braian.legacy.AllenBrainOntology.partition]
+        [`selected`][braian.legacy.AllenBrainOntology.selected]
+        """
+        if partition != "major divisions":
+            raise ValueError(f"Unsupported partition: '{partition}'")
+        self._check_regions(regions, key="acronym", unreferenced=False)
         # def get_region_mjd(node: dict, depth: int):
         #     if node["major_division"]:
         #         get_region_mjd.curr_mjd = node["acronym"]
@@ -1038,15 +1351,14 @@ class AllenBrainOntology:
         # _visit_dict.visit_dfs(self.dict, "children", get_region_mjd)
         # return get_region_mjd.res
         mds = OrderedDict()
-        for acronym in acronyms:
-            for ancestor in (acronym, *self.get_regions_above(acronym)):
+        for acronym in regions:
+            for ancestor in (acronym, *self.ancestors(acronym)):
                 if ancestor in MAJOR_DIVISIONS:
                     mds[acronym] = ancestor
                     break
             if acronym not in mds:
                 mds[acronym] = None
         return mds
-
 
     def get_layer1(self) -> list[str]:
         """
@@ -1072,14 +1384,33 @@ class AllenBrainOntology:
         all_nodes = _visit_dict.get_all_nodes(self.dict, "children")
         return {area["acronym"]: area["name"] for area in all_nodes}
 
+    @deprecated(since="1.1.0", alternatives=["braian.legacy.AllenBrainOntology.colors"])
     def get_region_colors(self) -> dict[str,str]:
         """
-        Computes a dictionary that translates acronym of a brain region into a hex color triplet
+        Gets the dictionary that maps brain structures to their hex color triplet,
+        as defined by the Allen Institute.
 
         Returns
         -------
         :
             A dictionary that maps acronyms→color
+        """
+        return self.colors()
+    
+    def colors(self, key: Literal["id","acronym"]="acronym") -> dict[str,str]:
+        """
+        Gets the dictionary that maps brain structures to their hex color triplet,
+        as defined by the Allen Institute.
+
+        Parameters
+        ----------
+        key
+            This parameter is ignored.
+
+        Returns
+        -------
+        :
+            A dictionary that maps region→color
         """
         all_areas = _visit_dict.get_all_nodes(self.dict, "children")
         return {area["acronym"]: "#"+area["color_hex_triplet"] for area in all_areas}
@@ -1120,11 +1451,11 @@ class AllenBrainOntology:
         # if self.dict was modified removing some nodes, 'graph_order' creates some empty vertices
         # in that case, we remove those vertices
 
-        blacklisted_trees = set(self.get_blacklisted_trees(unreferenced=False, key="acronym"))
+        blacklisted_trees = set(self.blacklisted(unreferenced=False, key="acronym"))
         unrefs_trees = set(self._get_unreferenced_trees(key="acronym"))
         if not unreferenced:
             if not blacklisted:
-                blacklisted_unrefs_trees = set(self.get_blacklisted_trees(unreferenced=True, key="acronym"))
+                blacklisted_unrefs_trees = set(self.blacklisted(unreferenced=True, key="acronym"))
                 _graph_utils.remove_branch(g, blacklisted_unrefs_trees)
             else:
                 _graph_utils.remove_branch(g, unrefs_trees)
@@ -1133,5 +1464,5 @@ class AllenBrainOntology:
               # blacklisted ones because unreferenced regions are obligatorily blacklisted from any analysis.
             _graph_utils.blacklist_regions(g, blacklisted_trees, unreferenced=unrefs_trees)
         if self.has_selection():
-            _graph_utils.select_regions(g, self.get_selected_regions())
+            _graph_utils.select_regions(g, self.selected())
         return g

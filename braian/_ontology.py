@@ -324,7 +324,7 @@ class AtlasOntology:
                     # BrainGlobe does not have a mesh for 'RSPd4 (545)' in allen_mouse_10um,
                     # but it is not an unreferenced region.
                     # see: https://github.com/brainglobe/brainglobe-atlasapi/issues/647
-                    (self._atlas.atlas_name != "allen_mouse_10um" or s["id"] != 545)]
+                    (self._atlas.atlas_name not in ("allen_mouse_10um", "silvalab_mouse_10um") or s["id"] != 545)]
         # atlas_meshes_dir = self._atlas.root_dir/"meshes"
         # if not atlas_meshes_dir.exists():
         #     raise ValueError(f"BrainGlobe atlas meshes not downloaded: '{self._atlas.atlas_name}'")
@@ -1015,7 +1015,6 @@ class AtlasOntology:
         acronym
             A region, identified by its acronym.
 
-
         Returns
         -------
         :
@@ -1025,8 +1024,6 @@ class AtlasOntology:
         ------
         KeyError
             If `acronym` is not found in the ontology.
-        ValueError
-            If `key` is not known as an unique identifier for brain structures
         """
         return self.ancestors(acronym, key="acronym")
 
@@ -1742,7 +1739,7 @@ class AtlasOntology:
         Returns
         -------
         :
-            An OrderedDict mapping $\\text{region}→\\text{major division}$
+            An OrderedDict mapping $\\text{region}→\\text{partition}$
 
         Raises
         ------
