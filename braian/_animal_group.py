@@ -235,32 +235,47 @@ class AnimalGroup:
             self._mean = self._update_mean()
             return self
 
-    def __getitem__(self, animal_name: str) -> AnimalBrain:
+    def __iter__(self) -> Iterable[AnimalBrain]:
+        return iter(self._animals)
+
+    def __len__(self) -> int:
+        return self.n
+
+    def __contains__(self, name: str) -> bool:
+        if not isinstance(name, str):
+            return False
+        for brain in self._animals:
+            if brain.name == name:
+                return True
+        return False
+
+    def __getitem__(self, name: str) -> AnimalBrain:
         """
 
         Parameters
         ----------
-        animal_name
+        name
             The name of an animal part of the group
 
         Returns
         -------
         :
-            The corresponding `AnimalBrain` in the current group.
+            The corresponding `AnimalBrain` in the group.
 
         Raises
         ------
         TypeError
-            If `animal_name` is not a string.
+            If `name` is not a string.
         KeyError
-            If no brain with `animal_name` was found in the group.
+            If no `name` brain was found in the group.
         """
-        if not isinstance(animal_name, str):
-            raise TypeError("AnimalGroup animals are identified by strings")
+        if not isinstance(name, str):
+            raise TypeError("AnimalGroup's animals are identified by strings")
         try:
-            return next(brain for brain in self._animals if brain.name == animal_name)
+            return next(brain for brain in self._animals if brain.name == name)
         except StopIteration:
-            raise KeyError(animal_name)
+            pass
+        raise KeyError(name)
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
@@ -647,6 +662,48 @@ class SlicedGroup:
     def n(self) -> int:
         """The size of the sliced group."""
         return len(self._animals)
+
+    def __iter__(self) -> Iterable[AnimalBrain]:
+        return iter(self._animals)
+
+    def __len__(self) -> int:
+        return self.n
+
+    def __contains__(self, name: str) -> bool:
+        if not isinstance(name, str):
+            return False
+        for brain in self._animals:
+            if brain.name == name:
+                return True
+        return False
+
+    def __getitem__(self, name: str) -> AnimalBrain:
+        """
+
+        Parameters
+        ----------
+        name
+            The name of an animal part of the sliced group
+
+        Returns
+        -------
+        :
+            The corresponding `AnimalBrain` in the sliced group.
+
+        Raises
+        ------
+        TypeError
+            If `name` is not a string.
+        KeyError
+            If no `name` brain was found in the sliced group.
+        """
+        if not isinstance(name, str):
+            raise TypeError("SlicedGroup's animals are identified by strings")
+        try:
+            return next(brain for brain in self._animals if brain.name == name)
+        except StopIteration:
+            pass
+        raise KeyError(name)
 
     def get_animals(self) -> list[str]:
         """

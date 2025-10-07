@@ -196,6 +196,29 @@ class SlicedBrain:
         """The list of slices making up the `SlicedBrain`."""
         return self._slices
 
+    def __iter__(self) -> Iterable[BrainSlice]:
+        return iter(self._slices)
+
+    def __len__(self) -> int:
+        return len(self._slices)
+
+    def __contains__(self, name: str) -> bool:
+        if not isinstance(name, str):
+            return False
+        for slice in self._slices:
+            if slice.name == name:
+                return True
+        return False
+
+    def __getitem__(self, name: str) -> BrainSlice:
+        if not isinstance(name, str):
+            raise TypeError("BrainSlices are identified by strings")
+        try:
+            return next(slice for slice in self._slices if slice.name == name)
+        except StopIteration:
+            pass
+        raise KeyError(name)
+
     def concat_slices(self, densities: bool=False) -> pd.DataFrame:
         """
         Combines all the [`BrainSlice`][braian.BrainSlice] making up the current
