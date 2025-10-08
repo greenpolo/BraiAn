@@ -1,16 +1,18 @@
 import copy
+import functools
 import numpy as np
 import pandas as pd
 import re
 
-from collections.abc import Sequence
+from collections.abc import Sequence, Callable
 from enum import Enum, auto
 from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
 from typing import Generator, Self
 
-from braian import AtlasOntology, BrainData, EmptyBrainError, SlicedBrain
-from braian.utils import save_csv, deprecated
+from braian import AtlasOntology, BrainData, BrainHemisphere, EmptyBrainError, SlicedBrain
+from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
+from braian.utils import deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
 
@@ -24,6 +26,17 @@ def coefficient_variation(x: np.ndarray) -> np.float64:
             return 0
     else: # compute it for each column of the DataFrame and return a Series
         return x.apply(coefficient_variation, axis=0)
+
+def _combined_regions(*bd: BrainData) -> list[str]:
+    return {
+        hem: merge_ordered(*[_bd for _bd in bd if _bd.hemisphere is hem])
+        for hem in BrainHemisphere
+    }
+
+def _to_legacy_index(bd: BrainData) -> pd.Series:
+    if bd.hemisphere is not BrainHemisphere.BOTH:
+        return (bd.hemisphere.name.capitalize()+": ")+bd.data.index
+    return bd.data.index
 
 class SliceMetrics(Enum):
     r"""
@@ -75,24 +88,27 @@ class SliceMetrics(Enum):
             case "std" | "standard deviation":
                 return SliceMetrics.STD
 
-    def apply(self, grouped_by_region: DataFrameGroupBy):
+    def apply(self, data: pd.Series|pd.DataFrame|DataFrameGroupBy):
         match self:
             case SliceMetrics.SUM:
-                return grouped_by_region.sum()
+                return data.sum()
             case SliceMetrics.MEAN:
-                return grouped_by_region.mean()
+                return data.mean()
             case SliceMetrics.STD:
-                return grouped_by_region.std(ddof=1)
+                return data.std(ddof=1)
             case SliceMetrics.CVAR:
-                return grouped_by_region.apply(coefficient_variation)
+                if isinstance(data, DataFrameGroupBy):
+                    return data.apply(coefficient_variation)
+                else:
+                    return coefficient_variation(data)
             case _:
                 raise ValueError(f"{self} does not support BrainSlices reductions")
 
     def __call__(self, sliced_brain: SlicedBrain, min_slices: int, densities: bool):
         all_slices = sliced_brain.concat_slices(densities=densities)
-        all_slices = all_slices.groupby(all_slices.index).filter(lambda g: len(g) >= min_slices)
+        all_slices = all_slices.groupby(by=["acronym", "hemisphere"]).filter(lambda g: len(g) >= min_slices)
         raw = not densities and self._raw
-        return self.apply(all_slices.groupby(all_slices.index)), raw
+        return self.apply(all_slices.groupby(by=["acronym", "hemisphere"])), raw
 
 class AnimalBrain:
     @staticmethod
@@ -140,14 +156,31 @@ class AnimalBrain:
         if redux.shape[0] == 0:
             raise EmptyBrainError(sliced_brain.name)
         metric = f"{str(metric)}_densities" if densities else str(metric)
-        areas = BrainData(redux["area"], name=name, metric=metric, units=sliced_brain.units["area"])
+        if sliced_brain.is_split:
+            hemispheres = (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)
+        else:
+            hemispheres = (BrainHemisphere.BOTH,)
+        areas = tuple(BrainData(redux["area"].xs(hem.value, level=1),
+                                name=name, metric=metric,
+                                units=sliced_brain.units["area"],
+                                hemisphere=hem)
+                for hem in hemispheres)
+        # areas = BrainData(redux["area"], name=name, metric=metric, units=sliced_brain.units["area"])
         markers_data = {
-            m: BrainData(redux[m], name=name, metric=metric, units=sliced_brain.units[m])
+            m: tuple(
+                BrainData(redux[m].xs(hem.value, level=1),
+                                      name=name, metric=metric,
+                                      units=sliced_brain.units[m],
+                                      hemisphere=hem)
+                for hem in hemispheres)
             for m in markers
         }
         return AnimalBrain(markers_data=markers_data, sizes=areas, raw=raw)
 
-    def __init__(self, markers_data: dict[str,BrainData], sizes: BrainData, raw: bool=False) -> None:
+    def __init__(self,
+                 markers_data: dict[str,BrainData|tuple[BrainData,BrainData]],
+                 sizes: BrainData|tuple[BrainData,BrainData],
+                 raw: bool=False) -> None:
         """
         Associates [`BrainData`][braian.BrainData] coming from a single subject,
         for each marker and for each brain region.
@@ -157,23 +190,56 @@ class AnimalBrain:
         markers_data
             A dictionary that associates the name of a marker to a `BrainData`
         sizes
-            A `BrainData` with the size of the subject's brain regions.
+            A `BrainData` with the size of the subject's brain regions.\
+            A tuple of two `BrainData` is required if the associated data is split between right and left [hemispheres][braian.BrainHemisphere].
         raw
             Whether the data can be considered _raw_ (e.g., contains simple cell positive counts) or not.
         """
         assert len(markers_data) > 0 and sizes is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the size of each region"
+        markers_data = {m: (ds,) if isinstance(ds, BrainData) else tuple(sorted(ds, key=lambda d: d.hemisphere.value))
+                        for m,ds in markers_data.items()}
+        are_merged = [m.hemisphere is BrainHemisphere.BOTH for ms in markers_data.values() for m in ms]
+        assert all(are_merged) or not any(are_merged), "You must provide BrainData that has merged hemispheres for all markers or for none."
+        if all(are_merged):
+            if isinstance(sizes, BrainData):
+                sizes = (sizes,)
+            assert (isinstance(sizes, tuple) and len(sizes) == 1 and\
+                all(map(lambda x: type(x) is BrainData, sizes))), "'sizes' shoud be a BrainData object."
+        else:
+            assert isinstance(sizes, tuple) and len(sizes) == 2 and\
+                 all(map(lambda x: type(x) is BrainData, sizes)), "'sizes' shoud be a tuple of one or two BrainData objects."
         self._markers: tuple[str] = tuple(markers_data.keys())
-        self._markers_data: dict[str,BrainData] = markers_data
-
-        self.sizes: BrainData = sizes
-        """The data corresponding to the size of each brain region of the current AnimalBrain."""
+        self._markers_data: dict[str,tuple[BrainData]|tuple[BrainData,BrainData]] = markers_data
+        self._sizes: tuple[BrainData]|tuple[BrainData,BrainData] = sizes
         self.raw: bool = raw
         """Whether the data can be considered _raw_ (e.g., contains simple cell positive counts) or not."""
-        assert all([m.data_name == self.name for m in markers_data.values()]), "All markers' BrainData must be from the same animal!"
-        assert all([m.metric == self.metric for m in markers_data.values()]), "All markers' BrainData must have the same metric!"
-        assert all([m.is_split == self.is_split for m in markers_data.values()]), "Markers' BrainData must either all have split hemispheres or none!"
-        assert self.is_split == sizes.is_split, "Both BrainData of markers and sizes must have split hemispheres or none!"
+        assert all([m.data_name == self.name for ms in markers_data.values() for m in ms]), "All markers' BrainData must be from the same animal!"
+        assert all([m.metric == self.metric for ms in markers_data.values() for m in ms]), "All markers' BrainData must have the same metric!"
         return
+
+    @property
+    def hemispheres(self) -> tuple[BrainData]|tuple[BrainData,BrainData]:
+        return tuple(s.hemisphere for s in self._sizes)
+
+    @property
+    def sizes(self) -> BrainData:
+        """
+        The data corresponding to the size of each brain region of the current AnimalBrain.
+        Only available if the brain is not split between left and right hemispheres.
+        """
+        if self.is_split:
+            raise ValueError("Cannot get a single size for all brain regions because the brain is split between left and right hemispheres."+\
+                             "Use AnimalBrain.hemisizes.")
+        return self._sizes[0]
+
+    @property
+    def hemisizes(self) -> tuple[BrainData,BrainData]|tuple[BrainData]:
+        """
+        The data corresponding to the size of each brain region of the current AnimalBrain.
+        If the AnimalBrain has data for two hemispheres, it is a tuple of size two.
+        Else, it is a tuple of size one.
+        """
+        return self._sizes
 
     @property
     @deprecated(since="1.0.3", alternatives=["braian.AnimalBrain.sizes"])
@@ -193,23 +259,36 @@ class AnimalBrain:
         The name of the metric used to compute current data.
         Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
         """
-        return self._markers_data[self._markers[0]].metric
+        return self._markers_data[self._markers[0]][0].metric
 
     @property
     def is_split(self) -> bool:
         """Whether the data of the current `AnimalBrain` makes a distinction between right and left hemisphere."""
-        return self._markers_data[self._markers[0]].is_split
+        return len(self._sizes) == 2
 
     @property
     def name(self) -> str:
         """The name of the animal."""
-        return self._markers_data[self._markers[0]].data_name
+        return self._markers_data[self._markers[0]][0].data_name
 
     @property
     def regions(self) -> list[str]:
-        """The list of region acronyms for which the current `AnimalBrain` has data."""
+        """
+        The list of region acronyms for which the current `AnimalBrain` has data.
+        Only available if the brain is not split between left and right hemispheres.
+        """
         # assumes sizes' and all markers' BrainData are synchronized
-        return self.sizes.regions
+        if self.is_split:
+            raise ValueError("Cannot get a single list for all brain regions because the brain is split between left and right hemispheres."+\
+                             "Use AnimalBrain.hemiregions.")
+        return self._sizes[0].regions
+
+    @property
+    def hemiregions(self) -> dict[BrainHemisphere,list[str]]:
+        """
+        The brain regions corresponding to each possible [`BrainHemisphere`][braian.BrainHemisphere].
+        """
+        return {s.hemisphere: s.regions for s in self._sizes}
 
     def __repr__(self):
         return str(self)
@@ -217,24 +296,44 @@ class AnimalBrain:
     def __str__(self):
         return f"AnimalBrain(name='{self.name}', metric={self.metric}, markers={list(self._markers)})"
 
-    def __getitem__(self, marker: str) -> BrainData:
+    def __getitem__(self, key) -> BrainData:
         """
         Get the [`BrainData`][braian.BrainData] associated to `marker`.
         Fails if there is no data for the the given marker
 
         Parameters
         ----------
-        marker
+        key
             The marker to extract the data for.
 
         Returns
         -------
         :
-            The data associated to `marker`.
+            The data associated to maker `key`.
         """
-        return self._markers_data[marker]
+        if isinstance(key,str):
+            if self.is_split:
+                raise ValueError("Cannot get a single marker data for all brain regions because the brain is split between left and right hemispheres."+\
+                                 "You should also specify a braian.BrainHemisphere.")
+            return self._markers_data[key][0] # there is no hemisphere distinction
+        elif isinstance(key,tuple) and len(key) == 2 and isinstance(key[0],str):
+            marker,hemi = key
+            hemi = BrainHemisphere(hemi)
+            if not self.is_split and hemi is not BrainHemisphere.BOTH:
+                ValueError(f"The brain has no hemisphere distinction. You cannot select data for '{hemi.name}' hemisphere.")
+            try:
+                return next(d for d in self._markers_data[marker] if d.hemisphere is hemi)
+            except StopIteration | KeyError:
+                pass
+            msg = f"Cannot find '{marker}' data"
+            if self.is_split:
+                msg += f" for {hemi.name} hemisphere"
+            raise KeyError(msg+".")
+        raise TypeError(f"Unknown marker data selection: '{key}'")
+        
 
-    def remove_region(self, region: str, *regions, fill_nan: bool=True) -> None:
+    def remove_region(self, region: str, *regions, fill_nan: bool=True,
+                      hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> None:
         """
         Removes the data from all the given regions in the current `AnimalBrain`
 
@@ -244,17 +343,56 @@ class AnimalBrain:
             The acronyms of the regions to exclude from the data.
         fill_nan
             If True, instead of removing the regions completely, it fills their value to [`NA`][pandas.NA].
+        hemisphere
+            If `BOTH`, it completely removes all `regions` from the brain.\
+            Else, it remove only the `regions` from the specified hemisphere.
         """
         regions = (region, *regions)
-        for data in self._markers_data.values():
-            data.remove_region(*regions, inplace=True, fill_nan=fill_nan)
-        self.sizes.remove_region(*regions, inplace=True, fill_nan=fill_nan)
+        hemisphere = BrainHemisphere(hemisphere)
+        for hemidata in self._markers_data.values():
+            for data in hemidata:
+                if data.hemisphere is not hemisphere:
+                    continue
+                data.remove_region(*regions, inplace=True, fill_nan=fill_nan)
+        for sizes in self._sizes:
+            if sizes.hemisphere is not hemisphere:
+                continue
+            sizes.remove_region(*regions, inplace=True, fill_nan=fill_nan)
 
-    def remove_missing(self) -> None:
+    def remove_missing(self, kind: str="same") -> None:
         """
         Removes the regions for which there is no data about the size.
+
+        Parameters
+        ----------
+        kind
+            Choice to select which missing brain regions to remove:
+                * `'same'`: removes only from one hemisphere the brain missing regions missing from that same hemisphere;
+                * `'both'`: removes only the brain regions missing _from both_ hemispheres;
+                * `'any'`:  removes from all hemispheres the brain regions missing from _any_ of the two hemispheres.
+
+            If the brain has no hemisphere distinction, the result will be the same.
         """
-        self.remove_region(*self.sizes.missing_regions(), fill_nan=False)
+        match kind:
+            case "same":
+                for sizes in self._sizes:
+                    missing_regions = sizes.missing_regions()
+                    if len(missing_regions) > 0:
+                        self.remove_region(*missing_regions, fill_nan=False, hemisphere=sizes.hemisphere)
+            case "both":
+                missing_regions = set()
+                for sizes in self._sizes:
+                    missing_regions &= set(sizes.missing_regions())
+                if len(missing_regions) > 0:
+                    self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.BOTH)
+            case "any":
+                missing_regions = set()
+                for sizes in self._sizes:
+                    missing_regions |= set(sizes.missing_regions())
+                if len(missing_regions) > 0:
+                    self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.BOTH)
+            case _:
+                raise ValueError(f"Unknown kind '{kind}'.")
 
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
                          fill_nan: bool=False, inplace: bool=False) -> Self:
@@ -277,29 +415,67 @@ class AnimalBrain:
             A brain with data sorted accordingly to `brain_ontology`.
             If `inplace=True` it returns the same instance.
         """
-        markers_data = {marker: m_data.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
-                        for marker, m_data in self._markers_data.items()}
-        sizes = self.sizes.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace)
+        # TODO: add option to sync markers and hemispheres
+        
+        # NOTE: this adds the regions present in only one of the two hemispheres
+        # if self.is_split:
+        #     combined_regions = _combined_regions(self[self._markers[0], 1], self[self._markers[0], 2])
+        #     combined_regions = sort_by_ontology(combined_regions, atlas_ontology, fill=False)
+        #     combined_hemidata = {m: tuple(hemidata.select_from_list(combined_regions, fill_nan=True, inplace=False) for hemidata in data)
+        #                         for m,data in self._markers_data.items()}
+        #     combined_hemisizes = tuple(hemisize.select_from_list(combined_regions, fill_nan=True, inplace=False) for hemisize in self.hemisizes)
+        markers_data = {marker: tuple(m_data.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace) for m_data in hemidata)
+                        for marker, hemidata in self._markers_data.items()}
+        sizes = tuple(s.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace) for s in self._sizes)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
         else:
             self._markers_data = markers_data
-            self.sizes = sizes
+            self._sizes = sizes
             return self
 
-    def select_from_list(self, regions: Sequence[str], fill_nan: bool=False, inplace: bool=False) -> Self:
+    def _apply(self,
+               hemidata: tuple[BrainData,BrainData],
+               f1: Callable[[BrainData],Callable],
+               f2: Callable[[BrainData],Callable],
+               hemisphere: BrainHemisphere):
+        return tuple(f1(data) if data.hemisphere is hemisphere else f2(data)
+                     for data in hemidata)
+
+    @deprecated(since="1.1.0", alternatives=["braian.AnimalBrain.select"])
+    def select_from_list(self, regions: Sequence[str], *args, **kwargs):
+        return self.select(regions, *args, **kwargs)
+
+    @deprecated(since="1.1.0", alternatives=["braian.AnimalBrain.select"])
+    def select_from_ontology(self, brain_ontology: AtlasOntology, *args, **kwargs):
+        return self.select(brain_ontology, *args, **kwargs)
+
+    def select(self, regions: Sequence[str]|AtlasOntology,
+                         fill_nan: bool=False, inplace: bool=False,
+                         hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+                         select_other_hemisphere: bool=False) -> Self:
         """
-        Filters the data from a given list of regions.
+        Filters the data from a given list of regions.\
+        If, instead, an [ontology][braian.AtlasOntology] is given, it filters
+        the data accordingly to a non-overlapping list of regions previously selected.\
+        If the ontology has no [active selection][braian.AtlasOntology.has_selection], it fails.
 
         Parameters
         ----------
         regions
-            The acronyms of the regions to select from the data.
+            The acronyms of the regions to select from the data.\
+            Otherwise, an ontology with an [active selection][braian.AtlasOntology.has_selection].
         fill_nan
             If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.
         inplace
             If True, it applies the filtering to the current instance.
+        hemisphere
+            If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
+            it only selects the brain regions from the given hemisphere.
+        select_other_hemisphere
+            If True and `hemisphere` is not [`BOTH`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
+            If False, it deselect the opposite hemisphere.
 
         Returns
         -------
@@ -309,41 +485,6 @@ class AnimalBrain:
 
         See also
         --------
-        [`AnimalBrain.select_from_ontology`][braian.AnimalBrain.select_from_ontology]
-        """
-        markers_data = {marker: m_data.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
-                        for marker, m_data in self._markers_data.items()}
-        sizes = self.sizes.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
-        if not inplace:
-            return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
-        else:
-            return self
-
-    def select_from_ontology(self, brain_ontology: AtlasOntology, fill_nan: bool=False, inplace: bool=False) -> Self:
-        """
-        Filters the data from a given ontology, accordingly to a non-overlapping list of regions
-        previously selected in `brain_ontology`.\\
-        It fails if no selection method was called on the ontology.
-
-        Parameters
-        ----------
-        brain_ontology
-            The ontology to which the current data was registered against.
-        fill_nan
-            If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
-            Otherwise, if the data from some regions are missing, they are ignored.
-        inplace
-            If True, it applies the filtering to the current instance.
-
-        Returns
-        -------
-        :
-            A brain with data filtered accordingly to the given ontology selection.
-            If `inplace=True` it returns the same instance.
-
-        See also
-        --------
-        [`AnimalBrain.select_from_list`][braian.AnimalBrain.select_from_list]
         [`AtlasOntology.selected`][braian.AtlasOntology.selected]
         [`AtlasOntology.unselect_all`][braian.AtlasOntology.unselect_all]
         [`AtlasOntology.add_to_selection`][braian.AtlasOntology.add_to_selection]
@@ -353,13 +494,34 @@ class AnimalBrain:
         [`AtlasOntology.select_regions`][braian.AtlasOntology.select]
         [`AtlasOntology.get_regions`][braian.AtlasOntology.partition]
         """
-        assert brain_ontology.has_selection(), "No selection found in the given ontology."
-        selected_allen_regions = brain_ontology.selected()
-        if not fill_nan:
-            selectable_regions = set(self.regions).intersection(set(selected_allen_regions))
+        hemisphere = BrainHemisphere(hemisphere)
+        if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
+            raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
+        if isinstance(regions, AtlasOntology):
+            def f1(bd: BrainData):
+                return bd.select_from_ontology(regions, fill_nan=fill_nan, inplace=inplace)
         else:
-            selectable_regions = selected_allen_regions
-        return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, inplace=inplace)
+            def f1(bd: BrainData):
+                return bd.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+
+        if hemisphere is BrainHemisphere.BOTH:
+            f2 = f1
+        elif select_other_hemisphere:
+            def f2(bd: BrainData):
+                return bd
+        else:
+            def f2(bd: BrainData):
+                return bd.select_from_list([], fill_nan=fill_nan, inplace=inplace)
+
+        markers_data = {marker: self._apply(hemidata, f1, f2, hemisphere=hemisphere)
+                        for marker, hemidata in self._markers_data.items()}
+        sizes = self._apply(self._sizes, f1, f2, hemisphere=hemisphere)
+        if not inplace:
+            return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
+        else:
+            self._markers_data = markers_data
+            self._sizes = sizes
+            return self
 
     def get_units(self, marker:str|None=None) -> str:
         """
@@ -377,9 +539,9 @@ class AnimalBrain:
         """
         if len(self._markers) == 1:
             marker = self._markers[0]
-        else:
-            assert marker in self._markers, f"Could not get units for marker '{marker}'!"
-        return self._markers_data[marker].units
+        assert marker is not None, "Missing marker to get units of."
+        assert marker in self._markers, f"Could not get units of marker '{marker}'!"
+        return self._markers_data[marker][0].units
 
 
     def merge_hemispheres(self) -> Self:
@@ -399,21 +561,33 @@ class AnimalBrain:
         if not self.is_split:
             return self
         brain: AnimalBrain = copy.copy(self)
-        brain._markers_data = {m: m_data.merge_hemispheres() for m, m_data in brain._markers_data.items()}
-        brain.sizes = brain.sizes.merge_hemispheres()
+        brain._markers_data = {m: (hemidata1.merge_hemispheres(hemidata2),) for m, (hemidata1,hemidata2) in brain._markers_data.items()}
+        brain._sizes = (brain._sizes[0].merge_hemispheres(brain._sizes[1]),)
         return brain
 
-    def to_pandas(self, units: bool=False, missing_as_nan: bool=False) -> pd.DataFrame:
+    def to_pandas(self, marker: str=None, units: bool=False,
+                  missing_as_nan: bool=False,
+                  legacy: bool=False,
+                  hemisphere_as_value: bool=False,
+                  hemisphere_as_str: bool=False) -> pd.DataFrame:
         """
         Converts the current `AnimalBrain` to a DataFrame. T
 
         Parameters
         ----------
+        marker
+            If specified, it includes data only from the given marker.
         units
             Whether the columns should include the units of measurement or not.
         missing_as_nan
             If True, it converts missing values [`NA`][pandas.NA] as [`NaN`][numpy.nan].
             Note that if the corresponding brain data is integer-based, it converts them to float.
+        legacy
+            If True, it distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+        hemisphere_as_value
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding value (i.e. 0, 1 or 2)
+        hemisphere_as_str
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "both", "left", "right")
 
         Returns
         -------
@@ -426,14 +600,41 @@ class AnimalBrain:
         --------
         [`from_pandas`][braian.AnimalBrain.from_pandas]
         """
-        data = pd.concat({f"size ({self.sizes.units})" if units else "size": self.sizes.data,
-                          **{f"{m} ({m_data.units})" if units else m: m_data.data for m,m_data in self._markers_data.items()}}, axis=1)
+        brain_dict = dict()
+        hemisizes = sorted(self._sizes, key=lambda bd: bd.hemisphere.value) # first LEFT and then RIGHT hemispheres
+        size_col = f"size ({self._sizes[0].units})" if units else "size"
+        if legacy:
+            index = functools.reduce(lambda i1,i2: i1.union(i2, sort=False), map(_to_legacy_index, self._sizes))
+        else:
+            hemiregions = self.hemiregions
+            hemiregions = [(hemi.name.lower() if hemisphere_as_str else
+                            hemi.value if hemisphere_as_value else
+                            hemi,region)
+                           for hemi in hemiregions
+                           for region in hemiregions[hemi]]
+            index = pd.MultiIndex.from_tuples(hemiregions, names=("hemisphere","acronym"))
+        hemisizes = pd.concat((bd.data for bd in hemisizes))
+        hemisizes.index = index
+        brain_dict[size_col] = hemisizes
+        if marker is not None:
+            assert marker in self.markers, f"No data data available for marker '{marker}'."
+            markers_data = ((marker, self._markers_data[marker]),)
+        else:
+            markers_data = self._markers_data.items()
+        for marker, hemidata in markers_data:
+            hemidata = sorted(hemidata, key=lambda bd: bd.hemisphere.value) # first LEFT and then RIGHT hemispheres
+            marker_col = f"{marker} ({hemidata[0].units})" if units else marker
+            hemidata = pd.concat((bd.data for bd in hemidata))
+            hemidata.index = index # NOTE: exploits the assumtion that the markers regions are sync'd with the sizes'. 
+            brain_dict[marker_col] = hemidata
+        data = pd.concat(brain_dict, axis=1)
         data.columns.name = str(self.metric)
         if missing_as_nan:
             data = data.astype(float)
         return data
 
-    def to_csv(self, output_path: Path|str, sep: str=",", overwrite: bool=False) -> str:
+    def to_csv(self, output_path: Path|str, sep: str=",",
+               overwrite: bool=False, legacy: bool=False) -> str:
         """
         Write the current `AnimalBrain` to a comma-separated values (CSV) file in `output_path`.
 
@@ -445,6 +646,8 @@ class AnimalBrain:
             Character to treat as the delimiter.
         overwrite
             If True, it overwrite any conflicting file in `output_path`.
+        legacy
+            If True, it distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -460,7 +663,9 @@ class AnimalBrain:
         --------
         [`from_csv`][braian.AnimalBrain.from_csv]
         """
-        df = self.to_pandas(units=True)
+        df = self.to_pandas(units=True, legacy=legacy)
+        if not legacy:
+            df.index = df.index.map(lambda i: (i[0].name.lower(), *i[1:]))
         file_name = f"{self.name}_{self.metric}.csv"
         return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=df.columns.name)
 
@@ -485,7 +690,7 @@ class AnimalBrain:
             return metric == BrainData.RAW_TYPE
 
     @staticmethod
-    def from_pandas(df: pd.DataFrame, animal_name: str) -> Self:
+    def from_pandas(df: pd.DataFrame, animal_name: str, legacy: bool=False) -> Self:
         """
         Creates an instance of [`AnimalBrain`][braian.AnimalBrain] from a `DataFrame`.
 
@@ -495,6 +700,8 @@ class AnimalBrain:
             A [`to_pandas`][braian.AnimalBrain.to_pandas]-compatible `DataFrame`.
         animal_name
             The name of the animal associated to the data in `df`.
+        legacy
+            If `df` distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -505,11 +712,23 @@ class AnimalBrain:
         --------
         [`to_pandas`][braian.AnimalBrain.to_pandas]
         """
+        if legacy:
+            assert not isinstance(df.index, pd.MultiIndex), \
+                "Legacy dataframes are expected to have a simple Index of the acronyms and the hemishere prepended. "+\
+                f"Instead got a '{type(df.index)}'"
+            df = extract_legacy_hemispheres(df, reindex=True, inplace=False)
+        else:
+            assert isinstance(df.index, pd.MultiIndex), \
+                "The dataframe is expected to have a two-level MultiIndex (hemisphere,acronym). "+\
+                f"Instead, got a '{type(df.index)}'"
+            df = df.copy()
         if isinstance(metric:=df.columns.name, str):
             metric = str(df.columns.name)
         raw = AnimalBrain.is_raw(metric)
         markers_data = dict()
         sizes = None
+        df.index = df.index.map(lambda i: (BrainHemisphere(i[0]),i[1]))
+        hemispheres = sorted(df.index.unique(level=0), key=lambda hem: hem.value)
         regex = r'(.+) \((.+)\)$'
         pattern = re.compile(regex)
         for column, data in df.items():
@@ -517,13 +736,17 @@ class AnimalBrain:
             matches = re.findall(pattern, column)
             name, units = matches[0] if len(matches) == 1 else (column, None)
             if name == "area" or name == "size": # braian <= 1.0.3 called sizes "area"
-                sizes = BrainData(data, animal_name, metric, units)
+                sizes = tuple(
+                    BrainData(data[hem], animal_name, metric, units, hemisphere=hem)
+                    for hem in hemispheres)
             else: # it's a marker
-                markers_data[name] = BrainData(data, animal_name, metric, units)
+                markers_data[name] = tuple(
+                    BrainData(data[hem], animal_name, metric, units, hemisphere=hem)
+                    for hem in hemispheres)
         return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=raw)
 
     @staticmethod
-    def from_csv(filepath: Path|str, name: str, sep: str=",") -> Self:
+    def from_csv(filepath: Path|str, name: str, sep: str=",", legacy: bool=False) -> Self:
         """
         Reads a comma-separated values (CSV) file into `AnimalBrain`.
 
@@ -535,6 +758,8 @@ class AnimalBrain:
             Name of the animal associated to the data.
         sep
             Character or regex pattern to treat as the delimiter.
+        legacy
+            If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
@@ -553,7 +778,7 @@ class AnimalBrain:
             raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
         df.columns.name = df.index.name
         df.index.name = None
-        return AnimalBrain.from_pandas(df, name)
+        return AnimalBrain.from_pandas(df, name, legacy=legacy)
 
 def _extract_name_and_units(ls) -> Generator[str, None, None]:
     regex = r'(.+) \((.+)\)$'

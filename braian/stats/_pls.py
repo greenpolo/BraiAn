@@ -7,7 +7,7 @@ import scipy.stats
 from collections.abc import Sequence
 from numbers import Number
 
-from braian import AnimalGroup, BrainData
+from braian import AnimalGroup, BrainData, BrainHemisphere
 
 __all__ = [
     "PLS",
@@ -39,7 +39,8 @@ class PLS:
     """
     def __init__(self, regions: Sequence[str],
                  group1: AnimalGroup, group2: AnimalGroup, *groups: AnimalGroup,
-                 marker: str|Sequence[str]=None) -> None:
+                 marker: str|Sequence[str]=None,
+                 hemisphere: BrainHemisphere|Sequence[BrainHemisphere]=None) -> None:
         """
         Parameters
         ----------
@@ -55,6 +56,9 @@ class PLS:
         marker
             The marker whose activity has to be studied.\
             If multiple markers are given, they'll be coupled with the respective `group`.
+        hemisphere
+            The hemisphere to consider for the analysis.\
+            If multiple hemispheres are given, they'll be coupled with the respective `group`.
 
         Raises
         ------
@@ -67,9 +71,16 @@ class PLS:
                 raise ValueError("You have to specify the marker to compute the analysis on."+\
                                  "PLS of AnimalGroups with multiple markers isn't implemented yet.")
             marker = [group1.markers[0]]*len(groups)
-        if isinstance(marker, str):
+        elif isinstance(marker, str):
             marker = [marker]*len(groups)
         assert len(groups) == len(marker), "The number of given 'marker' should be the same as the number of groups."
+        if hemisphere is None:
+            if any(g.is_split for g in groups):
+                raise ValueError("You have to specify the hemisphere to compute the analysis on.")
+            self.hemispheres = [BrainHemisphere.BOTH]*len(groups)
+        elif isinstance(hemisphere, (str,int,BrainHemisphere)):
+            self.hemispheres = [BrainHemisphere(hemisphere)]*len(groups)
+        assert len(groups) == len(self.hemispheres), "The number of given 'hemisphere' should be the same as the number of groups."
         assert all(group1.is_comparable(g) for g in groups[1:]), "Group 1 and Group 2 are not comparable!\n"+\
                                                                  "Please check that you're reading two groups that normalized "+\
                                                                  "on the same brain regions and on the same marker."
@@ -78,8 +89,9 @@ class PLS:
         animal_list.sort()
         data = pd.DataFrame(index=regions+["group"], columns=animal_list)
 
-        for i,(group,_marker) in enumerate(zip(groups, marker)):
-            selected_data = group.select(regions, fill_nan=True).to_pandas(_marker, missing_as_nan=True)
+        for i,(group,_marker, hemi) in enumerate(zip(groups, marker, self.hemispheres)):
+            selected_data = group.select(regions, fill_nan=True, hemisphere=hemi)\
+                                 .to_pandas(_marker, missing_as_nan=True).loc[hemi]
             selected_data.columns = selected_data.columns.str.cat((str(i),)*selected_data.shape[1], sep="_")
             data.loc[regions,selected_data.columns] = selected_data
             data.loc["group",selected_data.columns] = group.name+"_"+str(i)
@@ -326,6 +338,7 @@ class PLS:
 
 def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
                          selected_regions: list[str], marker: str=None,
+                         hemisphere: BrainHemisphere|tuple[BrainHemisphere,BrainHemisphere]=None,
                          n_bootstrap: int=5000, component: int=1,
                          fill_nan=True, seed=None,
                          test_h0=True, p_value=0.05, n_permutation: int=5000) -> BrainData|dict[str,BrainData]:
@@ -349,6 +362,9 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
     marker
         The marker whose activity has to be studied.\
         If `None`, a separate `PLS` will be computed on each marker in the groups independently.
+    hemisphere
+        The hemisphere to consider for the analysis.\
+        If multiple hemispheres are given, they'll be coupled with the respective `group`.
     n_bootstrap
         The `n` paremeter in [`bootstrap_salience_scores`][braian.stats.PLS.bootstrap_salience_scores].
     component
@@ -369,7 +385,7 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
     markers = group1.markers if marker is None else (marker,)
     salience_scores = dict()
     for m in markers:
-        pls = PLS(selected_regions, group1, group2, marker=m)
+        pls = PLS(selected_regions, group1, group2, marker=m, hemisphere=hemisphere)
         assert 1 <= component < pls.n_components(), f"The 'component' must be between 1 and {pls.n_components()}."
         if test_h0:
             pls.random_permutation(n_permutation, seed=seed)
@@ -383,7 +399,12 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
             v_ = pd.Series(np.nan, index=selected_regions)
             v_[v.index] = v
             v = v_
-        brain_data = BrainData(v, f"{group1.name}+{group2.name}", "pls_salience", "z-score")
+        if len(set(pls.hemispheres)) == 1: # the pls is done on the same hemisphere (or on BOTH)
+            salience_hem = pls.hemispheres[0]
+        else: # the pls is comparing data from different hemispheres -> the salience are on BOTH
+            salience_hem = BrainHemisphere.BOTH
+        brain_data = BrainData(v, name=f"{group1.name}+{group2.name}", metric="pls_salience",
+                               units="z-score", hemisphere=salience_hem)
         if len(markers) == 1:
             return brain_data
         salience_scores[m] = brain_data

@@ -6,14 +6,14 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
-from braian import AtlasOntology, BrainData, BrainSlice,\
+from braian import AtlasOntology, BrainData, BrainHemisphere, BrainSlice,\
                    BrainSliceFileError, \
                    ExcludedAllRegionsError, \
                    ExcludedRegionsNotFoundError, \
                    EmptyResultsError, \
                    NanResultsError, \
                    InvalidResultsError, \
-                   MissingResultsMeasurementError, \
+                   MissingQuantificationError, \
                    InvalidRegionsHemisphereError, \
                    InvalidExcludedRegionsHemisphereError
 from braian.utils import deprecated
@@ -43,7 +43,15 @@ MODE_InvalidRegionsHemisphereError = "print"
 MODE_InvalidExcludedRegionsHemisphereError = "print"
 
 class EmptyBrainError(Exception):
-    pass
+    def __init__(self, context=None):
+        context = f"'{context}': " if context is not None else ""
+        super().__init__(f"{context}Inconsistent hemisphere distinction across sections of the same brain!"+\
+                         +" Some report the data with split regions, while others do not.")
+class InconsistentRegionsSplitError(Exception):
+    def __init__(self, context=None):
+        context = f"'{context}': " if context is not None else ""
+        super().__init__(f"{context}Inconsistent hemisphere distinction across sections of the same brain!"+\
+                         +" Some report the data with split regions, while others do not.")
 
 class SlicedBrain:
     @staticmethod
@@ -127,7 +135,7 @@ class SlicedBrain:
                 # group analysis. Checking against the ontology for each slice would be too time consuming.
                 # We can do it afterwards, after the SlicedBrain is reduced to AnimalBrain
                 slice: BrainSlice = BrainSlice.from_qupath(results_file, ch2marker,
-                                               animal=name, name=image, is_split=True,
+                                               animal=name, name=image,
                                                ontology=brain_ontology, check=check)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
                 slice.exclude(exclude, ontology=brain_ontology,
@@ -145,7 +153,8 @@ class SlicedBrain:
         # markers = all_markers[np.sort(idx)]
         # PRESERVES ORDER: FROM PYTHON 3.7+,
         #                  due to dict implementation details! (i.e. not guaranteed)
-        markers = list(dict.fromkeys((marker for slice in slices for marker in slice.markers_density.columns)))
+        markers = list(dict.fromkeys((marker for slice in slices for marker in slice.markers_density.columns
+                                      if marker not in ("acronym", "hemisphere"))))
         return SlicedBrain(name, slices, markers)
 
 
@@ -167,16 +176,21 @@ class SlicedBrain:
         ------
         EmptyBrainError
             If `slices` is empty.
+        InconsistentRegionsSplitError
+            If some `slices` report the data making a distinction between right and left hemispheres, while others do not.
         """
         self._name = name
         self._slices: tuple[BrainSlice] = tuple(slices)
         if len(self._slices) == 0:
-            raise EmptyBrainError(self._name)
-        self.markers = list(markers)
+            raise EmptyBrainError(context=self._name)
+        self.markers: list[str] = list(markers)
+        """The name of the markers for which the current `SlicedBrain` has data."""
         self._check_same_units()
         self.units = self._slices[0].units.copy()
+        """The units of measurements corresponding to each [`marker`][braian.SlicedBrain.markers] of the current `SlicedBrain`."""
         are_split = np.array([s.is_split for s in self._slices])
-        assert are_split.all() or ~are_split.any(), "Slices from the same animal should either be ALL split between right/left hemisphere or not."
+        if not are_split.all() and are_split.any():
+            raise InconsistentRegionsSplitError(context=self._name)
         self.is_split = are_split[0]
         """Whether the data of the current `SlicedBrain` makes a distinction between right and left hemisphere."""
 
@@ -190,6 +204,14 @@ class SlicedBrain:
         for slice in self._slices:
             slice.animal = value
         self._name = value
+
+    @property
+    def regions(self) -> list[str]:
+        """
+        The list of region acronyms for which the current `SlicedBrain` has data. The given order is arbitrary.
+        If [`SlicedBrain.is_split`][braian.SlicedBrain.is_split], it contains the acronyms of the split brain region only once.
+        """
+        return pd.unique(np.array([r for s in self.slices for r in s.regions]))
 
     @property
     def slices(self) -> tuple[BrainSlice]:
@@ -239,7 +261,7 @@ class SlicedBrain:
                           pd.concat((slice.data["area"], slice.markers_density), axis=1)
                           for slice in self._slices])
 
-    def count(self, brain_ontology: AtlasOntology=None) -> BrainData:
+    def count(self, brain_ontology: AtlasOntology=None) -> BrainData|dict[BrainHemisphere, BrainData]:
         """
         Counts the number of slices that contains data for each brain region.
 
@@ -254,8 +276,16 @@ class SlicedBrain:
             A `BrainData` with the number of slices per region.
         """
         all_slices = self.concat_slices()
-        count = all_slices.groupby(all_slices.index).count().iloc[:,0]
-        return BrainData(count, self._name, "count_slices", "#slices", brain_ontology=brain_ontology, fill_nan=False)
+        count = all_slices.groupby(["acronym", "hemisphere"]).count().iloc[:,0]
+        if self.is_split:
+            return {hem: BrainData(count.xs(hem.value, level="hemisphere"),
+                        self._name, "count_slices", "#slices", hemisphere=hem,
+                        brain_ontology=brain_ontology, fill_nan=False)
+                    for hem in (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)}
+        hem = BrainHemisphere.BOTH
+        return BrainData(count.xs(hem.value, level="hemisphere"),
+                        self._name, "count_slices", "#slices", hemisphere=hem,
+                        brain_ontology=brain_ontology, fill_nan=False)
 
     def merge_hemispheres(self) -> Self:
         """
@@ -278,6 +308,52 @@ class SlicedBrain:
         brain._slices = [brain_slice.merge_hemispheres() for brain_slice in brain._slices]
         brain.is_split = False
         return brain
+
+    def region(self,
+               region: str,
+               *,
+               metric: str,
+               hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+               as_density: bool=False) -> pd.DataFrame:
+        """
+        Extracts all values of a brain region from all [`slices`][braian.SlicedBrain.slices] in the brain.
+        If the brain [is split][braian.SlicedBrain.is_split], the resulting DataFrame
+        may contain two values for the same brain slice.
+
+        Parameters
+        ----------
+        region
+            A brain structure identified by its acronym.
+        metric
+            The metric to extract from the `SlicedBrain`.
+            It can either be `"area"` or any value in [`SlicedBrain.markers`][braian.SlicedBrain.markers].
+        hemisphere
+            The hemisphere of the brain region to extract. If [`BOTH`][braian.BrainHemisphere]
+            and the brain [is split][braian.BrainSlice.is_split], it may return both hemispheric values
+            of the region.
+        as_density
+            If `True`, it retrieves the values as densities (i.e. marker/area).
+
+        Returns
+        -------
+        :
+            A `DataFrame` with:
+
+            * a [`pd.MultiIndex`][pandas.MultiIndex] of _slice_ and _hemisphere_,
+            revealing the name of the slice and the [hemisphere][braian.BrainHemisphere]
+            from which the region data was extracted;
+
+            * a `metric` column, revealing the value for the specified brain region.
+
+            If there is no data for `region`, it returns an empty `DataFrame`.
+        """
+        vals = [(s.name, hem, val)
+                for s in self.slices
+                for val,hem in zip(*s.region(region=region, metric=metric, hemisphere=hemisphere, as_density=as_density, return_hemispheres=True))
+                if region in s.regions]
+        df = pd.DataFrame(vals, columns=("slice", "hemisphere", metric))
+        df.set_index(["slice", "hemisphere"], drop=True, append=False, inplace=True)
+        return df
 
     def _check_same_units(self):
         units = pd.DataFrame([s.units for s in self._slices])
@@ -322,7 +398,7 @@ class SlicedBrain:
                 return "print"
             case InvalidResultsError.__class__:
                 return "print"
-            case MissingResultsMeasurementError.__class__:
+            case MissingQuantificationError.__class__:
                 return "print"
             case InvalidRegionsHemisphereError.__class__:
                 return "print"
