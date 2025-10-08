@@ -173,7 +173,7 @@ def relative_density(brain: AnimalBrain,
     leaf of the ontology.\
     This unique brain-wide normalization is more precise than using the data directly
     available from the `brain`'s root because
-    [2D slice exclusions][braian.BrainSlice.exclude_regions] might have reduced
+    [2D slice exclusions][braian.BrainSlice.exclude] might have reduced
     the data substantially.
 
     If `brain` is split between left and right hemispheres,
@@ -198,7 +198,7 @@ def relative_density(brain: AnimalBrain,
 
     See also
     --------
-    [`BrainSlice.exclude_regions`][braian.BrainSlice.exclude_regions]
+    [`BrainSlice.exclude`][braian.BrainSlice.exclude]
     """
     _enforce_rawdata(brain)
 

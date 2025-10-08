@@ -23,7 +23,7 @@ __all__ = [
     "EmptyResultsError",
     "NanResultsError",
     "InvalidResultsError",
-    "MissingResultsMeasurementError",
+    "MissingQuantificationError",
     "RegionsWithNoCountError",
     "InvalidRegionsHemisphereError",
     "InvalidExcludedRegionsHemisphereError",
@@ -55,12 +55,12 @@ class NanResultsError(BrainSliceFileError):
 class InvalidResultsError(BrainSliceFileError):
     def __str__(self):
         return f"Could not read results file: {self.file_path}"
-class MissingResultsMeasurementError(BrainSliceFileError):
-    def __init__(self, channel, **kargs: object) -> None:
-        self.channel = channel
+class MissingQuantificationError(BrainSliceFileError):
+    def __init__(self, measure=None, **kargs: object) -> None:
+        self.quantification = "a marker" if measure is None else f"'{measure}'"
         super().__init__(**kargs)
     def __str__(self):
-        return f"Measurements missing for channel '{self.channel}' in: {self.file_path}"
+        return f"Quantification missing for {self.quantification} in: {self.file_path}"
 class InvalidRegionsSplitError(Exception):
     def __init__(self, context=None):
         context = f"'{context}': " if context is not None else ""
@@ -210,7 +210,7 @@ class BrainSlice:
             raise ValueError("No support for multiple measurements on the same QuPath channel, even if of the diffent type (e.g. area and detection count).")
         for channel in ch2marker.keys():
             if channel not in unique_channels:
-                raise MissingResultsMeasurementError(file=csv, channel=channel)
+                raise MissingQuantificationError(file=csv, measure=channel)
         measurements = BrainSlice._rename_selected_measurements(all_measurements, ch2marker, data)
         if any(m.type is QuPathMeasurementType.CELL_COUNT for m in measurements):
             if data["Num Detections"].count() == 0:
@@ -314,9 +314,15 @@ class BrainSlice:
     @staticmethod
     def _check_columns(data: pd.DataFrame, columns: Iterable[str],
                         csv_file: str|Path) -> bool:
+        """
+        Raises
+        ------
+        MissingResultsMeasurementError
+            When `data` misses at least column in `columns`
+        """
         for column in columns:
             if column not in data.columns:
-                raise MissingResultsMeasurementError(file=csv_file, channel=column)
+                raise MissingQuantificationError(file=csv_file, measure=column)
         return True
 
     @staticmethod
@@ -429,23 +435,29 @@ class BrainSlice:
         self.atlas = str(ontology) if isinstance(ontology, str) else ontology.name # AtlasOntology
         """The name of the brain atlas used to align the section. If None, it means that the cell-segmented data didn't specify it."""
         BrainSlice._check_columns(self.data, ("acronym", "hemisphere", "area"), self.name)
-        assert self.data.shape[1] >= 4, "'data' should have at least one column, apart from 'acronym', 'hemisphere' and 'area', containing per-region data"
+        if self.data.shape[1] < 4:
+            raise MissingQuantificationError(file=self.name)
         hemispheres = self.data["hemisphere"].unique()
         hemispheres = {BrainHemisphere(v) for v in hemispheres} # if not hemispheres.issubset(BrainHemisphere), it already raises an error
         if len(hemispheres) > 2 or (len(hemispheres) == 2 and BrainHemisphere.BOTH in hemispheres):
             raise InvalidRegionsSplitError(context=self.name)
-        self.is_split: bool = len(hemispheres) == 2
+        self.is_split: bool = len(hemispheres) == 2 or BrainHemisphere.BOTH not in hemispheres
         """Whether the data of the current `BrainSlice` make a distinction between right and left hemisphere."""
-        for column, unit in units.items():
+        for column in self.data.columns:
+            if column in ("acronym", "hemisphere"):
+                continue
+            if column not in units:
+                raise ValueError(f"Missing unit of measurement for '{column}'")
+            unit = units[column]
             if column == unit: # it's a cell count
                 continue
             match unit:
                 case "µm2" | "um2" | "um^2" | "µm^2" | "um²" | "µm²" :
                     self._µm2_to_mm2(column)
-                case "mm2" | "mm²":
+                case "mm2" | "mm^2" | "mm²":
                     pass
                 case _:
-                    raise ValueError(f"Unknown unit of measurement '{unit}' for '{column}'!")
+                    raise ValueError(f"Unknown unit of measurement '{unit}' for '{column}'")
             units[column] = "mm²"
         self.units: dict[str,str] = units.copy()
         """The units of measurements corresponding to each [`marker`][braian.BrainSlice.markers] of the current `BrainSlice`."""
@@ -625,27 +637,43 @@ class BrainSlice:
                           animal=self.animal, name=self.name,
                           ontology=self.atlas, check=False)
 
-    def region(self, acronym: str, metric: str, as_density: bool=False) -> Sequence:
+    def region(self,
+               region: str,
+               *,
+               metric: str,
+               hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+               as_density: bool=False,
+               return_hemispheres: bool=False,
+               ) -> Sequence[int|float]|tuple[Sequence[int|float],Sequence[BrainHemisphere]]:
         """
-        Extract the values of a brain region from the current `BrainSlice`.
+        Extract the values of a brain region from a `BrainSlice`.
 
         Parameters
         ----------
-        acronym
-            The acronym of a brain region.
+        region
+            A brain structure identified by its acronym.
         metric
-            The metric to extract from the current `SlicedBrain`.
-            It can either be `"area"` or any value in [`SlicedBrain.markers`][braian.SlicedBrain.markers].
+            The metric to extract from the `BrainSlice`.
+            It can either be `"area"` or any value in [`BrainSlice.markers`][braian.BrainSlice.markers].
+        hemisphere
+            The hemisphere of the brain region to extract. If [`BOTH`][braian.BrainHemisphere]
+            and the brain [is split][braian.BrainSlice.is_split], it may return both hemispheric values
+            of the region.
         as_density
-            If `True`, it retrieves the values as densities instead (i.e. marker/area).
+            If `True`, it retrieves the values as densities (i.e. marker/area).
 
         Returns
         -------
-        :
-            If the current `BrainSlice` is not split between right and left hemisphers, it returns a sequence of length 1.
+        : Sequence[int|float]
+            If the `BrainSlice` is not split between right and left hemisphers, it returns a sequence of length 1.\\
             Else, it returns a sequence of length 2.
 
-            If there is no value of `region`, it returns an empty sequence.
+            If there is no data for `region`, it returns an empty sequence.
+
+        : Sequence[BrainHemisphere]
+            _optional_
+
+            The corresponding [hemispheres's values][braian.BrainHemisphere]. Only provided if return_hemispheres is True.
 
         Raises
         ------
@@ -658,5 +686,13 @@ class BrainSlice:
             raise ValueError(f"Invalid metric: '{metric}'. Valid metrics are: {['area', *self.markers]}")
         if metric == "area" and as_density:
             raise ValueError("Cannot request to retrieve values as densities when metric='area'. Choose a metric within the available markers.")
+        if self.is_split and hemisphere is BrainHemisphere.BOTH:
+            hems = (BrainHemisphere.RIGHT.value, BrainHemisphere.LEFT.value)
+        else:
+            hems = (hemisphere.value,)
         df = self.markers_density if as_density else self.data
-        return np.array(df[df["acronym"] == acronym][metric].values)
+        filtered = df[(df["acronym"] == region) & (df["hemisphere"].isin(hems))]
+        if return_hemispheres:
+            return np.array(filtered[metric].values), np.array(filtered["hemisphere"].values)
+        else:
+            return np.array(filtered[metric].values)

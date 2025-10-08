@@ -13,7 +13,7 @@ from braian import AtlasOntology, BrainData, BrainHemisphere, BrainSlice,\
                    EmptyResultsError, \
                    NanResultsError, \
                    InvalidResultsError, \
-                   MissingResultsMeasurementError, \
+                   MissingQuantificationError, \
                    InvalidRegionsHemisphereError, \
                    InvalidExcludedRegionsHemisphereError
 from braian.utils import deprecated
@@ -189,9 +189,8 @@ class SlicedBrain:
         self.units = self._slices[0].units.copy()
         """The units of measurements corresponding to each [`marker`][braian.SlicedBrain.markers] of the current `SlicedBrain`."""
         are_split = np.array([s.is_split for s in self._slices])
-        if not are_split.all() and not ~are_split.any():
+        if not are_split.all() and are_split.any():
             raise InconsistentRegionsSplitError(context=self._name)
-        assert are_split.all() or ~are_split.any(), "Slices from the same animal should either be ALL split between right/left hemisphere or not."
         self.is_split = are_split[0]
         """Whether the data of the current `SlicedBrain` makes a distinction between right and left hemisphere."""
 
@@ -287,34 +286,51 @@ class SlicedBrain:
         brain.is_split = False
         return brain
 
-    def region(self, acronym: str, metric: str, as_density: bool=False) -> pd.DataFrame:
+    def region(self,
+               region: str,
+               *,
+               metric: str,
+               hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+               as_density: bool=False) -> pd.DataFrame:
         """
-        Extracts all data of a brain region from all [`slices`][braian.SlicedBrain.slices] in the current brain.
-        If [`SlicedBrain.is_split`][braian.SlicedBrain.is_split], the resulting DataFrame
-        may contain two values for the same brain region.
+        Extracts all values of a brain region from all [`slices`][braian.SlicedBrain.slices] in the brain.
+        If the brain [is split][braian.SlicedBrain.is_split], the resulting DataFrame
+        may contain two values for the same brain slice.
 
         Parameters
         ----------
-        acronym
-            The acronym of a brain region.
+        region
+            A brain structure identified by its acronym.
         metric
-            The metric to extract from the current `SlicedBrain`.
+            The metric to extract from the `SlicedBrain`.
             It can either be `"area"` or any value in [`SlicedBrain.markers`][braian.SlicedBrain.markers].
+        hemisphere
+            The hemisphere of the brain region to extract. If [`BOTH`][braian.BrainHemisphere]
+            and the brain [is split][braian.BrainSlice.is_split], it may return both hemispheric values
+            of the region.
         as_density
-            If `True`, it retrieves the values as densities instead (i.e. marker/area).
+            If `True`, it retrieves the values as densities (i.e. marker/area).
 
         Returns
         -------
         :
-            A `DataFrame` with two columns, named:
-            * _slice_, revealing the name of the slice from which the region data was extracted;
-            * `metric`, revealing the value for the specified brain region.
+            A `DataFrame` with:
+
+            * a [`pd.MultiIndex`][pandas.MultiIndex] of _slice_ and _hemisphere_,
+            revealing the name of the slice and the [hemisphere][braian.BrainHemisphere]
+            from which the region data was extracted;
+
+            * a `metric` column, revealing the value for the specified brain region.
+
+            If there is no data for `region`, it returns an empty `DataFrame`.
         """
-        vals = [(s.name, val)
+        vals = [(s.name, hem, val)
                 for s in self.slices
-                for val in s.region(acronym=acronym, metric=metric, as_density=as_density)
-                if acronym in s.regions]
-        return pd.DataFrame(vals, columns=("slice", metric))
+                for val,hem in zip(*s.region(region=region, metric=metric, hemisphere=hemisphere, as_density=as_density, return_hemispheres=True))
+                if region in s.regions]
+        df = pd.DataFrame(vals, columns=("slice", "hemisphere", metric))
+        df.set_index(["slice", "hemisphere"], drop=True, append=False, inplace=True)
+        return df
 
     def _check_same_units(self):
         units = pd.DataFrame([s.units for s in self._slices])
@@ -359,7 +375,7 @@ class SlicedBrain:
                 return "print"
             case InvalidResultsError.__class__:
                 return "print"
-            case MissingResultsMeasurementError.__class__:
+            case MissingQuantificationError.__class__:
                 return "print"
             case InvalidRegionsHemisphereError.__class__:
                 return "print"

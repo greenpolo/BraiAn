@@ -719,6 +719,16 @@ class SlicedGroup:
         return self._animals
 
     @property
+    def is_split(self) -> bool:
+        """Whether the data of the current `SlicedGroup` makes a distinction between right and left hemisphere."""
+        return self._animals[0].is_split
+
+    @property
+    def markers(self) -> npt.NDArray[np.str_]:
+        """The name of the markers for which the current `SlicedGroup` has data."""
+        return np.asarray(self._animals[0].markers)
+
+    @property
     def n(self) -> int:
         """The size of the sliced group."""
         return len(self._animals)
@@ -731,6 +741,58 @@ class SlicedGroup:
             The names of the animals part of the current sliced group.
         """
         return [brain.name for brain in self._animals]
+
+    def region(self,
+               region: str,
+               *,
+               metric: str,
+               hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+               as_density: bool=False) -> pd.DataFrame:
+        """
+        Extracts all values of a brain region from all [`slices`][braian.SlicedBrain.slices] in the group.
+        If the group [is split][braian.SlicedGroup.is_split], the resulting DataFrame
+        may contain two values for the same brain slice.
+
+        Parameters
+        ----------
+        region
+            A brain structure identified by its acronym.
+        metric
+            The metric to extract from the `SlicedGroup`.
+            It can either be `"area"` or any value in [`SlicedGroup.markers`][braian.SlicedGroup.markers].
+        hemisphere
+            The hemisphere of the brain region to extract. If [`BOTH`][braian.BrainHemisphere]
+            and the group [is split][braian.SlicedGroup.is_split], it may return both hemispheric values
+            of the region.
+        as_density
+            If `True`, it retrieves the values as densities (i.e. marker/area).
+
+        Returns
+        -------
+        :
+            A `DataFrame` with:
+
+            * a [`pd.MultiIndex`][pandas.MultiIndex] of _brain_, _slice_ and _hemisphere_,
+            revealing the brain, the name of the slice and the [hemisphere][braian.BrainHemisphere]
+            from which the region data was extracted;
+
+            * a `metric` column, revealing the value for the specified brain region.
+
+            If there is no data for `region`, it returns an empty `DataFrame`.
+        """
+        region_marker_ = {b.name: b.region(region, hemisphere=hemisphere,
+                                              metric=metric, as_density=as_density)
+                             for b in self._animals}
+        region_marker = {name: data for (name,data) in region_marker_.items() if len(data) != 0}
+        if len(region_marker) == 0:
+            assert self.n > 0, "SlicedGroups should have at least one animal"
+            region_marker = next(iter(region_marker_.values()))
+            return pd.DataFrame(
+                index=pd.MultiIndex.from_tuples([], names=("brain", *region_marker.index.names)),
+                columns=[metric])
+        region_marker = pd.concat(region_marker) # fails if region_marker is empty
+        region_marker.index.names = ["brain", *region_marker.index.names[1:]]
+        return region_marker
 
     def to_group(self, metric: SliceMetrics,
                  min_slices: int, densities: bool,

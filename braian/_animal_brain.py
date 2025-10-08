@@ -303,13 +303,13 @@ class AnimalBrain:
 
         Parameters
         ----------
-        marker
+        key
             The marker to extract the data for.
 
         Returns
         -------
         :
-            The data associated to `marker`.
+            The data associated to maker `key`.
         """
         if isinstance(key,str):
             if self.is_split:
