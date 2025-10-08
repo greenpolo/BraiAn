@@ -64,9 +64,16 @@ class Experiment:
         """The groups making up the current experiment."""
         return self._groups
 
+    def __iter__(self) -> Iterable[AnimalGroup]:
+        return iter(self._groups)
+
+    def __len__(self) -> int:
+        return len(self._groups)
+
     def __getattr__(self, name: str) -> AnimalGroup:
         """
-        Get a specific group in the current experiment by accessing it with an attribute named like the name of the group.
+        Get a specific group in the experiment by accessing it with an
+        attribute named like the name of the group.
 
         Parameters
         ----------
@@ -81,12 +88,56 @@ class Experiment:
         Raises
         ------
         AttributeError
-            If no group with `name` was found in the current experiment.
+            If no group with `name` was found in the experiment.
         """
         for g in self._groups:
             if g.name.lower() == name.lower():
                 return g
-        raise AttributeError(f"Uknown group named '{name.lower()}'")
+        raise AttributeError(f"Unknown group named '{name.lower()}'")
+
+    def __contains__(self, animal_name: str) -> bool:
+        """
+        Parameters
+        ----------
+        animal_name
+            The name of an animal.
+
+        Returns
+        -------
+        :
+            True, if the experiment contains an animal with `animal_name`.
+            False, otherwise.
+        """
+        return any(animal_name in group for group in self._groups)
+
+    def __getitem__(self, animal_name: str) -> AnimalBrain:
+        """
+
+        Parameters
+        ----------
+        animal_name
+            The name of a `AnimalBrain` of the sliced experiment.
+
+        Returns
+        -------
+        :
+            The corresponding `AnimalBrain` in the experiment.
+
+        Raises
+        ------
+        TypeError
+            If `animal_name` is not a string.
+        KeyError
+            If no brain named `animal_name` was found in the experiment.
+        """
+        if not isinstance(animal_name, str):
+            raise TypeError("Experiment's animals are identified by strings")
+        for group in self._groups:
+            try:
+                return group[animal_name]
+            except KeyError:
+                pass
+        raise KeyError(f"{animal_name}")
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
@@ -147,9 +198,15 @@ class SlicedExperiment:
         """The groups making up the current sliced experiment."""
         return self._groups
 
+    def __iter__(self) -> Iterable[AnimalGroup]:
+        return iter(self._groups)
+
+    def __len__(self) -> int:
+        return len(self._groups)
+
     def __getattr__(self, name: str) -> Any:
         """
-        Get a specific group in the current sliced experiment by accessing it with an attribute named like the name of the group.
+        Get a specific group in the sliced experiment by accessing it with an attribute named like the name of the group.
 
         Parameters
         ----------
@@ -215,9 +272,10 @@ class SlicedExperiment:
         Returns
         -------
         :
-            True, if current experiment contains an animal with `animal_name`. False otherwise.
+            True, if the experiment contains an animal with `animal_name`.
+            False, otherwise.
         """
-        return any(brain.name == animal_name for group in self.groups for brain in group.animals)
+        return any(animal_name in group for group in self._groups)
 
     def __getitem__(self, animal_name: str) -> SlicedBrain:
         """
@@ -225,23 +283,25 @@ class SlicedExperiment:
         Parameters
         ----------
         animal_name
-            The name of an animal part of the experiment.
+            The name of a `SlicedBrain` of the sliced experiment.
 
         Returns
         -------
         :
-            The corresponding `AnimalBrain` in the current experiment.
+            The corresponding `SlicedBrain` in the experiment.
 
         Raises
         ------
         TypeError
             If `animal_name` is not a string.
         KeyError
-            If no brain with `animal_name` was found in the experiment.
+            If no brain named `animal_name` was found in the sliced experiment.
         """
         if not isinstance(animal_name, str):
-            raise TypeError("SlicedExperiment animals are identified by strings")
-        try:
-            return next(brain for group in self.groups for brain in group.animals if brain.name == animal_name)
-        except StopIteration:
-            raise KeyError(f"'{animal_name}'")
+            raise TypeError("SlicedExperiment's animals are identified by strings")
+        for group in self._groups:
+            try:
+                return group[animal_name]
+            except KeyError:
+                pass
+        raise KeyError(f"{animal_name}")

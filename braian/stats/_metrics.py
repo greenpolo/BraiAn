@@ -323,9 +323,12 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
+    doublepos = None
     try:
         doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration:
+        pass
+    if not doublepos:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     overlaps = dict()
     for m in (marker1, marker2):
@@ -377,9 +380,12 @@ def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> Ani
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
+    doublepos = None
     try:
         doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration:
+        pass
+    if not doublepos:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     hemidata = set()
     for hemi in brain.hemispheres:
@@ -434,9 +440,12 @@ def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> 
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
+    doublepos = None
     try:
         doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration:
+        pass
+    if not doublepos:
         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
     hemidata = set()
     for sizes in brain.hemisizes:
@@ -491,10 +500,13 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
+    doublepos = None
     try:
         doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
     except StopIteration:
-        raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
+        pass
+    if not doublepos:
+        raise ValueError(f"No double positive data available for '{marker1}' and '{marker2}'. Are you sure you ran the QuPath script correctly?")
     hemidata = set()
     for hemi in brain.hemispheres:
         marker1_data = brain[marker1,hemi]
