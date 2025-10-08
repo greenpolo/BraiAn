@@ -117,7 +117,7 @@ class AtlasOntology:
                  blacklisted: Iterable[str]=[],
                  unreferenced: bool=False):
         """
-        Crates an ontology of the structures as defined by the corresponding
+        Creates an ontology of the brain structures as defined by the corresponding
         [BrainGlobe](https://brainglobe.info/documentation/brainglobe-atlasapi) atlas.
 
         This is the basic module for any whole-brain analysis.
