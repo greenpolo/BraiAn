@@ -114,11 +114,11 @@ def sort_by_ontology(regions: Iterable|pd.DataFrame|pd.Series,
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
     @staticmethod
     def reduce(first: Self, *others: Self,
-              op: Callable[[pd.DataFrame],pd.Series]=pd.DataFrame.mean,
-              name: str=None, op_name: str=None,
-              same_units: bool=True,
-              same_hemisphere: bool=True,
-              **kwargs) -> Self:
+               op: Callable[[pd.DataFrame],pd.Series]=pd.DataFrame.mean,
+               name: str=None, op_name: str=None,
+               same_units: bool=True,
+               same_hemisphere: bool=True,
+               **kwargs) -> Self:
         """
         Reduces two (or more) `BrainData` into a single one based on a given function.\\
         It fails if the given data don't all have the same metric.
@@ -147,15 +147,25 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         -------
         :
             A new `BrainData` result of the reduction of all the given data.
+
+        Raises
+        ------
+        ValueError
+            If at least one of the `BrainData` has a different
+            [metric][braian.BrainData.metric], [units][braian.BrainData.units] or
+            [hemisphere][braian.BrainData.hemisphere] from the others, and
+            `same_units` or `same_hemisphere` are `True, respectively.
         """
-        assert all([first.metric == other.metric for other in others]),\
-            f"Merging must be done between BrainData of the same metric, instead got {[first.metric, *[other.metric for other in others]]}!"
-        if same_units:
-            assert all([first.units == other.units for other in others]),\
-                f"Merging must be done between BrainData of the same units, {[first.units, *[other.units for other in others]]}!"
+        if not all([first.metric == other.metric for other in others]):
+            msg = f"Merging must be done between BrainData of the same metric, instead got {[first.metric, *[other.metric for other in others]]}!"
+            raise ValueError(msg)
+        if same_units and not all([first.units == other.units for other in others]):
+            msg = f"Merging must be done between BrainData of the same units, {[first.units, *[other.units for other in others]]}!"
+            raise ValueError(msg)
         if same_hemisphere:
-            assert all([first.hemisphere == other.hemisphere for other in others]),\
-                f"Merging must be done between BrainData of the same hemisphere, {[first.hemisphere, *[other.hemisphere for other in others]]}!"
+            if not all([first.hemisphere == other.hemisphere for other in others]):
+                msg = f"Merging must be done between BrainData of the same hemisphere, {[first.hemisphere, *[other.hemisphere for other in others]]}!"
+                raise ValueError(msg)
             hemisphere = first.hemisphere
         else:
             hemisphere = BrainHemisphere.BOTH

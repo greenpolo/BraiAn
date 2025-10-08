@@ -182,34 +182,75 @@ class AnimalGroup:
     def _update_mean(self) -> dict[str, tuple[BrainData]|tuple[BrainData,BrainData]]:
         # NOTE: skipna=True does not work with FloatingArrays (what BrainData uses)
         #       https://github.com/pandas-dev/pandas/issues/59965
-        return {marker: tuple(
-                    BrainData.mean(*[brain[marker,hemi] for brain in self._animals], name=self.name, skipna=True)
-                    for hemi in self.hemispheres
-                ) for marker in self.markers}
+        #       braindata regions with np.nan values resulting from a computation (e.g division by zero)
+        #       'corrupt' the whole result into becoming a pd.NA (not a np.nan).
+        return {marker:
+            tuple(BrainData.mean(*[brain[marker,hemi] for brain in self._animals],
+                                 name=self.name, skipna=True)
+                  for hemi in self.hemispheres)
+            for marker in self.markers}
 
-    def reduce(self, op: Callable[[pd.DataFrame], pd.Series], **kwargs) -> dict[str, BrainData]:
+    def reduce(self,
+               op: Callable[[pd.DataFrame], pd.Series],
+               op_name: str=None,
+               same_units: bool=True,
+               same_hemisphere: bool=True,
+               **kwargs) -> dict[str, BrainData]:
         """
-        Applies a reduction to all animals of the group, for each region
+        Applies a reduction on each brain structure, between all the brains in the group,
         and for each marker.
+
+        If `op` is [`pd.DataFrame.mean`][pandas.DataFrame.mean], it is equivalent to
+        [`mean`][`braian.AnimalGroup.mean`] and [`hemimean`][`braian.AnimalGroup.hemimean`].
 
         Parameters
         ----------
         op
             A function that maps a `DataFrame` into a `Series`. It must include an `axis` parameter.
+        op_name
+            The name of the reduction function. If not specified, it uses `op` name.
+        same_units
+            Whether it should enforce the same units of measurement for all `BrainData`.
+        same_hemisphere
+            Whether it should enforce the same hemisphere for all `BrainData`.
         **kwargs
-            Other keyword arguments are passed to [`BrainData.reduce`][braian.BrainData.reduce].
+            Other keyword arguments are passed to `op`.
 
         Returns
         -------
         :
             Brain data for each marker of the group, result of the the folding.
+
+        Example
+        -------
+        >>> import braian.config
+        >>> import pandas as pd
+        >>> config = braian.config.BraiAnConfig("../config_example.yml")
+        >>> g = config.experiment_from_csv().groups[0]
+        >>> reduction = g.reduce(pd.DataFrame.mean, skipna=True)
+        >>> [(hemiredux.data == hemimean.data).all()
+        >>>  for marker in g.markers
+        >>>  for hemiredux,hemimean in zip(reduction[marker],g.hemimean[marker])]
+        [np.True_, np.True_, np.True_, np.True_, np.True_, np.True_]
+        >>> gm = g.merge_hemispheres()
+        >>> reduction = gm.reduce(pd.DataFrame.mean, skipna=True)
+        >>> [(reduction[marker].data == gm.mean[marker].data).all()
+        >>>  for marker in gm.markers]
+        [np.True_, np.True_, np.True_]
         """
         if self.is_split:
-            raise NotImplementedError()
-        return {marker: BrainData.reduce(
-                            *[brain[marker] for brain in self._animals],
-                            op=op, name=self.name, **kwargs
-                            ) for marker in self.markers}
+            return {marker:
+                tuple(BrainData.reduce(*[brain[marker,hemi] for brain in self._animals],
+                                        name=self.name, op=op, op_name=op_name,
+                                        same_units=same_units, same_hemisphere=same_hemisphere,
+                                        **kwargs)
+                      for hemi in self.hemispheres)
+                for marker in self.markers}
+        return {marker: BrainData.reduce(*[brain[marker] for brain in self._animals],
+                                         name=self.name, op=op, op_name=op_name,
+                                         same_units=same_units, same_hemisphere=same_hemisphere,
+                                         **kwargs)
+                for marker in self.markers}
 
     def is_comparable(self, other: Self) -> bool:
         """
