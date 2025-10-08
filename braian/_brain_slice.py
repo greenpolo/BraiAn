@@ -534,7 +534,7 @@ class BrainSlice:
             exclude completely the quantifications in all the ancestor regions.\
             This might be useful when cortical layer 1 is expected to have _few_
             quantifications (e.g. not many detected neurons). In this case, one might
-            prefer not to discard the data for the whole cortical regions in case of of
+            prefer not to discard the data for the whole cortical regions in case of
             mis-alignments of layer 1 to the atlas. Especially so if layer 1 quantifications
             don't have lots of impact on the quantifications in the cortical regions.\
             NOTE: this option is currently available only for `allen_mouse` atlases.

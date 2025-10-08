@@ -118,7 +118,6 @@ class AllenBrainOntology:
         ValueError
             If any of the `blacklisted_acronyms` is not found in the ontology.
         """
-        # TODO: we should probably specify the size (10nm, 25nm, 50nm) to which the data was registered
         if isinstance(allen_json, (str, Path)):
             with open(allen_json, "r") as file:
                 allen_data = json.load(file)

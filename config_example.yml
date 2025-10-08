@@ -25,10 +25,10 @@ qupath:
       results-subdir: "results"
       exclusions-subdir: "regions_to_exclude"
     suffix:
-      results: "_regions.tsv"
+      results: "_regions.txt"
       exclusions: "_regions_to_exclude.txt"
     markers:
       AF568: "cFos"
       AF647: "Arc"
-  exclude-layer1-ancestors: false
+  exclude-ancestors-layer1: false
   min-slices: 0
