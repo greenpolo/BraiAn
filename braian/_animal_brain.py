@@ -567,7 +567,9 @@ class AnimalBrain:
 
     def to_pandas(self, marker: str=None, units: bool=False,
                   missing_as_nan: bool=False,
-                  legacy: bool=False) -> pd.DataFrame:
+                  legacy: bool=False,
+                  hemisphere_as_value: bool=False,
+                  hemisphere_as_str: bool=False) -> pd.DataFrame:
         """
         Converts the current `AnimalBrain` to a DataFrame. T
 
@@ -582,6 +584,10 @@ class AnimalBrain:
             Note that if the corresponding brain data is integer-based, it converts them to float.
         legacy
             If True, it distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+        hemisphere_as_value
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding value (i.e. 0, 1 or 2)
+        hemisphere_as_str
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "both", "left", "right")
 
         Returns
         -------
@@ -601,7 +607,11 @@ class AnimalBrain:
             index = functools.reduce(lambda i1,i2: i1.union(i2, sort=False), map(_to_legacy_index, self._sizes))
         else:
             hemiregions = self.hemiregions
-            hemiregions = [(hemi,region) for hemi in hemiregions for region in hemiregions[hemi]]
+            hemiregions = [(hemi.name.lower() if hemisphere_as_str else
+                            hemi.value if hemisphere_as_value else
+                            hemi,region)
+                           for hemi in hemiregions
+                           for region in hemiregions[hemi]]
             index = pd.MultiIndex.from_tuples(hemiregions, names=("hemisphere","acronym"))
         hemisizes = pd.concat((bd.data for bd in hemisizes))
         hemisizes.index = index

@@ -386,8 +386,11 @@ class AnimalGroup:
         :
             A group with the data of each animal changed accordingly to `f`.
         """
-        # NOTE: hemisphere distinction is useless if we call f() now.
-        animals = [f(a) for a in self._animals]
+        if self.is_split and not hemisphere_distinction:
+            merge = AnimalBrain.merge_hemispheres
+        else:
+            merge = lambda b: b  # noqa: E731
+        animals = [f(merge(a)) for a in self._animals]
         return AnimalGroup(name=self.name,
                            animals=animals,
                            hemisphere_distinction=hemisphere_distinction,
@@ -472,7 +475,9 @@ class AnimalGroup:
 
     def to_pandas(self, marker: str=None, units: bool=False,
                   missing_as_nan: bool=False,
-                  legacy: bool=False) -> pd.DataFrame:
+                  legacy: bool=False,
+                  hemisphere_as_value: bool=False,
+                  hemisphere_as_str: bool=False) -> pd.DataFrame:
         """
         Constructs a `DataFrame` with data from the current group.
 
@@ -488,6 +493,10 @@ class AnimalGroup:
             Note that if the corresponding brain data is integer-based, it converts them to float.
         legacy
             If True, it distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+        hemisphere_as_value
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding value (i.e. 0, 1 or 2)
+        hemisphere_as_str
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "both", "left", "right")
 
         Returns
         -------
@@ -503,7 +512,9 @@ class AnimalGroup:
         """
         if marker is None:
             df = pd.concat(
-                {brain.name: brain.to_pandas(marker=None, units=units, missing_as_nan=missing_as_nan, legacy=legacy)
+                {brain.name: brain.to_pandas(marker=None, units=units, missing_as_nan=missing_as_nan,
+                                             legacy=legacy, hemisphere_as_value=hemisphere_as_value,
+                                             hemisphere_as_str=hemisphere_as_str)
                  for brain in self._animals},
                 join="outer", axis=0)
             hemiregions = self.hemiregions
@@ -516,12 +527,19 @@ class AnimalGroup:
                     hemiregions = self.regions
                 index_sorted = pd.MultiIndex.from_product((hemiregions, self.get_animals()))
             else:
-                index_tupled = [(hemi,region,animal) for hemi in hemiregions for region in hemiregions[hemi] for animal in self.get_animals()]
+                index_tupled = [(hemi.name.lower() if hemisphere_as_str else
+                                 hemi.value if hemisphere_as_value else
+                                 hemi,region,animal)
+                                for hemi in hemiregions
+                                for region in hemiregions[hemi]
+                                for animal in self.get_animals()]
                 index_sorted = pd.MultiIndex.from_tuples(index_tupled, names=("hemisphere","acronym","animal"))
             df = df.reorder_levels((1,0) if legacy else (1,2,0), axis=0).reindex(index_sorted)
         else:
             df = pd.concat(
-                {brain.name: brain.to_pandas(marker=marker, units=False, missing_as_nan=missing_as_nan, legacy=legacy)
+                {brain.name: brain.to_pandas(marker=marker, units=False, missing_as_nan=missing_as_nan,
+                                             legacy=legacy, hemisphere_as_value=hemisphere_as_value,
+                                             hemisphere_as_str=hemisphere_as_str)
                  for brain in self._animals},
                 join="outer", axis=1)
             df = df.xs(marker, level=1, axis=1)
@@ -558,11 +576,10 @@ class AnimalGroup:
         --------
         [`from_csv`][braian.AnimalGroup.from_csv]
         """
-        df = self.to_pandas(units=True, legacy=legacy)
+        df = self.to_pandas(units=True, legacy=legacy, hemisphere_as_str=True)
         if legacy:
             labels = (df.columns.name, None)
         if not legacy:
-            df.index = df.index.map(lambda i: (i[0].name.lower(), *i[1:]))
             labels = (df.columns.name, None, None)
 
         file_name = f"{self.name}_{self.metric}.csv"
