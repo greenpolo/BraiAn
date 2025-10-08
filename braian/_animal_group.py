@@ -201,7 +201,7 @@ class AnimalGroup:
         and for each marker.
 
         If `op` is [`pd.DataFrame.mean`][pandas.DataFrame.mean], it is equivalent to
-        [`mean`][`braian.AnimalGroup.mean`] and [`hemimean`][`braian.AnimalGroup.hemimean`].
+        [`mean`][braian.AnimalGroup.mean] and [`hemimean`][braian.AnimalGroup.hemimean].
 
         Parameters
         ----------
@@ -221,8 +221,8 @@ class AnimalGroup:
         :
             Brain data for each marker of the group, result of the the folding.
 
-        Example
-        -------
+        Examples
+        --------
         >>> import braian.config
         >>> import pandas as pd
         >>> config = braian.config.BraiAnConfig("../config_example.yml")
@@ -232,6 +232,7 @@ class AnimalGroup:
         >>>  for marker in g.markers
         >>>  for hemiredux,hemimean in zip(reduction[marker],g.hemimean[marker])]
         [np.True_, np.True_, np.True_, np.True_, np.True_, np.True_]
+
         >>> gm = g.merge_hemispheres()
         >>> reduction = gm.reduce(pd.DataFrame.mean, skipna=True)
         >>> [(reduction[marker].data == gm.mean[marker].data).all()

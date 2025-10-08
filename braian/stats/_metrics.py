@@ -1,4 +1,5 @@
 import enum
+import pandas as pd
 
 from collections.abc import Callable
 
@@ -578,12 +579,24 @@ def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> Animal
     diff = {f"{marker1}+{marker2}": tuple(hemidata)}
     return AnimalBrain(markers_data=diff, sizes=brain.sizes, raw=False)
 
+def _marker_correlation(marker1_df: pd.DataFrame, marker2_df: pd.DataFrame,
+                        *,
+                        marker1: str, marker2: str,
+                        name: str, metric: str, hem: BrainHemisphere,
+                        method: str):
+    corr = marker1_df.corrwith(marker2_df, method=method, axis=1)
+    return BrainData(data=corr,
+                     name=name,
+                     metric=str(metric)+f"-corr (n={marker2_df.shape[1]})",
+                     units=f"corr({marker1}, {marker2})",
+                     hemisphere=hem)
+
 def markers_correlation(marker1: str, marker2: str,
                         group: AnimalGroup, other: AnimalGroup=None,
-                        method: str="pearson") -> BrainData:
+                        method: str="pearson") -> BrainData | tuple[BrainData,BrainData]:
     """
-    For each brain region in `group`, compute the correlation between two markers
-    within all animals in the cohort.
+    For each brain region, it computes the correlation between two markers
+    within all brains.
 
     Parameters
     ----------
@@ -594,19 +607,41 @@ def markers_correlation(marker1: str, marker2: str,
     group
         The group from which all animals are taken to compute the correlation.
     other
-        If specified, it uses data from `other`'s `marker2`.
+        _optional_
+
+        If specified, for `marker2` it uses `other`'s data. It must have
+        the same brains as `group`.
     method
         Any method accepted by [`DataFrame.corrwith`][pandas.DataFrame.corrwith].
 
     Returns
     -------
-    :
-        Brain data of the correlation between `marker1` and `marker2`.
+    : BrainData
+        If the groups are not [split][braian.AnimalGroup.is_split].\\
+        The returned `BrainData`s have the same [`data_name`][braian.BrainData.data_name] as `group`'s
+        [`name`][braian.AnimalGroup.name], and [`units`][braian.BrainData.units]`="corr(<marker1>, <marker2>)"`.
+    : tuple[BrainData,BrainData]
+        If the groups are [split][braian.AnimalGroup.is_split].
     """
-    raise NotImplementedError()
     if other is None:
         other = group
     else:
         assert group.metric == other.metric, "Both groups must have the same metric."
-    corr = group.to_pandas(marker1, missing_as_nan=True).corrwith(other.to_pandas(marker2, missing_as_nan=True), method=method, axis=1)
-    return BrainData(corr, group.name, str(group.metric)+f"-corr (n={group.n})", f"corr({marker1}, {marker2})")
+    assert set(group.animals) == set(other.animals), "Both groups must have the same brains."
+    assert group.is_split == other.is_split and all(group.hemispheres == other.hemispheres),\
+        "Both groups must have data for the same hemispheres."
+    marker1_df = group.to_pandas(marker1, missing_as_nan=True, hemisphere_as_value=True)
+    marker2_df = other.to_pandas(marker2, missing_as_nan=True, hemisphere_as_value=True)
+    if group.is_split:
+        return tuple(
+            _marker_correlation(marker1_df.loc[hem.value], marker2_df.loc[hem.value],
+                                marker1=marker1, marker2=marker2,
+                                name=group.name, metric=group.metric,
+                                hem=hem, method=method)
+            for hem in group.hemispheres
+        )
+    hem: BrainHemisphere = group.hemispheres[0]
+    return _marker_correlation(marker1_df.loc[hem.value], marker2_df.loc[hem.value],
+                            marker1=marker1, marker2=marker2,
+                            name=group.name, metric=group.metric,
+                            hem=hem, method=method)
