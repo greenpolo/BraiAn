@@ -218,13 +218,14 @@ class AnimalBrain:
         return
 
     @property
-    def hemispheres(self) -> tuple[BrainData]|tuple[BrainData,BrainData]:
+    def hemispheres(self) -> tuple[BrainHemisphere]|tuple[BrainHemisphere,BrainHemisphere]:
+        """The hemispheres for which the `AnimalBrain` has data."""
         return tuple(s.hemisphere for s in self._sizes)
 
     @property
     def sizes(self) -> BrainData:
         """
-        The data corresponding to the size of each brain region of the current AnimalBrain.
+        The data corresponding to the size of each brain region of an `AnimalBrain`.
         Only available if the brain is not split between left and right hemispheres.
         """
         if self.is_split:
@@ -235,7 +236,7 @@ class AnimalBrain:
     @property
     def hemisizes(self) -> tuple[BrainData,BrainData]|tuple[BrainData]:
         """
-        The data corresponding to the size of each brain region of the current AnimalBrain.
+        The data corresponding to the size of each brain region of an `AnimalBrain`.
         If the AnimalBrain has data for two hemispheres, it is a tuple of size two.
         Else, it is a tuple of size one.
         """
@@ -247,23 +248,21 @@ class AnimalBrain:
         return self.sizes
 
     @property
-    def markers(self) -> tuple[str]:
-        """
-        The name of the markers for which the current `AnimalBrain` has data.
-        """
-        return tuple(self._markers)
+    def markers(self) -> list[str]:
+        """The name of the markers for which an `AnimalBrain` has data."""
+        return list(self._markers)
 
     @property
     def metric(self) -> str:
         """
-        The name of the metric used to compute current data.
+        The metric of the brain quantifications.\\
         Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
         """
         return self._markers_data[self._markers[0]][0].metric
 
     @property
     def is_split(self) -> bool:
-        """Whether the data of the current `AnimalBrain` makes a distinction between right and left hemisphere."""
+        """Whether or not the regional brain data have distinction between right and left hemisphere."""
         return len(self._sizes) == 2
 
     @property
@@ -274,7 +273,7 @@ class AnimalBrain:
     @property
     def regions(self) -> list[str]:
         """
-        The list of region acronyms for which the current `AnimalBrain` has data.
+        The list of region acronyms for which an `AnimalBrain` has data.\\
         Only available if the brain is not split between left and right hemispheres.
         """
         # assumes sizes' and all markers' BrainData are synchronized
@@ -294,7 +293,7 @@ class AnimalBrain:
         return str(self)
 
     def __str__(self):
-        return f"AnimalBrain(name='{self.name}', metric={self.metric}, markers={list(self._markers)})"
+        return f"AnimalBrain(name='{self.name}', metric={self.metric}, is_split={self.is_split})"
 
     def __getitem__(self, key) -> BrainData:
         """
@@ -335,7 +334,7 @@ class AnimalBrain:
     def remove_region(self, region: str, *regions, fill_nan: bool=True,
                       hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> None:
         """
-        Removes the data from all the given regions in the current `AnimalBrain`
+        Removes the data from all the given regions
 
         Parameters
         ----------
@@ -667,7 +666,8 @@ class AnimalBrain:
         if not legacy:
             df.index = df.index.map(lambda i: (i[0].name.lower(), *i[1:]))
         file_name = f"{self.name}_{self.metric}.csv"
-        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=df.columns.name)
+        index_label = df.columns.name if legacy else (df.columns.name, None)
+        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=index_label)
 
     @staticmethod
     def is_raw(metric: str) -> bool:
@@ -772,12 +772,12 @@ class AnimalBrain:
         """
         # read CSV
         # filename = f"{name}.csv" if metric is None else f"{name}_{str(metric)}.csv"
-        df = pd.read_csv(filepath, sep=sep, header=0, index_col=0)
+        df = pd.read_csv(filepath, sep=sep, header=0, index_col=0 if legacy else [0,1])
         if df.index.name == "Class":
             # is old csv
             raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
-        df.columns.name = df.index.name
-        df.index.name = None
+        df.columns.name = df.index.names[0] # good whether it's legacy or not
+        df.index.names = (None,)*(1 if legacy else 2)
         return AnimalBrain.from_pandas(df, name, legacy=legacy)
 
 def _extract_name_and_units(ls) -> Generator[str, None, None]:

@@ -275,18 +275,26 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         self.data_name: str = str(name) # data_name
         """The name of the current `BrainData`."""
         self.data.name = self.data_name
-        self.metric: str = str(metric)
-        """The name of the metric used to compute the data.
-        Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
-        """
+        self._metric: str = str(metric)
         if units is not None:
-            self.units = str(units)
-            """The units of measurement of the current `BrainData`."""
+            self._units = str(units)
         else:
-            self.units = ""
+            self._units = ""
             print(f"WARNING: {self} has no units")
         if brain_ontology is not None:
             self.sort_by_ontology(brain_ontology, fill_nan, inplace=True)
+
+    @property
+    def metric(self) -> str:
+        """The metric of the brain quantifications.\\
+        Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
+        """
+        return str(self._metric)
+
+    @property
+    def units(self) -> str:
+        """The units of measurement of the `BrainData`."""
+        return self._units
 
     @property
     def regions(self) -> list[str]:
@@ -294,7 +302,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return list(self.data.index)
 
     def __str__(self) -> str:
-        return f"BrainData(name='{self.data_name}', hemisphere={self.hemisphere.name}, metric='{self.metric}', units='{self.units}')"
+        return f"BrainData(name='{self.data_name}', hemisphere={self.hemisphere.name}, metric='{self._metric}', units='{self._units}')"
 
     def __repr__(self) -> str:
         return str(self)
@@ -323,7 +331,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         data = sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA)#\
                 # .convert_dtypes() # no need to convert to IntXXArray/FloatXXArray as self.data should already be
         if not inplace:
-            return BrainData(data, self.data_name, self.metric, self.units, self.hemisphere)
+            return BrainData(data, self.data_name, self._metric, self._units, self.hemisphere)
         else:
             self.data = data
             return self
@@ -423,7 +431,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.data = data
             return self
         else:
-            return BrainData(data, name=self.data_name, metric=self.metric, units=self.units, hemisphere=self.hemisphere)
+            return BrainData(data, name=self.data_name, metric=self._metric, units=self._units, hemisphere=self.hemisphere)
 
     def set_regions(self, brain_regions: Collection[str],
                     brain_ontology: AtlasOntology,
@@ -476,7 +484,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 continue
             data[region] = value
         if not inplace:
-            return BrainData(data, self.data_name, self.metric, self.units, self.hemisphere)
+            return BrainData(data, self.data_name, self._metric, self._units, self.hemisphere)
         else:
             self.data = data
             return self
@@ -520,7 +528,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         else:
             data = self.data[self.data.index.isin(brain_regions)]
         if not inplace:
-            return BrainData(data, self.data_name, self.metric, self.units, self.hemisphere)
+            return BrainData(data, self.data_name, self._metric, self._units, self.hemisphere)
         else:
             self.data = data
             return self
@@ -592,13 +600,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         """
         if self.hemisphere is BrainHemisphere.BOTH or other.hemisphere is BrainHemisphere.BOTH:
             raise ValueError("The given brain data is already merged.")
-        if self.metric not in (BrainData.RAW_TYPE, "sum", "count_slices"):
-            raise ValueError(f"Cannot properly merge '{self.metric}' BrainData from left/right hemispheres into a single region!")
-        if self.metric != other.metric:
-            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different metrics ('{self.metric}', '{other.metric}')")
-        if self.units != other.units:
-            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different units ('{self.units}', '{other.units}')")
+        if self._metric not in (BrainData.RAW_TYPE, "sum", "count_slices"):
+            raise ValueError(f"Cannot properly merge '{self._metric}' BrainData from left/right hemispheres into a single region!")
+        if self._metric != other._metric:
+            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different metrics ('{self._metric}', '{other._metric}')")
+        if self._units != other._units:
+            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different units ('{self._units}', '{other._units}')")
         if self.hemisphere == other.hemisphere:
             raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have the same hemisphere ('{self.hemisphere}', '{other.hemisphere}')")
         data = self.data.add(other.data, fill_value=0)
-        return BrainData(data, name=self.data_name, metric=self.metric, units=self.units, hemisphere=BrainHemisphere.BOTH)
+        return BrainData(data, name=self.data_name, metric=self._metric, units=self._units, hemisphere=BrainHemisphere.BOTH)

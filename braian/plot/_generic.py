@@ -326,7 +326,7 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
     """
     return slices(brains,
                   region=region, hemisphere=BrainHemisphere.BOTH,
-                  markers=None, as_density=True)
+                  marker=None, as_density=True)
 
 def slices(brains: SlicedExperiment|SlicedGroup,
            *,

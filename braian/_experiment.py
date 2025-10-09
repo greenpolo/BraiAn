@@ -1,5 +1,6 @@
 from collections.abc import Iterable, Callable
-from braian import AnimalBrain, AnimalGroup, AtlasOntology, SlicedBrain, SlicedGroup, SliceMetrics
+from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainHemisphere, SlicedBrain, SlicedGroup, SliceMetrics
+from braian.utils import _compatibility_check
 from pathlib import Path
 from typing import Any, Self
 
@@ -50,9 +51,15 @@ class Experiment:
             The second group of the experiment.
         *groups
             Any other group of the experiment.
+
+        Raises
+        ------
+        ValueError
+            If the groups don't have the same metric.
         """
         self._name = str(name)
         self._groups = (group1, group2, *groups)
+        _compatibility_check(self._groups)
 
     @property
     def name(self) -> str:
@@ -61,8 +68,39 @@ class Experiment:
 
     @property
     def groups(self) -> tuple[AnimalGroup]:
-        """The groups making up the current experiment."""
+        """The groups in the experiment."""
         return self._groups
+
+    @property
+    def n(self) -> int:
+        """The number of groups in the experiment."""
+        return len(self._groups)
+
+    @property
+    def metric(self) -> str:
+        """The metric of the brain quantifications."""
+        return self._groups[0].metric
+
+    @property
+    def is_split(self) -> bool:
+        """Whether or not the regional brain data have distinction between right and left hemisphere."""
+        return self._groups[0].is_split
+
+    @property
+    def markers(self) -> str:
+        """The name of the markers for which the `AnimalGroup` has data."""
+        return self._groups[0].markers
+
+    @property
+    def hemispheres(self) -> tuple[BrainHemisphere]|tuple[BrainHemisphere,BrainHemisphere]:
+        """The hemispheres for which the `AnimalGroup` has data."""
+        return self._groups[0].hemispheres
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self) -> str:
+        return f"Experiment('{self.name}', groups={self.n}, metric={self.metric}, is_split={self.is_split})"
 
     def __iter__(self) -> Iterable[AnimalGroup]:
         return iter(self._groups)
@@ -110,13 +148,13 @@ class Experiment:
         """
         return any(animal_name in group for group in self._groups)
 
-    def __getitem__(self, animal_name: str) -> AnimalBrain:
+    def __getitem__(self, val: str|int) -> AnimalBrain:
         """
 
         Parameters
         ----------
-        animal_name
-            The name of a `AnimalBrain` of the sliced experiment.
+        val
+            The name or the index of a `AnimalBrain` of the sliced experiment.
 
         Returns
         -------
@@ -126,18 +164,20 @@ class Experiment:
         Raises
         ------
         TypeError
-            If `animal_name` is not a string.
+            If `val` is not a string nor an int.
         KeyError
-            If no brain named `animal_name` was found in the experiment.
+            If no brain named `val` was found in the experiment.
         """
-        if not isinstance(animal_name, str):
-            raise TypeError("Experiment's animals are identified by strings")
+        if isinstance(val, int):
+            return self._groups[val]
+        if not isinstance(val, str):
+            raise TypeError("Experiment's animals are identified by strings or int")
         for group in self._groups:
             try:
-                return group[animal_name]
+                return group[val]
             except KeyError:
                 pass
-        raise KeyError(f"{animal_name}")
+        raise KeyError(f"{val}")
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
@@ -187,6 +227,7 @@ class SlicedExperiment:
         """
         self._name: str = str(name)
         self._groups: tuple[SlicedGroup] = (group1, group2, *groups)
+        _compatibility_check(self._groups, check_metrics=False, check_hemishperes=False)
 
     @property
     def name(self) -> str:
@@ -195,8 +236,30 @@ class SlicedExperiment:
 
     @property
     def groups(self) -> tuple[SlicedGroup]:
-        """The groups making up the current sliced experiment."""
+        """The `SlicedGroup`s in the sliced experiment."""
         return self._groups
+
+    @property
+    def n(self) -> int:
+        """The number of groups in the experiment."""
+        return len(self._groups)
+
+    @property
+    def is_split(self) -> bool:
+        """Whether or not the regional brain data have distinction between right and left hemisphere."""
+        return self._groups[0].is_split
+
+    @property
+    def markers(self) -> str:
+        """The name of the markers for which the `SlicedGroup` has data."""
+        return self._groups[0].markers
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self) -> str:
+        return f"SlicedExperiment('{self.name}', groups={self.n}, is_split={self.is_split})"
+
 
     def __iter__(self) -> Iterable[AnimalGroup]:
         return iter(self._groups)
@@ -277,31 +340,33 @@ class SlicedExperiment:
         """
         return any(animal_name in group for group in self._groups)
 
-    def __getitem__(self, animal_name: str) -> SlicedBrain:
+    def __getitem__(self, val: str|int) -> SlicedBrain:
         """
 
         Parameters
         ----------
-        animal_name
-            The name of a `SlicedBrain` of the sliced experiment.
+        val
+            The name or the index of a `SlicedBrain` of the sliced experiment.
 
         Returns
         -------
         :
-            The corresponding `SlicedBrain` in the experiment.
+            The corresponding `SlicedBrain` in the sliced experiment.
 
         Raises
         ------
         TypeError
-            If `animal_name` is not a string.
+            If `val` is not a string nor an int.
         KeyError
-            If no brain named `animal_name` was found in the sliced experiment.
+            If no brain named `val` was found in the experiment.
         """
-        if not isinstance(animal_name, str):
-            raise TypeError("SlicedExperiment's animals are identified by strings")
+        if isinstance(val, int):
+            return self._groups[val]
+        if not isinstance(val, str):
+            raise TypeError("Experiment's animals are identified by strings or int")
         for group in self._groups:
             try:
-                return group[animal_name]
+                return group[val]
             except KeyError:
                 pass
-        raise KeyError(f"{animal_name}")
+        raise KeyError(f"{val}")

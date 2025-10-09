@@ -379,10 +379,10 @@ class BrainSlice:
     # NOTE: checking whether a region has no detection at all is useless at this stage
     # def check_zero_rows(self, csv_file: str, markers: list[str]) -> bool:
     #     for marker in markers:
-    #         zero_rows = self.data[marker] == 0
+    #         zero_rows = self._data[marker] == 0
     #         if sum(zero_rows) > 0:
     #             err = RegionsWithNoCountError(slice=self, file=csv_file,
-    #                         tracer=marker, regions=self.data.index[zero_rows].to_list())
+    #                         tracer=marker, regions=self._data.index[zero_rows].to_list())
     #             if MODE_RegionsWithNoCountError == "error":
     #                 raise err
     #             elif MODE_RegionsWithNoCountError == "print":
@@ -431,19 +431,18 @@ class BrainSlice:
         """The name of the animal from which the current `BrainSlice` is from."""
         self.name: str = name
         """The name of the image that captured the section from which the data of the current `BrainSlice` are from."""
-        self.data = data
+        self._data = data
         self.atlas = str(ontology) if isinstance(ontology, str) else ontology.name # AtlasOntology
         """The name of the brain atlas used to align the section. If None, it means that the cell-segmented data didn't specify it."""
-        BrainSlice._check_columns(self.data, ("acronym", "hemisphere", "area"), self.name)
-        if self.data.shape[1] < 4:
+        BrainSlice._check_columns(self._data, ("acronym", "hemisphere", "area"), self.name)
+        if self._data.shape[1] < 4:
             raise MissingQuantificationError(file=self.name)
-        hemispheres = self.data["hemisphere"].unique()
+        hemispheres = self._data["hemisphere"].unique()
         hemispheres = {BrainHemisphere(v) for v in hemispheres} # if not hemispheres.issubset(BrainHemisphere), it already raises an error
         if len(hemispheres) > 2 or (len(hemispheres) == 2 and BrainHemisphere.BOTH in hemispheres):
             raise InvalidRegionsSplitError(context=self.name)
-        self.is_split: bool = len(hemispheres) == 2 or BrainHemisphere.BOTH not in hemispheres
-        """Whether the data of the current `BrainSlice` make a distinction between right and left hemisphere."""
-        for column in self.data.columns:
+        self._is_split: bool = len(hemispheres) == 2 or BrainHemisphere.BOTH not in hemispheres
+        for column in self._data.columns:
             if column in ("acronym", "hemisphere"):
                 continue
             if column not in units:
@@ -459,30 +458,44 @@ class BrainSlice:
                 case _:
                     raise ValueError(f"Unknown unit of measurement '{unit}' for '{column}'")
             units[column] = "mm²"
-        self.units: dict[str,str] = units.copy()
-        """The units of measurements corresponding to each [`marker`][braian.BrainSlice.markers] of the current `BrainSlice`."""
-        assert (self.data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
-        self.data = self.data[self.data["area"] > 0]
+        self._units: dict[str,str] = units.copy()
+        assert (self._data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
+        self._data = self._data[self._data["area"] > 0]
         if check:
             if not self.is_split:
-                self.data.reset_index(inplace=True)
-                self.data.set_index("acronym", inplace=True)
-                self.data = sort_by_ontology(self.data, ontology, fill=False)
-                self.data.reset_index(inplace=True)
-                self.data.set_index("index", inplace=True)
+                self._data.reset_index(inplace=True)
+                self._data.set_index("acronym", inplace=True)
+                self._data = sort_by_ontology(self._data, ontology, fill=False)
+                self._data.reset_index(inplace=True)
+                self._data.set_index("index", inplace=True)
             else:
-                hem1 = self.data[self.data["hemisphere"] == BrainHemisphere.LEFT.value].reset_index().set_index("acronym")
-                hem2 = self.data[self.data["hemisphere"] == BrainHemisphere.RIGHT.value].reset_index().set_index("acronym")
+                hem1 = self._data[self._data["hemisphere"] == BrainHemisphere.LEFT.value].reset_index().set_index("acronym")
+                hem2 = self._data[self._data["hemisphere"] == BrainHemisphere.RIGHT.value].reset_index().set_index("acronym")
                 hem1 = sort_by_ontology(hem1, ontology, fill=True)
                 hem2 = sort_by_ontology(hem2, ontology, fill=True)
-                self.data.reindex([*hem2["index"], *hem1["index"]], copy=False)
+                self._data.reindex([*hem2["index"], *hem1["index"]], copy=False)
 
         self.markers_density: pd.DataFrame = self._marker_density()
 
     @property
+    def n(self) -> int:
+        """The number of unique regions in the slice, without distinction between hemispheres."""
+        return len(pd.unique(self._data["acronym"].values))
+
+    @property
+    def is_split(self) -> bool:
+        """Whether or not the regional brain data have distinction between right and left hemisphere."""
+        return self._is_split
+
+    @property
     def markers(self) -> list[str]:
         """The name of the markers for which the current `BrainSlice` has data."""
-        return list(self.data.columns[~self.data.columns.isin(("acronym", "hemisphere", "area"))])
+        return list(self._data.columns[~self._data.columns.isin(("acronym", "hemisphere", "area"))])
+
+    @property
+    def units(self) -> dict[str,str]:
+        """The units of measurements corresponding to each [`marker`][braian.BrainSlice.markers] of the current `BrainSlice`."""
+        return self._units.copy()
 
     @property
     def regions(self) -> list[str]:
@@ -490,7 +503,13 @@ class BrainSlice:
         The list of region acronyms for which the current `BrainSlice` has data. The given order is arbitrary.
         If [`BrainSlice.is_split`][braian.BrainSlice.is_split], it contains the acronyms of the split brain region only once.
         """
-        return list(pd.unique(self.data["acronym"].values))
+        return list(pd.unique(self._data["acronym"].values))
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return f"BrainSlice(name='{self.name}', regions={self.n}, is_split={self._is_split})"
 
     @deprecated(since="1.1.0", alternatives=["braian.BrainSlice.exclude"])
     def exclude_regions(self,
@@ -578,42 +597,42 @@ class BrainSlice:
                 _ancestors = ontology.ancestors(region, key="acronym")
                 for parent_region in _ancestors:
                     row = hem+": "+parent_region if self.is_split else parent_region
-                    if row in self.data.index:
+                    if row in self._data.index:
                         if ancestors and (ancestors_layer1 or region not in layer1):
-                            self.data.drop(row, inplace=True)
-                        elif exclusion in self.data.index:
+                            self._data.drop(row, inplace=True)
+                        elif exclusion in self._data.index:
                             # Subtract the quantification results from the parent region.
                             # Use fill_value=0 to prevent "3-NaN=NaN".
-                            for column in self.data.columns:
-                                if not is_numeric_dtype(self.data[column]) or column == "hemisphere":
+                            for column in self._data.columns:
+                                if not is_numeric_dtype(self._data[column]) or column == "hemisphere":
                                     continue
-                                if pd.isna(self.data.loc[row,column]) or pd.isna(self.data.loc[exclusion,column]):
+                                if pd.isna(self._data.loc[row,column]) or pd.isna(self._data.loc[exclusion,column]):
                                     # NOTE: remove if never used.
                                     # This check is a leftover of the old <row>.subtract(<exclusion>, fill_value=True)
                                     raise RuntimeError(f"{self.name}: quantification '{column}' is NaN for '{row}' or for '{exclusion}'!")
-                                self.data.loc[row,column] -= self.data.loc[exclusion,column]
+                                self._data.loc[row,column] -= self._data.loc[exclusion,column]
 
                 # Step 2: Remove the regions that should be excluded
                 # together with their daughter regions.
                 subregions = ontology.subregions(region, blacklisted=True, unreferenced=True, key="acronym")
                 for subregion in subregions:
                     row = hem+": "+subregion if self.is_split else subregion
-                    if row in self.data.index:
-                        self.data.drop(row, inplace=True)
+                    if row in self._data.index:
+                        self._data.drop(row, inplace=True)
         except Exception:
             raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
         finally:
             self.markers_density = self._marker_density()
-        if len(self.data) == 0:
+        if len(self._data) == 0:
             raise ExcludedAllRegionsError(file=self.name)
 
     def _µm2_to_mm2(self, column) -> None:
-        self.data[column] = self.data[column] * 1e-06
+        self._data[column] = self._data[column] * 1e-06
 
     def _marker_density(self) -> pd.DataFrame:
-        densities = self.data[self.markers].div(self.data["area"], axis=0)
-        densities["acronym"] = self.data["acronym"]
-        densities["hemisphere"] = self.data["hemisphere"]
+        densities = self._data[self.markers].div(self._data["area"], axis=0)
+        densities["acronym"] = self._data["acronym"]
+        densities["hemisphere"] = self._data["hemisphere"]
         return densities
 
     def merge_hemispheres(self) -> Self:
@@ -628,12 +647,12 @@ class BrainSlice:
         """
         if not self.is_split:
             return self
-        # corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self.data.index]
-        data = self.data.groupby("acronym").sum(min_count=1)
+        # corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self._data.index]
+        data = self._data.groupby("acronym").sum(min_count=1)
         data["hemisphere"] = BrainHemisphere.BOTH.value
         data["acronym"] = data.index
         data.index = data.index.set_names(None)
-        return BrainSlice(data=data, units=self.units,
+        return BrainSlice(data=data, units=self._units,
                           animal=self.animal, name=self.name,
                           ontology=self.atlas, check=False)
 
@@ -690,7 +709,7 @@ class BrainSlice:
             hems = (BrainHemisphere.RIGHT.value, BrainHemisphere.LEFT.value)
         else:
             hems = (hemisphere.value,)
-        df = self.markers_density if as_density else self.data
+        df = self.markers_density if as_density else self._data
         filtered = df[(df["acronym"] == region) & (df["hemisphere"].isin(hems))]
         if return_hemispheres:
             return np.array(filtered[metric].values), np.array(filtered["hemisphere"].values)

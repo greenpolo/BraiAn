@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Self
 
 from braian import AnimalBrain, AtlasOntology, BrainData, BrainHemisphere, SlicedBrain, SliceMetrics
-from braian.utils import deprecated, merge_ordered, save_csv
+from braian.utils import _compatibility_check, deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
@@ -67,14 +67,10 @@ class AnimalGroup:
         # if not animals or not brain_ontology:
         #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AtlasOntology.")
         assert len(animals) > 0, "A group must be made of at least one animal." # TODO: should we enforce a statistical signficant n? E.g. MIN=4
-        _all_markers = {marker for brain in animals for marker in brain.markers}
-        assert all(marker in brain.markers for marker in _all_markers for brain in animals), "All AnimalBrain in a group must have the same markers."
-        assert all(brain.metric == animals[0].metric for brain in animals[1:]), "All AnimalBrains in a group must be have the same metric."
-        is_split = animals[0].is_split
-        assert all(is_split == brain.is_split for brain in animals), "All AnimalBrains of a group must either have spit hemispheres or not."
+        _compatibility_check(animals)
 
         no_update = lambda b: b  # noqa: E731
-        if is_split and not hemisphere_distinction:
+        if animals[0].is_split and not hemisphere_distinction:
             merge = AnimalBrain.merge_hemispheres
         else:
             merge = no_update
@@ -105,23 +101,23 @@ class AnimalGroup:
 
     @property
     def metric(self) -> str:
-        """The metric used to compute the brains' data."""
+        """The metric of the brain quantifications."""
         return self._animals[0].metric
 
     @property
     def is_split(self) -> bool:
-        """Whether the data of the current `AnimalGroup` makes a distinction between right and left hemisphere."""
+        """Whether or not the regional brain data have distinction between right and left hemisphere."""
         return self._animals[0].is_split
 
     @property
-    def markers(self) -> npt.NDArray[np.str_]:
-        """The name of the markers for which the current `AnimalGroup` has data."""
-        return np.asarray(self._animals[0].markers)
+    def markers(self) -> list[str]:
+        """The name of the markers for which the `AnimalGroup` has data."""
+        return self._animals[0].markers
 
     @property
-    def hemispheres(self) -> npt.NDArray[np.str_]:
-        """The name of the markers for which the current `AnimalGroup` has data."""
-        return np.asarray(self._animals[0].hemispheres)
+    def hemispheres(self) -> tuple[BrainHemisphere]|tuple[BrainHemisphere,BrainHemisphere]:
+        """The hemispheres for which the `AnimalGroup` has data."""
+        return self._animals[0].hemispheres
 
     @property
     def regions(self) -> list[str]:
@@ -177,7 +173,7 @@ class AnimalGroup:
         return str(self)
 
     def __str__(self) -> str:
-        return f"AnimalGroup('{self.name}', metric={self.metric}, n={self.n})"
+        return f"AnimalGroup('{self.name}', brains={self.n}, metric={self.metric}, is_split={self.is_split})"
 
     def _update_mean(self) -> dict[str, tuple[BrainData]|tuple[BrainData,BrainData]]:
         # NOTE: skipna=True does not work with FloatingArrays (what BrainData uses)
@@ -610,7 +606,7 @@ class AnimalGroup:
         [`to_pandas`][braian.AnimalGroup.to_pandas]
         """
         brains_level = 1 if legacy else 2
-        animals = [AnimalBrain.from_pandas(df.xs(animal_name, axis=0, level=1), animal_name, legacy=legacy)
+        animals = [AnimalBrain.from_pandas(df.xs(animal_name, axis=0, level=brains_level), animal_name, legacy=legacy)
                    for animal_name in df.index.unique(brains_level)]
         return AnimalGroup(group_name, animals, fill_nan=False)
 
@@ -639,9 +635,9 @@ class AnimalGroup:
         --------
         [`to_csv`][braian.AnimalGroup.to_csv]
         """
-        df = pd.read_csv(filepath, sep=sep, header=0, index_col=[0,1])
+        df = pd.read_csv(filepath, sep=sep, header=0, index_col=[0,1] if legacy else [0,1,2])
         df.columns.name = df.index.names[0]
-        df.index.names = (None, None)
+        df.index.names = (None,)*(2 if legacy else 3)
         return AnimalGroup.from_pandas(df, name, legacy=legacy)
 
     @staticmethod
@@ -779,6 +775,7 @@ class SlicedGroup:
         """
         self._name = str(name)
         self._animals = tuple(animals)
+        _compatibility_check(self._animals, check_metrics=False, check_hemishperes=False)
         self._brain_ontology = brain_ontology
 
     @property
@@ -793,7 +790,7 @@ class SlicedGroup:
 
     @property
     def is_split(self) -> bool:
-        """Whether the data of the current `SlicedGroup` makes a distinction between right and left hemisphere."""
+        """Whether or not the regional brain data have distinction between right and left hemisphere."""
         return self._animals[0].is_split
 
     @property
@@ -805,6 +802,12 @@ class SlicedGroup:
     def n(self) -> int:
         """The size of the sliced group."""
         return len(self._animals)
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self) -> str:
+        return f"SlicedGroup('{self.name}', brains={self.n}, split={self.is_split})"
 
     def __iter__(self) -> Iterable[AnimalBrain]:
         return iter(self._animals)

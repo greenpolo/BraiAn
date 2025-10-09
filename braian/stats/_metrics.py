@@ -4,6 +4,7 @@ import pandas as pd
 from collections.abc import Callable
 
 from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainData, BrainHemisphere
+from braian.utils import _compatibility_check
 from braian._graph_utils import brainwide_selection, is_brainwide_selection
 
 # NOTE: some arithmetic operations (e.g. division by zero) are not correctly converted to pd.NA,
@@ -72,7 +73,7 @@ def _enforce_rawdata(brain: AnimalBrain):
         raise ValueError(f"This metric cannot be computed for AnimalBrains whose data is not raw (metric={brain.metric}).")
 
 def _hemisphered_metric(brain: AnimalBrain,
-                        metric: Callable[[BrainData, BrainData, str], BrainData], # (sizes,marker_data,marker) -> result
+                        metric: Callable[[BrainData, BrainHemisphere, BrainData, str], BrainData], # (sizes,marker_data,marker) -> result
                         metric_str: str,
                         units: Callable[[BrainData, BrainData], str], # (sizes,marker_data) -> units,
                         raw: bool):
@@ -81,9 +82,9 @@ def _hemisphered_metric(brain: AnimalBrain,
         hemidata = set()
         for sizes in brain.hemisizes:
             marker_data = brain[marker,sizes.hemisphere]
-            data: BrainData = metric(sizes, marker_data, marker)
-            data.metric = metric_str
-            data.units = units(sizes, marker_data)
+            data: BrainData = metric(sizes, sizes.hemisphere, marker_data, marker)
+            data._metric = metric_str
+            data._units = units(sizes, marker_data)
             hemidata.add(data)
         markers_data[marker] = tuple(hemidata)
     return AnimalBrain(markers_data=markers_data, sizes=brain.hemisizes, raw=raw)
@@ -114,7 +115,7 @@ def density(brain: AnimalBrain) -> AnimalBrain:
     _enforce_rawdata(brain)
     return _hemisphered_metric(
         brain=brain,
-        metric=lambda sizes,marker_data,marker: marker_data / sizes,
+        metric=lambda sizes,hem,marker_data,marker: marker_data / sizes,
         metric_str="density",
         units=lambda sizes,marker_data: f"{marker_data.units}/{sizes.units}",
         raw=False)
@@ -155,7 +156,7 @@ def percentage(brain: AnimalBrain) -> AnimalBrain:
             total_brainwide[marker] = brain[marker].root
     return _hemisphered_metric(
         brain=brain,
-        metric=lambda sizes,marker_data,marker: marker_data / total_brainwide[marker],
+        metric=lambda sizes,hem,marker_data,marker: marker_data / total_brainwide[marker],
         metric_str="percentage",
         units=lambda sizes,marker_data: f"{marker_data.units}/{marker_data.units} in root",
         raw=False)
@@ -219,7 +220,7 @@ def relative_density(brain: AnimalBrain,
     total_brainwide, size_brainwide
     return _hemisphered_metric(
         brain=brain,
-        metric=lambda sizes,marker_data,marker: (marker_data/sizes) / (total_brainwide[marker]/size_brainwide),
+        metric=lambda sizes,hem,marker_data,marker: (marker_data/sizes) / (total_brainwide[marker]/size_brainwide),
         metric_str="relative_density",
         units=lambda sizes,marker_data: f"{marker_data.units} density/root {marker_data.units} density",
         raw=False)
@@ -227,16 +228,16 @@ def relative_density(brain: AnimalBrain,
 def _group_change(brain: AnimalBrain, group: AnimalGroup,
                   metric: str, fun: Callable[[BrainData,BrainData],BrainData], # (animal,group) -> result
                   symbol: str) -> AnimalBrain:
-    assert brain.is_split == group.is_split, "Both AnimalBrain and AnimalGroup must either have the hemispheres split or not"
-    assert set(brain.markers) == set(group.markers), "Both AnimalBrain and AnimalGroup must have the same markers"
-    # assert brain.metric == group.metric == BrainMetrics.DENSITY, f"Both AnimalBrain and AnimalGroup must be on {BrainMetrics.DENSITY}"
+    _compatibility_check((brain, group))
     # assert set(brain.regions) == set(group.regions), f"Both AnimalBrain and AnimalGroup must be on the same regions"
 
+    # def group_change(sizes: BrainData, marker_data,marker: fun(brain[marker], group.hemimean[marker])
     return _hemisphered_metric(
         brain=brain,
-        metric=lambda sizes,marker_data,marker: fun(brain[marker], group.hemimean[marker]), # select mean of the same hemisphere as the brain
+        metric=lambda sizes,hem,marker_data,marker:\
+            fun(brain[marker,hem], next(m for m in group.hemimean[marker] if m.hemisphere == hem)),
         metric_str=str(metric),
-        units=lambda sizes,marker_data: f"{marker_data.units} {str(brain.metric)}{symbol}{group.name} {str(group.metric)}",
+        units=lambda sizes,marker_data: f"{marker_data.units}{symbol}{group.name} {str(group.metric)}",
         raw=False)
 
 def fold_change(brain: AnimalBrain, group: AnimalGroup) -> AnimalBrain:
@@ -338,8 +339,8 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
             marker_data = brain[m,hemi]
             doublepos_data = brain[doublepos,hemi]
             data: BrainData = doublepos_data/marker_data
-            data.metric = "overlaps"
-            data.units = f"({marker1}+{marker2})/{m}"
+            data._metric = "overlaps"
+            data._units = f"({marker1}+{marker2})/{m}"
             hemidata.add(data)
         overlaps[m] = tuple(hemidata)
     return AnimalBrain(markers_data=overlaps, sizes=brain.hemisizes, raw=False)
@@ -394,8 +395,8 @@ def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> Ani
         marker2_data = brain[marker2,hemi]
         doublepos_data = brain[doublepos,hemi]
         data: BrainData = doublepos_data / (marker1_data+marker2_data-doublepos_data)
-        data.metric = "jaccard_index"
-        data.units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
+        data._metric = "jaccard_index"
+        data._units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
         hemidata.add(data)
     similarities = {doublepos: tuple(hemidata)}
     return AnimalBrain(similarities, sizes=brain.sizes, raw=False)
@@ -457,8 +458,8 @@ def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> 
         # data = doublepos_data / (marker1_data*marker2_data) * sizes
         # NORMALIZED
         data: BrainData = doublepos_data**2 / (marker1_data*marker2_data)
-        data.metric = "similarity_index"
-        data.units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
+        data._metric = "similarity_index"
+        data._units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
         hemidata.add(data)
     similarities = {doublepos: tuple(hemidata)}
     return AnimalBrain(markers_data=similarities, sizes=brain.sizes, raw=False)
@@ -514,8 +515,8 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
         marker2_data = brain[marker2,hemi]
         doublepos_data = brain[doublepos,hemi]
         data: BrainData = doublepos_data / BrainData.minimum(marker1_data, marker2_data)
-        data.metric = "overlap_coefficient"
-        data.units = f"({marker1}∩{marker2})/min({marker1},{marker2})"
+        data._metric = "overlap_coefficient"
+        data._units = f"({marker1}∩{marker2})/min({marker1},{marker2})"
         hemidata.add(data)
     overlap_coeffs = {doublepos: tuple(hemidata)}
     return AnimalBrain(markers_data=overlap_coeffs, sizes=brain.sizes, raw=False)
@@ -543,8 +544,8 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
 #     except StopIteration as e:
 #         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
 #     chance_level = brain[overlapping] / (brain[marker1]*brain[marker2])
-#     chance_level.metric = "chance_level"
-#     chance_level.units = f"({marker1}∩{marker2})/({marker1}×{marker2})"
+#     chance_level._metric = "chance_level"
+#     chance_level._units = f"({marker1}∩{marker2})/({marker1}×{marker2})"
 #     return AnimalBrain(markers_data={overlapping: chance_level}, areas=brain.sizes, raw=False)
 
 def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
@@ -573,8 +574,8 @@ def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> Animal
         marker1_data = brain[marker1,hemi]
         marker2_data = brain[marker2,hemi]
         data: BrainData = marker1_data - marker2_data
-        data.metric = "marker_difference"
-        data.units = f"{marker1_data.units}-{marker2_data.units}"
+        data._metric = "marker_difference"
+        data._units = f"{marker1_data.units}-{marker2_data.units}"
         hemidata.add(data)
     diff = {f"{marker1}+{marker2}": tuple(hemidata)}
     return AnimalBrain(markers_data=diff, sizes=brain.sizes, raw=False)
@@ -626,6 +627,7 @@ def markers_correlation(marker1: str, marker2: str,
     if other is None:
         other = group
     else:
+        _compatibility_check((group, other))
         assert group.metric == other.metric, "Both groups must have the same metric."
     assert set(group.animals) == set(other.animals), "Both groups must have the same brains."
     assert group.is_split == other.is_split and all(group.hemispheres == other.hemispheres),\

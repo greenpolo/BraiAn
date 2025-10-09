@@ -179,30 +179,36 @@ def resource(name: str) -> Path:
                                     .joinpath(name)) as path:
         return path
 
-def silvalab_remote_dirs(
-                experiment_dir_name: Path|str,
-                is_collaboration_project: bool,
-                collaboration_dir_name: Path|str) -> tuple[Path,Path]:
-    match sys.platform:
-        case "darwin":
-            mnt_point = "/Volumes/Ricerca/"
+def _compatibility_check(xs: Collection,
+                         check_metrics: bool=True,
+                         check_is_split: bool=True,
+                         check_marker: bool=True,
+                         check_hemishperes: bool=True):
+    """
+    Parameters
+    ----------
+    xs
+        A collection of objects with the following attributes:
+        `metric`, `is_split`, `markers` and `hemispheres`
 
-        case "linux":
-            mnt_point = "/mnt/tenibre/"
-            # mnt_point = "/run/user/1000/gvfs/smb-share:server=ich.techosp.it,share=ricerca/"
-        case "win32":
-            mnt_point = r"\\TENIBRE\bs\ ".strip()
-            # mnt_point = r"\\sshfs\bs@tenibre.ipmc.cnrs.fr!2222\bs\ ".strip()
-            # mnt_point = "\\\\ich.techosp.it\\Ricerca\\"
-        case _:
-            raise Exception(f"Can't find the 'Ricerca' folder in the server for '{sys.platform}' operative system. Please report the developer (Carlo)!")
-    mnt_point = Path(mnt_point)
-    if not mnt_point.is_dir():
-        raise Exception(f"Could not read '{mnt_point}'. Please be sure you are connected to the server.")
-    if is_collaboration_project:
-        analysis_root  =  mnt_point/"collaborations"/collaboration_dir_name/experiment_dir_name/"analysis"
-        plots_root =  mnt_point/"collaborations"/collaboration_dir_name/experiment_dir_name/"results"/"plots"
-    else:
-        analysis_root  = mnt_point/"projects"/experiment_dir_name/"analysis"
-        plots_root = mnt_point/"projects"/experiment_dir_name/"results"/"plots"
-    return analysis_root, plots_root
+    Raises
+    ------
+    ValueError
+        If `xs` is contains elements not compatible between each other.
+    """
+    if check_metrics:
+        metrics = set(x.metric for x in xs)
+        if len(metrics) != 1:
+            raise ValueError(f"Multiple metrics found: {', '.join(map(repr, metrics))}")
+    if check_is_split:
+        is_split = xs[0].is_split
+        if not all(is_split == x.is_split for x in xs[1:]):
+            raise ValueError("Incompatible hemispheric distinction")
+    if check_marker:
+        markers = set(xs[0].markers)
+        if not all(markers == set(x.markers) for x in xs[1:]):
+            raise ValueError("Different markers found")
+    if check_hemishperes:
+        hemispheres = set(xs[0].hemispheres)
+        if not all(hemispheres == set(x.hemispheres) for x in xs[1:]):
+            raise ValueError("Data found for different hemispheres")

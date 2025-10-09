@@ -183,16 +183,13 @@ class SlicedBrain:
         self._slices: tuple[BrainSlice] = tuple(slices)
         if len(self._slices) == 0:
             raise EmptyBrainError(context=self._name)
-        self.markers: list[str] = list(markers)
-        """The name of the markers for which the current `SlicedBrain` has data."""
+        self._markers: list[str] = markers
         self._check_same_units()
-        self.units = self._slices[0].units.copy()
-        """The units of measurements corresponding to each [`marker`][braian.SlicedBrain.markers] of the current `SlicedBrain`."""
+        self._units = self._slices[0].units
         are_split = np.array([s.is_split for s in self._slices])
         if not are_split.all() and are_split.any():
             raise InconsistentRegionsSplitError(context=self._name)
-        self.is_split = are_split[0]
-        """Whether the data of the current `SlicedBrain` makes a distinction between right and left hemisphere."""
+        self._is_split = are_split[0]
 
     @property
     def name(self) -> str:
@@ -206,6 +203,26 @@ class SlicedBrain:
         self._name = value
 
     @property
+    def n(self) -> int:
+        """The number of brain sections within the `SlicedBrain`."""
+        return len(self._slices)
+
+    @property
+    def markers(self) -> list[str]:
+        """The name of the markers for which the current `SlicedBrain` has data."""
+        return list(self._markers)
+
+    @property
+    def units(self) -> dict[str,str]:
+        """The units of measurements for each [`marker`][braian.SlicedBrain.markers] quantification."""
+        return self._units.copy()
+
+    @property
+    def is_split(self) -> bool:
+        """Whether or not the regional brain data have distinction between right and left hemisphere."""
+        return self._is_split
+
+    @property
     def regions(self) -> list[str]:
         """
         The list of region acronyms for which the current `SlicedBrain` has data. The given order is arbitrary.
@@ -217,6 +234,12 @@ class SlicedBrain:
     def slices(self) -> tuple[BrainSlice]:
         """The list of slices making up the `SlicedBrain`."""
         return self._slices
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return f"SlicedBrain(name='{self.name}', slices={self.n}, is_split={self.is_split})"
 
     def __iter__(self) -> Iterable[BrainSlice]:
         return iter(self._slices)
@@ -257,8 +280,8 @@ class SlicedBrain:
         :
             A [`DataFrame`][pandas.DataFrame] of the data from all [`SlicedBrain.slices`][braian.SlicedBrain.slices].
         """
-        return pd.concat([slice.data if not densities else
-                          pd.concat((slice.data["area"], slice.markers_density), axis=1)
+        return pd.concat([slice._data if not densities else
+                          pd.concat((slice._data["area"], slice.markers_density), axis=1)
                           for slice in self._slices])
 
     def count(self, brain_ontology: AtlasOntology=None) -> BrainData|dict[BrainHemisphere, BrainData]:
@@ -306,7 +329,7 @@ class SlicedBrain:
             return self
         brain = copy.copy(self)
         brain._slices = [brain_slice.merge_hemispheres() for brain_slice in brain._slices]
-        brain.is_split = False
+        brain._is_split = False
         return brain
 
     def region(self,
