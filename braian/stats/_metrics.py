@@ -229,13 +229,16 @@ def _group_change(brain: AnimalBrain, group: AnimalGroup,
                   metric: str, fun: Callable[[BrainData,BrainData],BrainData], # (animal,group) -> result
                   symbol: str) -> AnimalBrain:
     _compatibility_check((brain, group))
-    # assert set(brain.regions) == set(group.regions), f"Both AnimalBrain and AnimalGroup must be on the same regions"
-
-    # def group_change(sizes: BrainData, marker_data,marker: fun(brain[marker], group.hemimean[marker])
+    hemiregions = brain.hemiregions
+    def group_metric(sizes: BrainData, hem: BrainHemisphere,
+                     marker_data: BrainData, marker: str) -> BrainData:
+        # assert (brain[marker,hem].data == marker_data.data).all(skipna=True)
+        group_mean = next(m for m in group.hemimean[marker] if m.hemisphere == hem)
+        group_mean = group_mean.select_from_list(hemiregions[hem], fill_nan=True, inplace=False)
+        return fun(marker_data, group_mean)
     return _hemisphered_metric(
         brain=brain,
-        metric=lambda sizes,hem,marker_data,marker:\
-            fun(brain[marker,hem], next(m for m in group.hemimean[marker] if m.hemisphere == hem)),
+        metric=group_metric,
         metric_str=str(metric),
         units=lambda sizes,marker_data: f"{marker_data.units}{symbol}{group.name} {str(group.metric)}",
         raw=False)

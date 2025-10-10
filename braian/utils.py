@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import platform
 import requests
-import sys
 import warnings
 
 from collections.abc import Callable, Collection, Sequence

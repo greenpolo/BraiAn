@@ -6,7 +6,6 @@ import re
 
 from collections.abc import Sequence, Callable
 from enum import Enum, auto
-from itertools import chain
 from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
 from typing import Generator, Self
