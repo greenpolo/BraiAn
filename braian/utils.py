@@ -179,17 +179,24 @@ def resource(name: str) -> Path:
                                     .joinpath(name)) as path:
         return path
 
+def _same_regions(rs: Collection[str], *others: Collection[str]) -> bool:
+    rs = set(rs)
+    return all(
+        map(lambda other: len(rs.symmetric_difference(set(other))) == 0,
+            others))
+
 def _compatibility_check(xs: Collection,
                          check_metrics: bool=True,
                          check_is_split: bool=True,
                          check_marker: bool=True,
-                         check_hemishperes: bool=True):
+                         check_hemispheres: bool=True,
+                         check_regions: bool=False):
     """
     Parameters
     ----------
     xs
         A collection of objects with the following attributes:
-        `metric`, `is_split`, `markers` and `hemispheres`
+        `metric`, `is_split`, `markers` and `hemispheres`.
 
     Raises
     ------
@@ -208,7 +215,19 @@ def _compatibility_check(xs: Collection,
         markers = set(xs[0].markers)
         if not all(markers == set(x.markers) for x in xs[1:]):
             raise ValueError("Different markers found")
-    if check_hemishperes:
-        hemispheres = set(xs[0].hemispheres)
-        if not all(hemispheres == set(x.hemispheres) for x in xs[1:]):
-            raise ValueError("Data found for different hemispheres")
+    if check_hemispheres:
+        if "hemispheres" not in xs[0].__dir__():
+            if not all(xs[0].hemisphere is x.hemisphere for x in xs[1:]):
+                raise ValueError("Data is from different hemispheres")
+        else:
+            hemispheres = set(xs[0].hemispheres)
+            if not all(hemispheres == set(x.hemispheres) for x in xs[1:]):
+                    raise ValueError("Data is from different hemispheres")
+        if check_regions:
+            if "hemiregions" in xs[0].__dir__():
+                for hem,regions in xs[0].hemiregions.items():
+                    if not _same_regions(regions, map(lambda x: x.hemiregions[hem], xs[1:])):
+                        raise ValueError("Data is from different brain structures")
+            else:
+                if not _same_regions(*map(lambda x: x.regions, xs)):
+                    raise ValueError("Data is from different brain structures")

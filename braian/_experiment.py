@@ -231,7 +231,7 @@ class SlicedExperiment:
         """
         self._name: str = str(name)
         self._groups: tuple[SlicedGroup] = (group1, group2, *groups)
-        _compatibility_check(self._groups, check_metrics=False, check_hemishperes=False)
+        _compatibility_check(self._groups, check_metrics=False, check_hemispheres=False)
 
     @property
     def name(self) -> str:

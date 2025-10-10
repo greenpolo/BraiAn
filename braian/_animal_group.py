@@ -779,7 +779,7 @@ class SlicedGroup:
         """
         self._name = str(name)
         self._animals = tuple(animals)
-        _compatibility_check(self._animals, check_metrics=False, check_hemishperes=False)
+        _compatibility_check(self._animals, check_metrics=False, check_hemispheres=False)
         self._brain_ontology = brain_ontology
 
     @property

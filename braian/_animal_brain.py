@@ -6,13 +6,14 @@ import re
 
 from collections.abc import Sequence, Callable
 from enum import Enum, auto
+from itertools import chain
 from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
 from typing import Generator, Self
 
 from braian import AtlasOntology, BrainData, BrainHemisphere, EmptyBrainError, SlicedBrain
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
-from braian.utils import deprecated, merge_ordered, save_csv
+from braian.utils import _compatibility_check, deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalBrain", "SliceMetrics"]
 
@@ -211,6 +212,16 @@ class AnimalBrain:
         self._markers: tuple[str] = tuple(markers_data.keys())
         self._markers_data: dict[str,tuple[BrainData]|tuple[BrainData,BrainData]] = markers_data
         self._sizes: tuple[BrainData]|tuple[BrainData,BrainData] = sizes
+        for i,hemisizes in enumerate(self._sizes):
+            # compatibility between hemidata
+            hemidata = [md[i] if isinstance(md, tuple) else md
+                       for md in self._markers_data.values()]
+            #check sizes and metrics have the same regions and hemispheres
+            _compatibility_check([hemisizes, *hemidata],
+                                 check_metrics=False, check_is_split=False, check_marker=False, check_regions=True)
+            # check markers have the same metric
+            _compatibility_check(hemidata,
+                                 check_metrics=True, check_is_split=False, check_marker=False, check_regions=False)
         self.raw: bool = raw
         """Whether the data can be considered _raw_ (e.g., contains simple cell positive counts) or not."""
         assert all([m.data_name == self.name for ms in markers_data.values() for m in ms]), "All markers' BrainData must be from the same animal!"
