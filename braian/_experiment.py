@@ -158,13 +158,17 @@ class Experiment:
 
         Returns
         -------
-        :
-            The corresponding `AnimalBrain` in the experiment.
+        : AnimalGroup
+            The corresponding group in the experiment, if `val` is an `int`.
+        : AnimalBrain
+            The corresponding brain in the experiment, if `val is a `str`.
 
         Raises
         ------
         TypeError
             If `val` is not a string nor an int.
+        IndexError
+            If `val` is an int index out of bound.
         KeyError
             If no brain named `val` was found in the experiment.
         """
@@ -340,7 +344,7 @@ class SlicedExperiment:
         """
         return any(animal_name in group for group in self._groups)
 
-    def __getitem__(self, val: str|int) -> SlicedBrain:
+    def __getitem__(self, val: str|int) -> SlicedGroup|SlicedBrain:
         """
 
         Parameters
@@ -350,13 +354,17 @@ class SlicedExperiment:
 
         Returns
         -------
-        :
-            The corresponding `SlicedBrain` in the sliced experiment.
+        : SlicedGroup
+            The corresponding group in the sliced experiment, if `val` is an `int`.
+        : SlicedBrain
+            The corresponding group in the sliced experiment, if `val is a `str`.
 
         Raises
         ------
         TypeError
             If `val` is not a string nor an int.
+        IndexError
+            If `val` is an int index out of bound.
         KeyError
             If no brain named `val` was found in the experiment.
         """

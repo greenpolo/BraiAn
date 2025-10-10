@@ -333,13 +333,13 @@ class AnimalGroup:
                 return True
         return False
 
-    def __getitem__(self, name: str) -> AnimalBrain:
+    def __getitem__(self, val: str|int) -> AnimalBrain:
         """
 
         Parameters
         ----------
-        name
-            The name of an animal part of the group
+        val
+            The name or the index of a `AnimalBrain` of the group.
 
         Returns
         -------
@@ -349,17 +349,21 @@ class AnimalGroup:
         Raises
         ------
         TypeError
-            If `name` is not a string.
+            If `val` is not a string nor an int.
+        IndexError
+            If `val` is an int index out of bound.
         KeyError
-            If no `name` brain was found in the group.
+            If no brain named `val` was found in the group.
         """
-        if not isinstance(name, str):
-            raise TypeError("AnimalGroup's animals are identified by strings")
+        if isinstance(val, int):
+            return self._animals[val]
+        if not isinstance(val, str):
+            raise TypeError("AnimalGroup's animals are identified by strings or int")
         try:
-            return next(brain for brain in self._animals if brain.name == name)
+            return next(brain for brain in self._animals if brain.name == val)
         except StopIteration:
             pass
-        raise KeyError(name)
+        raise KeyError(f"{val}")
 
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
@@ -823,33 +827,37 @@ class SlicedGroup:
                 return True
         return False
 
-    def __getitem__(self, name: str) -> AnimalBrain:
+    def __getitem__(self, val: str|int) -> SlicedBrain:
         """
 
         Parameters
         ----------
-        name
-            The name of an animal part of the sliced group
+        val
+            The name or the index of a `SlicedBrain` of the sliced group.
 
         Returns
         -------
         :
-            The corresponding `AnimalBrain` in the sliced group.
+            The corresponding `SlicedBrain` in the sliced group.
 
         Raises
         ------
         TypeError
-            If `name` is not a string.
+            If `val` is not a string nor an int.
+        IndexError
+            If `val` is an int index out of bound.
         KeyError
-            If no `name` brain was found in the sliced group.
+            If no brain named `val` was found in the sliced group.
         """
-        if not isinstance(name, str):
-            raise TypeError("SlicedGroup's animals are identified by strings")
+        if isinstance(val, int):
+            return self._animals[val]
+        if not isinstance(val, str):
+            raise TypeError("SlicedGroup's animals are identified by strings or int")
         try:
-            return next(brain for brain in self._animals if brain.name == name)
+            return next(brain for brain in self._animals if brain.name == val)
         except StopIteration:
             pass
-        raise KeyError(name)
+        raise KeyError(f"{val}")
 
     def get_animals(self) -> list[str]:
         """
