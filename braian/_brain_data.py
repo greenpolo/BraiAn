@@ -8,6 +8,7 @@ from numbers import Number
 
 from braian import AtlasOntology
 from braian._deflector import deflect
+from braian.utils import _compatibility_check
 
 __all__ = [
     "extract_legacy_hemispheres",
@@ -156,25 +157,26 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             [hemisphere][braian.BrainData.hemisphere] from the others, and
             `same_units` or `same_hemisphere` are `True, respectively.
         """
-        if not all([first.metric == other.metric for other in others]):
-            msg = f"Merging must be done between BrainData of the same metric, instead got {[first.metric, *[other.metric for other in others]]}!"
-            raise ValueError(msg)
+        _compatibility_check(tuple((first, *others)),
+                             check_metrics=True,
+                             check_marker=False,
+                             check_is_split=False,
+                             check_hemispheres=same_hemisphere,
+                             check_regions=False)
         if same_units and not all([first.units == other.units for other in others]):
             msg = f"Merging must be done between BrainData of the same units, {[first.units, *[other.units for other in others]]}!"
             raise ValueError(msg)
-        if same_hemisphere:
-            if not all([first.hemisphere == other.hemisphere for other in others]):
-                msg = f"Merging must be done between BrainData of the same hemisphere, {[first.hemisphere, *[other.hemisphere for other in others]]}!"
-                raise ValueError(msg)
-            hemisphere = first.hemisphere
-        else:
-            hemisphere = BrainHemisphere.BOTH
+        hemisphere = first.hemisphere
         if name is None:
             name = ":".join([first.data_name, *[other.data_name for other in others]])
         if op_name is None:
             op_name = op.__name__
-        data: pd.Series = op(pd.concat([first.data, *[other.data for other in others]], axis=1), axis=1, **kwargs)
-        return BrainData(data, name, f"{first.metric}:{op_name} (n={len(others)+1})", first.units, hemisphere)
+        # TODO: add min_count attribute to set to NaN those values result of a reduction of less than min_count BrainData
+        # join = "inner" if _min_count == 0 else "outer"
+        # data = pd.concat([first.data, *[other.data for other in others]], axis=1, join=join)
+        data = pd.concat([first.data, *[other.data for other in others]], axis=1)
+        redux: pd.Series = op(data, axis=1, **kwargs)
+        return BrainData(redux, name, f"{first.metric}:{op_name} (n={len(others)+1})", first.units, hemisphere)
 
     @staticmethod
     def mean(*data: Self, **kwargs) -> Self:
