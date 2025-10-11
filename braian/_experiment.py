@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Callable
-from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainHemisphere, SlicedBrain, SlicedGroup, SliceMetrics
+from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainHemisphere, SlicedBrain, SlicedGroup, SlicedMetric
 from braian.utils import _compatibility_check
 from pathlib import Path
 from typing import Any, Self
@@ -295,7 +295,7 @@ class SlicedExperiment:
                 return g
         raise AttributeError(f"Uknown group named '{name.lower()}'")
 
-    def to_experiment(self, metric: SliceMetrics,
+    def to_experiment(self, metric: SlicedMetric,
                       min_slices: int, densities: bool,
                       hemisphere_distinction: bool, validate: bool) -> Experiment:
         """

@@ -7,7 +7,7 @@ from functools import reduce
 from pathlib import Path
 from typing import Self
 
-from braian import AnimalBrain, AtlasOntology, BrainData, BrainHemisphere, SlicedBrain, SliceMetrics
+from braian import AnimalBrain, AtlasOntology, BrainData, BrainHemisphere, SlicedBrain, SlicedMetric
 from braian.utils import _compatibility_check, deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
@@ -920,7 +920,7 @@ class SlicedGroup:
         region_marker.index.names = ["brain", *region_marker.index.names[1:]]
         return region_marker
 
-    def to_group(self, metric: SliceMetrics,
+    def to_group(self, metric: SlicedMetric,
                  min_slices: int, densities: bool,
                  hemisphere_distinction: bool, validate: bool) -> AnimalGroup:
         """

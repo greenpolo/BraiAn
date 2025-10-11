@@ -14,7 +14,7 @@ from braian import AtlasOntology, BrainData, BrainHemisphere, EmptyBrainError, S
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
 from braian.utils import _compatibility_check, deprecated, merge_ordered, save_csv
 
-__all__ = ["AnimalBrain", "SliceMetrics"]
+__all__ = ["AnimalBrain", "SlicedMetric", "SliceMetrics"]
 
 # https://en.wikipedia.org/wiki/Coefficient_of_variation
 def coefficient_variation(x: np.ndarray) -> np.float64:
@@ -38,7 +38,7 @@ def _to_legacy_index(bd: BrainData) -> pd.Series:
         return (bd.hemisphere.name.capitalize()+": ")+bd.data.index
     return bd.data.index
 
-class SliceMetrics(Enum):
+class SlicedMetric(Enum):
     r"""
     Enum of the metrics used to reduce region data from [`SlicedBrain`][braian.SlicedBrain]
     into a [`AnimalBrain`][braian.AnimalBrain].
@@ -62,7 +62,7 @@ class SliceMetrics(Enum):
 
     @property
     def _raw(self) -> bool:
-        return self in (SliceMetrics.SUM, SliceMetrics.MEAN)
+        return self in (SlicedMetric.SUM, SlicedMetric.MEAN)
 
     def __repr__(self):
         cls_name = self.__class__.__name__
@@ -80,23 +80,23 @@ class SliceMetrics(Enum):
             return None
         match value.lower():
             case "sum":
-                return SliceMetrics.SUM
+                return SlicedMetric.SUM
             case "avg" | "mean":
-                return SliceMetrics.MEAN
+                return SlicedMetric.MEAN
             case "variation" | "cvar" | "coefficient of variation":
-                return SliceMetrics.CVAR
+                return SlicedMetric.CVAR
             case "std" | "standard deviation":
-                return SliceMetrics.STD
+                return SlicedMetric.STD
 
     def apply(self, data: pd.Series|pd.DataFrame|DataFrameGroupBy):
         match self:
-            case SliceMetrics.SUM:
+            case SlicedMetric.SUM:
                 return data.sum()
-            case SliceMetrics.MEAN:
+            case SlicedMetric.MEAN:
                 return data.mean()
-            case SliceMetrics.STD:
+            case SlicedMetric.STD:
                 return data.std(ddof=1)
-            case SliceMetrics.CVAR:
+            case SlicedMetric.CVAR:
                 if isinstance(data, DataFrameGroupBy):
                     return data.apply(coefficient_variation)
                 else:
@@ -110,10 +110,12 @@ class SliceMetrics(Enum):
         raw = not densities and self._raw
         return self.apply(all_slices.groupby(by=["acronym", "hemisphere"])), raw
 
+SliceMetrics = SlicedMetric
+
 class AnimalBrain:
     @staticmethod
     def from_slices(sliced_brain: SlicedBrain,
-                    metric: SliceMetrics|str=SliceMetrics.SUM, min_slices: int=0,
+                    metric: SlicedMetric|str=SlicedMetric.SUM, min_slices: int=0,
                     hemisphere_distinction: bool=True, densities: bool=False) -> Self:
         """
         Crates a cohesive [`AnimalBrain`][braian.AnimalBrain] from data coming from brain sections.
@@ -149,7 +151,7 @@ class AnimalBrain:
 
         name = sliced_brain.name
         markers = copy.copy(sliced_brain.markers)
-        metric = SliceMetrics(metric)
+        metric = SlicedMetric(metric)
         if len(sliced_brain.slices) < min_slices:
             raise EmptyBrainError(sliced_brain.name)
         redux, raw = metric(sliced_brain, min_slices, densities=densities)
@@ -695,7 +697,7 @@ class AnimalBrain:
             True, if the given string is associated to a raw metric. Otherwise, False.
         """
         try:
-            return SliceMetrics(metric)._raw
+            return SlicedMetric(metric)._raw
         except ValueError:
             return metric == BrainData.RAW_TYPE
 
