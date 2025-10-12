@@ -583,13 +583,12 @@ def _marker_correlation(marker1_df: pd.DataFrame, marker2_df: pd.DataFrame,
                         *,
                         marker1: str, marker2: str,
                         name: str, metric: str, hem: BrainHemisphere,
-                        method: str):
+                        atlas: str, method: str):
     corr = marker1_df.corrwith(marker2_df, method=method, axis=1)
-    return BrainData(data=corr,
-                     name=name,
+    return BrainData(data=corr, name=name,
                      metric=str(metric)+f"-corr (n={marker2_df.shape[1]})",
                      units=f"corr({marker1}, {marker2})",
-                     hemisphere=hem)
+                     hemisphere=hem, ontology=atlas, check=False)
 
 def markers_correlation(marker1: str, marker2: str,
                         group: AnimalGroup, other: AnimalGroup=None,
@@ -631,6 +630,7 @@ def markers_correlation(marker1: str, marker2: str,
     assert set(group.animals) == set(other.animals), "Both groups must have the same brains."
     assert group.is_split == other.is_split and all(group.hemispheres == other.hemispheres),\
         "Both groups must have data for the same hemispheres."
+    atlas = group.atlas
     marker1_df = group.to_pandas(marker1, missing_as_nan=True, hemisphere_as_value=True)
     marker2_df = other.to_pandas(marker2, missing_as_nan=True, hemisphere_as_value=True)
     if group.is_split:
@@ -638,11 +638,11 @@ def markers_correlation(marker1: str, marker2: str,
             _marker_correlation(marker1_df.loc[hem.value], marker2_df.loc[hem.value],
                                 marker1=marker1, marker2=marker2,
                                 name=group.name, metric=group.metric,
-                                hem=hem, method=method)
+                                hem=hem, atlas=atlas, method=method)
             for hem in group.hemispheres
         )
     hem: BrainHemisphere = group.hemispheres[0]
     return _marker_correlation(marker1_df.loc[hem.value], marker2_df.loc[hem.value],
                             marker1=marker1, marker2=marker2,
                             name=group.name, metric=group.metric,
-                            hem=hem, method=method)
+                            hem=hem, atlas=atlas, method=method)

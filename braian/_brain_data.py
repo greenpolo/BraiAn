@@ -8,7 +8,7 @@ from numbers import Number
 
 from braian import AtlasOntology, SlicedMetric
 from braian._deflector import deflect
-from braian.utils import _compatibility_check, classproperty, deprecated
+from braian.utils import _compatibility_check_bd, classproperty, deprecated
 
 __all__ = [
     "extract_legacy_hemispheres",
@@ -160,12 +160,10 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             [hemisphere][braian.BrainData.hemisphere] from the others, and
             `same_units` or `same_hemisphere` are `True, respectively.
         """
-        _compatibility_check(tuple((first, *others)),
-                             check_metrics=True,
-                             check_marker=False,
-                             check_is_split=False,
-                             check_hemispheres=same_hemisphere,
-                             check_regions=False)
+        _compatibility_check_bd(tuple((first, *others)),
+                                check_atlas=True,
+                                check_metrics=True,
+                                check_hemisphere=same_hemisphere)
         if same_units and not all([first.units == other.units for other in others]):
             msg = f"Merging must be done between BrainData of the same units, {[first.units, *[other.units for other in others]]}!"
             raise ValueError(msg)
@@ -179,7 +177,12 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         # data = pd.concat([first.data, *[other.data for other in others]], axis=1, join=join)
         data = pd.concat([first.data, *[other.data for other in others]], axis=1)
         redux: pd.Series = op(data, axis=1, **kwargs)
-        return BrainData(redux, name, f"{first.metric}:{op_name} (n={len(others)+1})", first.units, hemisphere)
+        return BrainData(redux,
+                         name=name,
+                         metric=f"{first.metric}:{op_name} (n={len(others)+1})",
+                         units=first.units,
+                         hemisphere=hemisphere,
+                         ontology=first.atlas, check=False)
 
     @staticmethod
     def mean(*data: Self, **kwargs) -> Self:
@@ -399,7 +402,11 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         data = sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA, mode=mode)#\
                 # .convert_dtypes() # no need to convert to IntXXArray/FloatXXArray as self.data should already be
         if not inplace:
-            return BrainData(data, self.data_name, self._metric, self._units, self.hemisphere)
+            return BrainData(data,
+                             name=self.data_name,
+                             metric=self._metric, units=self._units,
+                             hemisphere=self.hemisphere,
+                             ontology=self.atlas, check=False)
         else:
             self.data = data
             return self
@@ -499,7 +506,11 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             self.data = data
             return self
         else:
-            return BrainData(data, name=self.data_name, metric=self._metric, units=self._units, hemisphere=self.hemisphere)
+            return BrainData(data,
+                             name=self.data_name,
+                             metric=self._metric, units=self._units,
+                             hemisphere=self.hemisphere,
+                             ontology=self.atlas, check=False)
 
     def set_regions(self, brain_regions: Collection[str],
                     brain_ontology: AtlasOntology,
@@ -536,23 +547,26 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         UnkownBrainRegionsError
             if any of `brain_regions` is missing in `brain_ontology`.
         """
+        brain_regions = np.asarray(brain_regions)
         if isinstance(fill, Collection):
-            brain_regions = np.asarray(brain_regions)
             if len(fill) != len(brain_regions):
                 raise ValueError("'fill' argument requires a collection of the same length as 'brain_regions'")
         else:
             assert pd.isna(fill) or isinstance(fill, (int, float, np.number)), "'fill' argument must either be a collection or a number"
             fill = itertools.repeat(fill)
-        if not all(are_regions := brain_ontology.are_regions(brain_regions, "acronym")):
-            unknown_regions = brain_regions[~are_regions]
-            raise UnknownBrainRegionsError(unknown_regions, brain_ontology)
+        if (missing:=~brain_ontology.are_regions(brain_regions)).any():
+            raise UnknownBrainRegionsError(brain_regions[missing], brain_ontology)
         data = self.data.copy() if not inplace else self.data
         for region,value in zip(brain_regions, fill):
             if not overwrite and region in data.index:
                 continue
             data[region] = value
         if not inplace:
-            return BrainData(data, self.data_name, self._metric, self._units, self.hemisphere)
+            return BrainData(data,
+                             name=self.data_name,
+                             metric=self._metric, units=self._units,
+                             hemisphere=self.hemisphere,
+                             ontology=self.atlas, check=False)
         else:
             self.data = data
             return self

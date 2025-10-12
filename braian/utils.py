@@ -192,6 +192,36 @@ def _same_regions(rs: Collection[str], *others: Collection[str]) -> bool:
         map(lambda other: len(rs.symmetric_difference(set(other))) == 0,
             others))
 
+def _compatibility_check_sliced(xs: Collection,
+                                *,
+                                min_count: int=1,
+                                check_atlas=True,
+                                check_marker=True,
+                                check_is_split=True,
+                                check_regions: bool=False) -> bool:
+    return _compatibility_check(xs, min_count=min_count,
+                                check_atlas=check_atlas,
+                                check_metrics=False,
+                                check_marker=check_marker,
+                                check_is_split=check_is_split,
+                                check_hemispheres=False,
+                                check_regions=check_regions)
+
+def _compatibility_check_bd(xs: Collection,
+                            *,
+                            min_count: int=1,
+                            check_atlas=True,
+                            check_metrics=True,
+                            check_hemisphere: bool=True,
+                            check_regions: bool=False) -> bool:
+    return _compatibility_check(xs, min_count=min_count,
+                                check_atlas=check_atlas,
+                                check_metrics=check_metrics,
+                                check_marker=False,
+                                check_is_split=False,
+                                check_hemispheres=check_hemisphere,
+                                check_regions=check_regions)
+
 def _compatibility_check(xs: Collection,
                          *,
                          min_count: int=1,

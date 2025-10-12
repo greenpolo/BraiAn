@@ -403,8 +403,9 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
             salience_hem = pls.hemispheres[0]
         else: # the pls is comparing data from different hemispheres -> the salience are on BOTH
             salience_hem = BrainHemisphere.BOTH
-        brain_data = BrainData(v, name=f"{group1.name}+{group2.name}", metric="pls_salience",
-                               units="z-score", hemisphere=salience_hem)
+        brain_data = BrainData(v, name=f"{group1.name}+{group2.name}",
+                               metric="pls_salience", units="z-score",
+                               hemisphere=salience_hem, atlas=group1.atlas, check=False) # TODO: eventually a check on `selected_regions`` should be done
         if len(markers) == 1:
             return brain_data
         salience_scores[m] = brain_data

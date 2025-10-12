@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Self
 
 from braian import AnimalBrain, AtlasOntology, BrainData, BrainHemisphere, SlicedBrain, SlicedMetric
-from braian.utils import _compatibility_check, _same_regions, deprecated, merge_ordered, save_csv
+from braian.utils import _compatibility_check, _compatibility_check_sliced, _same_regions, deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
@@ -588,7 +588,7 @@ class AnimalGroup:
     @staticmethod
     @deprecated(since="1.1.0",
                 params=["group_name"],
-                alternatives=dict(animal_name="name"))
+                alternatives=dict(group_name="name"))
     def from_pandas(df: pd.DataFrame,
                     *,
                     name: str,
@@ -801,7 +801,7 @@ class SlicedGroup:
         """
         self._name = str(name)
         self._animals = tuple(animals)
-        _compatibility_check(self._animals, check_metrics=False, check_hemispheres=False)
+        _compatibility_check_sliced(self._animals)
 
     @property
     def atlas(self) -> str:

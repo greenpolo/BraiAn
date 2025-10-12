@@ -9,7 +9,7 @@ from typing import Generator, Self
 
 from braian import AtlasOntology, BrainData, BrainHemisphere, SlicedMetric, UnknownBrainRegionsError
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
-from braian.utils import _compatibility_check, deprecated, merge_ordered, save_csv
+from braian.utils import _compatibility_check_bd, deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalBrain"]
 
@@ -103,18 +103,18 @@ class AnimalBrain:
         self._markers: tuple[str] = tuple(markers_data.keys())
         self._markers_data: dict[str,tuple[BrainData]|tuple[BrainData,BrainData]] = markers_data
         self._sizes: tuple[BrainData]|tuple[BrainData,BrainData] = sizes
-        _compatibility_check(self._sizes,
-                             check_metrics=True, check_is_split=False, check_marker=False, check_regions=False)
+        _compatibility_check_bd(self._sizes, check_atlas=False,
+                                check_metrics=True, check_regions=False)
         for i,hemisizes in enumerate(self._sizes):
             # compatibility between hemidata
             hemidata = [md[i] if isinstance(md, tuple) else md
                        for md in self._markers_data.values()]
             #check sizes and metrics have the same regions and hemispheres
-            _compatibility_check([hemisizes, *hemidata],
-                                 check_metrics=False, check_is_split=False, check_marker=False, check_regions=True)
+            _compatibility_check_bd([hemisizes, *hemidata], check_atlas=True,
+                                    check_metrics=False, check_regions=True)
             # check markers have the same metric
-            _compatibility_check(hemidata,
-                                 check_metrics=True, check_is_split=False, check_marker=False, check_regions=False)
+            _compatibility_check_bd(hemidata, check_atlas=False,
+                                    check_metrics=True, check_regions=False)
         assert all([m.data_name == self.name for ms in markers_data.values() for m in ms]), "All markers' BrainData must be from the same animal!"
         assert all([m.metric == self.metric for ms in markers_data.values() for m in ms]), "All markers' BrainData must have the same metric!"
         return
@@ -664,8 +664,8 @@ class AnimalBrain:
         df.index = df.index.map(lambda i: (BrainHemisphere(i[0]),i[1]))
         hemispheres = sorted(df.index.unique(level=0), key=lambda hem: hem.value)
         regions = df.index.unique(level=1)
-        if (missing:=~ontology.are_regions(regions)):
-            raise UnknownBrainRegionsError(missing, ontology)
+        if (missing:=~ontology.are_regions(regions)).any():
+            raise UnknownBrainRegionsError(regions[missing], ontology)
         regex = r'(.+) \((.+)\)$'
         pattern = re.compile(regex)
         for column, data in df.items():
@@ -674,11 +674,15 @@ class AnimalBrain:
             name, units = matches[0] if len(matches) == 1 else (column, None)
             if name == "area" or name == "size": # braian <= 1.0.3 called sizes "area"
                 sizes = tuple(
-                    BrainData(data[hem], animal_name, metric, units, hemisphere=hem)
+                    BrainData(data[hem], name=animal_name,
+                              metric=metric, units=units, hemisphere=hem,
+                              ontology=ontology.name, check=False) # no need to check because we did it earlier for all the DataFrame
                     for hem in hemispheres)
             else: # it's a marker
                 markers_data[name] = tuple(
-                    BrainData(data[hem], animal_name, metric, units, hemisphere=hem)
+                    BrainData(data[hem], name=animal_name,
+                              metric=metric, units=units, hemisphere=hem,
+                              ontology=ontology.name, check=False)
                     for hem in hemispheres)
         return AnimalBrain(markers_data=markers_data, sizes=sizes)
 

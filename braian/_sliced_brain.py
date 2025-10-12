@@ -282,14 +282,9 @@ class SlicedBrain:
                           pd.concat((slice._data["area"], slice.markers_density), axis=1)
                           for slice in self._slices])
 
-    def count(self, brain_ontology: AtlasOntology=None) -> BrainData|dict[BrainHemisphere, BrainData]:
+    def count(self) -> BrainData|dict[BrainHemisphere, BrainData]:
         """
         Counts the number of slices that contains data for each brain region.
-
-        Parameters
-        ----------
-        brain_ontology
-            If specified, it sorts and check the regions accordingly to the given atlas ontology.
 
         Returns
         -------
@@ -299,14 +294,14 @@ class SlicedBrain:
         all_slices = self.concat_slices()
         count = all_slices.groupby(["acronym", "hemisphere"]).count().iloc[:,0]
         if self.is_split:
-            return {hem: BrainData(count.xs(hem.value, level="hemisphere"),
-                        self._name, "count_slices", "#slices", hemisphere=hem,
-                        brain_ontology=brain_ontology, fill_nan=False)
+            return {hem: BrainData(count.xs(hem.value, level="hemisphere"), name=self._name,
+                                   metric="count_slices", units="#slices", hemisphere=hem,
+                                   ontology=self.atlas, check=False) # no check in the ontology because _slices should already have been checked
                     for hem in (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)}
         hem = BrainHemisphere.BOTH
-        return BrainData(count.xs(hem.value, level="hemisphere"),
-                        self._name, "count_slices", "#slices", hemisphere=hem,
-                        brain_ontology=brain_ontology, fill_nan=False)
+        return BrainData(count.xs(hem.value, level="hemisphere"), name=self._name,
+                         metric="count_slices", units="#slices", hemisphere=hem,
+                         ontology=self.atlas, check=False)
 
     def merge_hemispheres(self) -> Self:
         """
@@ -425,17 +420,15 @@ class SlicedBrain:
         else:
             hemispheres = (BrainHemisphere.BOTH,)
         # areas = BrainData(redux["area"], name=name, metric=metric, units=sliced_brain.units["area"])
-        areas = tuple(BrainData(redux["area"].xs(hem.value, level=1),
-                                name=name, metric=metric,
-                                units=self.units["area"],
-                                hemisphere=hem)
+        areas = tuple(BrainData(redux["area"].xs(hem.value, level=1), name=name,
+                                metric=metric, units=self.units["area"], hemisphere=hem,
+                                atlas=self.atlas, check=False) # no check in the ontology because _slices should already have been checked
                 for hem in hemispheres)
         markers_data = {
             m: tuple(
-                BrainData(redux[m].xs(hem.value, level=1),
-                                      name=name, metric=metric,
-                                      units=self.units[m],
-                                      hemisphere=hem)
+                BrainData(redux[m].xs(hem.value, level=1), name=name,
+                          metric=metric, units=self.units[m], hemisphere=hem,
+                          atlas=self.atlas, check=False)
                 for hem in hemispheres)
             for m in markers
         }
