@@ -378,3 +378,20 @@ class SlicedExperiment:
             except KeyError:
                 pass
         raise KeyError(f"{val}")
+
+    def apply(self, f: Callable[[SlicedBrain], SlicedBrain]) -> Self:
+        """
+        Applies a function to each animal of the groups of the experiment and creates a new `SlicedExperiment`.
+
+        Parameters
+        ----------
+        f
+            A function that maps an `SlicedBrain` into another `SlicedBrain`.
+
+        Returns
+        -------
+        :
+            An experiment with the data of each animal changed accordingly to `f`.
+        """
+        groups = [g.apply(f) for g in self._groups]
+        return SlicedExperiment(self._name, *groups)

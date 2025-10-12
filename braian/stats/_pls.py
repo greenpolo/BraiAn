@@ -85,7 +85,7 @@ class PLS:
                                                                  "Please check that you're reading two groups that normalized "+\
                                                                  "on the same brain regions and on the same marker."
         # Fill a data matrix
-        animal_list = [f"{a}_{i}" for i,g in enumerate(groups) for a in g.get_animals()]
+        animal_list = [f"{a}_{i}" for i,g in enumerate(groups) for a in g.animal_names]
         animal_list.sort()
         data = pd.DataFrame(index=regions+["group"], columns=animal_list)
 

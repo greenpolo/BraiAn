@@ -160,7 +160,8 @@ class AnimalGroup:
         """
         return dict(self._hemimean)
 
-    def get_animals(self) -> list[str]:
+    @property
+    def animal_names(self) -> list[str]:
         """
         Returns
         -------
@@ -526,14 +527,14 @@ class AnimalGroup:
                     hemiregions = regions_L+regions_R
                 else:
                     hemiregions = self.regions
-                index_sorted = pd.MultiIndex.from_product((hemiregions, self.get_animals()))
+                index_sorted = pd.MultiIndex.from_product((hemiregions, self.animal_names))
             else:
                 index_tupled = [(hemi.name.lower() if hemisphere_as_str else
                                  hemi.value if hemisphere_as_value else
                                  hemi,region,animal)
                                 for hemi in hemiregions
                                 for region in hemiregions[hemi]
-                                for animal in self.get_animals()]
+                                for animal in self.animal_names]
                 index_sorted = pd.MultiIndex.from_tuples(index_tupled, names=("hemisphere","acronym","animal"))
             df = df.reorder_levels((1,0) if legacy else (1,2,0), axis=0).reindex(index_sorted)
         else:
@@ -859,7 +860,8 @@ class SlicedGroup:
             pass
         raise KeyError(f"{val}")
 
-    def get_animals(self) -> list[str]:
+    @property
+    def animal_names(self) -> list[str]:
         """
         Returns
         -------
@@ -920,6 +922,22 @@ class SlicedGroup:
         region_marker.index.names = ["brain", *region_marker.index.names[1:]]
         return region_marker
 
+    def apply(self, f: Callable[[SlicedBrain], SlicedBrain]) -> Self:
+        """
+        Applies a function to each animal of the group and creates a new `SlicedGroup`.
+
+        Parameters
+        ----------
+        f
+            A function that maps an `SlicedBrain` into another `SlicedBrain`.
+
+        Returns
+        -------
+        :
+            A group with the data of each animal changed accordingly to `f`.
+        """
+        animals = [f(a) for a in self._animals]
+        return SlicedGroup(name=self._name, animals=animals)
     def to_group(self, metric: SlicedMetric,
                  min_slices: int, densities: bool,
                  hemisphere_distinction: bool, validate: bool) -> AnimalGroup:
