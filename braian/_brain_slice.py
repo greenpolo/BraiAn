@@ -152,7 +152,7 @@ class BrainSlice:
     def from_qupath(csv: str|Path|pd.DataFrame, ch2marker: dict[str,str],
                     *,
                     animal:str, name: str,
-                    ontology: AtlasOntology, check: bool) -> Self:
+                    ontology: AtlasOntology) -> Self:
         """
         Creates a [`BrainSlice`][braian.BrainSlice] from a file exported with
         [`qupath-extension-braian`](https://github.com/carlocastoldi/qupath-extension-braian).
@@ -173,10 +173,6 @@ class BrainSlice:
             The name of the brain slice.
         ontology
             The atlas ontology used to align the section.
-        check
-            If True, it checks that all quantifications read in `csv` are from regions in the `atlas`,
-            and then sorts them in depth-first order.
-            Otherwise, it skips the check and no sorting is applied, but it's _faster_.
 
         Returns
         -------
@@ -226,7 +222,7 @@ class BrainSlice:
         units = {m.name: m.unit() for m in measurements}
         return BrainSlice(data=data, units=units,
                           animal=animal, name=name,
-                          ontology=ontology, check=check)
+                          ontology=ontology, check=True)
 
     @staticmethod
     def _extract_qupath_hemispheres(data: pd.DataFrame, csv_file: str):
@@ -465,14 +461,14 @@ class BrainSlice:
             if not self.is_split:
                 self._data.reset_index(inplace=True)
                 self._data.set_index("acronym", inplace=True)
-                self._data = sort_by_ontology(self._data, ontology, fill=False)
+                self._data = sort_by_ontology(self._data, ontology, fill=False, mode="depth")
                 self._data.reset_index(inplace=True)
                 self._data.set_index("index", inplace=True)
             else:
                 hem1 = self._data[self._data["hemisphere"] == BrainHemisphere.LEFT.value].reset_index().set_index("acronym")
                 hem2 = self._data[self._data["hemisphere"] == BrainHemisphere.RIGHT.value].reset_index().set_index("acronym")
-                hem1 = sort_by_ontology(hem1, ontology, fill=True)
-                hem2 = sort_by_ontology(hem2, ontology, fill=True)
+                hem1 = sort_by_ontology(hem1, ontology, fill=True, mode="depth")
+                hem2 = sort_by_ontology(hem2, ontology, fill=True, mode="depth")
                 self._data.reindex([*hem2["index"], *hem1["index"]], copy=False)
 
         self.markers_density: pd.DataFrame = self._marker_density()

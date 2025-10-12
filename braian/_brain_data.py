@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from collections.abc import Collection, Iterable, Sequence
 from enum import Enum
-from typing import Self, Callable
+from typing import Callable, Literal, Self
 from numbers import Number
 
 from braian import AtlasOntology, SlicedMetric
@@ -83,8 +83,9 @@ def extract_legacy_hemispheres(data: pd.DataFrame, reindex: bool=False, inplace:
     return data
 
 def sort_by_ontology(regions: Iterable|pd.DataFrame|pd.Series,
-                      brain_ontology: AtlasOntology,
-                      fill=False, fill_value=np.nan) -> np.ndarray|pd.DataFrame|pd.Series:
+                     brain_ontology: AtlasOntology,
+                     fill=False, fill_value=np.nan,
+                     mode: Literal["depth","width"]="depth") -> np.ndarray|pd.DataFrame|pd.Series:
     """
     Sorts an Iterable/DataFrame/Series by depth-first search in the given ontology.
     The index of the data is the name of the regions.
@@ -95,7 +96,7 @@ def sort_by_ontology(regions: Iterable|pd.DataFrame|pd.Series,
     UnknownBrainRegionsError
         When `data` contains structures not present in `brain_ontology`.
     """
-    all_regions = brain_ontology.subregions("root", mode="depth")
+    all_regions = brain_ontology.subregions("root", mode=mode)
     if isinstance(regions, (pd.Series, pd.DataFrame)): 
         regions_ = regions.index
     else:
@@ -347,7 +348,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return str(self)
 
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
-                         fill_nan=False, inplace=False) -> Self:
+                         fill_nan=False, inplace=False,
+                         mode: Literal["depth","width"]="depth") -> Self:
         """
         Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
 
@@ -367,7 +369,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             Brain data sorted accordingly to `brain_ontology`.
             If `inplace=True` it returns the same instance.
         """
-        data = sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA)#\
+        data = sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA, mode=mode)#\
                 # .convert_dtypes() # no need to convert to IntXXArray/FloatXXArray as self.data should already be
         if not inplace:
             return BrainData(data, self.data_name, self._metric, self._units, self.hemisphere)

@@ -62,7 +62,6 @@ class SlicedBrain:
                     animal_dir: str|Path,
                     brain_ontology: AtlasOntology,
                     ch2marker: dict[str,str],
-                    check: bool=False,
                     exclude_parent_regions: bool=True,
                     exclude_ancestors_layer1: bool=True,
                     results_subdir: str="results",
@@ -90,10 +89,6 @@ class SlicedBrain:
             An ontology against whose version the brain was aligned.
         ch2marker
             A dictionary mapping QuPath channel names to markers.
-        check
-            If True, it checks that each structure in every `BrainSlice` is in the `brain_ontology`,
-            and then sorts them in depth-first order.
-            Otherwise, it skips the check and no sorting is applied, but it's _faster_.
         exclude_parent_regions
             `exclude_parent_regions` from [`BrainSlice.exclude`][braian.BrainSlice.exclude].
         exclude_ancestors_layer1
@@ -129,14 +124,12 @@ class SlicedBrain:
             results_file = csv_slices_dir/(image+results_suffix)
             excluded_regions_file = excluded_regions_dir/(image+exclusions_suffix)
             try:
-                # Setting brain_ontology=None, we don't check that the data corresponds to real brain regions
-                # we post-pone the check later in the analysis for performance reasons.
-                # The assumption is that if you're creating a SlicedBrain, you will eventually do
-                # group analysis. Checking against the ontology for each slice would be too time consuming.
-                # We can do it afterwards, after the SlicedBrain is reduced to AnimalBrain
+                # Setting check=True because braian has to check the existance of every brain region
+                # at read-time. This way, no following check on the existence of the brain region should be
+                # necessary.
                 slice: BrainSlice = BrainSlice.from_qupath(results_file, ch2marker,
-                                               animal=name, name=image,
-                                               ontology=brain_ontology, check=check)
+                                                           animal=name, name=image,
+                                                           ontology=brain_ontology, check=True)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
                 slice.exclude(exclude, ontology=brain_ontology,
                               ancestors_layer1=exclude_ancestors_layer1)

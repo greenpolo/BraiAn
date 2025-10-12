@@ -77,9 +77,9 @@ class BraiAnConfig:
         else:
             output_dir = self.config["experiment"]["output-dir"]
         self.output_dir = _resolve_dir(output_dir, relative=self.config_file.absolute().parent)
-        self._brain_ontology: AtlasOntology = None
+        self._ontology: AtlasOntology = self._read_ontology()
 
-    def read_atlas_ontology(self) -> AtlasOntology:
+    def _read_ontology(self) -> AtlasOntology:
         """
         Reads the brain ontology specified in the configuration file, and, if necessary, it dowloads it from the web.
 
@@ -108,10 +108,9 @@ class BraiAnConfig:
             blacklisted = self.config["atlas"]["excluded-branches"]
         else:
             blacklisted = self.config["atlas"]["blacklisted"]
-        self._brain_ontology = AtlasOntology(atlas_name,
-                                             blacklisted=blacklisted,
-                                             unreferenced=False)
-        return self._brain_ontology
+        return AtlasOntology(atlas_name,
+                             blacklisted=blacklisted,
+                             unreferenced=False)
 
     def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True, legacy: bool=True) -> Experiment:
         metric = self.config["brains"]["raw-metric"]
@@ -129,9 +128,6 @@ class BraiAnConfig:
         """
         Reads all the slice data exported to files with BraiAn's QuPath extension,
         and organises them into braian data structure used to identify an experiment.
-
-        If [`read_atlas_ontology()`][braian.config.BraiAnConfig.read_atlas_ontology]
-        was not called previously, it reads the ontology.
 
         Parameters
         ----------
@@ -185,26 +181,27 @@ class BraiAnConfig:
         exclude_ancestors_layer1 = qupath.get("exclude-ancestors-layer1", True)
         group2brains: dict[str,str] = self.config["groups"]
         groups = []
-        if self._brain_ontology is None:
-            self.read_atlas_ontology()
         for g_name, brain_names in group2brains.items():
             group = SlicedGroup.from_qupath(name=g_name, brain_names=brain_names,
                                             qupath_dir=qupath_dir,
-                                            brain_ontology=self._brain_ontology,
+                                            brain_ontology=self._ontology,
                                             ch2marker=markers, #exclude_parents,
-                                            check=validate if sliced else False, # if not sliced, it will be checked in experiment_from_sliced
                                             exclude_ancestors_layer1=exclude_ancestors_layer1,
                                             results_subdir=results_subir, results_suffix=results_suffix,
                                             exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)
             groups.append(group)
 
         sliced_exp = SlicedExperiment(self.experiment_name, *groups)
-        return sliced_exp if sliced else self.experiment_from_sliced(sliced_exp, validate=validate)
+        return sliced_exp if sliced else self.from_sliced(sliced_exp)
 
+    @deprecated(since="1.1.0", alternatives=["braian.config.BraiAnConfig.from_sliced"])
     def experiment_from_sliced(self,
                                sliced_exp: SlicedExperiment,
                                hemisphere_distinction: bool=True,
                                validate: bool=True) -> Experiment:
+        return self.from_sliced(sliced_exp=sliced_exp)
+
+    def from_sliced(self, sliced_exp: SlicedExperiment) -> Experiment:
         """
         It reduces, for each brain of a sliced experiment, the data of every brain region into a single value
         accordingly to the method specified in the configuration file.
@@ -222,11 +219,7 @@ class BraiAnConfig:
         :
             _description_
         """
-        return sliced_exp.to_experiment(self.config["brains"]["raw-metric"],
-                                    self.config["qupath"]["min-slices"],
-                                    densities=False, # raw matrics will never be a density
-                                    hemisphere_distinction=hemisphere_distinction,
-                                    validate=validate)
+                                 densities=False) # raw matrics will never be a density
 
 def _resolve_dir(path: Path|str, relative: Path|str) -> Path:
     if not isinstance(path, Path):
