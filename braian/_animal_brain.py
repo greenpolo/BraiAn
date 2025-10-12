@@ -1,31 +1,17 @@
 import copy
 import functools
-import numpy as np
 import pandas as pd
 import re
 
 from collections.abc import Sequence, Callable
-from enum import Enum, auto
-from pandas.core.groupby import DataFrameGroupBy
 from pathlib import Path
 from typing import Generator, Self
 
-from braian import AtlasOntology, BrainData, BrainHemisphere, EmptyBrainError, SlicedBrain
+from braian import AtlasOntology, BrainData, BrainHemisphere, SlicedMetric
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
 from braian.utils import _compatibility_check, deprecated, merge_ordered, save_csv
 
-__all__ = ["AnimalBrain", "SlicedMetric", "SliceMetrics"]
-
-# https://en.wikipedia.org/wiki/Coefficient_of_variation
-def coefficient_variation(x: np.ndarray) -> np.float64:
-    if x.ndim == 1:
-        avg = x.mean()
-        if len(x) > 1 and avg != 0:
-            return x.std(ddof=1) / avg
-        else:
-            return 0
-    else: # compute it for each column of the DataFrame and return a Series
-        return x.apply(coefficient_variation, axis=0)
+__all__ = ["AnimalBrain"]
 
 def _combined_regions(*bd: BrainData) -> list[str]:
     return {
@@ -38,85 +24,14 @@ def _to_legacy_index(bd: BrainData) -> pd.Series:
         return (bd.hemisphere.name.capitalize()+": ")+bd.data.index
     return bd.data.index
 
-class SlicedMetric(Enum):
-    r"""
-    Enum of the metrics used to reduce region data from [`SlicedBrain`][braian.SlicedBrain]
-    into a [`AnimalBrain`][braian.AnimalBrain].
-
-    Attributes
-    ----------
-    SUM
-        Computes the sum of all the sections data from the same region into a single value
-    MEAN
-        Computes the average $\mu$ of all the sections data from the same region into a single value
-    STD
-        Computes the standard deviation $\sigma$ between all the sections data from the same region into a single value
-    CVAR
-        Computes the [coefficient of variation](https://en.wikipedia.org/wiki/Coefficient_of_variation)
-        $\frac \mu \sigma$ between all the sections data from the same region into a single value
-    """
-    SUM = auto()
-    MEAN = auto()
-    STD = auto()
-    CVAR = auto()
-
-    @property
-    def _raw(self) -> bool:
-        return self in (SlicedMetric.SUM, SlicedMetric.MEAN)
-
-    def __repr__(self):
-        cls_name = self.__class__.__name__
-        return f'<{cls_name}.{self.name}>'
-
-    def __str__(self):
-        return self.name.lower()
-
-    def __format__(self, format_spec: str):
-        return repr(self)
-
-    @classmethod
-    def _missing_(cls, value):
-        if not isinstance(value, str):
-            return None
-        match value.lower():
-            case "sum":
-                return SlicedMetric.SUM
-            case "avg" | "mean":
-                return SlicedMetric.MEAN
-            case "variation" | "cvar" | "coefficient of variation":
-                return SlicedMetric.CVAR
-            case "std" | "standard deviation":
-                return SlicedMetric.STD
-
-    def apply(self, data: pd.Series|pd.DataFrame|DataFrameGroupBy):
-        match self:
-            case SlicedMetric.SUM:
-                return data.sum()
-            case SlicedMetric.MEAN:
-                return data.mean()
-            case SlicedMetric.STD:
-                return data.std(ddof=1)
-            case SlicedMetric.CVAR:
-                if isinstance(data, DataFrameGroupBy):
-                    return data.apply(coefficient_variation)
-                else:
-                    return coefficient_variation(data)
-            case _:
-                raise ValueError(f"{self} does not support BrainSlices reductions")
-
-    def __call__(self, sliced_brain: SlicedBrain, min_slices: int, densities: bool):
-        all_slices = sliced_brain.concat_slices(densities=densities)
-        all_slices = all_slices.groupby(by=["acronym", "hemisphere"]).filter(lambda g: len(g) >= min_slices)
-        raw = not densities and self._raw
-        return self.apply(all_slices.groupby(by=["acronym", "hemisphere"])), raw
-
-SliceMetrics = SlicedMetric
-
 class AnimalBrain:
     @staticmethod
-    def from_slices(sliced_brain: SlicedBrain,
-                    metric: SlicedMetric|str=SlicedMetric.SUM, min_slices: int=0,
-                    hemisphere_distinction: bool=True, densities: bool=False) -> Self:
+    @deprecated(since="1.1.0", alternatives=["braian.SlicedBrain.to_group"])
+    def from_slices(sliced_brain,   #: SlicedBrain,
+                    metric: SlicedMetric|str=SlicedMetric.SUM,
+                    min_slices: int=0,
+                    hemisphere_distinction: bool=True,
+                    densities: bool=False) -> Self:
         """
         Crates a cohesive [`AnimalBrain`][braian.AnimalBrain] from data coming from brain sections.
 
@@ -146,38 +61,12 @@ class AnimalBrain:
         EmptyBrainError
             when `sliced_brain` has not enough sections or when `min_slices` filters out all brain regions.
         """
+        b = sliced_brain.to_brain(metric=metric,
+                                  min_slices=min_slices,
+                                  densities=densities)
         if not hemisphere_distinction:
-            sliced_brain = sliced_brain.merge_hemispheres()
-
-        name = sliced_brain.name
-        markers = copy.copy(sliced_brain.markers)
-        metric = SlicedMetric(metric)
-        if len(sliced_brain.slices) < min_slices:
-            raise EmptyBrainError(sliced_brain.name)
-        redux, raw = metric(sliced_brain, min_slices, densities=densities)
-        if redux.shape[0] == 0:
-            raise EmptyBrainError(sliced_brain.name)
-        metric = f"{str(metric)}_densities" if densities else str(metric)
-        if sliced_brain.is_split:
-            hemispheres = (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)
-        else:
-            hemispheres = (BrainHemisphere.BOTH,)
-        areas = tuple(BrainData(redux["area"].xs(hem.value, level=1),
-                                name=name, metric=metric,
-                                units=sliced_brain.units["area"],
-                                hemisphere=hem)
-                for hem in hemispheres)
-        # areas = BrainData(redux["area"], name=name, metric=metric, units=sliced_brain.units["area"])
-        markers_data = {
-            m: tuple(
-                BrainData(redux[m].xs(hem.value, level=1),
-                                      name=name, metric=metric,
-                                      units=sliced_brain.units[m],
-                                      hemisphere=hem)
-                for hem in hemispheres)
-            for m in markers
-        }
-        return AnimalBrain(markers_data=markers_data, sizes=areas, raw=raw)
+            return b.merge_hemispheres()
+        return b
 
     def __init__(self,
                  markers_data: dict[str,BrainData|tuple[BrainData,BrainData]],
@@ -682,6 +571,7 @@ class AnimalBrain:
         return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=index_label)
 
     @staticmethod
+    @deprecated(since="1.1.0", alternatives=["braian.BrainData.is_raw"])
     def is_raw(metric: str) -> bool:
         """
         Test whether the given string can be associated to a raw metric or not.
@@ -696,10 +586,7 @@ class AnimalBrain:
         :
             True, if the given string is associated to a raw metric. Otherwise, False.
         """
-        try:
-            return SlicedMetric(metric)._raw
-        except ValueError:
-            return metric == BrainData.RAW_TYPE
+        return BrainData.is_raw(metric)
 
     @staticmethod
     def from_pandas(df: pd.DataFrame, animal_name: str, legacy: bool=False) -> Self:
@@ -736,7 +623,7 @@ class AnimalBrain:
             df = df.copy()
         if isinstance(metric:=df.columns.name, str):
             metric = str(df.columns.name)
-        raw = AnimalBrain.is_raw(metric)
+        raw = BrainData.is_raw(metric)
         markers_data = dict()
         sizes = None
         df.index = df.index.map(lambda i: (BrainHemisphere(i[0]),i[1]))

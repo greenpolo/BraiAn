@@ -2,7 +2,7 @@ import yaml
 import warnings
 from pathlib import Path
 
-from braian import AnimalBrain, AtlasOntology, Experiment, SlicedGroup, SlicedExperiment
+from braian import AtlasOntology, BrainData, Experiment, SlicedGroup, SlicedExperiment
 from braian.utils import deprecated
 
 __all__ = ["BraiAnConfig"]
@@ -115,7 +115,7 @@ class BraiAnConfig:
 
     def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True, legacy: bool=True) -> Experiment:
         metric = self.config["brains"]["raw-metric"]
-        assert AnimalBrain.is_raw(metric), f"Configuration files should specify raw metrics only, not '{metric}'"
+        assert BrainData.is_raw(metric), f"Configuration files should specify raw metrics only, not '{metric}'"
         group2brains: dict[str,str] = self.config["groups"]
         if not from_brains:
             return Experiment.from_group_csv(self.experiment_name, group2brains.keys(), metric, self.output_dir, sep, legacy=legacy)

@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Self, Callable
 from numbers import Number
 
-from braian import AtlasOntology
+from braian import AtlasOntology, SlicedMetric
 from braian._deflector import deflect
 from braian.utils import _compatibility_check
 
@@ -240,6 +240,26 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
 
     RAW_TYPE: str = "raw"
     """The identifier used to specify the nature of raw data as 'metric' attribute in `BrainData`."""
+
+    @staticmethod
+    def is_raw(metric: str) -> bool:
+        """
+        Test whether the given string can be associated to a raw metric or not.
+
+        Parameters
+        ----------
+        metric
+            A string representing the name of a metric.
+
+        Returns
+        -------
+        :
+            True, if the given string is associated to a raw metric. Otherwise, False.
+        """
+        try:
+            return SlicedMetric(metric)._raw
+        except ValueError:
+            return metric == BrainData.RAW_TYPE
 
     def __init__(self, data: pd.Series, name: str, metric: str, units: str, hemisphere: BrainHemisphere,
                  brain_ontology: AtlasOntology|None=None, fill_nan=False) -> None:

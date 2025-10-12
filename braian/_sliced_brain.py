@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
-from braian import AtlasOntology, BrainData, BrainHemisphere, BrainSlice,\
+from braian import AnimalBrain, AtlasOntology, BrainData, BrainHemisphere, BrainSlice, SlicedMetric,\
                    BrainSliceFileError, \
                    ExcludedAllRegionsError, \
                    ExcludedRegionsNotFoundError, \
@@ -141,8 +141,8 @@ class SlicedBrain:
                 slice.exclude(exclude, ontology=brain_ontology,
                               ancestors_layer1=exclude_ancestors_layer1)
             except BrainSliceFileError as e:
-                mode = SlicedBrain._get_default_error_mode(e)
-                SlicedBrain._handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)
+                mode = _get_default_error_mode(e)
+                _handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)
             else:
                 slices.append(slice)
         # DOES NOT PRESERVE ORDER
@@ -161,7 +161,7 @@ class SlicedBrain:
     def __init__(self, name: str, slices: Iterable[BrainSlice], markers: Iterable[str]) -> None:
         """
         A `SlicedBrain` is a collection of [`BrainSlice`][braian.BrainSlice], and it is
-        an basic structure from which [`AnimalBrain`][braian.AnimalBrain] are reconstructed.
+        an basic structure from which [`AnimalBrain`][braian.AnimalBrain] are reduced.
 
         Parameters
         ----------
@@ -184,7 +184,7 @@ class SlicedBrain:
         if len(self._slices) == 0:
             raise EmptyBrainError(context=self._name)
         self._markers: list[str] = markers
-        self._check_same_units()
+        _check_same_units(self._slices)
         self._units = self._slices[0].units
         are_split = np.array([s.is_split for s in self._slices])
         if not are_split.all() and are_split.any():
@@ -378,57 +378,114 @@ class SlicedBrain:
         df.set_index(["slice", "hemisphere"], drop=True, append=False, inplace=True)
         return df
 
-    def _check_same_units(self):
-        units = pd.DataFrame([s.units for s in self._slices])
-        units_np = units.to_numpy()
-        if not all(same_units:=(units_np[0] == units_np).all(0)):
-            raise ValueError("Some measurements do not have the same unit of measurement for all slices: "+\
-                             ", ".join(units.columns[~same_units]))
+    def to_brain(self,
+                 metric: SlicedMetric|str=SlicedMetric.SUM,
+                 min_slices: int=0,
+                 densities: bool=False) -> AnimalBrain:
+        """
+        Crates a cohesive [`AnimalBrain`][braian.AnimalBrain] from data coming from brain sections.
 
-    @staticmethod
-    def _handle_brainslice_error(exception, mode, name, results_file: Path, regions_to_exclude_file: Path):
-        assert issubclass(type(exception), BrainSliceFileError), ""
-        match mode:
-            case "delete":
-                print(f"Animal '{name}' -", exception, "\nRemoving the corresponding result and regions_to_exclude files.")
-                results_file.unlink()
-                if not isinstance(exception, ExcludedRegionsNotFoundError):
-                    regions_to_exclude_file.unlink()
-            case "error":
-                raise exception
-            case "print":
-                print(f"Animal '{name}' -", exception)
-            case "silent":
-                pass
-            case _:
-                raise ValueError(f"Invalid mode='{mode}' parameter. Supported BrainSliceFileError handling modes: 'delete', 'error', 'print', 'silent'.")
+        Parameters
+        ----------
+        metric
+            The metric used to reduce sections data from the same region into a single value.
+        min_slices
+            The minimum number of sections for a reduction to be valid.
+            If a region has not enough sections, it will disappear from the dataset.
+        densities
+            If True, it computes the reduction on the section density (i.e., marker/area)
+            instead of doing it on the raw cell counts.
 
-    @staticmethod
-    def _get_default_error_mode(exception):
-        e_name = type(exception).__name__
-        mode_var = f"MODE_{e_name}"
-        if mode_var in globals():
-            return globals()[mode_var]
+        Returns
+        -------
+        :
 
-        match type(exception):
-            case ExcludedAllRegionsError.__class__:
-                return "print"
-            case ExcludedRegionsNotFoundError.__class__:
-                return "print"
-            case EmptyResultsError.__class__:
-                return "print"
-            case NanResultsError.__class__:
-                return "print"
-            case InvalidResultsError.__class__:
-                return "print"
-            case MissingQuantificationError.__class__:
-                return "print"
-            case InvalidRegionsHemisphereError.__class__:
-                return "print"
-            case InvalidExcludedRegionsHemisphereError.__class__:
-                return "print"
-            case _:
-                ValueError(f"Undercognized exception: {type(exception)}")
+        Raises
+        ------
+        EmptyBrainError
+            when `sliced_brain` has not enough sections or when `min_slices` filters out all brain regions.
+        """
+        name = self.name
+        markers = copy.copy(self.markers)
+        metric = SlicedMetric(metric)
+        if len(self.slices) < min_slices:
+            raise EmptyBrainError(self.name)
+        all_slices = self.concat_slices(densities=densities)
+        all_slices = all_slices.groupby(by=["acronym", "hemisphere"]).filter(lambda g: len(g) >= min_slices)
+        raw = not densities and metric.is_raw
+        redux = metric(all_slices.groupby(by=["acronym", "hemisphere"]))
+        if redux.shape[0] == 0: # TODO: could change to len(redux) == 0?
+            raise EmptyBrainError(self.name)
+        metric = f"{str(metric)}_densities" if densities else str(metric)
+        if self.is_split:
+            hemispheres = (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)
+        else:
+            hemispheres = (BrainHemisphere.BOTH,)
+        # areas = BrainData(redux["area"], name=name, metric=metric, units=sliced_brain.units["area"])
+        areas = tuple(BrainData(redux["area"].xs(hem.value, level=1),
+                                name=name, metric=metric,
+                                units=self.units["area"],
+                                hemisphere=hem)
+                for hem in hemispheres)
+        markers_data = {
+            m: tuple(
+                BrainData(redux[m].xs(hem.value, level=1),
+                                      name=name, metric=metric,
+                                      units=self.units[m],
+                                      hemisphere=hem)
+                for hem in hemispheres)
+            for m in markers
+        }
+        return AnimalBrain(markers_data=markers_data, sizes=areas, raw=raw)
+
+def _check_same_units(slices: Iterable[BrainSlice]):
+    units = pd.DataFrame([s.units for s in slices])
+    units_np = units.to_numpy()
+    if not all(same_units:=(units_np[0] == units_np).all(0)):
+        raise ValueError("Some measurements do not have the same unit of measurement for all slices: "+\
+                            ", ".join(units.columns[~same_units]))
+
+def _handle_brainslice_error(exception, mode, name, results_file: Path, regions_to_exclude_file: Path):
+    assert issubclass(type(exception), BrainSliceFileError), ""
+    match mode:
+        case "delete":
+            print(f"Animal '{name}' -", exception, "\nRemoving the corresponding result and regions_to_exclude files.")
+            results_file.unlink()
+            if not isinstance(exception, ExcludedRegionsNotFoundError):
+                regions_to_exclude_file.unlink()
+        case "error":
+            raise exception
+        case "print":
+            print(f"Animal '{name}' -", exception)
+        case "silent":
+            pass
+        case _:
+            raise ValueError(f"Invalid mode='{mode}' parameter. Supported BrainSliceFileError handling modes: 'delete', 'error', 'print', 'silent'.")
+
+def _get_default_error_mode(exception):
+    e_name = type(exception).__name__
+    mode_var = f"MODE_{e_name}"
+    if mode_var in globals():
+        return globals()[mode_var]
+    match type(exception):
+        case ExcludedAllRegionsError.__class__:
+            return "print"
+        case ExcludedRegionsNotFoundError.__class__:
+            return "print"
+        case EmptyResultsError.__class__:
+            return "print"
+        case NanResultsError.__class__:
+            return "print"
+        case InvalidResultsError.__class__:
+            return "print"
+        case MissingQuantificationError.__class__:
+            return "print"
+        case InvalidRegionsHemisphereError.__class__:
+            return "print"
+        case InvalidExcludedRegionsHemisphereError.__class__:
+            return "print"
+        case _:
+            ValueError(f"Undercognized exception: {type(exception)}")
 
 def get_image_names_in_folder(path: Path, exclusions_suffix: str) -> list[str]:
     assert path.is_dir(), f"'{str(path)}' is not an existing directory."

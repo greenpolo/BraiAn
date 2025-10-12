@@ -1,9 +1,10 @@
 from braian._ontology import *
 from braian._ontology_allen import *
+from braian._metrics_sliced import *
 from braian._brain_data import *
 from braian._brain_slice import *
-from braian._sliced_brain import *
 from braian._animal_brain import *
+from braian._sliced_brain import *
 from braian._animal_group import *
 from braian._experiment import *
 
