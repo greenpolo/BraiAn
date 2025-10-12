@@ -103,6 +103,8 @@ class AnimalBrain:
         self._markers: tuple[str] = tuple(markers_data.keys())
         self._markers_data: dict[str,tuple[BrainData]|tuple[BrainData,BrainData]] = markers_data
         self._sizes: tuple[BrainData]|tuple[BrainData,BrainData] = sizes
+        _compatibility_check(self._sizes,
+                             check_metrics=True, check_is_split=False, check_marker=False, check_regions=False)
         for i,hemisizes in enumerate(self._sizes):
             # compatibility between hemidata
             hemidata = [md[i] if isinstance(md, tuple) else md
