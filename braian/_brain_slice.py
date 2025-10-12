@@ -222,7 +222,7 @@ class BrainSlice:
         units = {m.name: m.unit() for m in measurements}
         return BrainSlice(data=data, units=units,
                           animal=animal, name=name,
-                          ontology=ontology, check=True)
+                          ontology=ontology, check=True) # we're reading from unknown sources, so we should always check
 
     @staticmethod
     def _extract_qupath_hemispheres(data: pd.DataFrame, csv_file: str):
@@ -586,7 +586,7 @@ class BrainSlice:
                 else:
                     region = exclusion
                 if not ontology.is_region(region):
-                    raise UnknownBrainRegionsError((region,))
+                    raise UnknownBrainRegionsError((region,), ontology)
 
                 # Step 1: subtract counting results of the regions to be excluded
                 # from their parent regions.

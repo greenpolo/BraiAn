@@ -20,8 +20,10 @@ __all__ = [
 ]
 
 class UnknownBrainRegionsError(Exception):
-    def __init__(self, unknown_regions: Iterable[str]):
-        super().__init__("The following regions are unknown to the given brain ontology: '"+"', '".join(unknown_regions)+"'")
+    def __init__(self,
+                 unknown_regions: Iterable[str],
+                 ontology: AtlasOntology):
+        super().__init__(f"Regions unknown in '{ontology.name}' atlas: '"+"', '".join(unknown_regions)+"'")
 
 class InvalidRegionsHemisphereError(Exception):
     def __init__(self, context=None):
@@ -97,12 +99,12 @@ def sort_by_ontology(regions: Iterable|pd.DataFrame|pd.Series,
         When `data` contains structures not present in `brain_ontology`.
     """
     all_regions = brain_ontology.subregions("root", mode=mode)
-    if isinstance(regions, (pd.Series, pd.DataFrame)): 
+    if isinstance(regions, (pd.Series, pd.DataFrame)):
         regions_ = regions.index
     else:
         regions_ = pd.Index(regions)
     if len(unknown_regions:=regions_[~regions_.isin(all_regions)]) > 0:
-        raise UnknownBrainRegionsError(unknown_regions)
+        raise UnknownBrainRegionsError(unknown_regions, brain_ontology)
     if not fill:
         all_regions = np.array(all_regions)
         all_regions = all_regions[np.isin(all_regions, regions_)]
@@ -518,7 +520,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             fill = itertools.repeat(fill)
         if not all(are_regions := brain_ontology.are_regions(brain_regions, "acronym")):
             unknown_regions = brain_regions[~are_regions]
-            raise UnknownBrainRegionsError(unknown_regions)
+            raise UnknownBrainRegionsError(unknown_regions, brain_ontology)
         data = self.data.copy() if not inplace else self.data
         for region,value in zip(brain_regions, fill):
             if not overwrite and region in data.index:

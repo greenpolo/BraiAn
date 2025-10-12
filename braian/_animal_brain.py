@@ -241,7 +241,6 @@ class AnimalBrain:
                 msg += f" for {hemi.name} hemisphere"
             raise KeyError(msg+".")
         raise TypeError(f"Unknown marker data selection: '{key}'")
-        
 
     def remove_region(self, region: str, *regions, fill_nan: bool=True,
                       hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> None:
@@ -327,7 +326,7 @@ class AnimalBrain:
             If `inplace=True` it returns the same instance.
         """
         # TODO: add option to sync markers and hemispheres
-        
+
         # NOTE: this adds the regions present in only one of the two hemispheres
         # if self.is_split:
         #     combined_regions = _combined_regions(self[self._markers[0], 1], self[self._markers[0], 2])
@@ -536,7 +535,7 @@ class AnimalBrain:
             hemidata = sorted(hemidata, key=lambda bd: bd.hemisphere.value) # first LEFT and then RIGHT hemispheres
             marker_col = f"{marker} ({hemidata[0].units})" if units else marker
             hemidata = pd.concat((bd.data for bd in hemidata))
-            hemidata.index = index # NOTE: exploits the assumtion that the markers regions are sync'd with the sizes'. 
+            hemidata.index = index # NOTE: exploits the assumtion that the markers regions are sync'd with the sizes'.
             brain_dict[marker_col] = hemidata
         data = pd.concat(brain_dict, axis=1)
         data.columns.name = str(self.metric)
@@ -600,7 +599,15 @@ class AnimalBrain:
         return BrainData.is_raw(metric)
 
     @staticmethod
-    def from_pandas(df: pd.DataFrame, animal_name: str, legacy: bool=False) -> Self:
+    @deprecated(since="1.1.0",
+                params=["animal_name"],
+                alternatives=dict(animal_name="name"))
+    def from_pandas(df: pd.DataFrame,
+                    *
+                    name: str,
+                    ontology: AtlasOntology,
+                    legacy: bool=False,
+                    animal_name: str=None) -> Self:
         """
         Creates an instance of [`AnimalBrain`][braian.AnimalBrain] from a `DataFrame`.
 
@@ -608,10 +615,14 @@ class AnimalBrain:
         ----------
         df
             A [`to_pandas`][braian.AnimalBrain.to_pandas]-compatible `DataFrame`.
-        animal_name
-            The name of the animal associated to the data in `df`.
+        name
+            The name of the animal associated  with the data in `df`.
+        ontology
+            The ontology of the atlas used to align the brain data in `df`.
         legacy
             If `df` distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+        animal_name
+            The name of the animal associated  with the data in `df`.
 
         Returns
         -------
@@ -621,7 +632,10 @@ class AnimalBrain:
         See also
         --------
         [`to_pandas`][braian.AnimalBrain.to_pandas]
+        [`AnimalGroup.from_pandas`][braian.AnimalGroup.from_pandas]
         """
+        if animal_name is not None:
+            name = animal_name
         if legacy:
             assert not isinstance(df.index, pd.MultiIndex), \
                 "Legacy dataframes are expected to have a simple Index of the acronyms and the hemishere prepended. "+\
@@ -638,6 +652,9 @@ class AnimalBrain:
         sizes = None
         df.index = df.index.map(lambda i: (BrainHemisphere(i[0]),i[1]))
         hemispheres = sorted(df.index.unique(level=0), key=lambda hem: hem.value)
+        regions = df.index.unique(level=1)
+        if (missing:=~ontology.are_regions(regions)):
+            raise UnknownBrainRegionsError(missing, ontology)
         regex = r'(.+) \((.+)\)$'
         pattern = re.compile(regex)
         for column, data in df.items():
@@ -655,7 +672,12 @@ class AnimalBrain:
         return AnimalBrain(markers_data=markers_data, sizes=sizes)
 
     @staticmethod
-    def from_csv(filepath: Path|str, name: str, sep: str=",", legacy: bool=False) -> Self:
+    def from_csv(filepath: Path|str,
+                 *,
+                 name: str,
+                 ontology: AtlasOntology,
+                 sep: str=",",
+                 legacy: bool=False) -> Self:
         """
         Reads a comma-separated values (CSV) file into `AnimalBrain`.
 
@@ -664,7 +686,9 @@ class AnimalBrain:
         filepath
             Any valid string path is acceptable. It also accepts any [os.PathLike][].
         name
-            Name of the animal associated to the data.
+            Name of the animal associated  with the data in `filepath`.
+        ontology
+            The ontology of the atlas used to align the brain data in `filepath`.
         sep
             Character or regex pattern to treat as the delimiter.
         legacy
@@ -678,6 +702,9 @@ class AnimalBrain:
         See also
         --------
         [`to_csv`][braian.AnimalBrain.to_csv]
+        [`AnimaGroup.from_csv`][braian.AnimaGroup.from_csv]
+        [`Experiment.from_brain_csv`][braian.Experiment.from_brain_csv]
+        [`Experiment.from_group_csv`][braian.Experiment.from_group_csv]
         """
         # read CSV
         # filename = f"{name}.csv" if metric is None else f"{name}_{str(metric)}.csv"
@@ -687,7 +714,7 @@ class AnimalBrain:
             raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
         df.columns.name = df.index.names[0] # good whether it's legacy or not
         df.index.names = (None,)*(1 if legacy else 2)
-        return AnimalBrain.from_pandas(df, name, legacy=legacy)
+        return AnimalBrain.from_pandas(df, name, ontology=ontology, legacy=legacy)
 
 def _extract_name_and_units(ls) -> Generator[str, None, None]:
     regex = r'(.+) \((.+)\)$'

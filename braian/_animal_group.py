@@ -588,7 +588,15 @@ class AnimalGroup:
         return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=labels)
 
     @staticmethod
-    def from_pandas(df: pd.DataFrame, group_name: str, legacy: bool=False) -> Self:
+    @deprecated(since="1.1.0",
+                params=["group_name"],
+                alternatives=dict(animal_name="name"))
+    def from_pandas(df: pd.DataFrame,
+                    *,
+                    name: str,
+                    ontology: AtlasOntology,
+                    legacy: bool=False,
+                    group_name: str=None) -> Self:
         """
         Creates an instance of [`AnimalGroup`][braian.AnimalGroup] from a `DataFrame`.
 
@@ -596,10 +604,14 @@ class AnimalGroup:
         ----------
         df
             A [`to_pandas`][braian.AnimalGroup.to_pandas]-compatible `DataFrame`.
-        group_name
-            The name of the group associated to the data in `df`.
+        name
+            The name of the group associated with the data in `df`.
+        ontology
+            The ontology of the atlas used to align the brain data in `df`.
         legacy
             If `df` distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+        group_name
+            The name of the group associated  with the data in `df`.
 
         Returns
         -------
@@ -609,14 +621,24 @@ class AnimalGroup:
         See also
         --------
         [`to_pandas`][braian.AnimalGroup.to_pandas]
+        [`AnimaBrain.from_pandas`][braian.AnimaBrain.from_pandas]
         """
+        if group_name is not None:
+            name = group_name
         brains_level = 1 if legacy else 2
-        animals = [AnimalBrain.from_pandas(df.xs(animal_name, axis=0, level=brains_level), animal_name, legacy=legacy)
+        animals = [AnimalBrain.from_pandas(
+                        df=df.xs(animal_name, axis=0, level=brains_level),
+                        name=animal_name, ontology=ontology, legacy=legacy)
                    for animal_name in df.index.unique(brains_level)]
-        return AnimalGroup(group_name, animals, fill_nan=False)
+        return AnimalGroup(name, animals, fill_nan=False)
 
     @staticmethod
-    def from_csv(filepath: Path|str, name: str, sep: str=",", legacy: bool=False) -> Self:
+    def from_csv(filepath: Path|str,
+                 *,
+                 name: str,
+                 ontology: AtlasOntology,
+                 sep: str=",",
+                 legacy: bool=False) -> Self:
         """
         Reads a comma-separated values (CSV) file into `AnimalGroup`.
 
@@ -625,7 +647,9 @@ class AnimalGroup:
         filepath
             Any valid string path is acceptable. It also accepts any [os.PathLike][].
         name
-            Name of the group associated to the data.
+            Name of the group associated  with the data in `filepath`.
+        ontology
+            The ontology of the atlas used to align the brain data in `filepath`.
         sep
             Character or regex pattern to treat as the delimiter.
         legacy
@@ -639,11 +663,14 @@ class AnimalGroup:
         See also
         --------
         [`to_csv`][braian.AnimalGroup.to_csv]
+        [`AnimaBrain.from_csv`][braian.AnimaBrain.from_csv]
+        [`Experiment.from_brain_csv`][braian.Experiment.from_brain_csv]
+        [`Experiment.from_group_csv`][braian.Experiment.from_group_csv]
         """
         df = pd.read_csv(filepath, sep=sep, header=0, index_col=[0,1] if legacy else [0,1,2])
         df.columns.name = df.index.names[0]
         df.index.names = (None,)*(2 if legacy else 3)
-        return AnimalGroup.from_pandas(df, name, legacy=legacy)
+        return AnimalGroup.from_pandas(df, name=name, ontology=ontology, legacy=legacy)
 
     @staticmethod
     def to_prism(marker, brain_ontology: AtlasOntology,

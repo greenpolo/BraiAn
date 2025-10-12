@@ -112,19 +112,29 @@ class BraiAnConfig:
                              blacklisted=blacklisted,
                              unreferenced=False)
 
+    @deprecated(since="1.1.0", alternatives=["braian.config.BraiAnConfig.from_csv"])
     def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True, legacy: bool=True) -> Experiment:
+        return self.from_csv(sep=sep, from_brains=from_brains, fill_nan=fill_nan, legacy=legacy)
+
+    def from_csv(self, sep: str=",", from_brains: bool=False, legacy: bool=True) -> Experiment:
         metric = self.config["brains"]["raw-metric"]
         assert BrainData.is_raw(metric), f"Configuration files should specify raw metrics only, not '{metric}'"
         group2brains: dict[str,str] = self.config["groups"]
         if not from_brains:
-            return Experiment.from_group_csv(self.experiment_name, group2brains.keys(), metric, self.output_dir, sep, legacy=legacy)
-        if self._brain_ontology is None:
-            self.read_atlas_ontology()
-        return Experiment.from_brain_csv(self.experiment_name, group2brains, metric,
-                                      self.output_dir, sep, brain_ontology=self._brain_ontology,
-                                      fill_nan=fill_nan, legacy=legacy)
+            return Experiment.from_group_csv(self.output_dir, group2brains.keys(),
+                                             name=self.experiment_name, metric=metric,
+                                             ontology=self._ontology,
+                                             sep=sep, legacy=legacy)
+        return Experiment.from_brain_csv(self.output_dir, group2brains,
+                                         name=self.experiment_name, metric=metric,
+                                         ontology=self._ontology,
+                                         sep=sep, legacy=legacy)
 
+    @deprecated(since="1.1.0", alternatives=["braian.config.BraiAnConfig.from_qupath"])
     def experiment_from_qupath(self, sliced: bool=False, validate: bool=True) -> Experiment|SlicedExperiment:
+        return self.from_qupath(sliced=sliced)
+
+    def from_qupath(self, sliced: bool=False) -> Experiment|SlicedExperiment:
         """
         Reads all the slice data exported to files with BraiAn's QuPath extension,
         and organises them into braian data structure used to identify an experiment.
@@ -136,11 +146,6 @@ class BraiAnConfig:
             it reduces, for each brain, the data of every brain region into a single value
             accordingly to the method specified in the configuration file.\\
             Otherwise, it keeps the raw data.
-        validate
-            If True, it checks that each structure in every `BrainSlice` is in the
-            [`atlas ontology`][braian.config.BraiAnConfig.read_atlas_ontology],
-            and then sorts them in depth-first order.
-            Otherwise, it skips the check and no sorting is applied (faster, when sliced=False).
 
         See also
         --------
