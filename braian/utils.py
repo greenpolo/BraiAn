@@ -14,7 +14,7 @@ from collections.abc import Callable, Collection, Sequence
 from importlib import resources
 from pathlib import Path, WindowsPath
 
-__all__ = ["cache", "deprecated", "get_resource_path", "resource"]
+__all__ = ["cache", "classproperty", "deprecated", "get_resource_path", "resource"]
 
 match platform.system():
     case "Windows":
@@ -168,6 +168,12 @@ def deprecated(*,
         return wrapper
     return decorator
 
+class classproperty:
+    def __init__(self, func):
+        self.fget = func
+    def __get__(self, instance, owner):
+        return self.fget(owner)
+
 @deprecated(since="1.1.0", alternatives=["braian.utils.resource"])
 def get_resource_path(resource_name: str) -> Path:
     return resource(resource_name)
@@ -185,9 +191,11 @@ def _same_regions(rs: Collection[str], *others: Collection[str]) -> bool:
             others))
 
 def _compatibility_check(xs: Collection,
+                         *,
+                         min_count: int=1,
                          check_metrics: bool=True,
-                         check_is_split: bool=True,
                          check_marker: bool=True,
+                         check_is_split: bool=True,
                          check_hemispheres: bool=True,
                          check_regions: bool=False):
     """
@@ -202,6 +210,8 @@ def _compatibility_check(xs: Collection,
     ValueError
         If `xs` is contains elements not compatible between each other.
     """
+    if len(xs) < min_count:
+        raise ValueError("No data available.")
     if check_metrics:
         metrics = set(x.metric for x in xs)
         if len(metrics) != 1:

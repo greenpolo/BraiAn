@@ -412,7 +412,6 @@ class SlicedBrain:
             raise EmptyBrainError(self.name)
         all_slices = self.concat_slices(densities=densities)
         all_slices = all_slices.groupby(by=["acronym", "hemisphere"]).filter(lambda g: len(g) >= min_slices)
-        raw = not densities and metric.is_raw
         redux = metric(all_slices.groupby(by=["acronym", "hemisphere"]))
         if redux.shape[0] == 0: # TODO: could change to len(redux) == 0?
             raise EmptyBrainError(self.name)
@@ -436,7 +435,7 @@ class SlicedBrain:
                 for hem in hemispheres)
             for m in markers
         }
-        return AnimalBrain(markers_data=markers_data, sizes=areas, raw=raw)
+        return AnimalBrain(markers_data=markers_data, sizes=areas)
 
 def _check_same_units(slices: Iterable[BrainSlice]):
     units = pd.DataFrame([s.units for s in slices])

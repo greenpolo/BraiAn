@@ -40,7 +40,12 @@ class SlicedMetric(Enum):
     CVAR = auto()
 
     @property
-    def is_raw(self) -> bool:
+    def raw(self) -> bool:
+        """
+        Whether the result of the metric's reduction across multiple brain sections can be considered raw or not.\\
+        A reduction produces _raw_ data if the result is an indirect quantification within a brain region
+        (e.g., sum—or average—of the cell counts found in each [`BrainSlice`][braian.BrainSlice]).
+        """
         return self in (SlicedMetric.SUM, SlicedMetric.MEAN)
 
     def __repr__(self):

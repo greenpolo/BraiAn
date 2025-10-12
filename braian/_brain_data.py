@@ -8,7 +8,7 @@ from numbers import Number
 
 from braian import AtlasOntology, SlicedMetric
 from braian._deflector import deflect
-from braian.utils import _compatibility_check
+from braian.utils import _compatibility_check, classproperty
 
 __all__ = [
     "extract_legacy_hemispheres",
@@ -238,13 +238,23 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         assert len(data) > 0, "You must provide at least one BrainData object."
         return BrainData.reduce(*data, op=pd.DataFrame.max, same_units=False, **kwargs)
 
-    RAW_TYPE: str = "raw"
-    """The identifier used to specify the nature of raw data as 'metric' attribute in `BrainData`."""
+    @classproperty
+    def RAW_METRIC(cls) -> str:
+        """
+        Metric used to identify `raw` data that are result of a direct regional quantification.
+
+        It was created to support results of volumetric dataset analyses, such as
+        [ClearMap2](https://clearanatomics.github.io/ClearMapDocumentation/).
+        """
+        return "raw"
 
     @staticmethod
     def is_raw(metric: str) -> bool:
         """
-        Test whether the given string can be associated to a raw metric or not.
+        Test whether the given string can be associated to a raw metric or not.\\
+        Brain data are considered _raw_, if they are a direct—or indirect—quantification within a brain region
+        (e.g., cell counts). An _indirect_ raw quantification is the result of a [reduction][braian.reduce]
+        across sections.
 
         Parameters
         ----------
@@ -255,11 +265,16 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         -------
         :
             True, if the given string is associated to a raw metric. Otherwise, False.
+
+        See also
+        --------
+        [`reduce`][braian.reduce]
+        [`SlicedMetric.raw`][braian.SlicedMetric.raw]
         """
         try:
-            return SlicedMetric(metric)._raw
+            return SlicedMetric(metric).raw
         except ValueError:
-            return metric == BrainData.RAW_TYPE
+            return metric == BrainData.RAW_METRIC
 
     def __init__(self, data: pd.Series, name: str, metric: str, units: str, hemisphere: BrainHemisphere,
                  brain_ontology: AtlasOntology|None=None, fill_nan=False) -> None:
@@ -274,7 +289,11 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         name
             A name identifying `data`.
         metric
-            The metric used to extract `data`. If they no metric was previosuly used, use [`RAW_TYPE`][braian.BrainData.RAW_TYPE].
+            The metric used to extract `data`.
+
+            If `data` is a direct regional quantification (e.g., it's the result of
+            [ClearMap2](https://clearanatomics.github.io/ClearMapDocumentation/)),
+            use [`RAW_METRIC`][braian.BrainData.RAW_METRIC].
         units
             The units of measurment of the values in `data`.
         hemisphere
@@ -308,9 +327,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
 
     @property
     def metric(self) -> str:
-        """The metric of the brain quantifications.\\
-        Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
-        """
+        """The metric of the per-region quantifications."""
         return str(self._metric)
 
     @property

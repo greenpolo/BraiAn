@@ -68,6 +68,7 @@ class AnimalBrain:
             return b.merge_hemispheres()
         return b
 
+    @deprecated(since="1.1.0", params=["raw"])
     def __init__(self,
                  markers_data: dict[str,BrainData|tuple[BrainData,BrainData]],
                  sizes: BrainData|tuple[BrainData,BrainData],
@@ -112,8 +113,6 @@ class AnimalBrain:
             # check markers have the same metric
             _compatibility_check(hemidata,
                                  check_metrics=True, check_is_split=False, check_marker=False, check_regions=False)
-        self.raw: bool = raw
-        """Whether the data can be considered _raw_ (e.g., contains simple cell positive counts) or not."""
         assert all([m.data_name == self.name for ms in markers_data.values() for m in ms]), "All markers' BrainData must be from the same animal!"
         assert all([m.metric == self.metric for ms in markers_data.values() for m in ms]), "All markers' BrainData must have the same metric!"
         return
@@ -155,11 +154,23 @@ class AnimalBrain:
 
     @property
     def metric(self) -> str:
-        """
-        The metric of the brain quantifications.\\
-        Equals to [`RAW_TYPE`][braian.BrainData.RAW_TYPE] if no previous normalization was preformed.
-        """
+        """The metric of the per-region quantifications."""
         return self._markers_data[self._markers[0]][0].metric
+
+    @property
+    def raw(self) -> bool:
+        """
+        Whether the data can be considered raw or not.\\
+        Brain data are considered _raw_, if they are a direct—or indirect—quantification within a brain region
+        (e.g., cell counts). An _indirect_ raw quantification is the result of a [reduction][braian.reduce]
+        across sections.
+
+        See also
+        --------
+        [`reduce`][braian.reduce]
+        [`SlicedMetric.raw`][braian.SlicedMetric.raw]
+        """
+        return BrainData.is_raw(self.metric)
 
     @property
     def is_split(self) -> bool:
@@ -328,7 +339,7 @@ class AnimalBrain:
                         for marker, hemidata in self._markers_data.items()}
         sizes = tuple(s.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace) for s in self._sizes)
         if not inplace:
-            return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
+            return AnimalBrain(markers_data=markers_data, sizes=sizes)
         else:
             self._markers_data = markers_data
             self._sizes = sizes
@@ -417,7 +428,7 @@ class AnimalBrain:
                         for marker, hemidata in self._markers_data.items()}
         sizes = self._apply(self._sizes, f1, f2, hemisphere=hemisphere)
         if not inplace:
-            return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=self.raw)
+            return AnimalBrain(markers_data=markers_data, sizes=sizes)
         else:
             self._markers_data = markers_data
             self._sizes = sizes
@@ -623,7 +634,6 @@ class AnimalBrain:
             df = df.copy()
         if isinstance(metric:=df.columns.name, str):
             metric = str(df.columns.name)
-        raw = BrainData.is_raw(metric)
         markers_data = dict()
         sizes = None
         df.index = df.index.map(lambda i: (BrainHemisphere(i[0]),i[1]))
@@ -642,7 +652,7 @@ class AnimalBrain:
                 markers_data[name] = tuple(
                     BrainData(data[hem], animal_name, metric, units, hemisphere=hem)
                     for hem in hemispheres)
-        return AnimalBrain(markers_data=markers_data, sizes=sizes, raw=raw)
+        return AnimalBrain(markers_data=markers_data, sizes=sizes)
 
     @staticmethod
     def from_csv(filepath: Path|str, name: str, sep: str=",", legacy: bool=False) -> Self:
