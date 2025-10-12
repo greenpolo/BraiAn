@@ -1,6 +1,6 @@
 from collections.abc import Iterable, Callable
 from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainHemisphere, SlicedBrain, SlicedGroup, SlicedMetric
-from braian.utils import _compatibility_check
+from braian.utils import _compatibility_check, deprecated
 from pathlib import Path
 from typing import Any, Self
 
@@ -47,7 +47,7 @@ class Experiment:
         --------
         [`from_brain_csv`][braian.Experiment.from_brain_csv]
         [`AnimaBrain.from_csv`][braian.AnimaBrain.from_csv]
-        [`AnimaGroup.from_csv`][braian.AnimaGroup.from_csv]
+        [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
         """
         if not isinstance(basedir, Path):
             basedir = Path(basedir)
@@ -99,7 +99,7 @@ class Experiment:
         --------
         [`from_group_csv`][braian.Experiment.from_group_csv]
         [`AnimaBrain.from_csv`][braian.AnimaBrain.from_csv]
-        [`AnimaGroup.from_csv`][braian.AnimaGroup.from_csv]
+        [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
         """
         if not isinstance(basedir, Path):
             basedir = Path(basedir)
@@ -262,6 +262,7 @@ class Experiment:
                 pass
         raise KeyError(f"{val}")
 
+    @deprecated(since="1.1.0", params=["hemisphere_distinction"])
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
               brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> Self:
@@ -273,11 +274,6 @@ class Experiment:
         ----------
         f
             A function that maps an `AnimalBrain` into another `AnimalBrain`.
-        brain_ontology
-            The ontology to which the brains' data was registered against.\\
-            If specified, it sorts the data in depth-first search order with respect to brain_ontology's hierarchy.
-        fill_nan
-            If True, it sets the value to [`NA`][pandas.NA] for all the regions missing from the data but present in `brain_ontology`.
 
         Returns
         -------
@@ -286,7 +282,6 @@ class Experiment:
         """
         groups = [
             g.apply(f,
-                    hemisphere_distinction=hemisphere_distinction,
                     brain_ontology=brain_ontology, fill_nan=fill_nan)
             for g in self._groups]
         return Experiment(self._name, *groups)
@@ -378,7 +373,7 @@ class SlicedExperiment:
                       min_slices: int, densities: bool,
                       hemisphere_distinction: bool, validate: bool) -> Experiment:
         """
-        Aggrecates the data from all sections of each [`SlicedBrain`][braian.SlicedBrain]
+        Aggregates the data from all sections of each [`SlicedBrain`][braian.SlicedBrain]
         into [`SlicedGroup`][braian.SlicedGroup] and organises them into the corresponding
         [`Experiment`][braian.Experiment].
 

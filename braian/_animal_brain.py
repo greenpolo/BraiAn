@@ -7,7 +7,7 @@ from collections.abc import Sequence, Callable
 from pathlib import Path
 from typing import Generator, Self
 
-from braian import AtlasOntology, BrainData, BrainHemisphere, SlicedMetric
+from braian import AtlasOntology, BrainData, BrainHemisphere, SlicedMetric, UnknownBrainRegionsError
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
 from braian.utils import _compatibility_check, deprecated, merge_ordered, save_csv
 
@@ -201,6 +201,30 @@ class AnimalBrain:
         """
         return {s.hemisphere: s.regions for s in self._sizes}
 
+    @deprecated(since="1.1.0", alternatives=["braian.AnimalBrain.units"])
+    def get_units(self, marker:str|None=None) -> str:
+        return self.units(marker)
+
+    def units(self, marker:str|None=None) -> str:
+        """
+        Returns the units of measurment of a marker.
+
+        Parameters
+        ----------
+        marker
+            The marker to get the units for. It can be omitted, if the current brain has only one marker.
+
+        Returns
+        -------
+        :
+            A string representing the units of measurement of `marker`.
+        """
+        if len(self._markers) == 1:
+            marker = self._markers[0]
+        assert marker is not None, "Missing marker to get units of."
+        assert marker in self._markers, f"Could not get units of marker '{marker}'!"
+        return self._markers_data[marker][0].units
+
     def __repr__(self):
         return str(self)
 
@@ -325,7 +349,7 @@ class AnimalBrain:
             A brain with data sorted accordingly to `brain_ontology`.
             If `inplace=True` it returns the same instance.
         """
-        # TODO: add option to sync markers and hemispheres
+        # TODO: should we add an option to sync hemiregions? And markers?
 
         # NOTE: this adds the regions present in only one of the two hemispheres
         # if self.is_split:
@@ -432,27 +456,6 @@ class AnimalBrain:
             self._markers_data = markers_data
             self._sizes = sizes
             return self
-
-    def get_units(self, marker:str|None=None) -> str:
-        """
-        Returns the units of measurment of a marker.
-
-        Parameters
-        ----------
-        marker
-            The marker to get the units for. It can be omitted, if the current brain has only one marker.
-
-        Returns
-        -------
-        :
-            A string representing the units of measurement of `marker`.
-        """
-        if len(self._markers) == 1:
-            marker = self._markers[0]
-        assert marker is not None, "Missing marker to get units of."
-        assert marker in self._markers, f"Could not get units of marker '{marker}'!"
-        return self._markers_data[marker][0].units
-
 
     def merge_hemispheres(self) -> Self:
         """
@@ -702,7 +705,7 @@ class AnimalBrain:
         See also
         --------
         [`to_csv`][braian.AnimalBrain.to_csv]
-        [`AnimaGroup.from_csv`][braian.AnimaGroup.from_csv]
+        [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
         [`Experiment.from_brain_csv`][braian.Experiment.from_brain_csv]
         [`Experiment.from_group_csv`][braian.Experiment.from_group_csv]
         """

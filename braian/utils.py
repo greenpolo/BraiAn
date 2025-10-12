@@ -39,7 +39,7 @@ def cache(filepath: Path|str, url):
     with open(filepath, "wb") as f:
         f.write(resp.content)
 
-def merge_ordered(*xs: Sequence) -> Sequence:
+def merge_ordered(*xs: Sequence, raises: bool=True) -> Sequence:
     vs_obj = list(functools.reduce(set.union, [set(x) for x in xs]))
     n_vertices = len(vs_obj)
     vs = list(range(n_vertices))
@@ -51,9 +51,11 @@ def merge_ordered(*xs: Sequence) -> Sequence:
     if g.is_dag():
         # topological sorting is possible only if g is a DAG
         return g.vs[g.topological_sorting(mode="out")]["obj"]
-    else:
+    elif raises:
         raise ValueError("The given sequences are not sorted in a compatible way.")
-        return vs_obj
+    else:
+        warnings.warn("Conflicting order of the brain regions. It's suggested to use 'sort_by_ontology'.", UserWarning, stacklevel=2)
+        return vs_obj # TODO: should it display a warning/debug message?
 
 def search_file_or_simlink(file_path: str|Path) -> Path:
     if not isinstance(file_path, Path):

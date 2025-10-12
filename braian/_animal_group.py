@@ -8,25 +8,30 @@ from pathlib import Path
 from typing import Self
 
 from braian import AnimalBrain, AtlasOntology, BrainData, BrainHemisphere, SlicedBrain, SlicedMetric
-from braian.utils import _compatibility_check, deprecated, merge_ordered, save_csv
+from braian.utils import _compatibility_check, _same_regions, deprecated, merge_ordered, save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
 def _combined_regions(animals: list[AnimalBrain]) -> dict[BrainHemisphere,list[str]]:
     common_regions = dict()
     for hemi in animals[0].hemispheres:
-        common_regions[hemi] = merge_ordered(*[brain.hemiregions[hemi] for brain in animals])
+        common_regions[hemi] = merge_ordered(*[brain.hemiregions[hemi] for brain in animals], raises=False)
         # all_regions = [set(brain.hemiregions[hemi]) for brain in animals]
-        # common_regions[hemi] = list(reduce(set.__or__, all_regions))
+        # common_regions[hemi] = list(functools.reduce(set.__or__, all_regions))
     return common_regions
 
-def _have_same_regions(animals: list[AnimalBrain]) -> bool:
-    # NOTE: it only checks whether all animals have the same number of brain regions
-    for hemi,regions in animals[0].hemiregions.items():
-        all_regions = [set(brain.hemiregions[hemi]) for brain in animals]
-        return len(reduce(set.__and__, all_regions)) == len(regions)
+def _have_same_regions(brains: list[AnimalBrain]) -> bool:
+    for hem,regions in brains[0].hemiregions.items():
+        if not _same_regions(regions, map(lambda b: b.hemiregions[hem], brains[1:])):
+            return False
+    return True
 
 class AnimalGroup:
+    @deprecated(since="1.1.0",
+                params=["hemisphere_distinction"],
+                alternatives=dict(
+                    hemisphere_distinction="braian.merge_hemispheres"
+                ))
     def __init__(self, name: str, animals: Sequence[AnimalBrain], hemisphere_distinction: bool=True,
                  brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> None:
         """
@@ -56,8 +61,6 @@ class AnimalGroup:
 
         See also
         --------
-        [`AnimalBrain.merge_hemispheres`][braian.AnimalBrain.merge_hemispheres]
-        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
         [`AnimalBrain.sort_by_ontology`][braian.AnimalBrain.sort_by_ontology]
         [`BrainData.sort_by_ontology`][braian.BrainData.sort_by_ontology]
         [`AnimalBrain.select`][braian.AnimalBrain.select]
@@ -70,10 +73,6 @@ class AnimalGroup:
         _compatibility_check(animals)
 
         no_update = lambda b: b  # noqa: E731
-        if animals[0].is_split and not hemisphere_distinction:
-            merge = AnimalBrain.merge_hemispheres
-        else:
-            merge = no_update
 
         if _have_same_regions(animals):
             fill = no_update
@@ -91,7 +90,7 @@ class AnimalGroup:
             def sort(brain: AnimalBrain) -> AnimalBrain:
                 return brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)
 
-        self._animals: list[AnimalBrain] = [sort(fill(merge(brain))) for brain in animals] # brain |> merge |> fill |> sort -- OLD: brain |> merge |> analyse |> sort
+        self._animals: list[AnimalBrain] = [sort(fill(brain)) for brain in animals] # brain |> fill |> sort -- OLD: brain |> merge |> analyse |> sort
         self._hemimean: dict[str, tuple[BrainData]|tuple[BrainData,BrainData]] = self._update_mean()
 
     @property
@@ -122,14 +121,8 @@ class AnimalGroup:
     @property
     def regions(self) -> list[str]:
         """The list of region acronyms for which the current `AnimalGroup` has data."""
-        # NOTE: all animals of the group are expected to have the same regions!
-        #       In theory, this was enforced during AnimalGroup construction
-        # if not _have_same_regions(animals):
-        #     # NOTE: if the animals of the AnimalGroup were not sorted by ontology, the order is not guaranteed to be significant
-        #     print(f"WARNING: animals of {self} don't have the same brain regions. "+\
-        #           "The order of the brain regions is not guaranteed to be significant. It's better to first call sort_by_ontology()")
-        #     return list(reduce(set.union, all_regions))
-        #     # return set(chain(*all_regions))
+        # NOTE: assumes that all brains in the group were synchronised in __init__
+        # and never touched again outside of the group
         return self._animals[0].regions
 
     @property
@@ -137,7 +130,39 @@ class AnimalGroup:
         """
         The dictionary that maps the hemispheres to the list of region acronyms for which the current `AnimalGroup` has data.
         """
-        return dict(self._animals[0].hemiregions)
+        # NOTE: assumes that all brains in the group were synchronised in __init__
+        # and never touched again outside of the group
+        # if not _have_same_regions(animals):
+        #     # NOTE: if the animals of the AnimalGroup were not sorted by ontology, the order is not guaranteed to be significant
+        #     print(f"WARNING: animals of {self} don't have the same brain regions. "+\
+        #           "The order of the brain regions is not guaranteed to be significant. It's better to first call sort_by_ontology()")
+        #     return list(functools.reduce(set.union, all_regions))
+        #     # return set(chain(*all_regions))
+        return self._animals[0].hemiregions
+
+    @deprecated(since="1.1.0", alternatives=["braian.AnimalGroup.units"])
+    def get_units(self, marker: str|None=None) -> str:
+        return self.units(marker)
+
+    def units(self, marker: str|None=None) -> str:
+        """
+        Returns the units of measurment of a marker.
+
+        Parameters
+        ----------
+        marker
+            The marker to get the units for. It can be omitted, if the current brain has only one marker.
+
+        Returns
+        -------
+        :
+            A string representing the units of measurement of `marker`.
+        """
+        if len(self.markers) == 1:
+            marker = self.markers[0]
+        else:
+            assert marker in self.markers, f"Could not get units for marker '{marker}'!"
+        return self._animals[0].units(marker)
 
     @property
     def animals(self) -> list[AnimalBrain]:
@@ -366,6 +391,7 @@ class AnimalGroup:
             pass
         raise KeyError(f"{val}")
 
+    @deprecated(since="1.1.0", params=["hemisphere_distinction"])
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
               brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> Self:
@@ -388,36 +414,11 @@ class AnimalGroup:
         :
             A group with the data of each animal changed accordingly to `f`.
         """
-        if self.is_split and not hemisphere_distinction:
-            merge = AnimalBrain.merge_hemispheres
-        else:
-            merge = lambda b: b  # noqa: E731
-        animals = [f(merge(a)) for a in self._animals]
+        animals = [f(a) for a in self._animals]
         return AnimalGroup(name=self.name,
                            animals=animals,
-                           hemisphere_distinction=hemisphere_distinction,
                            brain_ontology=brain_ontology,
                            fill_nan=fill_nan)
-
-    def get_units(self, marker: str|None=None) -> str:
-        """
-        Returns the units of measurment of a marker.
-
-        Parameters
-        ----------
-        marker
-            The marker to get the units for. It can be omitted, if the current brain has only one marker.
-
-        Returns
-        -------
-        :
-            A string representing the units of measurement of `marker`.
-        """
-        if len(self.markers) == 1:
-            marker = self.markers[0]
-        else:
-            assert marker in self.markers, f"Could not get units for marker '{marker}'!"
-        return self._animals[0].get_units(marker)
 
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
                          fill_nan: bool=True, inplace: bool=True) -> None:
@@ -785,7 +786,10 @@ class SlicedGroup:
             sliced_brains.append(sliced_brain)
         return SlicedGroup(name, sliced_brains, brain_ontology)
 
-    def __init__(self, name: str, animals: Iterable[SlicedBrain],
+    @deprecated(since="1.1.0", params=["brain_ontology"])
+    def __init__(self,
+                 name: str,
+                 animals: Iterable[SlicedBrain],
                  brain_ontology: AtlasOntology) -> None:
         """
         Creates an experimental cohort from a set of `SlicedBrain`.\\
@@ -797,13 +801,10 @@ class SlicedGroup:
             The name of the cohort.
         animals
             The animals part of the group.
-        brain_ontology
-            The ontology to which the brains' data was registered against.
         """
         self._name = str(name)
         self._animals = tuple(animals)
         _compatibility_check(self._animals, check_metrics=False, check_hemispheres=False)
-        self._brain_ontology = brain_ontology
 
     @property
     def name(self) -> str:
@@ -960,11 +961,13 @@ class SlicedGroup:
         """
         animals = [f(a) for a in self._animals]
         return SlicedGroup(name=self._name, animals=animals)
+
+    @deprecated(since="1.1.0", params=["hemisphere_distinction", "validate"])
     def to_group(self, metric: SlicedMetric,
                  min_slices: int, densities: bool,
                  hemisphere_distinction: bool, validate: bool) -> AnimalGroup:
         """
-        Aggrecates the data from all sections of each [`SlicedBrain`][braian.SlicedBrain]
+        Aggregates the data from all sections of each [`SlicedBrain`][braian.SlicedBrain]
         into [`AnimalBrain`][braian.AnimalBrain] and organises them into the corresponding
         [`AnimalGroup`][braian.AnimalGroup].
 
@@ -991,9 +994,4 @@ class SlicedGroup:
         --------
         [`AnimalBrain.from_slices`][braian.AnimalBrain.from_slices]
         """
-        brains = []
-        for sliced_brain in self._animals:
-            brain = AnimalBrain.from_slices(sliced_brain, metric, min_slices=min_slices, hemisphere_distinction=hemisphere_distinction, densities=densities)
-            brains.append(brain)
-        ontology = self._brain_ontology if validate else None
-        return AnimalGroup(self._name, brains, hemisphere_distinction=True, brain_ontology=ontology, fill_nan=not validate)
+        return AnimalGroup(self._name, brains)
