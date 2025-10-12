@@ -7,6 +7,7 @@ from braian._animal_brain import *
 from braian._sliced_brain import *
 from braian._animal_group import *
 from braian._experiment import *
+from braian._core import *
 
 from importlib.metadata import PackageNotFoundError, version
 
