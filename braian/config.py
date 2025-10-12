@@ -150,7 +150,7 @@ class BraiAnConfig:
         See also
         --------
         [`SlicedGroup.from_qupath`][braian.SlicedGroup.from_qupath]
-        [`SlicedExperiment.to_experiment`][braian.SlicedExperiment.to_experiment]
+        [`SlicedExperiment.reduce`][braian.SlicedExperiment.reduce]
 
         Returns
         -------
@@ -224,6 +224,8 @@ class BraiAnConfig:
         :
             _description_
         """
+        return sliced_exp.reduce(metric=self.config["brains"]["raw-metric"],
+                                 min_slices=self.config["qupath"]["min-slices"],
                                  densities=False) # raw matrics will never be a density
 
 def _resolve_dir(path: Path|str, relative: Path|str) -> Path:

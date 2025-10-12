@@ -371,10 +371,11 @@ class SlicedBrain:
         df.set_index(["slice", "hemisphere"], drop=True, append=False, inplace=True)
         return df
 
-    def to_brain(self,
-                 metric: SlicedMetric|str=SlicedMetric.SUM,
-                 min_slices: int=0,
-                 densities: bool=False) -> AnimalBrain:
+    def reduce(self,
+               metric: SlicedMetric|str=SlicedMetric.SUM,
+               *,
+               min_slices: int=0,
+               densities: bool=False) -> AnimalBrain:
         """
         Crates a cohesive [`AnimalBrain`][braian.AnimalBrain] from data coming from brain sections.
 
@@ -397,6 +398,11 @@ class SlicedBrain:
         ------
         EmptyBrainError
             when `sliced_brain` has not enough sections or when `min_slices` filters out all brain regions.
+
+        See also
+        --------
+        [`SlicedGroup.reduce`][braian.SlicedGroup.reduce]
+        [`SlicedExperiment.reduce`][braian.SlicedExperiment.reduce]
         """
         name = self.name
         markers = copy.copy(self.markers)

@@ -369,6 +369,7 @@ class SlicedExperiment:
                 return g
         raise AttributeError(f"Uknown group named '{name.lower()}'")
 
+    @deprecated(since="1.1.0", alternatives=["braian.Experiment.reduce"])
     def to_experiment(self, metric: SlicedMetric,
                       min_slices: int, densities: bool,
                       hemisphere_distinction: bool, validate: bool) -> Experiment:
@@ -400,7 +401,38 @@ class SlicedExperiment:
         --------
         [`SlicedGroup.to_group`][braian.SlicedGroup.to_group]
         """
-        groups = [g.to_group(metric, min_slices, densities, hemisphere_distinction, validate) for g in self._groups]
+        return self.reduce(metric=metric, min_slices=min_slices, densities=densities)
+
+    def reduce(self,
+               metric: SlicedMetric,
+               *,
+               min_slices: int,
+               densities: bool) -> Experiment:
+        """
+        Aggregates the data from all sections of each [`SlicedBrain`][braian.SlicedBrain]
+        into [`SlicedGroup`][braian.SlicedGroup] and organises them into the corresponding
+        [`Experiment`][braian.Experiment].
+
+        Parameters
+        ----------
+        metric
+            The metric used to reduce sections data from the same region into a single value.
+        min_slices
+            The minimum number of sections for a reduction to be valid. If a region has not enough sections, it will disappear from the dataset.
+        densities
+            If True, it computes the reduction on the section density (i.e., marker/area) instead of doing it on the raw cell counts.
+
+        Returns
+        -------
+        :
+            An experiment with the values from sections of the same animals aggregated.
+
+        See also
+        --------
+        [`SlicedBrain.reduce`][braian.SlicedBrain.reduce]
+        [`SlicedGroup.reduce`][braian.SlicedGroup.reduce]
+        """
+        groups = [g.reduce(metric, min_slices=min_slices, densities=densities) for g in self._groups]
         return Experiment(self.name, *groups)
 
     def __contains__(self, animal_name: str) -> bool:

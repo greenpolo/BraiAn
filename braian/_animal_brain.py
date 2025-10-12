@@ -26,7 +26,7 @@ def _to_legacy_index(bd: BrainData) -> pd.Series:
 
 class AnimalBrain:
     @staticmethod
-    @deprecated(since="1.1.0", alternatives=["braian.SlicedBrain.to_group"])
+    @deprecated(since="1.1.0", alternatives=["braian.SlicedBrain.reduce"])
     def from_slices(sliced_brain,   #: SlicedBrain,
                     metric: SlicedMetric|str=SlicedMetric.SUM,
                     min_slices: int=0,

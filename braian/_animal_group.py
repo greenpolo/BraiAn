@@ -3,7 +3,6 @@ import numpy.typing as npt
 import pandas as pd
 
 from collections.abc import Callable, Iterable, Sequence
-from functools import reduce
 from pathlib import Path
 from typing import Self
 
@@ -992,6 +991,39 @@ class SlicedGroup:
 
         See also
         --------
-        [`AnimalBrain.from_slices`][braian.AnimalBrain.from_slices]
+        [`SlicedBrain.reduce`][braian.SlicedBrain.reduce]
+        [`SlicedExperiment.reduce`][braian.SlicedExperiment.reduce]
         """
+        return self.reduce(metric=metric, min_slices=min_slices, densities=densities)
+
+    def reduce(self,
+               metric: SlicedMetric,
+               *,
+               min_slices: int=0,
+               densities: bool=False) -> AnimalGroup:
+        """
+        Aggregates the data from all sections of each [`SlicedBrain`][braian.SlicedBrain]
+        into [`AnimalBrain`][braian.AnimalBrain] and organises them into the corresponding
+        [`AnimalGroup`][braian.AnimalGroup].
+
+        Parameters
+        ----------
+        metric
+            The metric used to reduce sections data from the same region into a single value.
+        min_slices
+            The minimum number of sections for a reduction to be valid. If a region has not enough sections, it will disappear from the dataset.
+        densities
+            If True, it computes the reduction on the section density (i.e., marker/area) instead of doing it on the raw cell counts.
+
+        Returns
+        -------
+        :
+            A group with the values from sections of the same animals aggregated.
+
+        See also
+        --------
+        [`SlicedBrain.reduce`][braian.SlicedBrain.reduce]
+        [`SlicedExperiment.reduce`][braian.SlicedExperiment.reduce]
+        """
+        brains = [b.reduce(metric=metric, min_slices=min_slices, densities=densities) for b in self._animals]
         return AnimalGroup(self._name, brains)
