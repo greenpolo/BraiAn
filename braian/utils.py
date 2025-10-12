@@ -195,6 +195,7 @@ def _same_regions(rs: Collection[str], *others: Collection[str]) -> bool:
 def _compatibility_check(xs: Collection,
                          *,
                          min_count: int=1,
+                         check_atlas: bool=True,
                          check_metrics: bool=True,
                          check_marker: bool=True,
                          check_is_split: bool=True,
@@ -214,6 +215,10 @@ def _compatibility_check(xs: Collection,
     """
     if len(xs) < min_count:
         raise ValueError("No data available.")
+    if check_atlas:
+        atlas = xs[0].atlas
+        if not all(atlas == x.atlas for x in xs[1:]):
+            raise ValueError("Incompatible atlas")
     if check_metrics:
         metrics = set(x.metric for x in xs)
         if len(metrics) != 1:

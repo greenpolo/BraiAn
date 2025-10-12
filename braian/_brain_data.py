@@ -8,7 +8,7 @@ from numbers import Number
 
 from braian import AtlasOntology, SlicedMetric
 from braian._deflector import deflect
-from braian.utils import _compatibility_check, classproperty
+from braian.utils import _compatibility_check, classproperty, deprecated
 
 __all__ = [
     "extract_legacy_hemispheres",
@@ -279,7 +279,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         except ValueError:
             return metric == BrainData.RAW_METRIC
 
-    def __init__(self, data: pd.Series, name: str, metric: str, units: str, hemisphere: BrainHemisphere,
+    @deprecated(since="1.1.0",
+                params=["brain_ontology", "fill_nan"],
+                alternatives=dict(brain_ontology="atlas"))
+    def __init__(self, data: pd.Series,
+                 *,
+                 name: str, metric: str, units: str, hemisphere: BrainHemisphere,
+                 ontology: AtlasOntology|str, check: bool=True,
                  brain_ontology: AtlasOntology|None=None, fill_nan=False) -> None:
         """
         This class is the base structure for managing any data that associates values to brain regions.\
@@ -301,10 +307,18 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             The units of measurment of the values in `data`.
         hemisphere
             The brain hemisphere to which the `data` is referring to.
+        ontology
+            The atlas used to align the brain data.
+            It is used to check that all regions in `data` exist in the ontology.
+
+            If `check=False`, it can be a string.
+        check
+            Whether to check or not that all regions in `data` exist in the `ontology`.
         brain_ontology
-            The ontology against which the extracted data was aligned.
-            It is used to check that all `data` is attributable to a region in the ontology and to sort it accordingly.\\
-            If left empty, no check or sorting is performed.
+            The atlas used to align the brain data.
+            It is used to check that all regions in `data` exist in the ontology.
+
+            If `check=False`, it can be a string.
         fill_nan
             If ontology is not `None`, it fills with [`NA`][pandas.NA] the value of the regions in `ontology` and missing from `data`.
 
@@ -312,6 +326,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         --------
         [`sort_by_ontology`][braian.BrainData.sort_by_ontology]
         """        # convert to nullable type
+        if brain_ontology is not None:
+            ontology = brain_ontology
         self.data: pd.Series = data.copy().convert_dtypes()
         """The internal representation of the current brain data."""
         self.hemisphere = hemisphere
@@ -325,8 +341,17 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         else:
             self._units = ""
             print(f"WARNING: {self} has no units")
-        if brain_ontology is not None:
-            self.sort_by_ontology(brain_ontology, fill_nan, inplace=True)
+        if check:
+            if not isinstance(ontology, AtlasOntology):
+                raise TypeError(type(ontology))
+            if (missing:=~ontology.are_regions(self.data.index)).any():
+                raise UnknownBrainRegionsError(self.data.index[missing], ontology)
+        self._atlas = str(ontology) if isinstance(ontology, str) else ontology.name
+
+    @property
+    def atlas(self) -> str:
+        """The name of the atlas used to align the brain data."""
+        return str(self._atlas)
 
     @property
     def metric(self) -> str:

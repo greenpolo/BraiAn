@@ -120,6 +120,11 @@ class AnimalBrain:
         return
 
     @property
+    def atlas(self) -> str:
+        """The name of the atlas used to align the brain data."""
+        return self._sizes[0].atlas
+
+    @property
     def hemispheres(self) -> tuple[BrainHemisphere]|tuple[BrainHemisphere,BrainHemisphere]:
         """The hemispheres for which the `AnimalBrain` has data."""
         return tuple(s.hemisphere for s in self._sizes)
@@ -182,7 +187,8 @@ class AnimalBrain:
     @property
     def name(self) -> str:
         """The name of the animal."""
-        return self._markers_data[self._markers[0]][0].data_name
+        return self._sizes[0].data_name
+        # return self._markers_data[self._markers[0]][0].data_name
 
     @property
     def regions(self) -> list[str]:

@@ -185,6 +185,11 @@ class SlicedBrain:
         self._is_split = are_split[0]
 
     @property
+    def atlas(self) -> str:
+        """The name of the atlas used to align the brain data."""
+        return self._slices[0].atlas
+
+    @property
     def name(self) -> str:
         """The name of the animal."""
         return str(self._name)
@@ -192,7 +197,7 @@ class SlicedBrain:
     @name.setter
     def name(self, value: str):
         for slice in self._slices:
-            slice.animal = value
+            slice._animal = value
         self._name = value
 
     @property
@@ -244,7 +249,7 @@ class SlicedBrain:
         if not isinstance(name, str):
             return False
         for slice in self._slices:
-            if slice.name == name:
+            if slice._name == name:
                 return True
         return False
 
@@ -252,7 +257,7 @@ class SlicedBrain:
         if not isinstance(name, str):
             raise TypeError("BrainSlices are identified by strings")
         try:
-            return next(slice for slice in self._slices if slice.name == name)
+            return next(slice for slice in self._slices if slice._name == name)
         except StopIteration:
             pass
         raise KeyError(name)

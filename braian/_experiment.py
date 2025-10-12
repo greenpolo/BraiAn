@@ -141,6 +141,11 @@ class Experiment:
         _compatibility_check(self._groups)
 
     @property
+    def atlas(self) -> str:
+        """The name of the atlas used to align the brain data."""
+        return self._groups[0].atlas
+
+    @property
     def name(self) -> str:
         """The name of the experiment."""
         return self._name
@@ -304,6 +309,11 @@ class SlicedExperiment:
         self._name: str = str(name)
         self._groups: tuple[SlicedGroup] = (group1, group2, *groups)
         _compatibility_check(self._groups, check_metrics=False, check_hemispheres=False)
+
+    @property
+    def atlas(self) -> str:
+        """The name of the atlas used to align the brain data."""
+        return self._groups[0].atlas
 
     @property
     def name(self) -> str:

@@ -194,7 +194,6 @@ class BrainSlice:
         if isinstance(csv, pd.DataFrame):
             data = csv.copy(deep=True)
             csv = "unkown file"
-            data_atlas = None
         else:
             data_atlas, data = BrainSlice._read_qupath_data(search_file_or_simlink(csv))
             assert data_atlas is None or ontology.is_compatible(data_atlas),\
@@ -423,20 +422,16 @@ class BrainSlice:
             If `check=True` and `ontology` is an [`AtlasOntology`][braian.AtlasOntology], but `data`
             contains structures not present in `ontology`.
         """
-        self.animal: str = animal
-        """The name of the animal from which the current `BrainSlice` is from."""
-        self.name: str = name
-        """The name of the image that captured the section from which the data of the current `BrainSlice` are from."""
+        self._animal: str = str(animal)
+        self._name: str = str(name)
         self._data = data
-        self.atlas = str(ontology) if isinstance(ontology, str) else ontology.name # AtlasOntology
-        """The name of the brain atlas used to align the section. If None, it means that the cell-segmented data didn't specify it."""
-        BrainSlice._check_columns(self._data, ("acronym", "hemisphere", "area"), self.name)
+        BrainSlice._check_columns(self._data, ("acronym", "hemisphere", "area"), self._name)
         if self._data.shape[1] < 4:
-            raise MissingQuantificationError(file=self.name)
+            raise MissingQuantificationError(file=self._name)
         hemispheres = self._data["hemisphere"].unique()
         hemispheres = {BrainHemisphere(v) for v in hemispheres} # if not hemispheres.issubset(BrainHemisphere), it already raises an error
         if len(hemispheres) > 2 or (len(hemispheres) == 2 and BrainHemisphere.BOTH in hemispheres):
-            raise InvalidRegionsSplitError(context=self.name)
+            raise InvalidRegionsSplitError(context=self._name)
         self._is_split: bool = len(hemispheres) == 2 or BrainHemisphere.BOTH not in hemispheres
         for column in self._data.columns:
             if column in ("acronym", "hemisphere"):
@@ -455,10 +450,12 @@ class BrainSlice:
                     raise ValueError(f"Unknown unit of measurement '{unit}' for '{column}'")
             units[column] = "mm²"
         self._units: dict[str,str] = units.copy()
-        assert (self._data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self.animal} slice={self.name}"
+        assert (self._data["area"] > 0).any(), f"All region areas are zero or NaN for animal={self._animal} slice={self._name}"
         self._data = self._data[self._data["area"] > 0]
         if check:
-            if not self.is_split:
+            if not isinstance(ontology, AtlasOntology):
+                raise TypeError(type(ontology))
+            elif not self.is_split:
                 self._data.reset_index(inplace=True)
                 self._data.set_index("acronym", inplace=True)
                 self._data = sort_by_ontology(self._data, ontology, fill=False, mode="depth")
@@ -470,8 +467,24 @@ class BrainSlice:
                 hem1 = sort_by_ontology(hem1, ontology, fill=True, mode="depth")
                 hem2 = sort_by_ontology(hem2, ontology, fill=True, mode="depth")
                 self._data.reindex([*hem2["index"], *hem1["index"]], copy=False)
+        self._atlas = str(ontology) if isinstance(ontology, str) else ontology.name # : AtlasOntology
 
         self.markers_density: pd.DataFrame = self._marker_density()
+
+    @property
+    def atlas(self) -> str:
+        """The name of the brain atlas used to align the section. If None, it means that the cell-segmented data didn't specify it."""
+        return str(self._atlas)
+
+    @property
+    def name(self) -> str:
+        """The name of the image that captured the section from which the data of the current `BrainSlice` are from."""
+        return str(self._name)
+
+    @property
+    def animal(self) -> str:
+        """The name of the animal from which the current `BrainSlice` is from."""
+        return self._animal
 
     @property
     def n(self) -> int:
@@ -505,7 +518,7 @@ class BrainSlice:
         return str(self)
 
     def __str__(self) -> str:
-        return f"BrainSlice(name='{self.name}', regions={self.n}, is_split={self._is_split})"
+        return f"BrainSlice(name='{self._name}', regions={self.n}, is_split={self._is_split})"
 
     @deprecated(since="1.1.0", alternatives=["braian.BrainSlice.exclude"])
     def exclude_regions(self,
@@ -577,10 +590,10 @@ class BrainSlice:
                 if self.is_split:
                     if ": " not in exclusion:
                         if MODE_ExcludedRegionNotRecognisedError != "silent":
-                            print(f"WARNING: Class '{exclusion}' is not recognised as a brain region. It was skipped from the regions_to_exclude in animal '{self.animal}', file: {self.name}_regions_to_exclude.txt")
+                            print(f"WARNING: Class '{exclusion}' is not recognised as a brain region. It was skipped from the regions_to_exclude in animal '{self._animal}', file: {self._name}_regions_to_exclude.txt")
                             continue
                         elif MODE_ExcludedRegionNotRecognisedError == "error":
-                            raise InvalidExcludedRegionsHemisphereError(file=self.name)
+                            raise InvalidExcludedRegionsHemisphereError(file=self._name)
                     hem, region = exclusion.split(": ")
                     # hem = BrainHemisphere(hem)
                 else:
@@ -605,7 +618,7 @@ class BrainSlice:
                                 if pd.isna(self._data.loc[row,column]) or pd.isna(self._data.loc[exclusion,column]):
                                     # NOTE: remove if never used.
                                     # This check is a leftover of the old <row>.subtract(<exclusion>, fill_value=True)
-                                    raise RuntimeError(f"{self.name}: quantification '{column}' is NaN for '{row}' or for '{exclusion}'!")
+                                    raise RuntimeError(f"{self._name}: quantification '{column}' is NaN for '{row}' or for '{exclusion}'!")
                                 self._data.loc[row,column] -= self._data.loc[exclusion,column]
 
                 # Step 2: Remove the regions that should be excluded
@@ -616,11 +629,11 @@ class BrainSlice:
                     if row in self._data.index:
                         self._data.drop(row, inplace=True)
         except Exception:
-            raise Exception(f"Animal '{self.animal}': failed to exclude regions for in slice '{self.name}'")
+            raise Exception(f"Animal '{self._animal}': failed to exclude regions for in slice '{self._name}'")
         finally:
             self.markers_density = self._marker_density()
         if len(self._data) == 0:
-            raise ExcludedAllRegionsError(file=self.name)
+            raise ExcludedAllRegionsError(file=self._name)
 
     def _µm2_to_mm2(self, column) -> None:
         self._data[column] = self._data[column] * 1e-06
@@ -649,8 +662,8 @@ class BrainSlice:
         data["acronym"] = data.index
         data.index = data.index.set_names(None)
         return BrainSlice(data=data, units=self._units,
-                          animal=self.animal, name=self.name,
-                          ontology=self.atlas, check=False)
+                          animal=self._animal, name=self._name,
+                          ontology=self._atlas, check=False)
 
     def region(self,
                region: str,

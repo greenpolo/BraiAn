@@ -87,6 +87,11 @@ class AnimalGroup:
         self._hemimean: dict[str, tuple[BrainData]|tuple[BrainData,BrainData]] = self._update_mean()
 
     @property
+    def atlas(self) -> str:
+        """The name of the atlas used to align the brain data."""
+        return self._animals[0].atlas
+
+    @property
     def n(self) -> int:
         """The size of the group."""
         return len(self._animals)
@@ -797,6 +802,11 @@ class SlicedGroup:
         self._name = str(name)
         self._animals = tuple(animals)
         _compatibility_check(self._animals, check_metrics=False, check_hemispheres=False)
+
+    @property
+    def atlas(self) -> str:
+        """The name of the atlas used to align the brain data."""
+        return self._animals[0].atlas
 
     @property
     def name(self) -> str:
