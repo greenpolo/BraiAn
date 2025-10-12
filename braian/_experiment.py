@@ -262,7 +262,8 @@ class Experiment:
                 pass
         raise KeyError(f"{val}")
 
-    @deprecated(since="1.1.0", params=["hemisphere_distinction"])
+    @deprecated(since="1.1.0",
+                params=["hemisphere_distinction", "brain_ontology", "fill_nan"])
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
               brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> Self:
@@ -280,10 +281,7 @@ class Experiment:
         :
             An experiment with the data of each animal changed accordingly to `f`.
         """
-        groups = [
-            g.apply(f,
-                    brain_ontology=brain_ontology, fill_nan=fill_nan)
-            for g in self._groups]
+        groups = [g.apply(f) for g in self._groups]
         return Experiment(self._name, *groups)
 
 class SlicedExperiment:

@@ -27,7 +27,7 @@ def _have_same_regions(brains: list[AnimalBrain]) -> bool:
 
 class AnimalGroup:
     @deprecated(since="1.1.0",
-                params=["hemisphere_distinction"],
+                params=["hemisphere_distinction", "brain_ontology", "fill_nan"],
                 alternatives=dict(
                     hemisphere_distinction="braian.merge_hemispheres"
                 ))
@@ -83,13 +83,7 @@ class AnimalGroup:
                                          hemisphere=hemi, select_other_hemisphere=True)
                 return brain
 
-        if brain_ontology is None:
-            sort = no_update
-        else:
-            def sort(brain: AnimalBrain) -> AnimalBrain:
-                return brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False)
-
-        self._animals: list[AnimalBrain] = [sort(fill(brain)) for brain in animals] # brain |> fill |> sort -- OLD: brain |> merge |> analyse |> sort
+        self._animals: list[AnimalBrain] = [fill(brain) for brain in animals] # OLD: brain |> merge |> analyse |> sort
         self._hemimean: dict[str, tuple[BrainData]|tuple[BrainData,BrainData]] = self._update_mean()
 
     @property
@@ -390,7 +384,8 @@ class AnimalGroup:
             pass
         raise KeyError(f"{val}")
 
-    @deprecated(since="1.1.0", params=["hemisphere_distinction"])
+    @deprecated(since="1.1.0",
+                params=["hemisphere_distinction", "brain_ontology", "fill_nan"])
     def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
               brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> Self:
@@ -415,9 +410,7 @@ class AnimalGroup:
         """
         animals = [f(a) for a in self._animals]
         return AnimalGroup(name=self.name,
-                           animals=animals,
-                           brain_ontology=brain_ontology,
-                           fill_nan=fill_nan)
+                           animals=animals)
 
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
                          fill_nan: bool=True, inplace: bool=True) -> None:
