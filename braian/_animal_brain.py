@@ -1,4 +1,3 @@
-import copy
 import functools
 import pandas as pd
 import re

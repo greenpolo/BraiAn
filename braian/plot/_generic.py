@@ -70,7 +70,7 @@ def bar_sample(df: pd.DataFrame, population_name: str,
                          mode="markers",
                          marker=dict(color=scatter_colour, size=4, line_color="rgba(0,0,0,0.5)", line_width=1),
                          text=sample_names, hovertemplate=bar_ht(marker, metric, base, length),
-                         name=f"{population_name} animals [{marker}]", showlegend=showlegend, #legendgroup=trace_name,
+                         name=f"{population_name} brains [{marker}]", showlegend=showlegend, #legendgroup=trace_name,
                          offsetgroup=plot_hash, orientation=orientation, meta=sample_names)
     traces.append(scatter)
     # scatter requires layout(scattermode="group")
