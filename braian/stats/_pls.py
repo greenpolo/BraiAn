@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from numbers import Number
 
 from braian import AnimalGroup, BrainData, BrainHemisphere
+from braian.utils import _compatibility_check
 
 __all__ = [
     "PLS",
@@ -81,9 +82,9 @@ class PLS:
         elif isinstance(hemisphere, (str,int,BrainHemisphere)):
             self.hemispheres = [BrainHemisphere(hemisphere)]*len(groups)
         assert len(groups) == len(self.hemispheres), "The number of given 'hemisphere' should be the same as the number of groups."
-        assert all(group1.is_comparable(g) for g in groups[1:]), "Group 1 and Group 2 are not comparable!\n"+\
-                                                                 "Please check that you're reading two groups that normalized "+\
-                                                                 "on the same brain regions and on the same marker."
+        _compatibility_check(groups) # "Group 1 and Group 2 are not comparable!\n"+\
+                                     # "Please check that you're reading two groups that normalized "+\
+                                     # "on the same brain regions and on the same marker."
         # Fill a data matrix
         animal_list = [f"{a}_{i}" for i,g in enumerate(groups) for a in g.animal_names]
         animal_list.sort()

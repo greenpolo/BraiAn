@@ -274,29 +274,6 @@ class AnimalGroup:
                                          **kwargs)
                 for marker in self.markers}
 
-    def is_comparable(self, other: Self) -> bool:
-        """
-        Tests whether two `AnimalGroup` are comparable for an analysis,
-        i.e. they have the same markers, the same metric and both either operate on brains
-        hemisphere-aware or not.
-
-        Parameters
-        ----------
-        other
-            The other group to compare with the current one.
-
-        Returns
-        -------
-        :
-            True if the current group and `other` are comparable. False otherwise.
-        """
-        if not isinstance(other, AnimalGroup):
-            return False
-        return set(self.markers) == set(other.markers) and \
-                self.is_split == other.is_split and \
-                self.metric == other.metric # and \
-                # set(self.regions) == set(other.regions)
-
     def _select(self, regions: Sequence[str],
                *,
                fill_nan: bool=False, inplace: bool=False,
@@ -310,7 +287,7 @@ class AnimalGroup:
                                  select_list=BrainData._select_from_list)
                    for brain in self._animals]
         if not inplace:
-            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
+            return AnimalGroup(self.name, animals)
         else:
             self._animals = animals
             self._hemimean = self._update_mean()
@@ -368,7 +345,7 @@ class AnimalGroup:
                                 select_other_hemisphere=select_other_hemisphere)
                    for brain in self._animals]
         if not inplace:
-            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
+            return AnimalGroup(self.name, animals)
         else:
             self._animals = animals
             self._hemimean = self._update_mean()
@@ -445,8 +422,7 @@ class AnimalGroup:
             A group with the data of each animal changed accordingly to `f`.
         """
         animals = [f(a) for a in self._animals]
-        return AnimalGroup(name=self.name,
-                           animals=animals)
+        return AnimalGroup(name=self.name, animals=animals)
 
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
                          fill_nan: bool=True, inplace: bool=True) -> None:
@@ -470,7 +446,7 @@ class AnimalGroup:
             If `inplace=True` it returns the same instance.
         """
         if not inplace:
-            return AnimalGroup(self.name, self._animals, brain_ontology=brain_ontology, fill_nan=fill_nan)
+            return AnimalGroup(self.name, self._animals)
         else:
             for brain in self._animals:
                 brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=True)
@@ -664,7 +640,7 @@ class AnimalGroup:
                         df=df.xs(animal_name, axis=0, level=brains_level),
                         name=animal_name, ontology=ontology, legacy=legacy)
                    for animal_name in df.index.unique(brains_level)]
-        return AnimalGroup(name, animals, fill_nan=False)
+        return AnimalGroup(name, animals)
 
     @staticmethod
     def from_csv(filepath: Path|str,
@@ -742,8 +718,7 @@ class AnimalGroup:
             If the given groups are not [comparable][braian.AnimalGroup.is_comparable].
         """
         groups = [group1, group2, *groups]
-        if not all(group1.is_comparable(g) for g in groups[1:]):
-            raise ValueError("The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)")
+        _compatibility_check(groups) # "The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)"
         df = pd.concat({g.name: g.to_pandas(marker) for g in groups}, axis=1)
         if len(hems:=df.index.unique(level=0)) == 1 and hems[0] is BrainHemisphere.BOTH:
             df.index = df.index.get_level_values(1)
