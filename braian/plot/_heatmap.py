@@ -291,13 +291,13 @@ if __name__ == "__main__":
     data1 = pd.Series([100,200,130,np.nan,50])
     data1.index = ["Isocortex", "TH", "HY", "HPF", "not-a-region"]
     brain_data1 = BrainData(data1, name="Control", metric="Density", units="cFos/mm²",
-                            hemisphere=BrainHemisphere.BOTH, atlas="atlas", check=False)
+                            hemisphere=BrainHemisphere.BOTH, ontology="atlas", check=False)
     data2 = pd.Series([100,300,180, np.nan,50])
     data2.index = ["Isocortex", "TH", "HY", "HPF", "not-a-region"]
     brain_data1 = BrainData(data1, name="Control1", metric="Density", units="cFos/mm²",
-                            hemisphere=BrainHemisphere.BOTH, atlas="atlas", check=False)
+                            hemisphere=BrainHemisphere.BOTH, ontology="atlas", check=False)
     brain_data2 = BrainData(data2, name="Control2", metric="Density", units="cFos/mm²",
-                            hemisphere=BrainHemisphere.BOTH, atlas="atlas", check=False)
+                            hemisphere=BrainHemisphere.BOTH, ontology="atlas", check=False)
     heatmap(bd1=brain_data1, bd2=brain_data2,
             brain_regions=["Isocortex", "TH", "HY", "HPF"],
             orientation="frontal", n=11,

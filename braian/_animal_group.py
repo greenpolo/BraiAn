@@ -21,7 +21,7 @@ def _combined_regions(animals: list[AnimalBrain]) -> dict[BrainHemisphere,list[s
 
 def _have_same_regions(brains: list[AnimalBrain]) -> bool:
     for hem,regions in brains[0].hemiregions.items():
-        if not _same_regions(regions, map(lambda b: b.hemiregions[hem], brains[1:])):
+        if not _same_regions(regions, *map(lambda b: b.hemiregions[hem], brains[1:])):
             return False
     return True
 
@@ -425,7 +425,7 @@ class AnimalGroup:
         return AnimalGroup(name=self.name, animals=animals)
 
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
-                         fill_nan: bool=True, inplace: bool=True) -> None:
+                         fill_nan: bool=False, inplace: bool=True) -> None:
         """
         Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
 
@@ -775,7 +775,7 @@ class SlicedGroup:
     def __init__(self,
                  name: str,
                  animals: Iterable[SlicedBrain],
-                 brain_ontology: AtlasOntology) -> None:
+                 brain_ontology: AtlasOntology=None) -> None:
         """
         Creates an experimental cohort from a set of `SlicedBrain`.\\
         It is meant to help keeping organised raw data coming multiple sections per-animal.

@@ -61,9 +61,9 @@ class AnimalBrain:
         EmptyBrainError
             when `sliced_brain` has not enough sections or when `min_slices` filters out all brain regions.
         """
-        b = sliced_brain.to_brain(metric=metric,
-                                  min_slices=min_slices,
-                                  densities=densities)
+        b = sliced_brain.reduce(metric=metric,
+                                min_slices=min_slices,
+                                densities=densities)
         if not hemisphere_distinction:
             return b.merge_hemispheres()
         return b
@@ -104,7 +104,7 @@ class AnimalBrain:
         self._markers_data: dict[str,tuple[BrainData]|tuple[BrainData,BrainData]] = markers_data
         self._sizes: tuple[BrainData]|tuple[BrainData,BrainData] = sizes
         _compatibility_check_bd(self._sizes, check_atlas=False,
-                                check_metrics=True, check_regions=False)
+                                check_metrics=True, check_hemisphere=False, check_regions=False)
         for i,hemisizes in enumerate(self._sizes):
             # compatibility between hemidata
             hemidata = [md[i] if isinstance(md, tuple) else md
@@ -631,7 +631,7 @@ class AnimalBrain:
                 params=["animal_name"],
                 alternatives=dict(animal_name="name"))
     def from_pandas(df: pd.DataFrame,
-                    *
+                    *,
                     name: str,
                     ontology: AtlasOntology,
                     legacy: bool=False,
@@ -691,18 +691,18 @@ class AnimalBrain:
         regex = r'(.+) \((.+)\)$'
         pattern = re.compile(regex)
         for column, data in df.items():
-            # extracts name and units from the column's name. E.g. 'size (mm²)' -> ('size', 'mm²')
+            # extracts column name and units from the column's name. E.g. 'size (mm²)' -> ('size', 'mm²')
             matches = re.findall(pattern, column)
-            name, units = matches[0] if len(matches) == 1 else (column, None)
-            if name == "area" or name == "size": # braian <= 1.0.3 called sizes "area"
+            column, units = matches[0] if len(matches) == 1 else (column, None)
+            if column == "area" or column == "size": # braian <= 1.0.3 called sizes "area"
                 sizes = tuple(
-                    BrainData(data[hem], name=animal_name,
+                    BrainData(data[hem], name=name,
                               metric=metric, units=units, hemisphere=hem,
                               ontology=ontology.name, check=False) # no need to check because we did it earlier for all the DataFrame
                     for hem in hemispheres)
             else: # it's a marker
-                markers_data[name] = tuple(
-                    BrainData(data[hem], name=animal_name,
+                markers_data[column] = tuple(
+                    BrainData(data[hem], name=name,
                               metric=metric, units=units, hemisphere=hem,
                               ontology=ontology.name, check=False)
                     for hem in hemispheres)

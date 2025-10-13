@@ -226,12 +226,16 @@ def _group_change(brain: AnimalBrain, group: AnimalGroup,
                   metric: str, fun: Callable[[BrainData,BrainData],BrainData], # (animal,group) -> result
                   symbol: str) -> AnimalBrain:
     _compatibility_check((brain, group))
-    hemiregions = brain.hemiregions
+    hemisizes = brain.hemisizes # NOTE: `select_from_data` needs an equivalent BrainData to trust the list of regions
+                                # alternatively, we could use `_select_from_list`
+    # hemiregions = brain.hemiregions
     def group_metric(sizes: BrainData, hem: BrainHemisphere,
                      marker_data: BrainData, marker: str) -> BrainData:
         # assert (brain[marker,hem].data == marker_data.data).all(skipna=True)
         group_mean = next(m for m in group.hemimean[marker] if m.hemisphere == hem)
-        group_mean = group_mean.select_from_data(hemiregions[hem], fill_nan=True, inplace=False)
+        brain_sizes = next(s for s in hemisizes if s.hemisphere == hem)
+        group_mean = group_mean.select_from_data(brain_sizes, fill_nan=True, inplace=False)
+        # group_mean = group_mean._select_from_list(hemiregions[hem], fill_nan=True, inplace=False)
         return fun(marker_data, group_mean)
     return _hemisphered_metric(
         brain=brain,
@@ -638,11 +642,11 @@ def markers_correlation(marker1: str, marker2: str,
             _marker_correlation(marker1_df.loc[hem.value], marker2_df.loc[hem.value],
                                 marker1=marker1, marker2=marker2,
                                 name=group.name, metric=group.metric,
-                                hem=hem, atlas=atlas, method=method)
+                                hem=hem, ontology=atlas, method=method)
             for hem in group.hemispheres
         )
     hem: BrainHemisphere = group.hemispheres[0]
     return _marker_correlation(marker1_df.loc[hem.value], marker2_df.loc[hem.value],
                             marker1=marker1, marker2=marker2,
                             name=group.name, metric=group.metric,
-                            hem=hem, atlas=atlas, method=method)
+                            hem=hem, ontology=atlas, method=method)

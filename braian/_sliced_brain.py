@@ -124,12 +124,12 @@ class SlicedBrain:
             results_file = csv_slices_dir/(image+results_suffix)
             excluded_regions_file = excluded_regions_dir/(image+exclusions_suffix)
             try:
-                # Setting check=True because braian has to check the existance of every brain region
-                # at read-time. This way, no following check on the existence of the brain region should be
+                # NOTE: from_qupath always checks the existance of every brain region at read-time.
+                # This way, no following check on the existence of the brain region should be
                 # necessary.
                 slice: BrainSlice = BrainSlice.from_qupath(results_file, ch2marker,
                                                            animal=name, name=image,
-                                                           ontology=brain_ontology, check=True)
+                                                           ontology=brain_ontology)
                 exclude = BrainSlice.read_qupath_exclusions(excluded_regions_file)
                 slice.exclude(exclude, ontology=brain_ontology,
                               ancestors_layer1=exclude_ancestors_layer1)
@@ -420,13 +420,13 @@ class SlicedBrain:
         # areas = BrainData(redux["area"], name=name, metric=metric, units=sliced_brain.units["area"])
         areas = tuple(BrainData(redux["area"].xs(hem.value, level=1), name=name,
                                 metric=metric, units=self.units["area"], hemisphere=hem,
-                                atlas=self.atlas, check=False) # no check in the ontology because _slices should already have been checked
+                                ontology=self.atlas, check=False) # no check in the ontology because _slices should already have been checked
                 for hem in hemispheres)
         markers_data = {
             m: tuple(
                 BrainData(redux[m].xs(hem.value, level=1), name=name,
                           metric=metric, units=self.units[m], hemisphere=hem,
-                          atlas=self.atlas, check=False)
+                          ontology=self.atlas, check=False)
                 for hem in hemispheres)
             for m in markers
         }

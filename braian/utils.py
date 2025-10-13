@@ -272,7 +272,7 @@ def _compatibility_check(xs: Collection,
         if check_regions:
             if "hemiregions" in xs[0].__dir__():
                 for hem,regions in xs[0].hemiregions.items():
-                    if not _same_regions(regions, map(lambda x: x.hemiregions[hem], xs[1:])):
+                    if not _same_regions(regions, *map(lambda x: x.hemiregions[hem], xs[1:])):
                         raise ValueError("Data is from different brain structures")
             else:
                 if not _same_regions(*map(lambda x: x.regions, xs)):

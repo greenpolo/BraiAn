@@ -644,7 +644,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                           inplace: bool=False) -> Self:
         if self.atlas != other.atlas: # makes no sense to use _compatibility_check_bd, every other check would be False
             raise ValueError(f"Incompatible atlas: data used '{self.atlas}' but '{other.name}' was used")
-        return self._select_from_list(other.index, fill_nan=fill_nan, inplace=inplace)
+        return self._select_from_list(other.data.index, fill_nan=fill_nan, inplace=inplace)
 
     def select_from_ontology(self,
                              brain_ontology: AtlasOntology,
