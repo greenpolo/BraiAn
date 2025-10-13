@@ -128,6 +128,10 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             [hemisphere][braian.BrainData.hemisphere] from the others, and
             `same_units` or `same_hemisphere` are `True, respectively.
         """
+        # NOTE: skipna=True does not work with FloatingArrays (what BrainData uses)
+        #       https://github.com/pandas-dev/pandas/issues/59965
+        #       braindata regions with np.nan values resulting from a computation (e.g division by zero)
+        #       'corrupt' the whole result into becoming a pd.NA (not a np.nan).
         _compatibility_check_bd(tuple((first, *others)),
                                 check_atlas=True,
                                 check_metrics=True,

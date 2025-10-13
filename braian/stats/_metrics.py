@@ -229,10 +229,11 @@ def _group_change(brain: AnimalBrain, group: AnimalGroup,
     hemisizes = brain.hemisizes # NOTE: `select_from_data` needs an equivalent BrainData to trust the list of regions
                                 # alternatively, we could use `_select_from_list`
     # hemiregions = brain.hemiregions
+    group_hemimean = group.reduce(pd.DataFrame.mean, skipna=True, same_units=True, same_hemisphere=True)
     def group_metric(sizes: BrainData, hem: BrainHemisphere,
                      marker_data: BrainData, marker: str) -> BrainData:
         # assert (brain[marker,hem].data == marker_data.data).all(skipna=True)
-        group_mean = next(m for m in group.hemimean[marker] if m.hemisphere == hem)
+        group_mean = next(m for m in group_hemimean[marker] if m.hemisphere == hem)
         brain_sizes = next(s for s in hemisizes if s.hemisphere == hem)
         group_mean = group_mean.select_from_data(brain_sizes, fill_nan=True, inplace=False)
         # group_mean = group_mean._select_from_list(hemiregions[hem], fill_nan=True, inplace=False)

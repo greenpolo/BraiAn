@@ -84,7 +84,6 @@ class AnimalGroup:
                 return brain
 
         self._animals: list[AnimalBrain] = [fill(brain) for brain in animals] # OLD: brain |> merge |> analyse |> sort
-        self._hemimean: dict[str, tuple[BrainData]|tuple[BrainData,BrainData]] = self._update_mean()
 
     @property
     def atlas(self) -> str:
@@ -168,20 +167,13 @@ class AnimalGroup:
         return list(self._animals)
 
     @property
+    @deprecated(since="1.1.0", alternatives=["braian.AnimalGroup.reduce"])
     def mean(self) -> dict[str, BrainData]:
         """The mean between each brain of the group, for each marker and for each region."""
         if self.is_split:
             raise ValueError("Cannot get a single marker mean for all brain regions because the group is split between left and right hemispheres."+\
-                             "Use AnimalGroup.hemimean.")
-        return {marker: hemimeans[0] for marker,hemimeans in self._hemimean.items()}
-
-    @property
-    def hemimean(self) -> dict[str,tuple[BrainData,BrainData]|tuple[BrainData]]:
-        """
-        The mean between each brain of the group, for each marker and for each region.
-        If the AnimalGroup has data for two hemispheres, the dictionary maps to tuples of size two.
-        """
-        return dict(self._hemimean)
+                             "Use AnimalGroup.reduce(pandas.DataFrame).")
+        return self.reduce(pd.DataFrame.mean, "mean", skipna=True, same_units=True, same_hemisphere=True, return_tuple=False)
 
     @property
     def animal_names(self) -> list[str]:
@@ -199,29 +191,16 @@ class AnimalGroup:
     def __str__(self) -> str:
         return f"AnimalGroup('{self.name}', brains={self.n}, metric={self.metric}, is_split={self.is_split})"
 
-    def _update_mean(self) -> dict[str, tuple[BrainData]|tuple[BrainData,BrainData]]:
-        # NOTE: skipna=True does not work with FloatingArrays (what BrainData uses)
-        #       https://github.com/pandas-dev/pandas/issues/59965
-        #       braindata regions with np.nan values resulting from a computation (e.g division by zero)
-        #       'corrupt' the whole result into becoming a pd.NA (not a np.nan).
-        return {marker:
-            tuple(BrainData.mean(*[brain[marker,hemi] for brain in self._animals],
-                                 name=self.name, skipna=True)
-                  for hemi in self.hemispheres)
-            for marker in self.markers}
-
     def reduce(self,
                op: Callable[[pd.DataFrame], pd.Series],
                op_name: str=None,
                same_units: bool=True,
                same_hemisphere: bool=True,
-               **kwargs) -> dict[str, BrainData]:
+               return_tuple: bool=True,
+               **kwargs) -> dict[str, BrainData|tuple[BrainData]|tuple[BrainData,BrainData]]:
         """
         Applies a reduction on each brain structure, between all the brains in the group,
         and for each marker.
-
-        If `op` is [`pd.DataFrame.mean`][pandas.DataFrame.mean], it is equivalent to
-        [`mean`][braian.AnimalGroup.mean] and [`hemimean`][braian.AnimalGroup.hemimean].
 
         Parameters
         ----------
@@ -233,13 +212,18 @@ class AnimalGroup:
             Whether it should enforce the same units of measurement for all `BrainData`.
         same_hemisphere
             Whether it should enforce the same hemisphere for all `BrainData`.
+        return_tuple
+            If `False` and the data have no hemisphere distinction, the resulting dictionary
+            maps directly into a `BrainData`.
         **kwargs
             Other keyword arguments are passed to `op`.
 
         Returns
         -------
-        :
-            Brain data for each marker of the group, result of the the folding.
+        : dict[str, BrainData|tuple[BrainData]]
+            Brain data for each marker of the group, result of the the reduction across brains.
+        : dict[str, tuple[BrainData,BrainData]]
+            Hemispheric data for each marker of the group, result of the the reduction across brains.
 
         Examples
         --------
@@ -247,31 +231,24 @@ class AnimalGroup:
         >>> import pandas as pd
         >>> config = braian.config.BraiAnConfig("../config_example.yml")
         >>> g = config.experiment_from_csv().groups[0]
-        >>> reduction = g.reduce(pd.DataFrame.mean, skipna=True)
-        >>> [(hemiredux.data == hemimean.data).all()
-        >>>  for marker in g.markers
-        >>>  for hemiredux,hemimean in zip(reduction[marker],g.hemimean[marker])]
-        [np.True_, np.True_, np.True_, np.True_, np.True_, np.True_]
-
         >>> gm = braian.merge_hemispheres(g)
         >>> reduction = gm.reduce(pd.DataFrame.mean, skipna=True)
         >>> [(reduction[marker].data == gm.mean[marker].data).all()
         >>>  for marker in gm.markers]
         [np.True_, np.True_, np.True_]
         """
-        if self.is_split:
-            return {marker:
-                tuple(BrainData.reduce(*[brain[marker,hemi] for brain in self._animals],
+        if not return_tuple and self.is_split:
+            raise ValueError("Can't have a single `BrainData` as result of the reduction of split data.")
+        redux = {marker:
+                 tuple(BrainData.reduce(*[brain[marker,hemi] for brain in self._animals],
                                         name=self.name, op=op, op_name=op_name,
                                         same_units=same_units, same_hemisphere=same_hemisphere,
                                         **kwargs)
                       for hemi in self.hemispheres)
                 for marker in self.markers}
-        return {marker: BrainData.reduce(*[brain[marker] for brain in self._animals],
-                                         name=self.name, op=op, op_name=op_name,
-                                         same_units=same_units, same_hemisphere=same_hemisphere,
-                                         **kwargs)
-                for marker in self.markers}
+        if return_tuple:
+            return redux
+        return {marker: r[0] for marker,r in redux.items()}
 
     def _select(self, regions: Sequence[str],
                *,
@@ -289,7 +266,6 @@ class AnimalGroup:
             return AnimalGroup(self.name, animals)
         else:
             self._animals = animals
-            self._hemimean = self._update_mean()
             return self
 
     def select(self, ontology: AtlasOntology,
@@ -347,7 +323,6 @@ class AnimalGroup:
             return AnimalGroup(self.name, animals)
         else:
             self._animals = animals
-            self._hemimean = self._update_mean()
             return self
 
     def __iter__(self) -> Iterable[AnimalBrain]:

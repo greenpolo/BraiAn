@@ -164,7 +164,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         data_range = (0, _max_value if max_value is None else max_value)
 
         major_divisions_subplot = 1
-        units = f"{str(groups[0].metric)} [{groups[0].hemimean[marker1][0].units}]"
+        units = f"{str(groups[0].metric)} [{groups[0].units(marker1)}]"
 
         fig.add_traces(heatmaps, rows=1, cols=2)
         [fig.add_vline(x=x, line_color="white", row=1, col=2) for x in group_seps]
@@ -189,7 +189,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         data_range = (0, max(m1_max_value, m2_max_value) if max_value is None else max_value)
 
         # MARKER1 - left side
-        units = f"{str(groups[0].metric)} [{groups[0].hemimean[marker1][0].units}]"
+        units = f"{str(groups[0].metric)} [{groups[0].units(marker1)}]"
         fig.add_traces(m1_bars, rows=1, cols=1)
         fig.update_xaxes(title=f"{hemisphere[0].name} brain hemisphere<br>{units}", range=data_range[::-1], row=1, col=1) # NOTE: don't use autorange='(min) reversed', as it doesn't play nice with range
         fig.add_traces(m1_heatmaps, rows=1, cols=2)
@@ -199,7 +199,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         major_divisions_subplot = 3
 
         # MARKER2 - right side
-        units = f"{str(groups[0].metric)} [{groups[0].hemimean[marker2][0].units}]"
+        units = f"{str(groups[0].metric)} [{groups[0].units(marker2)}]"
         fig.add_traces(m2_heatmaps, rows=1, cols=4)
         [fig.add_vline(x=x, line_color="white", row=1, col=4) for x in m2_group_seps]
         fig.update_xaxes(tickangle=45,  row=1, col=4)

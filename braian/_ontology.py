@@ -590,7 +590,7 @@ class AtlasOntology:
             raise ValueError(f"Can't fill any missing data in '{type(regions)}' type")
         else:
             regions_ = regions
-        key = "id" if isinstance(regions[0], int) else "acronym"
+        key = "id" if isinstance(regions_[0], int) else "acronym"
         if fill:
             # before overwriting, check that the all `regions` exist in the ontology
             _ = self._to_ids(regions_, unreferenced=unreferenced, duplicated=True, check_all=False)
@@ -600,7 +600,7 @@ class AtlasOntology:
         else:
             # might want to first call self.are_regions(), so that the error is complete of ALL unkown regions
             regions_ = [self._node_to_attr(self._tree_full[id], attr=key)
-                        for id in self._sort(self._to_ids(regions, unreferenced=unreferenced,
+                        for id in self._sort(self._to_ids(regions_, unreferenced=unreferenced,
                                                           duplicated=True, check_all=False),
                                             mode=mode)]
         if not isinstance(regions, (pd.Series, pd.DataFrame)):

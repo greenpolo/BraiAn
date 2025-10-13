@@ -106,7 +106,6 @@ def sort(d: BrainData|AnimalBrain|AnimalGroup|Experiment, ontology: AtlasOntolog
                  blacklisted=blacklisted, unreferenced=unreferenced,
                  fill_nan=fill_nan, inplace=True)
         # if it's just a sorting, it should not need any update on the side of AnimalGroup and Experiment
-        # what about AnimalGroup.hemimeans, tho?
         return d
     else:
         return d.apply(lambda b: b.sort(ontology, mode=mode,
