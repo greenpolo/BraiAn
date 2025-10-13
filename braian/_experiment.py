@@ -279,24 +279,29 @@ class Experiment:
 
     @deprecated(since="1.1.0",
                 params=["hemisphere_distinction", "brain_ontology", "fill_nan"])
-    def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
+    def apply(self,
+              f: Callable[[AnimalBrain], AnimalBrain],
+              *fs: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
               brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> Self:
         """
-        Applies a function to each animal of the groups of the experiment and creates a new `Experiment`.
+        Applies a function `f` (or a series of functions `fs`) to each animal of the groups
+        of the experiment and creates a new `Experiment`.\\
         Especially useful when applying some sort of metric to the brain data.
 
         Parameters
         ----------
         f
             A function that maps an `AnimalBrain` into another `AnimalBrain`.
+        *fs
+            Any number of functions that are going to be applied _after_ `f`.
 
         Returns
         -------
         :
             An experiment with the data of each animal changed accordingly to `f`.
         """
-        groups = [g.apply(f) for g in self._groups]
+        groups = [g.apply(f, *fs) for g in self._groups]
         return Experiment(self._name, *groups)
 
 class SlicedExperiment:
@@ -503,19 +508,24 @@ class SlicedExperiment:
                 pass
         raise KeyError(f"{val}")
 
-    def apply(self, f: Callable[[SlicedBrain], SlicedBrain]) -> Self:
+    def apply(self,
+              f: Callable[[SlicedBrain], SlicedBrain],
+              *fs: Callable[[AnimalBrain], AnimalBrain],) -> Self:
         """
-        Applies a function to each animal of the groups of the experiment and creates a new `SlicedExperiment`.
+        Applies a function `f` (or a series of functions `fs`) to each animal of the groups
+        of the experiment and creates a new `SlicedExperiment`.
 
         Parameters
         ----------
         f
             A function that maps an `SlicedBrain` into another `SlicedBrain`.
+        *fs
+            Any number of functions that are going to be applied _after_ `f`.
 
         Returns
         -------
         :
             An experiment with the data of each animal changed accordingly to `f`.
         """
-        groups = [g.apply(f) for g in self._groups]
+        groups = [g.apply(f, *fs) for g in self._groups]
         return SlicedExperiment(self._name, *groups)

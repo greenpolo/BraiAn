@@ -1,3 +1,4 @@
+import functools
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -399,17 +400,22 @@ class AnimalGroup:
 
     @deprecated(since="1.1.0",
                 params=["hemisphere_distinction", "brain_ontology", "fill_nan"])
-    def apply(self, f: Callable[[AnimalBrain], AnimalBrain],
+    def apply(self,
+              f: Callable[[AnimalBrain], AnimalBrain],
+              *fs: Callable[[AnimalBrain], AnimalBrain],
               hemisphere_distinction: bool=True,
               brain_ontology: AtlasOntology=None, fill_nan: bool=False) -> Self:
         """
-        Applies a function to each animal of the group and creates a new `AnimalGroup`.
+        Applies a function `f` (or a series of functions `fs`) to each animal of the group
+        and creates a new `AnimalGroup`.\\
         Especially useful when applying some sort of metric to the brain data.
 
         Parameters
         ----------
         f
             A function that maps an `AnimalBrain` into another `AnimalBrain`.
+        *fs
+            Any number of functions that are going to be applied _after_ `f`.
         brain_ontology
             The ontology to which the brains' data was registered against.\\
             If specified, it sorts the data in depth-first search order with respect to brain_ontology's hierarchy.
@@ -421,7 +427,8 @@ class AnimalGroup:
         :
             A group with the data of each animal changed accordingly to `f`.
         """
-        animals = [f(a) for a in self._animals]
+        fs = (f,*fs)
+        animals = [functools.reduce(lambda a_,f: f(a_), fs, a) for a in self._animals]
         return AnimalGroup(name=self.name, animals=animals)
 
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
@@ -935,21 +942,27 @@ class SlicedGroup:
         region_marker.index.names = ["brain", *region_marker.index.names[1:]]
         return region_marker
 
-    def apply(self, f: Callable[[SlicedBrain], SlicedBrain]) -> Self:
+    def apply(self,
+              f: Callable[[SlicedBrain], SlicedBrain],
+              *fs: Callable[[SlicedBrain], SlicedBrain]) -> Self:
         """
-        Applies a function to each animal of the group and creates a new `SlicedGroup`.
+        Applies a function `f` (or a series of functions `fs`) to each animal of the group
+        and creates a new `SlicedGroup`.
 
         Parameters
         ----------
         f
             A function that maps an `SlicedBrain` into another `SlicedBrain`.
+        *fs
+            Any number of functions that are going to be applied _after_ `f`.
 
         Returns
         -------
         :
             A group with the data of each animal changed accordingly to `f`.
         """
-        animals = [f(a) for a in self._animals]
+        fs = (f,*fs)
+        animals = [functools.reduce(lambda a_,f: f(a_), fs, a) for a in self._animals]
         return SlicedGroup(name=self._name, animals=animals)
 
     @deprecated(since="1.1.0", params=["hemisphere_distinction", "validate"])
