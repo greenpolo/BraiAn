@@ -486,6 +486,9 @@ class AtlasOntology:
             A list of brain structures to be sorted according to the ontology's hierarchy.
             The structures can either be of `RegionNode`s or of IDs.
             No check on the lists type is made
+        mode
+            The mode in which to visit the hierarchy of the atlas ontology, which dictates
+            how to sort a linearised list of regions.
 
         Raises
         ------
@@ -501,7 +504,7 @@ class AtlasOntology:
                 mode = Tree.DEPTH
             case _:
                 raise ValueError(f"Unsupported sorting mode: '{mode}'. Available modes are 'breadth' or 'depth'.")
-        # NOTE: avoiding to sort to match the order used in the ontology
+        # NOTE: avoiding 'sorting' to match the order used in the ontology
         sorted_ids = self._tree_full.expand_tree(mode=mode, sorting=False)
         regions = list(regions)
         if isinstance(regions[0], RegionNode):
@@ -511,6 +514,87 @@ class AtlasOntology:
         else: # isinstance(regions[0], int):
             # NOTE: no check whether the IDs are actually in self._tree_full
             return [id for id in sorted_ids if id in regions]
+
+    def sort(self, regions: Iterable|pd.DataFrame|pd.Series,
+             *, mode: Literal["depth","width"]="depth",
+             blacklisted: bool=True, unreferenced: bool=False,
+             fill: bool=False, fill_value=np.nan,
+             key: Literal["id", "acronym"]=None) -> list|pd.DataFrame|pd.Series:
+        """
+        Sorts some regionalised data in depth-first order (or width-first), based on the
+        atlas hierarchical ontology.\\
+        If `fill=True` and `regions` contains values for regions not present in the ontology,
+        it removes them from the data.
+
+        A new object is always produced.
+
+        Parameters
+        ----------
+        regions
+            The brain structures to be sorted according to the ontology's hierarchy,
+            uniquely identified by their ID or their acronym.
+
+            It also accepts regionalised data. In that case it should be a
+            [`DataFrame`][pandas.DataFrame] or a [`Series`][pandas.Series] indexed by
+            the brain region identifiers.
+        mode
+            The mode in which to visit the hierarchy of the atlas ontology, which dictates
+            how to sort a linearised list of regions.
+        blacklisted
+            If `True`, it fills the data with `fill_value` also in correspondance to
+            structures that are blacklisted in the ontology.
+        unreferenced
+            If `True`, it fills the data with `fill_value` also in correspondance to
+            structures that have no reference in the atlas annotations.
+        fill
+            If `True` and `regions` is a [`DataFrame`][pandas.DataFrame] or a
+            [`Series`][pandas.Series], it fills the data with `fill_value` corresponding
+            to the regions present in the ontology but missing in `regions`.
+        fill_value
+            The value used to fill the data with, when `fill=True`
+        key
+            The region identifier of the returned brain structures.
+
+            If not specified, it uses the first value in `regions` to decide
+            whether to use IDs or acronyms.
+
+        Returns
+        -------
+        :
+            A copy of `regions`, but sorted according to the ontology hierarchy.
+
+        Raises
+        ------
+        KeyError
+            If at least one of `regions` is not found in the ontology.
+        ValueError
+            When `mode` has an invalid value.
+        ValueError
+            If `fill=True` but `regions` is just a list of regions with no data.
+        """
+        if isinstance(regions, (pd.Series, pd.DataFrame)):
+            regions_ = regions.index
+        elif fill:
+            raise ValueError(f"Can't fill any missing data in '{type(regions)}' type")
+        else:
+            regions_ = regions
+        key = "id" if isinstance(regions[0], int) else "acronym"
+        if fill:
+            regions_ = self.subregions(self._tree_full.root, mode=mode,
+                                       blacklisted=blacklisted, key=key,
+                                       unreferenced=unreferenced)
+        else:
+            # might want to first call self.are_regions(), so that the error is complete of ALL unkown regions
+            regions_ = [self._node_to_attr(self._tree_full[id], attr=key)
+                        for id in self._sort(self._to_ids(regions, unreferenced=unreferenced,
+                                                          duplicated=True, check_all=False),
+                                            mode=mode)]
+        if not isinstance(regions, (pd.Series, pd.DataFrame)):
+            return regions_
+        # else: 'regions' contains data
+        # NOTE: if fill_value=np.nan -> converts dtype to float
+        sorted = regions.reindex(regions_, copy=False, fill_value=fill_value)
+        return sorted
 
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.blacklist"])
     def blacklist_regions(self,

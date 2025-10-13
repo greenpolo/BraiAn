@@ -11,7 +11,7 @@ from typing import Self
 from collections.abc import Iterable, Sequence
 
 from braian import AtlasOntology, BrainHemisphere, UnknownBrainRegionsError, InvalidRegionsHemisphereError
-from braian._brain_data import extract_legacy_hemispheres, sort_by_ontology
+from braian._brain_data import extract_legacy_hemispheres
 from braian.utils import deprecated, search_file_or_simlink
 
 __all__ = [
@@ -458,14 +458,14 @@ class BrainSlice:
             elif not self.is_split:
                 self._data.reset_index(inplace=True)
                 self._data.set_index("acronym", inplace=True)
-                self._data = sort_by_ontology(self._data, ontology, fill=False, mode="depth")
+                self._data = ontology.sort(self._data, mode="depth", fill=False)
                 self._data.reset_index(inplace=True)
                 self._data.set_index("index", inplace=True)
             else:
                 hem1 = self._data[self._data["hemisphere"] == BrainHemisphere.LEFT.value].reset_index().set_index("acronym")
                 hem2 = self._data[self._data["hemisphere"] == BrainHemisphere.RIGHT.value].reset_index().set_index("acronym")
-                hem1 = sort_by_ontology(hem1, ontology, fill=True, mode="depth")
-                hem2 = sort_by_ontology(hem2, ontology, fill=True, mode="depth")
+                hem1 = ontology.sort(hem1, mode="depth", fill=False)
+                hem2 = ontology.sort(hem2, mode="depth", fill=False)
                 self._data.reindex([*hem2["index"], *hem1["index"]], copy=False)
         self._atlas = str(ontology) if isinstance(ontology, str) else ontology.name # : AtlasOntology
 

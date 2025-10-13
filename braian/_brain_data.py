@@ -12,7 +12,6 @@ from braian.utils import _compatibility_check_bd, classproperty, deprecated
 
 __all__ = [
     "extract_legacy_hemispheres",
-    "sort_by_ontology",
     "BrainData",
     "BrainHemisphere",
     "UnknownBrainRegionsError",
@@ -83,37 +82,6 @@ def extract_legacy_hemispheres(data: pd.DataFrame, reindex: bool=False, inplace:
         data.index = pd.MultiIndex.from_arrays((data["hemisphere"],match_groups[2]), names=("hemisphere","acronym"))
         data.drop(columns="hemisphere", inplace=True)
     return data
-
-def sort_by_ontology(regions: Iterable|pd.DataFrame|pd.Series,
-                     brain_ontology: AtlasOntology,
-                     fill=False, fill_value=np.nan,
-                     mode: Literal["depth","width"]="depth") -> np.ndarray|pd.DataFrame|pd.Series:
-    """
-    Sorts an Iterable/DataFrame/Series by depth-first search in the given ontology.
-    The index of the data is the name of the regions.
-    If fill=True, it adds data for the missing regions
-
-    Raises
-    ------
-    UnknownBrainRegionsError
-        When `data` contains structures not present in `brain_ontology`.
-    """
-    all_regions = brain_ontology.subregions("root", mode=mode)
-    if isinstance(regions, (pd.Series, pd.DataFrame)):
-        regions_ = regions.index
-    else:
-        regions_ = pd.Index(regions)
-    if len(unknown_regions:=regions_[~regions_.isin(all_regions)]) > 0:
-        raise UnknownBrainRegionsError(unknown_regions, brain_ontology)
-    if not fill:
-        all_regions = np.array(all_regions)
-        all_regions = all_regions[np.isin(all_regions, regions_)]
-    if not isinstance(regions, (pd.Series, pd.DataFrame)):
-        return all_regions
-    # else: 'regions' contains data
-    # NOTE: if fill_value=np.nan -> converts dtype to float
-    sorted = regions.reindex(all_regions, copy=False, fill_value=fill_value)
-    return sorted
 
 class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, container=True)):
     @staticmethod
@@ -378,28 +346,63 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return str(self)
 
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
-                         fill_nan=False, inplace=False,
-                         mode: Literal["depth","width"]="depth") -> Self:
+                         *, mode: Literal["depth","width"]="depth",
+                         blacklisted: bool=True, unreferenced: bool=False,
+                         fill_nan: bool=False, inplace: bool=False) -> Self:
         """
-        Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
+        Sorts the data in depth-first order or width-first, based on the
+        atlas hierarchical ontology.\\
+        If `fill_nan=True`, any data whose region is missing from the `brain_ontology` will be removed.
 
         Parameters
         ----------
         brain_ontology
-            The ontology to which the current data was registered against.
+            The ontology of the atlas to which the data was registered.
+        mode
+            The mode in which to visit the hierarchy of the atlas ontology, which dictates
+            how to sort a linearised list of regions.
+        blacklisted
+            If `True`, it fills the data with `fill_value` also in correspondance to
+            structures that are blacklisted in the ontology.
+        unreferenced
+            If `True`, it fills the data with `fill_value` also in correspondance to
+            structures that have no reference in the atlas annotations.
         fill_nan
-            If True, it sets the value to [`NaN`][pandas.NA] for all the regions in
-            `brain_ontology` missing in the current `AnimalBrain`.
+            If True, it fills the data with [`NA`][pandas.NA] corresponding
+            to the regions missing, but present in `brain_ontology`.\\
+            If it contains values for regions not present in the ontology,
+            it removes them from the data.
+
+            If `False`, it raises a `KeyError` if it contains values for
+            regions not present in the ontology (or that are unreferenced when
+            `unreferenced=False`)
         inplace
-            If True, it applies the sorting to the current instance.
+            If True, it sorts and returns the instance in place.
 
         Returns
         -------
         :
-            Brain data sorted accordingly to `brain_ontology`.
+            The data sorted according to `brain_ontology`.
+
             If `inplace=True` it returns the same instance.
+
+        Raises
+        ------
+        ValueError
+            If `brain_ontology` is incompatibile with the atlas to which
+            the brain data were registered to.
+        KeyError
+            If the data contains values for regions that are not found in the ontology,
+            either because they are missing or because they are blacklisted or unreferenced
+            and `blacklisted=False` or `unreferenced=False`.
+        ValueError
+            When `mode` has an invalid value.
         """
-        data = sort_by_ontology(self.data, brain_ontology, fill=fill_nan, fill_value=pd.NA, mode=mode)#\
+        if self._atlas != brain_ontology.name:
+            raise ValueError(f"Incompatibile atlas ontology: '{brain_ontology.name}'")
+        data = brain_ontology.sort(self.data, mode=mode,
+                                   blacklisted=blacklisted, unreferenced=unreferenced,
+                                   fill=fill_nan, fill_value=pd.NA, key="acronym")#\
                 # .convert_dtypes() # no need to convert to IntXXArray/FloatXXArray as self.data should already be
         if not inplace:
             return BrainData(data,

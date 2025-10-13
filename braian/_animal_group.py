@@ -67,8 +67,6 @@ class AnimalGroup:
         """
         self.name = name
         """The name of the group."""
-        # if not animals or not brain_ontology:
-        #     raise ValueError("You must specify animals: list[AnimalBrain] and brain_ontology: AtlasOntology.")
         assert len(animals) > 0, "A group must be made of at least one animal." # TODO: should we enforce a statistical signficant n? E.g. MIN=4
         _compatibility_check(animals)
 
