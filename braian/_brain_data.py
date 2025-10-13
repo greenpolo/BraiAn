@@ -398,6 +398,12 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             and `blacklisted=False` or `unreferenced=False`.
         ValueError
             When `mode` has an invalid value.
+
+        See also
+        --------
+        [`sort`][braian.sort]
+        [`AnimalBrain.sort`][braian.AnimalBrain.sort]
+        [`AtlasOntology.sort`][braian.AtlasOntology.sort]
         """
         if self._atlas != ontology.name:
             raise ValueError(f"Incompatibile atlas ontology: '{ontology.name}'")
@@ -719,6 +725,13 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             If the given `BrainData` metric is not suitable for being merged.
         ValueError
             If the given `BrainData` are not compatible between each other.
+
+        See also
+        --------
+        [`merge.merge_hemispheres`][braian.merge_hemispheres]
+        [`AnimalBrain.merge`][braian.AnimalBrain.merge]
+        [`BrainSlice.merge`][braian.BrainSlice.merge_hemispheres]
+        [`SlicedBrain.merge`][braian.SlicedBrain.merge_hemispheres]
         """
         _compatibility_check_bd((self, other), min_count=2,
                                 check_hemisphere=False)

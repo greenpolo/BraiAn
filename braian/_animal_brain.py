@@ -388,6 +388,12 @@ class AnimalBrain:
             and `blacklisted=False` or `unreferenced=False`.
         ValueError
             When `mode` has an invalid value.
+
+        See also
+        --------
+        [`sort`][braian.sort]
+        [`BrainData.sort`][braian.BrainData.sort]
+        [`AtlasOntology.sort`][braian.AtlasOntology.sort]
         """
         # TODO: should we add an option to sync hemiregions? And markers?
 
@@ -525,17 +531,24 @@ class AnimalBrain:
 
     def merge_hemispheres(self) -> Self:
         """
-        Creates a new `AnimalBrain` from the current instance with no hemisphere distinction.
+        Merges data from left and right hemisheres into a single value, by sum.
 
         Returns
         -------
         :
-            A new [`AnimalBrain`][braian.AnimalBrain] with no hemisphere distinction.
-            If it is already merged, it return the same instance with no changes.
+            The regional data from `d` with no distinction between hemispheres.
+
+        Raises
+        ------
+        ValueError
+            If `d` is not [split][braian.AnimalBrain.is_split] between right and left hemispheres.
 
         See also
         --------
-        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
+        [`merge.merge_hemispheres`][braian.merge_hemispheres]
+        [`BrainData.merge`][braian.BrainData.merge]
+        [`BrainSlice.merge`][braian.BrainSlice.merge_hemispheres]
+        [`SlicedBrain.merge`][braian.SlicedBrain.merge_hemispheres]
         """
         if not self.is_split:
             raise ValueError("Data already have no distinction between right/left hemispheres")

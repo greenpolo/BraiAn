@@ -577,6 +577,12 @@ class AtlasOntology:
             When `mode` has an invalid value.
         ValueError
             If `fill=True` but `regions` is just a list of regions with no data.
+
+        See also
+        --------
+        [`sort`][braian.sort]
+        [`BrainData.sort`][braian.BrainData.sort]
+        [`AnimalBrain.sort`][braian.AnimalBrain.sort]
         """
         if isinstance(regions, (pd.Series, pd.DataFrame)):
             regions_ = regions.index

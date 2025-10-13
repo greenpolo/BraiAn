@@ -646,16 +646,24 @@ class BrainSlice:
 
     def merge_hemispheres(self) -> Self:
         """
-        For each brain region, sums the data of left and right hemispheres into one single datum
+        Merges data from left and right hemisheres into a single value, by sum.\\
+        If it's already merged, it returns the same instance.
 
         Returns
         -------
         :
-            A new [`BrainSlice`][braian.BrainSlice] with no hemisphere distinction.
-            If `slice` is already merged, it return the same instance with no changes.
+            The regional data from `d` with no distinction between hemispheres.
+
+        See also
+        --------
+        [`merge.merge_hemispheres`][braian.merge_hemispheres]
+        [`BrainData.merge`][braian.BrainData.merge]
+        [`AnimalBrain.merge`][braian.AnimalBrain.merge_hemispheres]
+        [`SlicedBrain.merge`][braian.SlicedBrain.merge_hemispheres]
         """
         if not self.is_split:
             return self
+            # raise ValueError("Data already have no distinction between right/left hemispheres")
         # corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self._data.index]
         data = self._data.groupby("acronym").sum(min_count=1)
         data["hemisphere"] = BrainHemisphere.BOTH.value

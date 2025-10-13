@@ -89,6 +89,12 @@ def sort(d: BrainData|AnimalBrain|AnimalGroup|Experiment, ontology: AtlasOntolog
         and `blacklisted=False` or `unreferenced=False`.
     ValueError
         When `mode` has an invalid value.
+
+    See also
+    --------
+    [`BrainData.sort`][braian.BrainData.sort]
+    [`AnimalBrain.sort`][braian.AnimalBrain.sort]
+    [`AtlasOntology.sort`][braian.AtlasOntology.sort]
     """
     if isinstance(d, (BrainData, AnimalBrain)):
         return d.sort(ontology=ontology, mode=mode,
@@ -110,6 +116,26 @@ def sort(d: BrainData|AnimalBrain|AnimalGroup|Experiment, ontology: AtlasOntolog
 # def merge(d):
 def merge_hemispheres(d: BrainSlice|SlicedBrain|SlicedGroup|SlicedExperiment|\
                         AnimalBrain|AnimalGroup|Experiment):
+    """
+    Merges data from left and right hemisheres into a single value, by sum.
+
+    Returns
+    -------
+    :
+        The regional data from `d` with no distinction between hemispheres.
+
+    Raises
+    ------
+    ValueError
+        If `d` is not [split][braian.AnimalBrain.is_split] between right and left hemispheres.
+
+    See also
+    --------
+    [`BrainData.merge`][braian.BrainData.merge]
+    [`AnimalBrain.merge`][braian.AnimalBrain.merge_hemispheres]
+    [`BrainSlice.merge`][braian.BrainSlice.merge_hemispheres]
+    [`SlicedBrain.merge`][braian.SlicedBrain.merge_hemispheres]
+    """
     if isinstance(d, (SlicedBrain, AnimalBrain, BrainSlice)):
         return d.merge_hemispheres()
     elif isinstance(d, (SlicedGroup, AnimalGroup, SlicedExperiment, Experiment)):
