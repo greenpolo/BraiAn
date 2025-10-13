@@ -172,7 +172,7 @@ class SlicedBrain:
         InconsistentRegionsSplitError
             If some `slices` report the data making a distinction between right and left hemispheres, while others do not.
         """
-        self._name = name
+        self._name = str(name)
         self._slices: tuple[BrainSlice] = tuple(slices)
         if len(self._slices) == 0:
             raise EmptyBrainError(context=self._name)
@@ -319,11 +319,9 @@ class SlicedBrain:
         [`BrainSlice.merge_hemispheres`][braian.BrainSlice.merge_hemispheres]
         """
         if not self.is_split:
-            return self
-        brain = copy.copy(self)
-        brain._slices = [brain_slice.merge_hemispheres() for brain_slice in brain._slices]
-        brain._is_split = False
-        return brain
+            raise ValueError("Data already have no distinction between right/left hemispheres")
+        slices = [brain_slice.merge_hemispheres() for brain_slice in self._slices]
+        return SlicedBrain(self._name, slices, self.markers)
 
     def region(self,
                region: str,

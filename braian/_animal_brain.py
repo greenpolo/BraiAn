@@ -498,11 +498,10 @@ class AnimalBrain:
         [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
         """
         if not self.is_split:
-            return self
-        brain: AnimalBrain = copy.copy(self)
-        brain._markers_data = {m: (hemidata1.merge_hemispheres(hemidata2),) for m, (hemidata1,hemidata2) in brain._markers_data.items()}
-        brain._sizes = (brain._sizes[0].merge_hemispheres(brain._sizes[1]),)
-        return brain
+            raise ValueError("Data already have no distinction between right/left hemispheres")
+        sizes = (self._sizes[0].merge(self._sizes[1]),)
+        markers_data = {m: (hemidata1.merge(hemidata2),) for m, (hemidata1,hemidata2) in self._markers_data.items()}
+        return AnimalBrain(markers_data=markers_data, sizes=sizes)
 
     def to_pandas(self, marker: str=None, units: bool=False,
                   missing_as_nan: bool=False,

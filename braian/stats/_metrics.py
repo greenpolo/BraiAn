@@ -3,7 +3,7 @@ import pandas as pd
 
 from collections.abc import Callable
 
-from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainData, BrainHemisphere
+from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainData, BrainHemisphere, merge_hemispheres
 from braian.utils import _compatibility_check
 from braian._graph_utils import brainwide_selection, is_brainwide_selection
 
@@ -207,7 +207,7 @@ def relative_density(brain: AnimalBrain,
         _,uncovered = brainwide_selection(g, attr="name", advanced=True)
         raise ValueError(f"Current ontology selection does not cover the whole brain. The following regions are left out: {uncovered}")
     if brain.is_split:
-        brain_merged = brain.merge_hemispheres()
+        brain_merged = merge_hemispheres(brain)
     else:
         brain_merged = brain
     brain_merged = brain_merged.select(atlas_ontology, fill_nan=False, inplace=False)

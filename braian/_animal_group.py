@@ -254,7 +254,7 @@ class AnimalGroup:
         >>>  for hemiredux,hemimean in zip(reduction[marker],g.hemimean[marker])]
         [np.True_, np.True_, np.True_, np.True_, np.True_, np.True_]
 
-        >>> gm = g.merge_hemispheres()
+        >>> gm = braian.merge_hemispheres(g)
         >>> reduction = gm.reduce(pd.DataFrame.mean, skipna=True)
         >>> [(reduction[marker].data == gm.mean[marker].data).all()
         >>>  for marker in gm.markers]
@@ -450,34 +450,6 @@ class AnimalGroup:
         else:
             for brain in self._animals:
                 brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=True)
-            return self
-
-    def merge_hemispheres(self, inplace=False) -> Self:
-        """
-        Creates a new `AnimalGroup` from the current instance with no hemisphere distinction.
-
-        Parameters
-        ----------
-        inplace
-            If True, it applies the sorting to the current instance.
-
-        Returns
-        -------
-        :
-            A new [`AnimalGroup`][braian.AnimalGroup] with no hemisphere distinction.
-            If `inplace=True` it modifies and returns the same instance.
-
-        See also
-        --------
-        [`AnimalBrain.merge_hemispheres`][braian.AnimalBrain.merge_hemispheres]
-        [`BrainData.merge_hemispheres`][braian.BrainData.merge_hemispheres]
-        """
-        animals = [brain.merge_hemispheres() for brain in self._animals]
-        if not inplace:
-            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
-        else:
-            self._animals = animals
-            self._hemimean = self._update_mean()
             return self
 
     def to_pandas(self, marker: str=None, units: bool=False,

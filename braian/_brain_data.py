@@ -689,7 +689,11 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             selectable_regions = selected_allen_regions
         return self._select_from_list(list(selectable_regions), fill_nan=fill_nan, inplace=inplace)
 
+    @deprecated(since="1.1.0", alternatives=["braian.BrainData.merge"])
     def merge_hemispheres(self, other: Self) -> Self:
+        return self.merge(other)
+
+    def merge(self, other: Self) -> Self:
         """
         Creates a new `BrainData` by merging two hemispheric data into one.
 
@@ -712,15 +716,20 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         ValueError
             If the given `BrainData` are not compatible between each other.
         """
+        _compatibility_check_bd((self, other), min_count=2,
+                                check_hemisphere=False)
         if self.hemisphere is BrainHemisphere.BOTH or other.hemisphere is BrainHemisphere.BOTH:
-            raise ValueError("The given brain data is already merged.")
-        if self._metric not in (BrainData.RAW_TYPE, "sum", "count_slices"):
-            raise ValueError(f"Cannot properly merge '{self._metric}' BrainData from left/right hemispheres into a single region!")
-        if self._metric != other._metric:
-            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different metrics ('{self._metric}', '{other._metric}')")
-        if self._units != other._units:
-            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different units ('{self._units}', '{other._units}')")
+            raise ValueError("Data already have no distinction between right/left hemispheres")
         if self.hemisphere == other.hemisphere:
             raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have the same hemisphere ('{self.hemisphere}', '{other.hemisphere}')")
+        if self._metric not in (BrainData.RAW_METRIC, "sum", "count_slices"):
+            # NOTE: can't use is_raw(_metric) because not all raw metrics can be summed
+            raise ValueError(f"Cannot merge hemispheric '{self._metric}' data")
+        if self._units != other._units:
+            raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different units ('{self._units}', '{other._units}')")
         data = self.data.add(other.data, fill_value=0)
-        return BrainData(data, name=self.data_name, metric=self._metric, units=self._units, hemisphere=BrainHemisphere.BOTH)
+        return BrainData(data,
+                         name=self.data_name,
+                         metric=self._metric, units=self._units,
+                         hemisphere=BrainHemisphere.BOTH,
+                         ontology=self.atlas, check=False)

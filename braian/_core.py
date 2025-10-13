@@ -1,7 +1,7 @@
-from braian import SlicedBrain, SlicedGroup, SlicedExperiment, SlicedMetric,\
+from braian import BrainSlice, SlicedBrain, SlicedGroup, SlicedExperiment, SlicedMetric,\
                     AnimalBrain, AnimalGroup, Experiment
 
-__all__ = ["reduce"]
+__all__ = ["reduce", "merge_hemispheres"]
 
 def reduce(d: SlicedBrain|SlicedGroup|SlicedExperiment,
            metric: SlicedMetric,
@@ -46,4 +46,13 @@ def reduce(d: SlicedBrain|SlicedGroup|SlicedExperiment,
         return d.reduce(metric=metric,
                         min_slices=min_slices,
                         densities=densities)
+    raise TypeError(type(d))
+
+# def merge(d):
+def merge_hemispheres(d: BrainSlice|SlicedBrain|SlicedGroup|SlicedExperiment|\
+                        AnimalBrain|AnimalGroup|Experiment):
+    if isinstance(d, (SlicedBrain, AnimalBrain, BrainSlice)):
+        return d.merge_hemispheres()
+    elif isinstance(d, (SlicedGroup, AnimalGroup, SlicedExperiment, Experiment)):
+        return d.apply(merge_hemispheres)
     raise TypeError(type(d))
