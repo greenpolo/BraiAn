@@ -453,7 +453,7 @@ class AnimalGroup:
             If `inplace=True` it returns the same instance.
         """
         if not inplace:
-            return AnimalGroup(self.name, self._animals)
+            return self.apply(lambda b: b.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=False))
         else:
             for brain in self._animals:
                 brain.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=True)

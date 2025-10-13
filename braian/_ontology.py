@@ -702,6 +702,9 @@ class AtlasOntology:
         ids = self._to_ids(values, unreferenced=unreferenced, duplicated=duplicated, check_all=True)
         return np.array([id is not None for id in ids], dtype=bool)
 
+    def __contains__(self, key) -> bool:
+        return self.is_region(key, unreferenced=False)
+
     def minimum_treecover(self,
                           regions: Iterable,
                           *,
