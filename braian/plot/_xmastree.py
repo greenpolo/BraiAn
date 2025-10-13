@@ -282,7 +282,9 @@ def marker_traces(groups: list[AnimalGroup],
         else:
             salience_scores =  markers_salience_scores[marker]
         if brain_ontology is not None:
-            salience_scores = salience_scores.sort_by_ontology(brain_ontology, fill_nan=False, inplace=False).data
+            salience_scores = salience_scores.sort(brain_ontology, mode="depth",
+                                                   blacklisted=True, unreferenced=False,
+                                                   fill_nan=False, inplace=False).data
         else:
             salience_scores = salience_scores.data
         assert len(salience_scores) == len(groups_df[0]) and all(salience_scores.index == groups_df[0].index), \

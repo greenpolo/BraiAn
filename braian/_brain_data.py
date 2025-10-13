@@ -345,18 +345,25 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def __repr__(self) -> str:
         return str(self)
 
+    @deprecated(since="1.1.0", alternatives=["braian.BrainData.sort"])
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
-                         *, mode: Literal["depth","width"]="depth",
-                         blacklisted: bool=True, unreferenced: bool=False,
                          fill_nan: bool=False, inplace: bool=False) -> Self:
+        return self.sort(brain_ontology, mode="depth",
+                         blacklisted=False, unreferenced=False,
+                         fill_nan=fill_nan, inplace=inplace)
+
+    def sort(self, ontology: AtlasOntology,
+             *, mode: Literal["depth","width"]="depth",
+             blacklisted: bool=True, unreferenced: bool=False,
+             fill_nan: bool=False, inplace: bool=False) -> Self:
         """
         Sorts the data in depth-first order or width-first, based on the
         atlas hierarchical ontology.\\
-        If `fill_nan=True`, any data whose region is missing from the `brain_ontology` will be removed.
+        If `fill_nan=True`, any data whose region is missing from the `ontology` will be removed.
 
         Parameters
         ----------
-        brain_ontology
+        ontology
             The ontology of the atlas to which the data was registered.
         mode
             The mode in which to visit the hierarchy of the atlas ontology, which dictates
@@ -369,21 +376,21 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             structures that have no reference in the atlas annotations.
         fill_nan
             If True, it fills the data with [`NA`][pandas.NA] corresponding
-            to the regions missing, but present in `brain_ontology`.
+            to the regions missing, but present in `ontology`.
         inplace
             If True, it sorts and returns the instance in place.
 
         Returns
         -------
         :
-            The data sorted according to `brain_ontology`.
+            The data sorted according to `ontology`.
 
             If `inplace=True` it returns the same instance.
 
         Raises
         ------
         ValueError
-            If `brain_ontology` is incompatibile with the atlas to which
+            If `ontology` is incompatibile with the atlas to which
             the brain data were registered to.
         KeyError
             If the data contains values for regions that are not found in the ontology,
@@ -392,11 +399,11 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         ValueError
             When `mode` has an invalid value.
         """
-        if self._atlas != brain_ontology.name:
-            raise ValueError(f"Incompatibile atlas ontology: '{brain_ontology.name}'")
-        data = brain_ontology.sort(self.data, mode=mode,
-                                   blacklisted=blacklisted, unreferenced=unreferenced,
-                                   fill=fill_nan, fill_value=pd.NA, key="acronym")#\
+        if self._atlas != ontology.name:
+            raise ValueError(f"Incompatibile atlas ontology: '{ontology.name}'")
+        data = ontology.sort(self.data, mode=mode,
+                             blacklisted=blacklisted, unreferenced=unreferenced,
+                             fill=fill_nan, fill_value=pd.NA, key="acronym")#\
                 # .convert_dtypes() # no need to convert to IntXXArray/FloatXXArray as self.data should already be
         if not inplace:
             return BrainData(data,

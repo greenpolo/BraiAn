@@ -335,18 +335,25 @@ class AnimalBrain:
             case _:
                 raise ValueError(f"Unknown kind '{kind}'.")
 
+    @deprecated(since="1.1.0", alternatives=["braian.BrainData.sort"])
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
-                         *, mode: Literal["depth","width"]="depth",
-                         blacklisted: bool=True, unreferenced: bool=False,
                          fill_nan: bool=False, inplace: bool=False) -> Self:
+        return self.sort(brain_ontology, mode="depth",
+                         blacklisted=False, unreferenced=False,
+                         fill_nan=fill_nan, inplace=inplace)
+
+    def sort(self, ontology: AtlasOntology,
+             *, mode: Literal["depth","width"]="depth",
+             blacklisted: bool=True, unreferenced: bool=False,
+             fill_nan: bool=False, inplace: bool=False) -> Self:
         """
         Sorts the data in depth-first order or width-first, based on the
         atlas hierarchical ontology.\\
-        If `fill_nan=True`, any data whose region is missing from the `brain_ontology` will be removed.
+        If `fill_nan=True`, any data whose region is missing from the `ontology` will be removed.
 
         Parameters
         ----------
-        brain_ontology
+        ontology
             The ontology of the atlas to which the data was registered.
         mode
             The mode in which to visit the hierarchy of the atlas ontology, which dictates
@@ -359,21 +366,21 @@ class AnimalBrain:
             structures that have no reference in the atlas annotations.
         fill_nan
             If True, it fills the data with [`NA`][pandas.NA] corresponding
-            to the regions missing, but present in `brain_ontology`.
+            to the regions missing, but present in `ontology`.
         inplace
             If True, it sorts and returns the instance in place.
 
         Returns
         -------
         :
-            The data sorted according to `brain_ontology`.
+            The data sorted according to `ontology`.
 
             If `inplace=True` it returns the same instance.
 
         Raises
         ------
         ValueError
-            If `brain_ontology` is incompatibile with the atlas to which
+            If `ontology` is incompatibile with the atlas to which
             the brain data were registered to.
         KeyError
             If the data contains values for regions that are not found in the ontology,
@@ -387,20 +394,20 @@ class AnimalBrain:
         # NOTE: this adds the regions present in only one of the two hemispheres
         # if self.is_split:
         #     combined_regions = _combined_regions(self[self._markers[0], 1], self[self._markers[0], 2])
-        #     combined_regions = sort_by_ontology(combined_regions, atlas_ontology, fill=False)
+        #     combined_regions = sort(combined_regions, atlas_ontology, fill=False)
         #     combined_hemidata = {m: tuple(hemidata.select_from_list(combined_regions, fill_nan=True, inplace=False) for hemidata in data)
         #                         for m,data in self._markers_data.items()}
         #     combined_hemisizes = tuple(hemisize.select_from_list(combined_regions, fill_nan=True, inplace=False) for hemisize in self.hemisizes)
         markers_data = {marker: tuple(
-                                m_data.sort_by_ontology(brain_ontology, mode=mode,
-                                                        blacklisted=blacklisted, unreferenced=unreferenced,
-                                                        fill_nan=fill_nan, inplace=inplace)
+                                m_data.sort(ontology, mode=mode,
+                                            blacklisted=blacklisted, unreferenced=unreferenced,
+                                            fill_nan=fill_nan, inplace=inplace)
                                 for m_data in hemidata)
                         for marker, hemidata in self._markers_data.items()}
         sizes = tuple(
-                s.sort_by_ontology(brain_ontology, mode=mode,
-                                   blacklisted=blacklisted, unreferenced=unreferenced,
-                                   fill_nan=fill_nan, inplace=inplace)
+                s.sort(ontology, mode=mode,
+                       blacklisted=blacklisted, unreferenced=unreferenced,
+                       fill_nan=fill_nan, inplace=inplace)
                 for s in self._sizes)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, sizes=sizes)
