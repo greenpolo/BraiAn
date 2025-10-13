@@ -3,7 +3,7 @@ from braian import AtlasOntology,\
                    BrainData, AnimalBrain, AnimalGroup, Experiment
 from typing import Literal
 
-__all__ = ["reduce", "merge_hemispheres"]
+__all__ = ["merge_hemispheres", "reduce", "sort"]
 
 def reduce(d: SlicedBrain|SlicedGroup|SlicedExperiment,
            metric: SlicedMetric,
@@ -15,6 +15,8 @@ def reduce(d: SlicedBrain|SlicedGroup|SlicedExperiment,
 
     Parameters
     ----------
+    d
+        Sliced brain data, composed of multiple [`BrainSlice`][braian.BrainSlice].
     metric
         The metric used to reduce sections data from the same region into a single value.
     min_slices
@@ -131,9 +133,9 @@ def merge_hemispheres(d: BrainSlice|SlicedBrain|SlicedGroup|SlicedExperiment|\
     See also
     --------
     [`BrainData.merge`][braian.BrainData.merge]
-    [`AnimalBrain.merge`][braian.AnimalBrain.merge_hemispheres]
-    [`BrainSlice.merge`][braian.BrainSlice.merge_hemispheres]
-    [`SlicedBrain.merge`][braian.SlicedBrain.merge_hemispheres]
+    [`AnimalBrain.merge_hemispheres`][braian.AnimalBrain.merge_hemispheres]
+    [`BrainSlice.merge_hemispheres`][braian.BrainSlice.merge_hemispheres]
+    [`SlicedBrain.merge_hemispheres`][braian.SlicedBrain.merge_hemispheres]
     """
     if isinstance(d, (SlicedBrain, AnimalBrain, BrainSlice)):
         return d.merge_hemispheres()

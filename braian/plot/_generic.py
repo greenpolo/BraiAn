@@ -199,7 +199,7 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain],
                     width: int=700, height: int=500) -> go.Figure:
     """
     Scatter plot of the regions above a threshold. Usually used together
-    with [SliceMetrics.CVAR][braian.SliceMetrics].
+    with [SliceMetrics.CVAR][braian.SlicedMetric].
 
     Parameters
     ----------

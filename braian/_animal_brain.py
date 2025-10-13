@@ -547,8 +547,8 @@ class AnimalBrain:
         --------
         [`merge.merge_hemispheres`][braian.merge_hemispheres]
         [`BrainData.merge`][braian.BrainData.merge]
-        [`BrainSlice.merge`][braian.BrainSlice.merge_hemispheres]
-        [`SlicedBrain.merge`][braian.SlicedBrain.merge_hemispheres]
+        [`BrainSlice.merge_hemispheres`][braian.BrainSlice.merge_hemispheres]
+        [`SlicedBrain.merge_hemispheres`][braian.SlicedBrain.merge_hemispheres]
         """
         if not self.is_split:
             raise ValueError("Data already have no distinction between right/left hemispheres")

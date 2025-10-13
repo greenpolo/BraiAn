@@ -41,17 +41,17 @@ class Experiment:
         Returns
         -------
         :
-            An instance of `Experiment` that corresponds to the data in the CSV file
+            An instance of `Experiment` that corresponds to the data in the CSV files.
 
         Raises
         ------
         UnknownBrainRegionsError
-            If the data in one of the brains' CSV contains regions not present in `ontology`
+            If the data in one of the brains' CSV contains regions not present in `ontology`.
 
         See also
         --------
         [`from_brain_csv`][braian.Experiment.from_brain_csv]
-        [`AnimaBrain.from_csv`][braian.AnimaBrain.from_csv]
+        [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
         [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
         """
         if not isinstance(basedir, Path):
@@ -108,7 +108,7 @@ class Experiment:
         See also
         --------
         [`from_group_csv`][braian.Experiment.from_group_csv]
-        [`AnimaBrain.from_csv`][braian.AnimaBrain.from_csv]
+        [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
         [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
         """
         if not isinstance(basedir, Path):
@@ -392,7 +392,7 @@ class SlicedExperiment:
                 return g
         raise AttributeError(f"Uknown group named '{name.lower()}'")
 
-    @deprecated(since="1.1.0", alternatives=["braian.Experiment.reduce"])
+    @deprecated(since="1.1.0", alternatives=["braian.SlicedExperiment.reduce"])
     def to_experiment(self, metric: SlicedMetric,
                       min_slices: int, densities: bool,
                       hemisphere_distinction: bool, validate: bool) -> Experiment:

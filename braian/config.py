@@ -2,7 +2,7 @@ import yaml
 import warnings
 from pathlib import Path
 
-from braian import AtlasOntology, BrainData, Experiment, SlicedGroup, SlicedExperiment
+from braian import AtlasOntology, BrainData, Experiment, SlicedBrain, SlicedGroup, SlicedExperiment
 from braian.utils import deprecated
 
 __all__ = ["BraiAnConfig"]
@@ -34,7 +34,7 @@ class BraiAnConfig:
 
         atlas:
             name: "allen_mouse_10um"
-            excluded-branches: ["retina", "VS", "grv", "fiber tracts", "CB"]
+            excluded-branches: ["VS", "fiber tracts", "CB"]
 
         brains:
             raw-metric: "sum"
@@ -51,7 +51,7 @@ class BraiAnConfig:
                 markers:
                     AF568: "cFos"
                     AF647: "Arc"
-            exclude-layer1-ancestors: false
+            exclude-ancestors-layer1: false
             min-slices: 0
         ```
 
@@ -116,7 +116,37 @@ class BraiAnConfig:
     def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True, legacy: bool=True) -> Experiment:
         return self.from_csv(sep=sep, from_brains=from_brains, fill_nan=fill_nan, legacy=legacy)
 
-    def from_csv(self, sep: str=",", from_brains: bool=False, legacy: bool=True) -> Experiment:
+    def from_csv(self, from_brains: bool=False, sep: str=",", legacy: bool=True) -> Experiment:
+        """
+        Reads the comma-separated values (CSV) saved in `experiment > output-dir`, each representing
+        the a _group_ data, into an `Experiment`.
+
+        Parameters
+        ----------
+        from_brains
+            If True, it reads the single _brain_ data instead, and build the
+            groups and the experiment from them
+        sep
+            Character or regex pattern to treat as the delimiter.
+        legacy
+            If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+
+        Returns
+        -------
+        :
+            An instance of `Experiment` that corresponds to the data in the CSV files.
+
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If the data in one of the brains' CSV contains regions not present in `ontology`.
+
+        See also
+        --------
+        [`from_brain_csv`][braian.Experiment.from_brain_csv]
+        [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
+        [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
+        """
         metric = self.config["brains"]["raw-metric"]
         assert BrainData.is_raw(metric), f"Configuration files should specify raw metrics only, not '{metric}'"
         group2brains: dict[str,str] = self.config["groups"]
@@ -197,36 +227,44 @@ class BraiAnConfig:
             groups.append(group)
 
         sliced_exp = SlicedExperiment(self.experiment_name, *groups)
-        return sliced_exp if sliced else self.from_sliced(sliced_exp)
+        return sliced_exp if sliced else self.reduce(sliced_exp)
 
-    @deprecated(since="1.1.0", alternatives=["braian.config.BraiAnConfig.from_sliced"])
+    @deprecated(since="1.1.0", alternatives=["braian.config.BraiAnConfig.reduce"])
     def experiment_from_sliced(self,
                                sliced_exp: SlicedExperiment,
                                hemisphere_distinction: bool=True,
                                validate: bool=True) -> Experiment:
-        return self.from_sliced(sliced_exp=sliced_exp)
+        return self.reduce(sliced_exp=sliced_exp)
 
-    def from_sliced(self, sliced_exp: SlicedExperiment) -> Experiment:
+    def reduce(self, sliced: SlicedBrain|SlicedGroup|SlicedExperiment) -> Experiment:
         """
-        It reduces, for each brain of a sliced experiment, the data of every brain region into a single value
-        accordingly to the method specified in the configuration file.
+        It [reduces][braian.reduce] sliced brain data, using `brains > raw-metric` and `qupath > min-slices`
+        from the configuration file.
 
         Parameters
         ----------
-        sliced_exp
-            The experiment sliced into sections to reduce into one value per-region per-brain.
-        validate
-            If True, it validates each region in each brain, checking that they are present
-            in the brain region ontology against which the brains were alligned.
+        sliced
+            Sliced brain data, composed of multiple [`BrainSlice`][braian.BrainSlice].
 
         Returns
         -------
-        :
-            _description_
+        : AnimalBrain
+            If `d` is a `SlicedBrain`
+        : AnimalGroup
+            If `d` is a `SlicedGroup`
+        : Experiment
+            If `d` is a `SlicedExperiment`
+
+        See also
+        --------
+        [`braian.reduce`][braian.reduce]
+        [`SlicedBrain.reduce`][braian.SlicedBrain.reduce]
+        [`SlicedGroup.reduce`][braian.SlicedGroup.reduce]
+        [`SlicedExperiment.reduce`][braian.SlicedExperiment.reduce]
         """
-        return sliced_exp.reduce(metric=self.config["brains"]["raw-metric"],
-                                 min_slices=self.config["qupath"]["min-slices"],
-                                 densities=False) # raw matrics will never be a density
+        return sliced.reduce(metric=self.config["brains"]["raw-metric"],
+                             min_slices=self.config["qupath"]["min-slices"],
+                             densities=False) # raw matrics will never be a density
 
 def _resolve_dir(path: Path|str, relative: Path|str) -> Path:
     if not isinstance(path, Path):

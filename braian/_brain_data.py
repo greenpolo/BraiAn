@@ -733,9 +733,9 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         See also
         --------
         [`merge.merge_hemispheres`][braian.merge_hemispheres]
-        [`AnimalBrain.merge`][braian.AnimalBrain.merge]
-        [`BrainSlice.merge`][braian.BrainSlice.merge_hemispheres]
-        [`SlicedBrain.merge`][braian.SlicedBrain.merge_hemispheres]
+        [`AnimalBrain.merge_hemispheres`][braian.AnimalBrain.merge_hemispheres]
+        [`BrainSlice.merge_hemispheres`][braian.BrainSlice.merge_hemispheres]
+        [`SlicedBrain.merge_hemispheres`][braian.SlicedBrain.merge_hemispheres]
         """
         _compatibility_check_bd((self, other), min_count=2,
                                 check_hemisphere=False)

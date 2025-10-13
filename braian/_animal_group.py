@@ -572,7 +572,7 @@ class AnimalGroup:
         See also
         --------
         [`to_pandas`][braian.AnimalGroup.to_pandas]
-        [`AnimaBrain.from_pandas`][braian.AnimaBrain.from_pandas]
+        [`AnimalBrain.from_pandas`][braian.AnimalBrain.from_pandas]
         """
         if group_name is not None:
             name = group_name
@@ -619,7 +619,7 @@ class AnimalGroup:
         See also
         --------
         [`to_csv`][braian.AnimalGroup.to_csv]
-        [`AnimaBrain.from_csv`][braian.AnimaBrain.from_csv]
+        [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
         [`Experiment.from_brain_csv`][braian.Experiment.from_brain_csv]
         [`Experiment.from_group_csv`][braian.Experiment.from_group_csv]
         """
@@ -656,7 +656,7 @@ class AnimalGroup:
         Raises
         ------
         ValueError
-            If the given groups are not [comparable][braian.AnimalGroup.is_comparable].
+            If the given groups are not comparatible.
         """
         groups = [group1, group2, *groups]
         _compatibility_check(groups) # "The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)"

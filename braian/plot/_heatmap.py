@@ -74,8 +74,6 @@ def heatmap(bd1: BrainData,
         This option may be useful to show to which values specific colors correspond to.
     ticks_labels
         If specified, it set a name to the corresponding `ticks`.
-    atlas_name
-        The name used by BrainGlobe to identify the atlas to plot
     output_path
         If specified, it saves all the resulting heatmaps in the given location.
         It no folder exists at the given location, it creates it.

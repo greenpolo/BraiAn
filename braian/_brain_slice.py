@@ -658,8 +658,8 @@ class BrainSlice:
         --------
         [`merge.merge_hemispheres`][braian.merge_hemispheres]
         [`BrainData.merge`][braian.BrainData.merge]
-        [`AnimalBrain.merge`][braian.AnimalBrain.merge_hemispheres]
-        [`SlicedBrain.merge`][braian.SlicedBrain.merge_hemispheres]
+        [`AnimalBrain.merge_hemispheres`][braian.AnimalBrain.merge_hemispheres]
+        [`SlicedBrain.merge_hemispheres`][braian.SlicedBrain.merge_hemispheres]
         """
         if not self.is_split:
             return self
