@@ -231,7 +231,7 @@ def _group_change(brain: AnimalBrain, group: AnimalGroup,
                      marker_data: BrainData, marker: str) -> BrainData:
         # assert (brain[marker,hem].data == marker_data.data).all(skipna=True)
         group_mean = next(m for m in group.hemimean[marker] if m.hemisphere == hem)
-        group_mean = group_mean.select_from_list(hemiregions[hem], fill_nan=True, inplace=False)
+        group_mean = group_mean.select_from_data(hemiregions[hem], fill_nan=True, inplace=False)
         return fun(marker_data, group_mean)
     return _hemisphered_metric(
         brain=brain,

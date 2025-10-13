@@ -79,8 +79,9 @@ class AnimalGroup:
             hemiregions = _combined_regions(animals)
             def fill(brain: AnimalBrain) -> AnimalBrain:
                 for hemi,combined_regions in hemiregions.items():
-                    brain = brain.select(combined_regions, fill_nan=True, inplace=False,
-                                         hemisphere=hemi, select_other_hemisphere=True)
+                    brain = brain._select(combined_regions, fill_nan=True, inplace=False,
+                                          hemisphere=hemi, select_other_hemisphere=True,
+                                          select_list=BrainData._select_from_list) # avoid to check `combined_regions` in the ontology
                 return brain
 
         self._animals: list[AnimalBrain] = [fill(brain) for brain in animals] # OLD: brain |> merge |> analyse |> sort
@@ -296,20 +297,50 @@ class AnimalGroup:
                 self.metric == other.metric # and \
                 # set(self.regions) == set(other.regions)
 
-    def select(self, regions: Sequence[str]|AtlasOntology,
+    def _select(self, regions: Sequence[str],
+               *,
+               fill_nan: bool=False, inplace: bool=False,
+               hemisphere: BrainHemisphere|str|int=BrainHemisphere.BOTH,
+               select_other_hemisphere: bool=False) -> Self:
+        animals = [brain._select(regions=regions,
+                                 fill_nan=fill_nan,
+                                 inplace=inplace,
+                                 hemisphere=hemisphere,
+                                 select_other_hemisphere=select_other_hemisphere,
+                                 select_list=BrainData._select_from_list)
+                   for brain in self._animals]
+        if not inplace:
+            return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
+        else:
+            self._animals = animals
+            self._hemimean = self._update_mean()
+            return self
+
+    def select(self, ontology: AtlasOntology,
+               *,
+               regions: Sequence[str]=None,
                fill_nan: bool=False, inplace: bool=False,
                hemisphere: BrainHemisphere|str|int=BrainHemisphere.BOTH,
                select_other_hemisphere: bool=False) -> Self:
         """
-        Filters the data from a given list of regions.
+        Filters the data from based on a non-overlapping list of regions selected
+        in the [`ontology`][braian.AtlasOntology].\\
+        If the ontology has no [active selection][braian.AtlasOntology.has_selection], it fails.
+
+        Alternatively, if `regions` is not `None`, it filters the data on the provided `regions`.
+        the data accordingly to a non-overlapping list of regions previously selected.
 
         Parameters
         ----------
+        ontology
+            An ontology with an [active selection][braian.AtlasOntology.has_selection].
+
+            If `regions` is provided too, it is used only to check that `regions` exist in the `ontology`
         regions
-            The acronyms of the regions to select from the data.
+            The acronyms of the regions to select in the data.
         fill_nan
             If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
-            Otherwise, if the data from some regions are missing, they are ignored.
+            Otherwise, if the data from some regions are missing, they are not added.
         inplace
             If True, it applies the filtering to the current instance.
         hemisphere
@@ -329,14 +360,14 @@ class AnimalGroup:
         --------
         [`AnimalBrain.select`][braian.AnimalBrain.select]
         """
-        animals = [brain.select(regions,
+        animals = [brain.select(ontology,
+                                regions=regions,
                                 fill_nan=fill_nan,
                                 inplace=inplace,
                                 hemisphere=hemisphere,
                                 select_other_hemisphere=select_other_hemisphere)
                    for brain in self._animals]
         if not inplace:
-            # self.metric == animals.metric -> no self.metric.analyse(brain) is computed
             return AnimalGroup(self.name, animals, brain_ontology=None, fill_nan=False)
         else:
             self._animals = animals
@@ -616,6 +647,11 @@ class AnimalGroup:
         :
             An instance of `AnimalGroup` that corresponds to the data in `df`.
 
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If `df` contains regions not present in `ontology`.
+
         See also
         --------
         [`to_pandas`][braian.AnimalGroup.to_pandas]
@@ -656,7 +692,12 @@ class AnimalGroup:
         Returns
         -------
         :
-            An instance of `AnimalGroup` that corresponds to the data in the CSV file
+            An instance of `AnimalGroup` that corresponds to the data in the CSV file.
+
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If the data in `filepath` contains regions not present in `ontology`.
 
         See also
         --------

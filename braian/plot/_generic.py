@@ -192,8 +192,9 @@ def pie_ontology(brain_ontology: AtlasOntology, selected_regions: Collection[str
     return fig
 
 def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain],
+                    *,
                     threshold: float,
-                    regions: Sequence[str],
+                    ontology: AtlasOntology, regions: Sequence[str],
                     marker: str|Iterable[str]=None,
                     width: int=700, height: int=500) -> go.Figure:
     """
@@ -239,7 +240,7 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain],
     else:
         markers = pd.unique(np.array([m for g in groups for m in g.markers]))
     for marker_i,marker in enumerate(markers):
-        df = pd.concat([g.select(regions, fill_nan=True).to_pandas(marker=marker, missing_as_nan=True) for g in groups], axis=1)
+        df = pd.concat([g.select(ontology, regions=regions, fill_nan=True).to_pandas(marker=marker, missing_as_nan=True) for g in groups], axis=1)
         # df.index = df.index.get_level_values(1)
         df = df[~(df < threshold)]
         fig.add_trace(

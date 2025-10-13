@@ -43,6 +43,11 @@ class Experiment:
         :
             An instance of `Experiment` that corresponds to the data in the CSV file
 
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If the data in one of the brains' CSV contains regions not present in `ontology`
+
         See also
         --------
         [`from_brain_csv`][braian.Experiment.from_brain_csv]
@@ -93,7 +98,12 @@ class Experiment:
         Returns
         -------
         :
-            An instance of `Experiment` that corresponds to the data in the CSV file
+            An instance of `Experiment` that corresponds to the data in the CSV file.
+
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If the data in one of the brains' CSV contains regions not present in `ontology`.
 
         See also
         --------

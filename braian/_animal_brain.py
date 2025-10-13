@@ -385,31 +385,74 @@ class AnimalBrain:
                      for data in hemidata)
 
     @deprecated(since="1.1.0", alternatives=["braian.AnimalBrain.select"])
-    def select_from_list(self, regions: Sequence[str], *args, **kwargs):
-        return self.select(regions, *args, **kwargs)
+    def select_from_list(self, regions: Sequence[str], *, ontology: AtlasOntology, **kwargs):
+        return self.select(ontology, regions=regions, **kwargs)
 
     @deprecated(since="1.1.0", alternatives=["braian.AnimalBrain.select"])
-    def select_from_ontology(self, brain_ontology: AtlasOntology, *args, **kwargs):
-        return self.select(brain_ontology, *args, **kwargs)
+    def select_from_ontology(self, brain_ontology: AtlasOntology, **kwargs):
+        return self.select(brain_ontology, **kwargs)
 
-    def select(self, regions: Sequence[str]|AtlasOntology,
-                         fill_nan: bool=False, inplace: bool=False,
-                         hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
-                         select_other_hemisphere: bool=False) -> Self:
+    def _select(self, regions: Sequence[str],
+                *,
+                fill_nan: bool=False, inplace: bool=False,
+                hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+                select_other_hemisphere: bool=False,
+                select_list: Callable[...,BrainData]=BrainData.select_from_list,
+                **kwargs) -> Self:
+        hemisphere = BrainHemisphere(hemisphere)
+        if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
+            raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
+        if regions is None:
+            def f1(bd: BrainData):
+                return bd.select_from_ontology(regions, fill_nan=fill_nan, inplace=inplace)
+        else:
+            def f1(bd: BrainData):
+                return select_list(bd, regions, fill_nan=fill_nan, inplace=inplace, **kwargs)
+
+        if hemisphere is BrainHemisphere.BOTH:
+            f2 = f1
+        elif select_other_hemisphere:
+            def f2(bd: BrainData):
+                return bd
+        else:
+            def f2(bd: BrainData):
+                return bd._select_from_list([], fill_nan=fill_nan, inplace=inplace)
+
+        markers_data = {marker: self._apply(hemidata, f1, f2, hemisphere=hemisphere)
+                        for marker, hemidata in self._markers_data.items()}
+        sizes = self._apply(self._sizes, f1, f2, hemisphere=hemisphere)
+        if not inplace:
+            return AnimalBrain(markers_data=markers_data, sizes=sizes)
+        else:
+            self._markers_data = markers_data
+            self._sizes = sizes
+            return self
+
+    def select(self, ontology: AtlasOntology,
+               *,
+               regions: Sequence[str]=None,
+               fill_nan: bool=False, inplace: bool=False,
+               hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+               select_other_hemisphere: bool=False) -> Self:
         """
-        Filters the data from a given list of regions.\
-        If, instead, an [ontology][braian.AtlasOntology] is given, it filters
-        the data accordingly to a non-overlapping list of regions previously selected.\
+        Filters the data from based on a non-overlapping list of regions selected
+        in the [`ontology`][braian.AtlasOntology].\\
         If the ontology has no [active selection][braian.AtlasOntology.has_selection], it fails.
+
+        Alternatively, if `regions` is not `None`, it filters the data on the provided `regions`.
+        the data accordingly to a non-overlapping list of regions previously selected.
 
         Parameters
         ----------
+        ontology
+            An ontology with an [active selection][braian.AtlasOntology.has_selection].
+
+            If `regions` is provided too, it is used only to check that `regions` exist in the `ontology`
         regions
-            The acronyms of the regions to select from the data.\
-            Otherwise, an ontology with an [active selection][braian.AtlasOntology.has_selection].
+            The acronyms of the regions to select in the data.
         fill_nan
             If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
-            Otherwise, if the data from some regions are missing, they are ignored.
+            Otherwise, if the data from some regions are missing, they are not added.
         inplace
             If True, it applies the filtering to the current instance.
         hemisphere
@@ -436,34 +479,9 @@ class AnimalBrain:
         [`AtlasOntology.select_regions`][braian.AtlasOntology.select]
         [`AtlasOntology.get_regions`][braian.AtlasOntology.partition]
         """
-        hemisphere = BrainHemisphere(hemisphere)
-        if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
-            raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
-        if isinstance(regions, AtlasOntology):
-            def f1(bd: BrainData):
-                return bd.select_from_ontology(regions, fill_nan=fill_nan, inplace=inplace)
-        else:
-            def f1(bd: BrainData):
-                return bd.select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
-
-        if hemisphere is BrainHemisphere.BOTH:
-            f2 = f1
-        elif select_other_hemisphere:
-            def f2(bd: BrainData):
-                return bd
-        else:
-            def f2(bd: BrainData):
-                return bd.select_from_list([], fill_nan=fill_nan, inplace=inplace)
-
-        markers_data = {marker: self._apply(hemidata, f1, f2, hemisphere=hemisphere)
-                        for marker, hemidata in self._markers_data.items()}
-        sizes = self._apply(self._sizes, f1, f2, hemisphere=hemisphere)
-        if not inplace:
-            return AnimalBrain(markers_data=markers_data, sizes=sizes)
-        else:
-            self._markers_data = markers_data
-            self._sizes = sizes
-            return self
+        return self._select(ontology=ontology, regions=regions, fill_nan=fill_nan, inplace=inplace,
+                            hemisphere=hemisphere, select_other_hemisphere=select_other_hemisphere,
+                            select_list=BrainData.select_from_list)
 
     def merge_hemispheres(self) -> Self:
         """
@@ -640,6 +658,11 @@ class AnimalBrain:
         :
             An instance of `AnimalBrain` that corresponds to the data in `df`.
 
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If `df` contains regions not present in `ontology`.
+
         See also
         --------
         [`to_pandas`][braian.AnimalBrain.to_pandas]
@@ -712,7 +735,12 @@ class AnimalBrain:
         Returns
         -------
         :
-            An instance of `AnimalBrain` that corresponds to the data in the CSV file
+            An instance of `AnimalBrain` that corresponds to the data in the CSV file.
+
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If the data in `filepath` contains regions not present in `ontology`.
 
         See also
         --------

@@ -7,7 +7,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from braian import BrainData
+from braian import AtlasOntology, BrainData
+from braian.utils import _compatibility_check
 from braian._deflector import deflect
 
 __all__ = [
@@ -16,8 +17,10 @@ __all__ = [
 ]
 
 def heatmap(bd1: BrainData,
-            brain_regions: list[str],
             bd2: BrainData=None,
+            *,
+            ontology: AtlasOntology,
+            brain_regions: list[str],
             orientation: str="frontal",
             depth: int|Sequence[int]=None, n: int=10,
             highlighted_regions: Sequence[str]|tuple[Sequence[str]]=None,
@@ -25,7 +28,6 @@ def heatmap(bd1: BrainData,
             centered_cmap: bool=False, ccenter: float=0,
             show_acronyms: bool=False, title: str=None,
             ticks: Sequence[float]=None, ticks_labels: Sequence[str]=None,
-            atlas_name: str="allen_mouse_25um",
             output_path: Path|str=None, filename: str=None) -> mpl.figure.Figure|dict[int,mpl.figure.Figure]:
     """
     Plots the heatmaps of the given [`BrainData`][braian.BrainData] onto a 2D representation of the brain
@@ -35,11 +37,13 @@ def heatmap(bd1: BrainData,
     ----------
     bd1
         The brain data to plot.
-    brain_regions
-        The brain regions to be displayed in the 2D.
     bd2
         If specified, it splits the heatmap in two hemispheres and plots `bd1` on the left hemishpere,
         and `bd2` on the right hemisphere.
+    ontology
+        The ontology of the atlas used to align `bd1` (and `bd2).
+    brain_regions
+        The brain regions to display.
     orientation
         The orientation at which the 3D brain is cut into 2D sections.
         It can be either "frontal", "sagittal" or "horizontal".
@@ -85,18 +89,23 @@ def heatmap(bd1: BrainData,
         If `n>1` or `depth` is a collection of depths, it returns a dictionary where
         the key is the depth and the value the corresponding matplotlib figure.
     """
+    if bd1.atlas != ontology.name:
+        raise ValueError(f"Incompatible atlas: data used '{bd1.atlas}' but '{ontology.name}' was used")
     if bd2 is None:
         hems = ("both",)
         # brain_data = brain_data.loc[brain_regions]
         # brain_data = brain_data[brain_data.index.isin(brain_regions)]
         # brain_data = brain_data[~brain_data.isna().all(axis=1)]
-        data = (bd1.select_from_list(brain_regions, fill_nan=True),)
+        data = (bd1.select_from_list(brain_regions, ontology=ontology, fill_nan=True),)
         data_names = (bd1.data_name,)
         _cmin = data[0].min(skiinf=True)
         _cmax = data[0].max(skiinf=True)
     else:
+        _compatibility_check((bd1, bd2), check_atlas=True, check_metrics=True,
+                             check_hemisphere=False, check_regions=False)
         hems = ("right", "left")
-        data = (bd1.select_from_list(brain_regions, fill_nan=True), bd2.select_from_list(brain_regions, fill_nan=True))
+        data = (bd1.select_from_list(brain_regions, ontology=ontology, fill_nan=True),
+                bd2.select_from_list(brain_regions, ontology=ontology, fill_nan=True))
         _cmin = min(data[0].min(skiinf=True), data[1].min(skiinf=True))
         _cmax = max(data[0].max(skiinf=True), data[1].max(skiinf=True))
         data_names = (bd1.data_name, bd2.data_name)
@@ -131,7 +140,7 @@ def heatmap(bd1: BrainData,
             vmax=cmax,
             format="2D",
             hemisphere=hem,
-            atlas_name=atlas_name,
+            atlas_name=data[0].atlas,
             check_latest=False
         )
         for d,hem,cm in zip(data, hems, cmaps)
@@ -277,14 +286,18 @@ class CenteredColormap(NormalizedColormap):
         super().__init__(cmap, norm)
 
 if __name__ == "__main__":
+    from braian import BrainHemisphere
     import pandas as pd
     data1 = pd.Series([100,200,130,np.nan,50])
     data1.index = ["Isocortex", "TH", "HY", "HPF", "not-a-region"]
-    brain_data1 = BrainData(data1, name="Control", metric="Density", units="cFos/mm²")
+    brain_data1 = BrainData(data1, name="Control", metric="Density", units="cFos/mm²",
+                            hemisphere=BrainHemisphere.BOTH, atlas="atlas", check=False)
     data2 = pd.Series([100,300,180, np.nan,50])
     data2.index = ["Isocortex", "TH", "HY", "HPF", "not-a-region"]
-    brain_data1 = BrainData(data1, name="Control1", metric="Density", units="cFos/mm²")
-    brain_data2 = BrainData(data2, name="Control2", metric="Density", units="cFos/mm²")
+    brain_data1 = BrainData(data1, name="Control1", metric="Density", units="cFos/mm²",
+                            hemisphere=BrainHemisphere.BOTH, atlas="atlas", check=False)
+    brain_data2 = BrainData(data2, name="Control2", metric="Density", units="cFos/mm²",
+                            hemisphere=BrainHemisphere.BOTH, atlas="atlas", check=False)
     heatmap(bd1=brain_data1, bd2=brain_data2,
             brain_regions=["Isocortex", "TH", "HY", "HPF"],
             orientation="frontal", n=11,

@@ -582,14 +582,38 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         """
         return list(self.data[self.data.isna()].index)
 
-    def select_from_list(self, brain_regions: Sequence[str], fill_nan=False, inplace=False) -> Self:
+    def _select_from_list(self, regions: Sequence[str], *, fill_nan: bool, inplace: bool) -> Self:
+        if fill_nan:
+            data = self.data.reindex(index=regions, fill_value=pd.NA)
+        elif not (unknown_regions:=np.isin(regions, self.data.index)).all(): # TODO: valutare se ignorare o cambiare le docstrings
+            unknown_regions = np.array(regions)[~unknown_regions]
+            raise ValueError(f"Can't find some regions in {self}: '"+"', '".join(unknown_regions)+"'!")
+        else:
+            data = self.data[self.data.index.isin(regions)]
+        if not inplace:
+            return BrainData(data,
+                             name=self.data_name,
+                             metric=self._metric, units=self._units,
+                             hemisphere=self.hemisphere,
+                             ontology=self.atlas, check=False)
+        else:
+            self.data = data
+            return self
+
+    def select_from_list(self, regions: Sequence[str],
+                          *,
+                          ontology: AtlasOntology,
+                          fill_nan: bool=False, inplace: bool=False) -> Self:
         """
         Filters the data from a given list of regions.
 
         Parameters
         ----------
-        brain_regions
+        regions
             The acronyms of the regions to select from the data.
+        ontology
+            The ontology of the atlas used to align the brain data.
+            It is used to check that all of `regions` exist.
         fill_nan
             If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.
@@ -601,24 +625,32 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         :
             A brain data filtered accordingly to the given `brain_regions`.
             If `inplace=True` it returns the same instance.
+
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If `df` contains regions not present in `ontology`
         """
-        if fill_nan:
-            data = self.data.reindex(index=brain_regions, fill_value=pd.NA)
-        elif not (unknown_regions:=np.isin(brain_regions, self.data.index)).all(): # TODO: valutare se ignorare o cambiare le docstrings
-            unknown_regions = np.array(brain_regions)[~unknown_regions]
-            raise ValueError(f"Can't find some regions in {self}: '"+"', '".join(unknown_regions)+"'!")
-        else:
-            data = self.data[self.data.index.isin(brain_regions)]
-        if not inplace:
-            return BrainData(data, self.data_name, self._metric, self._units, self.hemisphere)
-        else:
-            self.data = data
-            return self
+        if ontology.name != self.atlas:
+            raise ValueError(f"Incompatible atlas: data used '{self.atlas}' but '{ontology.name}' was used")
+        regions = np.array(regions)
+        if (missing:=~ontology.are_regions(regions)).any():
+            raise UnknownBrainRegionsError(regions[missing], ontology)
+        return self._select_from_list(regions, fill_nan=fill_nan, inplace=inplace)
+
+    def select_from_data(self, other: Self,
+                          *,
+                          fill_nan: bool=False,
+                          inplace: bool=False) -> Self:
+        if self.atlas != other.atlas: # makes no sense to use _compatibility_check_bd, every other check would be False
+            raise ValueError(f"Incompatible atlas: data used '{self.atlas}' but '{other.name}' was used")
+        return self._select_from_list(other.index, fill_nan=fill_nan, inplace=inplace)
 
     def select_from_ontology(self,
                              brain_ontology: AtlasOntology,
-                             fill_nan=False,
-                             *args, **kwargs) -> Self:
+                             *,
+                             fill_nan: bool=False,
+                             inplace: bool=False) -> Self:
         """
         Filters the data from a given ontology, accordingly to a non-overlapping list of regions
         previously selected in `brain_ontology`.\\
@@ -631,8 +663,8 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         fill_nan
             If True, the regions missing from the current data are filled with [`NA`][pandas.NA].
             Otherwise, if the data from some regions are missing, they are ignored.
-        *args, **kwargs
-            Other arguments are passed to [`select_from_list`][braian.BrainData.select_from_list].
+        inplace
+            If True, it applies the filtering to the current instance.
 
         Returns
         -------
@@ -655,7 +687,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             selectable_regions = set(self.data.index).intersection(set(selected_allen_regions))
         else:
             selectable_regions = selected_allen_regions
-        return self.select_from_list(list(selectable_regions), fill_nan=fill_nan, *args, **kwargs)
+        return self._select_from_list(list(selectable_regions), fill_nan=fill_nan, inplace=inplace)
 
     def merge_hemispheres(self, other: Self) -> Self:
         """
