@@ -369,13 +369,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             structures that have no reference in the atlas annotations.
         fill_nan
             If True, it fills the data with [`NA`][pandas.NA] corresponding
-            to the regions missing, but present in `brain_ontology`.\\
-            If it contains values for regions not present in the ontology,
-            it removes them from the data.
-
-            If `False`, it raises a `KeyError` if it contains values for
-            regions not present in the ontology (or that are unreferenced when
-            `unreferenced=False`)
+            to the regions missing, but present in `brain_ontology`.
         inplace
             If True, it sorts and returns the instance in place.
 

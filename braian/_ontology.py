@@ -549,7 +549,13 @@ class AtlasOntology:
         fill
             If `True` and `regions` is a [`DataFrame`][pandas.DataFrame] or a
             [`Series`][pandas.Series], it fills the data with `fill_value` corresponding
-            to the regions present in the ontology but missing in `regions`.
+            to the regions present in the ontology but missing in `regions`.\\
+            If `regions` contains values for regions not present in the ontology,
+            it removes them from the data.
+
+            If `False`, it raises a `KeyError` if `regions` contains values for
+            regions not present in the ontology (or that are unreferenced when
+            `unreferenced=False`)
         fill_value
             The value used to fill the data with, when `fill=True`
         key
@@ -580,6 +586,8 @@ class AtlasOntology:
             regions_ = regions
         key = "id" if isinstance(regions[0], int) else "acronym"
         if fill:
+            # before overwriting, check that the all `regions` exist in the ontology
+            _ = self._to_ids(regions_, unreferenced=unreferenced, duplicated=True, check_all=False)
             regions_ = self.subregions(self._tree_full.root, mode=mode,
                                        blacklisted=blacklisted, key=key,
                                        unreferenced=unreferenced)

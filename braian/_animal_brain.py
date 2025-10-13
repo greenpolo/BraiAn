@@ -2,9 +2,9 @@ import functools
 import pandas as pd
 import re
 
-from collections.abc import Sequence, Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Generator, Self
+from typing import Generator, Literal, Self
 
 from braian import AtlasOntology, BrainData, BrainHemisphere, SlicedMetric, UnknownBrainRegionsError
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
@@ -336,25 +336,51 @@ class AnimalBrain:
                 raise ValueError(f"Unknown kind '{kind}'.")
 
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
+                         *, mode: Literal["depth","width"]="depth",
+                         blacklisted: bool=True, unreferenced: bool=False,
                          fill_nan: bool=False, inplace: bool=False) -> Self:
         """
-        Sorts the data in depth-first search order with respect to `brain_ontology`'s hierarchy.
+        Sorts the data in depth-first order or width-first, based on the
+        atlas hierarchical ontology.\\
+        If `fill_nan=True`, any data whose region is missing from the `brain_ontology` will be removed.
 
         Parameters
         ----------
         brain_ontology
-            The ontology to which the current data was registered against.
+            The ontology of the atlas to which the data was registered.
+        mode
+            The mode in which to visit the hierarchy of the atlas ontology, which dictates
+            how to sort a linearised list of regions.
+        blacklisted
+            If `True`, it fills the data with `fill_value` also in correspondance to
+            structures that are blacklisted in the ontology.
+        unreferenced
+            If `True`, it fills the data with `fill_value` also in correspondance to
+            structures that have no reference in the atlas annotations.
         fill_nan
-            If True, it sets the value to [`NA`][pandas.NA] for all the regions in
-            `brain_ontology` missing in the current `AnimalBrain`.
+            If True, it fills the data with [`NA`][pandas.NA] corresponding
+            to the regions missing, but present in `brain_ontology`.
         inplace
-            If True, it applies the sorting to the current instance.
+            If True, it sorts and returns the instance in place.
 
         Returns
         -------
         :
-            A brain with data sorted accordingly to `brain_ontology`.
+            The data sorted according to `brain_ontology`.
+
             If `inplace=True` it returns the same instance.
+
+        Raises
+        ------
+        ValueError
+            If `brain_ontology` is incompatibile with the atlas to which
+            the brain data were registered to.
+        KeyError
+            If the data contains values for regions that are not found in the ontology,
+            either because they are missing or because they are blacklisted or unreferenced
+            and `blacklisted=False` or `unreferenced=False`.
+        ValueError
+            When `mode` has an invalid value.
         """
         # TODO: should we add an option to sync hemiregions? And markers?
 
@@ -365,9 +391,17 @@ class AnimalBrain:
         #     combined_hemidata = {m: tuple(hemidata.select_from_list(combined_regions, fill_nan=True, inplace=False) for hemidata in data)
         #                         for m,data in self._markers_data.items()}
         #     combined_hemisizes = tuple(hemisize.select_from_list(combined_regions, fill_nan=True, inplace=False) for hemisize in self.hemisizes)
-        markers_data = {marker: tuple(m_data.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace) for m_data in hemidata)
+        markers_data = {marker: tuple(
+                                m_data.sort_by_ontology(brain_ontology, mode=mode,
+                                                        blacklisted=blacklisted, unreferenced=unreferenced,
+                                                        fill_nan=fill_nan, inplace=inplace)
+                                for m_data in hemidata)
                         for marker, hemidata in self._markers_data.items()}
-        sizes = tuple(s.sort_by_ontology(brain_ontology, fill_nan=fill_nan, inplace=inplace) for s in self._sizes)
+        sizes = tuple(
+                s.sort_by_ontology(brain_ontology, mode=mode,
+                                   blacklisted=blacklisted, unreferenced=unreferenced,
+                                   fill_nan=fill_nan, inplace=inplace)
+                for s in self._sizes)
         if not inplace:
             return AnimalBrain(markers_data=markers_data, sizes=sizes)
         else:
