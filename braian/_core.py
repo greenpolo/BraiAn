@@ -190,6 +190,6 @@ def from_csv(filepath: Path,
         case _:
             raise ValueError(t)
     try:
-        clazz.from_csv(filepath, ontology=ontology, sep=sep)
+        return clazz.from_csv(filepath, ontology=ontology, sep=sep)
     except Exception:
         raise ValueError(f"Could not be read as a '{clazz.__name__}': {filepath}")
