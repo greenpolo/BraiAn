@@ -67,15 +67,15 @@ class BraiAnConfig:
             config_file = Path(config_file)
         self.config_file = config_file
         with open(self.config_file, "r") as f:
-            self.config = yaml.safe_load(f)
+            self._conf = yaml.safe_load(f)
 
         # self.cache_path = Path(cache_path)
-        self.experiment_name = self.config["experiment"]["name"]
-        if "output_dir" in self.config["experiment"]:
+        self.experiment_name = self._conf["experiment"]["name"]
+        if "output_dir" in self._conf["experiment"]:
             warnings.warn("Option 'experiment|output_dir' is deprecated since '1.1.0' and support may be removed in future versions. Use 'experiment|output-dir' instead.", DeprecationWarning)
-            output_dir = self.config["experiment"]["output_dir"]
+            output_dir = self._conf["experiment"]["output_dir"]
         else:
-            output_dir = self.config["experiment"]["output-dir"]
+            output_dir = self._conf["experiment"]["output-dir"]
         self.output_dir = _resolve_dir(output_dir, relative=self.config_file.absolute().parent)
         self._ontology: AtlasOntology = self._read_ontology()
 
@@ -93,11 +93,11 @@ class BraiAnConfig:
         :
             The brain ontology associated with the whole-brain data of the experiment.
         """
-        if "version" in self.config["atlas"] is not None:
+        if "version" in self._conf["atlas"] is not None:
             warnings.warn("Option 'atlas|version' is deprecated since '1.1.0' and support may be removed in future versions. Use 'atlas|name' instead.", DeprecationWarning)
-            version = self.config["atlas"]["version"]
+            version = self._conf["atlas"]["version"]
             if version != 3 and version.lower() not in {"2017", "ccfv3", "v3"}:
-                raise ValueError(f"Unsupported version of the Allen Mouse Brain ontology: '{self.config['atlas']['version']}'. "+\
+                raise ValueError(f"Unsupported version of the Allen Mouse Brain ontology: '{self._conf['atlas']['version']}'. "+\
                                  "If you think this version of the Common Coordinate Framework should be supported, please open an issue on https://github.com/brainglobe/brainglobe-atlasapi")
                 # import braian.utils
                 # cached_allen_json = self.cache_path/"AllenMouseBrainOntology.json"
@@ -107,12 +107,12 @@ class BraiAnConfig:
                 #                                         version=self.config["atlas"]["version"])
             atlas_name = "allen_mouse_10um"
         else:
-            atlas_name = self.config["atlas"]["name"]
-        if "excluded-branches" in self.config["atlas"]:
+            atlas_name = self._conf["atlas"]["name"]
+        if "excluded-branches" in self._conf["atlas"]:
             warnings.warn("Option 'atlas|excluded-branches' is deprecated since '1.1.0' and support may be removed in future versions. Use 'atlas|blacklisted' instead.", DeprecationWarning)
-            blacklisted = self.config["atlas"]["excluded-branches"]
+            blacklisted = self._conf["atlas"]["excluded-branches"]
         else:
-            blacklisted = self.config["atlas"]["blacklisted"]
+            blacklisted = self._conf["atlas"]["blacklisted"]
         return AtlasOntology(atlas_name,
                              blacklisted=blacklisted,
                              unreferenced=False)
@@ -153,10 +153,10 @@ class BraiAnConfig:
         [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
         [`Experiment.from_csv`][braian.Experiment.from_csv]
         """
-        metric = self.config["brains"]["raw-metric"]
+        metric = self._conf["brains"]["raw-metric"]
         assert BrainData.is_raw(metric), f"Configuration files should specify raw metrics only, not '{metric}'"
         if name is not None:
-            group2brains: dict[str,list[str]] = self.config["groups"]
+            group2brains: dict[str,list[str]] = self._conf["groups"]
             t = "group"
             if name not in group2brains:
                 brains = {a for g in group2brains.values() for a in g}
@@ -167,7 +167,7 @@ class BraiAnConfig:
             name = self.experiment_name
             t = "experiment"
         if legacy:
-            group2brains: dict[str,list[str]] = self.config["groups"]
+            group2brains: dict[str,list[str]] = self._conf["groups"]
             groups = [AnimalGroup.from_csv(self.output_dir/f"{name_}_{metric}.csv", name=name_,
                                              ontology=self._ontology, sep=sep, legacy=True)
                       for name_ in group2brains.keys()]
@@ -203,7 +203,7 @@ class BraiAnConfig:
             An Experiment object, with all animals' and groups' data from QuPath.\\
             If sliced=True, it returns a SlicedExperiment.
         """
-        qupath = self.config["qupath"]
+        qupath = self._conf["qupath"]
         qupath_dir = _resolve_dir(qupath["files"]["dirs"]["output"], relative=self.config_file.absolute().parent)
         if "results_subdir" in qupath["files"]["dirs"]:
             warnings.warn("Option 'qupath|files|dirs|results_subdir' is deprecated since '1.1.0' and support may be removed in future versions. Use 'qupath|files|dirs|results-subdir' instead.", DeprecationWarning)
@@ -229,7 +229,7 @@ class BraiAnConfig:
             warnings.warn("Option 'exclude-parents' is now ignored. "+\
                           "Quantifications in ancestor regions are now always completely removed too.")
         exclude_ancestors_layer1 = qupath.get("exclude-ancestors-layer1", True)
-        group2brains: dict[str,str] = self.config["groups"]
+        group2brains: dict[str,str] = self._conf["groups"]
         groups = []
         for g_name, brain_names in group2brains.items():
             group = SlicedGroup.from_qupath(name=g_name, brain_names=brain_names,
@@ -277,8 +277,8 @@ class BraiAnConfig:
         [`SlicedGroup.reduce`][braian.SlicedGroup.reduce]
         [`SlicedExperiment.reduce`][braian.SlicedExperiment.reduce]
         """
-        return sliced.reduce(metric=self.config["brains"]["raw-metric"],
-                             min_slices=self.config["qupath"]["min-slices"],
+        return sliced.reduce(metric=self._conf["brains"]["raw-metric"],
+                             min_slices=self._conf["qupath"]["min-slices"],
                              densities=False) # raw matrics will never be a density
 
 def _resolve_dir(path: Path|str, relative: Path|str) -> Path:
