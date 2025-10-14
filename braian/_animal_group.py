@@ -437,7 +437,8 @@ class AnimalGroup:
                            fill_nan=fill_nan, inplace=inplace)
             return self
 
-    def to_pandas(self, marker: str=None, units: bool=False,
+    def to_pandas(self, *,
+                  marker: str=None, units: bool=False,
                   missing_as_nan: bool=False,
                   legacy: bool=False,
                   hemisphere_as_value: bool=False,
@@ -450,7 +451,7 @@ class AnimalGroup:
         marker
             If specified, it includes data only from the given marker.
         units
-            Whether to include the units of measurement in the `DataFrame` index.
+            Whether to include the units of measurement in the `DataFrame` columns.
             Available only when `marker=None`.
         missing_as_nan
             If True, it converts missing values [`NA`][pandas.NA] as [`NaN`][numpy.nan].
@@ -465,14 +466,19 @@ class AnimalGroup:
         Returns
         -------
         :
-            A  $m×n$ `DataFrame`.\\
-            If `marker` is specified, $m=\\#regions$ and $n=\\#brains$.\\
-            Otherwise, $m=\\#regions⋅\\#brains$ and $n=\\#markers+1$, as it contains
-            the size of the regions as well.
-            In the latter case, the index of the `DataFrame` has two levels:
-            the acronyms of the regions and the name of the animal in the group.
+            A  $m×n$ `DataFrame`, where $m=|regions|$ and $n=|brains|\\times(|markers|+1)$.\\
+            If `marker` is not None, $n=|brains|$.
+
+            The `DataFrame` is indexed, on the columns, by two levels: the
+            [animals][braian.AnimalGroup.animals] and the [markers][braian.AnimalBrain.markers].
 
             If a region is missing in some animals, the corresponding row is [`NA`][pandas.NA]-filled.
+
+        See also
+        --------
+        [`from_pandas`][braian.AnimalGroup.from_pandas]
+        [`AnimalBrain.to_pandas`][braian.AnimalBrain.to_pandas]
+        [`Experiment.to_pandas`][braian.Experiment.to_pandas]
         """
         if legacy and marker is None:
             df = pd.concat(
@@ -501,16 +507,16 @@ class AnimalGroup:
                  for brain in self._animals},
                 join="outer", axis=1)
             if marker is None:
-                df.columns.names = (self._name, str(self.metric))
+                df.columns.names = (self.name, self.metric) # strings are copied
             else: # a marker is specified
                 df = df.xs(marker, level=1, axis=1)
-                df.columns.name = str(self.metric)
+                df.columns.name = self.metric
         return df
 
     def to_csv(self, output_path: Path|str, sep: str=",",
                overwrite: bool=False, legacy: bool=False) -> str:
         """
-        Write the current `AnimalGroup` to a comma-separated values (CSV) file in `output_path`.
+        Writes the group's data to a comma-separated values (CSV) file in `output_path`.
 
         Parameters
         ----------
@@ -536,6 +542,9 @@ class AnimalGroup:
         See also
         --------
         [`from_csv`][braian.AnimalGroup.from_csv]
+        [`to_pandas`][braian.AnimalGroup.to_pandas]
+        [`AnimalBrain.to_csv`][braian.AnimalBrain.to_csv]
+        [`Experiment.to_csv`][braian.Experiment.to_csv]
         """
         df = self.to_pandas(units=True, legacy=legacy, hemisphere_as_str=True)
         file_name = f"{self._name}_{self.metric}.csv"
@@ -587,6 +596,7 @@ class AnimalGroup:
         --------
         [`to_pandas`][braian.AnimalGroup.to_pandas]
         [`AnimalBrain.from_pandas`][braian.AnimalBrain.from_pandas]
+        [`Experiment.from_pandas`][braian.Experiment.from_pandas]
         """
         if group_name is not None:
             name = group_name
@@ -646,6 +656,7 @@ class AnimalGroup:
         --------
         [`to_csv`][braian.AnimalGroup.to_csv]
         [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
+        [`Experiment.from_csv`][braian.Experiment.from_csv]
         [`Experiment.from_brain_csv`][braian.Experiment.from_brain_csv]
         [`Experiment.from_group_csv`][braian.Experiment.from_group_csv]
         """
@@ -659,6 +670,7 @@ class AnimalGroup:
         return AnimalGroup.from_pandas(df, name=name, ontology=ontology, legacy=legacy)
 
     @staticmethod
+    @deprecated(since="1.1.0", alternatives=["braian.Experiment.to_pandas"])
     def to_prism(marker, brain_ontology: AtlasOntology,
                  group1: Self, group2: Self, *groups: Self) -> pd.DataFrame:
         """

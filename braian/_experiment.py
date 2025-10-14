@@ -1,8 +1,10 @@
-from collections.abc import Iterable, Callable
 from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainHemisphere, SlicedBrain, SlicedGroup, SlicedMetric
-from braian.utils import _compatibility_check, deprecated
+from braian.utils import _compatibility_check, deprecated, multiindex_from_columns, multiindex_to_columns, save_csv
+from collections.abc import Iterable, Callable
 from pathlib import Path
 from typing import Any, Self
+
+import pandas as pd
 
 __all__ = ["Experiment", "SlicedExperiment"]
 
@@ -57,8 +59,8 @@ class Experiment:
         if not isinstance(basedir, Path):
             basedir = Path(basedir)
         groups = []
-        for name in group_names:
-            group = AnimalGroup.from_csv(basedir/f"{name}_{metric}.csv", name=name,
+        for name_ in group_names:
+            group = AnimalGroup.from_csv(basedir/f"{name_}_{metric}.csv", name=name_,
                                          ontology=ontology, sep=sep, legacy=legacy)
             groups.append(group)
         return Experiment(name, *groups)
@@ -303,6 +305,181 @@ class Experiment:
         """
         groups = [g.apply(f, *fs) for g in self._groups]
         return Experiment(self._name, *groups)
+
+    def to_pandas(self, *,
+                  marker: str=None, units: bool=False,
+                  missing_as_nan: bool=False,
+                  hemisphere_as_value: bool=False,
+                  hemisphere_as_str: bool=False) -> pd.DataFrame:
+        """
+        Constructs a `DataFrame` with data from the current experiment.
+
+        Parameters
+        ----------
+        marker
+            If specified, it includes data only from the given marker.
+        units
+            Whether to include the units of measurement in the `DataFrame` columns.
+            Available only when `marker=None`.
+        missing_as_nan
+            If True, it converts missing values [`NA`][pandas.NA] as [`NaN`][numpy.nan].
+            Note that if the corresponding brain data is integer-based, it converts them to float.
+        hemisphere_as_value
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding value (i.e. 0, 1 or 2)
+        hemisphere_as_str
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "both", "left", "right")
+
+        Returns
+        -------
+        :
+            A  $m×n$ `DataFrame`, where $m=|regions|$ and $n=|groups|\\times|brains|\\times(|markers|+1)$.\\
+            If `marker` is not None, $n=|groups|\\times|brains|$.
+
+            The `DataFrame` is indexed, on the columns, by three levels: the
+            [groups][braian.Experiment.groups], the [animals][braian.AnimalGroup.animals] and the
+            [markers][braian.AnimalBrain.markers].
+
+            If a region is missing in some groups/animals, the corresponding row is [`NA`][pandas.NA]-filled.
+
+        See also
+        --------
+        [`from_pandas`][braian.Experiment.from_pandas]
+        [`AnimalBrain.to_pandas`][braian.AnimalBrain.to_pandas]
+        [`AnimalGroup.to_pandas`][braian.AnimalGroup.to_pandas]
+        """
+        df = pd.concat(
+            {group.name: group.to_pandas(marker=marker, units=units, missing_as_nan=missing_as_nan,
+                                        legacy=False, hemisphere_as_value=hemisphere_as_value,
+                                        hemisphere_as_str=hemisphere_as_str)
+                for group in self._groups},
+            join="outer", axis=1)
+        if marker is None:
+            df.columns.names = (self.name, None, self.metric)
+        else:
+            df.columns.names = (self.name, self.metric)
+        return df
+
+    def to_csv(self, output_path: Path|str, sep: str=",",
+               overwrite: bool=False) -> str:
+        """
+        Writes the experiment's data to a comma-separated values (CSV) file in `output_path`.
+
+        Parameters
+        ----------
+        output_path
+            Any valid string path is acceptable. It also accepts any [os.PathLike][].
+        sep
+            Character to treat as the delimiter.
+        overwrite
+            If True, it overwrite any conflicting file in `output_path`.
+
+        Returns
+        -------
+        :
+            The file path to the saved CSV file.
+
+        Raises
+        ------
+        FileExistsError
+            If `overwrite=False` and there is a conflicting file in `output_path`.
+
+        See also
+        --------
+        [`from_csv`][braian.Experiment.from_csv]
+        [`to_pandas`][braian.Experiment.to_pandas]
+        [`AnimalBrain.to_csv`][braian.AnimalBrain.to_csv]
+        [`AnimalGroup.to_csv`][braian.AnimalGroup.to_csv]
+        """
+        df = self.to_pandas(units=True, hemisphere_as_str=True)
+        file_name = f"{self._name}_{self.metric}.csv"
+        multiindex_to_columns(df, inplace=True)
+        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index=False)
+
+    def from_pandas(df: pd.DataFrame,
+                    *,
+                    ontology: AtlasOntology,
+                    name: str=None) -> Self:
+        """
+        Creates an instance of [`Experiment`][braian.Experiment] from a `DataFrame`.
+
+        Parameters
+        ----------
+        df
+            A [`to_pandas`][braian.Experiment.to_pandas]-compatible `DataFrame`.
+        ontology
+            The ontology of the atlas used to align the brain data in `df`.
+        name
+            The name of the group associated with the data in `df`,
+            if you want to overwrite the one stated in the first columns' name.
+
+        Returns
+        -------
+        :
+            An instance of `Experiment` that corresponds to the data in `df`.
+
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If `df` contains regions not present in `ontology`.
+
+        See also
+        --------
+        [`to_pandas`][braian.Experiment.to_pandas]
+        [`AnimalBrain.from_pandas`][braian.AnimalBrain.from_pandas]
+        [`AnimalGroup.from_pandas`][braian.AnimalGroup.from_pandas]
+        """
+        if name is None:
+            name = df.columns.names[0]
+        groups = df.columns.unique(0)
+        name = df.columns.names[0]
+        groups = [AnimalGroup.from_pandas(
+                    df=df[group_name],
+                    name=group_name, ontology=ontology, legacy=False)
+                for group_name in groups]
+        return Experiment(name, *groups)
+
+    @staticmethod
+    def from_csv(filepath: Path|str,
+                 *,
+                 ontology: AtlasOntology,
+                 name: str=None,
+                 sep: str=",") -> Self:
+        """
+        Reads a comma-separated values (CSV) file into `Experiment`.
+
+        Parameters
+        ----------
+        filepath
+            Any valid string path is acceptable. It also accepts any [os.PathLike][].
+        ontology
+            The ontology of the atlas used to align the brain data in `filepath`.
+        name
+            Name of the group associated  with the data in `filepath`,
+            if you want to overwrite the one with which it was saved.
+        sep
+            Character or regex pattern to treat as the delimiter.
+
+        Returns
+        -------
+        :
+            An instance of `Experiment` that corresponds to the data in the CSV file.
+
+        Raises
+        ------
+        UnknownBrainRegionsError
+            If the data in `filepath` contains regions not present in `ontology`.
+
+        See also
+        --------
+        [`to_csv`][braian.Experiment.to_csv]
+        [`from_brain_csv`][braian.Experiment.from_brain_csv]
+        [`from_group_csv`][braian.Experiment.from_group_csv]
+        [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
+        [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
+        """
+        df = pd.read_csv(filepath, sep=sep, header=[0,1,2,3])
+        multiindex_from_columns(df, index_col=[0,1], inplace=True)
+        return Experiment.from_pandas(df, name=name, ontology=ontology)
 
 class SlicedExperiment:
     def __init__(self, name: str, group1: SlicedGroup, group2: SlicedGroup,

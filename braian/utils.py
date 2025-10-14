@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pandas as pd
 import platform
+import re
 import requests
 import warnings
 
@@ -281,14 +282,21 @@ def _compatibility_check(xs: Collection,
 
 def multiindex_to_columns(df: pd.DataFrame, *, inplace: bool) -> None|pd.DataFrame:
     assert not all(n is None for n in df.index.names), "no MultiIndex names to encode as columns"
+    nlevels = df.index.nlevels
     if inplace:
         df.reset_index(inplace=True)    # adds index names as columns (1st level)
     else:
         df = df.reset_index(inplace=False)
     columns = [[*cols,""] for cols in df.columns]
+    for i in range(nlevels):
+        # swap index names to last
+        columns[i] = columns[i][::-1]
     for i,level_name in enumerate(df.columns.names):
-        columns[i] = columns[i][::-1]   # swap index names to last
-        columns[0][i] = level_name      # use the first column to store columns' level names
+        # use the first column to store columns' level names
+        if level_name is None:
+            columns[0][i] = ""
+        else:
+            columns[0][i] = level_name
     columns = pd.MultiIndex.from_tuples(columns)
     df.columns = columns
     return None if inplace else df
@@ -306,5 +314,5 @@ def multiindex_from_columns(df: pd.DataFrame, *,
     else:
         df = df.drop(index_cols, axis=1, inplace=False)
     df.columns = df.columns.droplevel(-1)
-    df.columns.names = column_names
+    df.columns.names = [None if re.match(r"Unnamed: \d+_level_\d+", n) else n for n in column_names]
     return None if inplace else df

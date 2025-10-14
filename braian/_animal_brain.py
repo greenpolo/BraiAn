@@ -590,6 +590,8 @@ class AnimalBrain:
         See also
         --------
         [`from_pandas`][braian.AnimalBrain.from_pandas]
+        [`AnimalGroup.to_pandas`][braian.AnimalGroup.to_pandas]
+        [`Experiment.to_pandas`][braian.Experiment.to_pandas]
         """
         brain_dict = dict()
         hemisizes = sorted(self._sizes, key=lambda bd: bd.hemisphere.value) # first LEFT and then RIGHT hemispheres
@@ -627,7 +629,7 @@ class AnimalBrain:
     def to_csv(self, output_path: Path|str, sep: str=",",
                overwrite: bool=False, legacy: bool=False) -> str:
         """
-        Write the current `AnimalBrain` to a comma-separated values (CSV) file in `output_path`.
+        Write the brain's data to a comma-separated values (CSV) file in `output_path`.
 
         Parameters
         ----------
@@ -653,6 +655,9 @@ class AnimalBrain:
         See also
         --------
         [`from_csv`][braian.AnimalBrain.from_csv]
+        [`to_pandas`][braian.AnimalBrain.to_pandas]
+        [`AnimalGroup.to_csv`][braian.AnimalGroup.to_csv]
+        [`Experiment.to_csv`][braian.Experiment.to_csv]
         """
         df = self.to_pandas(units=True, legacy=legacy)
         if not legacy:
@@ -719,6 +724,7 @@ class AnimalBrain:
         --------
         [`to_pandas`][braian.AnimalBrain.to_pandas]
         [`AnimalGroup.from_pandas`][braian.AnimalGroup.from_pandas]
+        [`Experiment.from_pandas`][braian.Experiment.from_pandas]
         """
         if animal_name is not None:
             name = animal_name
@@ -798,6 +804,7 @@ class AnimalBrain:
         --------
         [`to_csv`][braian.AnimalBrain.to_csv]
         [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
+        [`Experiment.from_csv`][braian.Experiment.from_csv]
         [`Experiment.from_brain_csv`][braian.Experiment.from_brain_csv]
         [`Experiment.from_group_csv`][braian.Experiment.from_group_csv]
         """
