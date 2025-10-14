@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Self
 
 from braian import AnimalBrain, AtlasOntology, BrainData, BrainHemisphere, SlicedBrain, SlicedMetric
-from braian.utils import _compatibility_check, _compatibility_check_sliced, _same_regions, deprecated, merge_ordered, save_csv
+from braian.utils import _compatibility_check, _compatibility_check_sliced, _same_regions,\
+                         deprecated, merge_ordered, multiindex_to_columns, multiindex_from_columns, save_csv
 
 __all__ = ["AnimalGroup", "SlicedGroup"]
 
@@ -65,8 +66,7 @@ class AnimalGroup:
         [`BrainData.sort_by_ontology`][braian.BrainData.sort_by_ontology]
         [`AnimalBrain.select`][braian.AnimalBrain.select]
         """
-        self.name = name
-        """The name of the group."""
+        self.name = str(name)
         assert len(animals) > 0, "A group must be made of at least one animal." # TODO: should we enforce a statistical signficant n? E.g. MIN=4
         _compatibility_check(animals)
 
@@ -89,6 +89,22 @@ class AnimalGroup:
     def atlas(self) -> str:
         """The name of the atlas used to align the brain data."""
         return self._animals[0].atlas
+
+    @property
+    def name(self) -> str:
+        """The name of the group."""
+        return str(self._name)
+
+    @name.setter
+    def name(self, value: str):
+        # AnimalGroup.to_csv uses the 'hemisphere' column to store the name and metric.
+        # if the name was set to a value compatible with BrainHemisphere, it could conflict (?)
+        try:
+            BrainHemisphere(value)
+        except ValueError:
+            self._name = value
+            return
+        raise ValueError(f"Incompatible name for a group: '{value}'")
 
     @property
     def n(self) -> int:
@@ -189,7 +205,7 @@ class AnimalGroup:
         return str(self)
 
     def __str__(self) -> str:
-        return f"AnimalGroup('{self.name}', brains={self.n}, metric={self.metric}, is_split={self.is_split})"
+        return f"AnimalGroup('{self._name}', brains={self.n}, metric={self.metric}, is_split={self.is_split})"
 
     def reduce(self,
                op: Callable[[pd.DataFrame], pd.Series],
@@ -241,7 +257,7 @@ class AnimalGroup:
             raise ValueError("Can't have a single `BrainData` as result of the reduction of split data.")
         redux = {marker:
                  tuple(BrainData.reduce(*[brain[marker,hemi] for brain in self._animals],
-                                        name=self.name, op=op, op_name=op_name,
+                                        name=self._name, op=op, op_name=op_name,
                                         same_units=same_units, same_hemisphere=same_hemisphere,
                                         **kwargs)
                       for hemi in self.hemispheres)
@@ -263,7 +279,7 @@ class AnimalGroup:
                                  select_list=BrainData._select_from_list)
                    for brain in self._animals]
         if not inplace:
-            return AnimalGroup(self.name, animals)
+            return AnimalGroup(self._name, animals)
         else:
             self._animals = animals
             return self
@@ -320,7 +336,7 @@ class AnimalGroup:
                                 select_other_hemisphere=select_other_hemisphere)
                    for brain in self._animals]
         if not inplace:
-            return AnimalGroup(self.name, animals)
+            return AnimalGroup(self._name, animals)
         else:
             self._animals = animals
             return self
@@ -402,7 +418,7 @@ class AnimalGroup:
         """
         fs = (f,*fs)
         animals = [functools.reduce(lambda a_,f: f(a_), fs, a) for a in self._animals]
-        return AnimalGroup(name=self.name, animals=animals)
+        return AnimalGroup(name=self._name, animals=animals)
 
     @deprecated(since="1.1.0", alternatives=["braian.sort"])
     def sort_by_ontology(self, brain_ontology: AtlasOntology,
@@ -458,40 +474,34 @@ class AnimalGroup:
 
             If a region is missing in some animals, the corresponding row is [`NA`][pandas.NA]-filled.
         """
-        if marker is None:
+        if legacy and marker is None:
             df = pd.concat(
                 {brain.name: brain.to_pandas(marker=None, units=units, missing_as_nan=missing_as_nan,
-                                             legacy=legacy, hemisphere_as_value=hemisphere_as_value,
+                                             legacy=True, hemisphere_as_value=hemisphere_as_value,
                                              hemisphere_as_str=hemisphere_as_str)
                  for brain in self._animals},
                 join="outer", axis=0)
             hemiregions = self.hemiregions
-            if legacy:
-                if self.is_split:
-                    regions_L = list("Left: "+pd.Index(hemiregions[BrainHemisphere.LEFT]))
-                    regions_R = list("Right: "+pd.Index(hemiregions[BrainHemisphere.RIGHT]))
-                    hemiregions = regions_L+regions_R
-                else:
-                    hemiregions = self.regions
-                index_sorted = pd.MultiIndex.from_product((hemiregions, self.animal_names))
+            if self.is_split:
+                regions_L = list("Left: "+pd.Index(hemiregions[BrainHemisphere.LEFT]))
+                regions_R = list("Right: "+pd.Index(hemiregions[BrainHemisphere.RIGHT]))
+                hemiregions = regions_L+regions_R
             else:
-                index_tupled = [(hemi.name.lower() if hemisphere_as_str else
-                                 hemi.value if hemisphere_as_value else
-                                 hemi,region,animal)
-                                for hemi in hemiregions
-                                for region in hemiregions[hemi]
-                                for animal in self.animal_names]
-                index_sorted = pd.MultiIndex.from_tuples(index_tupled, names=("hemisphere","acronym","animal"))
-            df = df.reorder_levels((1,0) if legacy else (1,2,0), axis=0).reindex(index_sorted)
+                hemiregions = self.regions
+            index_sorted = pd.MultiIndex.from_product((hemiregions, self.animal_names))
+            df = df.reorder_levels((1,0), axis=0).reindex(index_sorted)
         else:
             df = pd.concat(
-                {brain.name: brain.to_pandas(marker=marker, units=False, missing_as_nan=missing_as_nan,
+                {brain.name: brain.to_pandas(marker=marker, units=units, missing_as_nan=missing_as_nan,
                                              legacy=legacy, hemisphere_as_value=hemisphere_as_value,
                                              hemisphere_as_str=hemisphere_as_str)
                  for brain in self._animals},
                 join="outer", axis=1)
-            df = df.xs(marker, level=1, axis=1)
-        df.columns.name = str(self.metric)
+            if marker is None:
+                df.columns.names = (self._name, str(self.metric))
+            else: # a marker is specified
+                df = df.xs(marker, level=1, axis=1)
+                df.columns.name = str(self.metric)
         return df
 
     def to_csv(self, output_path: Path|str, sep: str=",",
@@ -525,13 +535,13 @@ class AnimalGroup:
         [`from_csv`][braian.AnimalGroup.from_csv]
         """
         df = self.to_pandas(units=True, legacy=legacy, hemisphere_as_str=True)
+        file_name = f"{self._name}_{self.metric}.csv"
         if legacy:
-            labels = (df.columns.name, None)
-        if not legacy:
-            labels = (df.columns.name, None, None)
-
-        file_name = f"{self.name}_{self.metric}.csv"
-        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=labels)
+            labels = (df.columns.name, None,)
+            return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=labels)
+        else:
+            multiindex_to_columns(df, inplace=True)
+            return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index=False)
 
     @staticmethod
     @deprecated(since="1.1.0",
@@ -539,8 +549,8 @@ class AnimalGroup:
                 alternatives=dict(group_name="name"))
     def from_pandas(df: pd.DataFrame,
                     *,
-                    name: str,
                     ontology: AtlasOntology,
+                    name: str=None,
                     legacy: bool=False,
                     group_name: str=None) -> Self:
         """
@@ -550,10 +560,11 @@ class AnimalGroup:
         ----------
         df
             A [`to_pandas`][braian.AnimalGroup.to_pandas]-compatible `DataFrame`.
-        name
-            The name of the group associated with the data in `df`.
         ontology
             The ontology of the atlas used to align the brain data in `df`.
+        name
+            The name of the group associated with the data in `df`,
+            if you want to overwrite the one stated in the first columns' name.
         legacy
             If `df` distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
         group_name
@@ -576,18 +587,29 @@ class AnimalGroup:
         """
         if group_name is not None:
             name = group_name
-        brains_level = 1 if legacy else 2
+        if legacy:
+            if name is None:
+                raise ValueError("expected 'name' argument, if legacy=True")
+            animals = df.index.unique(1)
+            def extract_brain(df: pd.DataFrame, name: str) -> pd.DataFrame:
+                return df.xs(name, axis=0, level=1)
+        else:
+            if name is None:
+                name = df.columns.names[0]
+            animals = df.columns.unique(0)
+            def extract_brain(df: pd.DataFrame, name: str) -> pd.DataFrame:
+                return df[name]
         animals = [AnimalBrain.from_pandas(
-                        df=df.xs(animal_name, axis=0, level=brains_level),
+                        df=extract_brain(df,animal_name),
                         name=animal_name, ontology=ontology, legacy=legacy)
-                   for animal_name in df.index.unique(brains_level)]
+                   for animal_name in animals]
         return AnimalGroup(name, animals)
 
     @staticmethod
     def from_csv(filepath: Path|str,
                  *,
-                 name: str,
                  ontology: AtlasOntology,
+                 name: str=None,
                  sep: str=",",
                  legacy: bool=False) -> Self:
         """
@@ -597,10 +619,11 @@ class AnimalGroup:
         ----------
         filepath
             Any valid string path is acceptable. It also accepts any [os.PathLike][].
-        name
-            Name of the group associated  with the data in `filepath`.
         ontology
             The ontology of the atlas used to align the brain data in `filepath`.
+        name
+            Name of the group associated  with the data in `filepath`,
+            if you want to overwrite the one with which it was saved.
         sep
             Character or regex pattern to treat as the delimiter.
         legacy
@@ -623,9 +646,13 @@ class AnimalGroup:
         [`Experiment.from_brain_csv`][braian.Experiment.from_brain_csv]
         [`Experiment.from_group_csv`][braian.Experiment.from_group_csv]
         """
-        df = pd.read_csv(filepath, sep=sep, header=0, index_col=[0,1] if legacy else [0,1,2])
-        df.columns.name = df.index.names[0]
-        df.index.names = (None,)*(2 if legacy else 3)
+        if legacy:
+            df = pd.read_csv(filepath, sep=sep, header=0, index_col=[0,1])
+            df.columns.name = df.index.names[0]
+            df.index.names = (None,None)
+        else:
+            df = pd.read_csv(filepath, sep=sep, header=[0,1,2])
+            multiindex_from_columns(df, index_col=[0,1], inplace=True)
         return AnimalGroup.from_pandas(df, name=name, ontology=ontology, legacy=legacy)
 
     @staticmethod
@@ -756,7 +783,7 @@ class SlicedGroup:
         animals
             The animals part of the group.
         """
-        self._name = str(name)
+        self.name = str(name)
         self._animals = tuple(animals)
         _compatibility_check_sliced(self._animals)
 
@@ -768,7 +795,18 @@ class SlicedGroup:
     @property
     def name(self) -> str:
         """The name of the sliced group."""
-        return self._name
+        return str(self._name)
+
+    @name.setter
+    def name(self, value: str):
+        # AnimalGroup.to_csv uses the 'hemisphere' column to store the name and metric.
+        # if the name was set to a value compatible with BrainHemisphere, it could conflict (?)
+        try:
+            BrainHemisphere(value)
+        except ValueError:
+            self._name = value
+            return
+        raise ValueError(f"Incompatible name for a group: '{value}'")
 
     @property
     def animals(self) -> tuple[SlicedBrain]:
@@ -794,7 +832,7 @@ class SlicedGroup:
         return str(self)
 
     def __str__(self) -> str:
-        return f"SlicedGroup('{self.name}', brains={self.n}, split={self.is_split})"
+        return f"SlicedGroup('{self._name}', brains={self.n}, split={self.is_split})"
 
     def __iter__(self) -> Iterable[AnimalBrain]:
         return iter(self._animals)

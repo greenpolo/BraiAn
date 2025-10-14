@@ -310,7 +310,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         self.data_name: str = str(name) # data_name
         """The name of the current `BrainData`."""
         self.data.name = self.data_name
-        self._metric: str = str(metric)
+        self.metric: str = str(metric)
         if units is not None:
             self._units = str(units)
         else:
@@ -332,6 +332,17 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     def metric(self) -> str:
         """The metric of the per-region quantifications."""
         return str(self._metric)
+
+    @metric.setter
+    def metric(self, value: str):
+        # AnimalGroup.to_csv uses the 'hemisphere' column to store the name and metric.
+        # if the name of the metric was set to a value compatible with BrainHemisphere, it could conflict (?)
+        try:
+            BrainHemisphere(value)
+        except ValueError:
+            self._metric = value
+            return
+        raise ValueError(f"Incompatible name for a metric: '{value}'")
 
     @property
     def units(self) -> str:

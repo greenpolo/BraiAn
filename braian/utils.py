@@ -10,11 +10,12 @@ import platform
 import requests
 import warnings
 
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Collection, Hashable, Sequence
 from importlib import resources
 from pathlib import Path, WindowsPath
 
-__all__ = ["cache", "classproperty", "deprecated", "get_resource_path", "resource"]
+__all__ = ["cache", "classproperty", "deprecated", "get_resource_path",
+           "multiindex_from_columns", "multiindex_to_columns", "resource"]
 
 match platform.system():
     case "Windows":
@@ -277,3 +278,33 @@ def _compatibility_check(xs: Collection,
             else:
                 if not _same_regions(*map(lambda x: x.regions, xs)):
                     raise ValueError("Data is from different brain structures")
+
+def multiindex_to_columns(df: pd.DataFrame, *, inplace: bool) -> None|pd.DataFrame:
+    assert not all(n is None for n in df.index.names), "no MultiIndex names to encode as columns"
+    if inplace:
+        df.reset_index(inplace=True)    # adds index names as columns (1st level)
+    else:
+        df = df.reset_index(inplace=False)
+    columns = [[*cols,""] for cols in df.columns]
+    for i,level_name in enumerate(df.columns.names):
+        columns[i] = columns[i][::-1]   # swap index names to last
+        columns[0][i] = level_name      # use the first column to store columns' level names
+    columns = pd.MultiIndex.from_tuples(columns)
+    df.columns = columns
+    return None if inplace else df
+
+def multiindex_from_columns(df: pd.DataFrame, *,
+                            index_col: Sequence[Hashable],
+                            inplace: bool) -> None|pd.DataFrame:
+    assert df.columns.nlevels > 1, "no MultiIndex names to extract"
+    index_cols = df.columns[index_col]
+    index_names = [i[df.columns.nlevels-1] for i in index_cols]
+    df.index = pd.MultiIndex.from_frame(df[index_cols], names=index_names)
+    column_names = df.columns[0][:-1]
+    if inplace:
+        df.drop(index_cols, axis=1, inplace=True)
+    else:
+        df = df.drop(index_cols, axis=1, inplace=False)
+    df.columns = df.columns.droplevel(-1)
+    df.columns.names = column_names
+    return None if inplace else df
