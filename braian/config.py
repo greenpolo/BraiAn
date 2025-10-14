@@ -2,7 +2,7 @@ import yaml
 import warnings
 from pathlib import Path
 
-from braian import AtlasOntology, BrainData, Experiment, SlicedBrain, SlicedGroup, SlicedExperiment
+from braian import from_csv, AtlasOntology, BrainData, Experiment, AnimalGroup, AnimalBrain, SlicedBrain, SlicedGroup, SlicedExperiment
 from braian.utils import deprecated
 
 __all__ = ["BraiAnConfig"]
@@ -79,6 +79,11 @@ class BraiAnConfig:
         self.output_dir = _resolve_dir(output_dir, relative=self.config_file.absolute().parent)
         self._ontology: AtlasOntology = self._read_ontology()
 
+    @property
+    def ontology(self) -> AtlasOntology:
+        """The atlas ontology as defined in the configuration file."""
+        return self._ontology
+
     def _read_ontology(self) -> AtlasOntology:
         """
         Reads the brain ontology specified in the configuration file, and, if necessary, it dowloads it from the web.
@@ -114,51 +119,61 @@ class BraiAnConfig:
 
     @deprecated(since="1.1.0", alternatives=["braian.config.BraiAnConfig.from_csv"])
     def experiment_from_csv(self, sep: str=",", from_brains: bool=False, fill_nan: bool=True, legacy: bool=True) -> Experiment:
-        return self.from_csv(sep=sep, from_brains=from_brains, fill_nan=fill_nan, legacy=legacy)
+        return self.from_csv(sep=sep, legacy=legacy)
 
-    def from_csv(self, from_brains: bool=False, sep: str=",", legacy: bool=True) -> Experiment:
+    def from_csv(self, name: str=None,
+                 *, sep: str=",", legacy: bool=False) -> Experiment|AnimalGroup|AnimalBrain:
         """
-        Reads the comma-separated values (CSV) saved in `experiment > output-dir`, each representing
-        the a _group_ data, into an `Experiment`.
+        Reads some brain data with metric=`brains > raw-metric` from a comma-separated
+        value (CSV) file saved in `experiment > output-dir`.
 
         Parameters
         ----------
-        from_brains
-            If True, it reads the single _brain_ data instead, and build the
-            groups and the experiment from them
+        name
+            The name of the group or of the animal to read.\\
+            By default, it reads the whole experiment.
         sep
             Character or regex pattern to treat as the delimiter.
-        legacy
-            If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
         Returns
         -------
         :
-            An instance of `Experiment` that corresponds to the data in the CSV files.
+            The brain data that corresponds to `name`.
 
         Raises
         ------
         UnknownBrainRegionsError
-            If the data in one of the brains' CSV contains regions not present in `ontology`.
+            If the data the CSV contains regions not present in the ontology defined
+            by `BraiAnConfig`.
 
         See also
         --------
-        [`from_brain_csv`][braian.Experiment.from_brain_csv]
+        [`from_csv`][braian.from_csv]
         [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
         [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
+        [`Experiment.from_csv`][braian.Experiment.from_csv]
         """
         metric = self.config["brains"]["raw-metric"]
         assert BrainData.is_raw(metric), f"Configuration files should specify raw metrics only, not '{metric}'"
-        group2brains: dict[str,str] = self.config["groups"]
-        if not from_brains:
-            return Experiment.from_group_csv(self.output_dir, group2brains.keys(),
-                                             name=self.experiment_name, metric=metric,
-                                             ontology=self._ontology,
-                                             sep=sep, legacy=legacy)
-        return Experiment.from_brain_csv(self.output_dir, group2brains,
-                                         name=self.experiment_name, metric=metric,
-                                         ontology=self._ontology,
-                                         sep=sep, legacy=legacy)
+        if name is not None:
+            group2brains: dict[str,list[str]] = self.config["groups"]
+            t = "group"
+            if name not in group2brains:
+                brains = {a for g in group2brains.values() for a in g}
+                t = "brain"
+                if name not in brains:
+                    raise KeyError(f"No groups or brains named '{name}'")
+        else:
+            name = self.experiment_name
+            t = "experiment"
+        if legacy:
+            group2brains: dict[str,list[str]] = self.config["groups"]
+            groups = [AnimalGroup.from_csv(self.output_dir/f"{name_}_{metric}.csv", name=name_,
+                                             ontology=self._ontology, sep=sep, legacy=True)
+                      for name_ in group2brains.keys()]
+            
+            return Experiment(name, *groups)
+        return from_csv(self.output_dir/f"{name}_{metric}.csv", t, ontology=self._ontology, sep=sep)
 
     @deprecated(since="1.1.0", alternatives=["braian.config.BraiAnConfig.from_qupath"])
     def experiment_from_qupath(self, sliced: bool=False, validate: bool=True) -> Experiment|SlicedExperiment:

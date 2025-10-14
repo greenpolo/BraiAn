@@ -661,11 +661,10 @@ class AnimalGroup:
 
         See also
         --------
-        [`to_csv`][braian.AnimalGroup.to_csv]
+        [`from_csv`][braian.from_csv]
+        [`AnimalGroup.to_csv`][braian.AnimalGroup.to_csv]
         [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
         [`Experiment.from_csv`][braian.Experiment.from_csv]
-        [`Experiment.from_brain_csv`][braian.Experiment.from_brain_csv]
-        [`Experiment.from_group_csv`][braian.Experiment.from_group_csv]
         """
         if legacy:
             df = pd.read_csv(filepath, sep=sep, header=0, index_col=[0,1])

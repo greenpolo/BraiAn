@@ -9,124 +9,6 @@ import pandas as pd
 __all__ = ["Experiment", "SlicedExperiment"]
 
 class Experiment:
-    @staticmethod
-    def from_group_csv(basedir: Path|str, group_names: Iterable[str],
-                       *,
-                       name: str,
-                       metric: str,
-                       ontology: AtlasOntology,
-                       sep=",",
-                       legacy: bool=False) -> Self:
-        """
-        Reads multiple comma-separated values (CSV) files, each representing
-        the brain data of a single _group_, into `Experiment`.
-
-        Parameters
-        ----------
-        basedir
-            The path to the folder that contains all the CSV files of each brain data.
-
-            Any valid string path is acceptable. It also accepts any [os.PathLike][].
-        group_names
-            A list of the namef of each group that is part of the experiment.
-        name
-            Name of the group associated  with the data in `filepath`.
-        metric
-            The metric used to compute the data of the saved CSVs in `filepath`.
-        ontology
-            The ontology of the atlas used to align the brain data.
-        sep
-            Character or regex pattern to treat as the delimiter.
-        legacy
-            If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
-
-        Returns
-        -------
-        :
-            An instance of `Experiment` that corresponds to the data in the CSV files.
-
-        Raises
-        ------
-        UnknownBrainRegionsError
-            If the data in one of the brains' CSV contains regions not present in `ontology`.
-
-        See also
-        --------
-        [`from_brain_csv`][braian.Experiment.from_brain_csv]
-        [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
-        [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
-        """
-        if not isinstance(basedir, Path):
-            basedir = Path(basedir)
-        groups = []
-        for name_ in group_names:
-            group = AnimalGroup.from_csv(basedir/f"{name_}_{metric}.csv", name=name_,
-                                         ontology=ontology, sep=sep, legacy=legacy)
-            groups.append(group)
-        return Experiment(name, *groups)
-
-    @staticmethod
-    def from_brain_csv(basedir: Path|str, group2brains: dict[str,Iterable[str]],
-                       *,
-                       name: str,
-                       metric: str,
-                       ontology: AtlasOntology,
-                       sep=",",
-                       legacy: bool=False) -> Self:
-        """
-        Reads multiple comma-separated values (CSV) files, each representing
-        the brain data of a single _brain_, into `Experiment`.
-
-        Parameters
-        ----------
-        basedir
-            The path to the folder that contains all the CSV files of each brain data.
-
-            Any valid string path is acceptable. It also accepts any [os.PathLike][].
-        group2brains
-            A dictionary that maps the name of each group of the experiment to a list
-            of names of each brain, part of that same group.
-        name
-            Name of the group associated  with the data in `filepath`.
-        metric
-            The metric used to compute the data of the saved CSVs in `filepath`.
-        ontology
-            The ontology of the atlas used to align the brain data.
-        sep
-            Character or regex pattern to treat as the delimiter.
-        legacy
-            If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
-
-        Returns
-        -------
-        :
-            An instance of `Experiment` that corresponds to the data in the CSV file.
-
-        Raises
-        ------
-        UnknownBrainRegionsError
-            If the data in one of the brains' CSV contains regions not present in `ontology`.
-
-        See also
-        --------
-        [`from_group_csv`][braian.Experiment.from_group_csv]
-        [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
-        [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
-        """
-        if not isinstance(basedir, Path):
-            basedir = Path(basedir)
-        groups = []
-        for name, brain_names in group2brains.items():
-            brains = []
-            for brain_name in brain_names:
-                brain = AnimalBrain.from_csv(basedir/f"{brain_name}_{metric}.csv",
-                                             name=brain_name, ontology=ontology,
-                                             sep=sep, legacy=legacy)
-                brains.append(brain)
-            group = AnimalGroup(name, brains)
-            groups.append(group)
-        return Experiment(name, *groups)
-
     def __init__(self, name: str, group1: AnimalGroup, group2: AnimalGroup,
                  *groups: AnimalGroup) -> None:
         """
@@ -478,9 +360,8 @@ class Experiment:
 
         See also
         --------
-        [`to_csv`][braian.Experiment.to_csv]
-        [`from_brain_csv`][braian.Experiment.from_brain_csv]
-        [`from_group_csv`][braian.Experiment.from_group_csv]
+        [`from_csv`][braian.from_csv]
+        [`Experiment.to_csv`][braian.Experiment.to_csv]
         [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
         [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
         """

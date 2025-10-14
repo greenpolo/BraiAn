@@ -1,9 +1,10 @@
 from braian import AtlasOntology,\
                    BrainSlice, SlicedBrain, SlicedGroup, SlicedExperiment, SlicedMetric,\
                    BrainData, AnimalBrain, AnimalGroup, Experiment
+from pathlib import Path
 from typing import Literal
 
-__all__ = ["merge_hemispheres", "reduce", "sort"]
+__all__ = ["from_csv", "merge_hemispheres", "reduce", "sort"]
 
 def reduce(d: SlicedBrain|SlicedGroup|SlicedExperiment,
            metric: SlicedMetric,
@@ -142,3 +143,53 @@ def merge_hemispheres(d: BrainSlice|SlicedBrain|SlicedGroup|SlicedExperiment|\
     elif isinstance(d, (SlicedGroup, AnimalGroup, SlicedExperiment, Experiment)):
         return d.apply(merge_hemispheres)
     raise TypeError(type(d))
+
+def from_csv(filepath: Path,
+             t: Literal["experiment","group","brain","e","g","b"]="experiment",
+             *,
+             ontology: AtlasOntology,
+             sep: str=",") -> Experiment|AnimalGroup|AnimalBrain:
+    """
+    Reads some brain data from a comma-separated value (CSV) file.
+
+    Parameters
+    ----------
+    filepath
+        Any valid string path is acceptable. It also accepts any [os.PathLike][].
+    t
+        the type of brain data that is encoded in `filepath`.
+    ontology
+        The ontology of the atlas used to align the brain data in `filepath`.
+    sep
+        Character or regex pattern to treat as the delimiter.
+
+    Returns
+    -------
+    :
+        The brain data read from `filepath`.
+
+    Raises
+    ------
+    UnknownBrainRegionsError
+        If the data in one of the brains' CSV contains regions not present in `ontology`.
+
+    See also
+    --------
+    [`from_csv`][braian.from_csv]
+    [`AnimalBrain.from_csv`][braian.AnimalBrain.from_csv]
+    [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
+    [`Experiment.from_csv`][braian.Experiment.from_csv]
+    """
+    match t:
+        case "brain"|"b":
+            clazz = AnimalBrain
+        case "group"|"g":
+            clazz = AnimalGroup
+        case "experiment"|"e":
+            clazz = Experiment
+        case _:
+            raise ValueError(t)
+    try:
+        clazz.from_csv(filepath, ontology=ontology, sep=sep)
+    except Exception:
+        raise ValueError(f"Could not be read as a '{clazz.__name__}': {filepath}")
