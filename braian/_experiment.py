@@ -359,19 +359,22 @@ class Experiment:
             df.columns.names = (self.name, self.metric)
         return df
 
-    def to_csv(self, output_path: Path|str, sep: str=",",
+    def to_csv(self, path: Path|str, sep: str=",",
                overwrite: bool=False) -> str:
         """
-        Writes the experiment's data to a comma-separated values (CSV) file in `output_path`.
+        Writes the experiment's data to a comma-separated values (CSV) file in `path`.
 
         Parameters
         ----------
-        output_path
+        path
             Any valid string path is acceptable. It also accepts any [os.PathLike][].
+
+            If the path isn't of a `.csv` file, it creates a file in `path` named
+            `<`[`name`][braian.Experiment.name]`>_<`[`metric`][braian.Experiment.metric]`>.csv`.
         sep
             Character to treat as the delimiter.
         overwrite
-            If True, it overwrite any conflicting file in `output_path`.
+            If True, it overwrite any conflicting file in `path`.
 
         Returns
         -------
@@ -381,7 +384,7 @@ class Experiment:
         Raises
         ------
         FileExistsError
-            If `overwrite=False` and there is a conflicting file in `output_path`.
+            If `overwrite=False` and there is a conflicting file in `path`.
 
         See also
         --------
@@ -391,9 +394,13 @@ class Experiment:
         [`AnimalGroup.to_csv`][braian.AnimalGroup.to_csv]
         """
         df = self.to_pandas(units=True, hemisphere_as_str=True)
-        file_name = f"{self._name}_{self.metric}.csv"
+        output_path = Path(path)
+        if (file_name:=output_path.name.lower()).endswith(".csv"):
+            path = output_path.parent
+        else:
+            file_name = f"{self.name}_{self.metric}.csv"
         multiindex_to_columns(df, inplace=True)
-        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index=False)
+        return save_csv(df, path, file_name, overwrite=overwrite, sep=sep, index=False)
 
     def from_pandas(df: pd.DataFrame,
                     *,

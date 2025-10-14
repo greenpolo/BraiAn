@@ -626,19 +626,22 @@ class AnimalBrain:
             data = data.astype(float)
         return data
 
-    def to_csv(self, output_path: Path|str, sep: str=",",
+    def to_csv(self, path: Path|str, sep: str=",",
                overwrite: bool=False, legacy: bool=False) -> str:
         """
-        Write the brain's data to a comma-separated values (CSV) file in `output_path`.
+        Write the brain's data to a comma-separated values (CSV) file in `path`.
 
         Parameters
         ----------
-        output_path
+        path
             Any valid string path is acceptable. It also accepts any [os.PathLike][].
+
+            If the path isn't of a `.csv` file, it creates a file in `path` named
+            `<`[`name`][braian.AnimalBrain.name]`>_<`[`metric`][braian.AnimalBrain.metric]`>.csv`.
         sep
             Character to treat as the delimiter.
         overwrite
-            If True, it overwrite any conflicting file in `output_path`.
+            If True, it overwrite any conflicting file in `path`.
         legacy
             If True, it distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
@@ -650,7 +653,7 @@ class AnimalBrain:
         Raises
         ------
         FileExistsError
-            If `overwrite=False` and there is a conflicting file in `output_path`.
+            If `overwrite=False` and there is a conflicting file in `path`.
 
         See also
         --------
@@ -662,9 +665,13 @@ class AnimalBrain:
         df = self.to_pandas(units=True, legacy=legacy)
         if not legacy:
             df.index = df.index.map(lambda i: (i[0].name.lower(), *i[1:]))
-        file_name = f"{self.name}_{self.metric}.csv"
+        output_path = Path(path)
+        if (file_name:=output_path.name.lower()).endswith(".csv"):
+            path = output_path.parent
+        else:
+            file_name = f"{self.name}_{self.metric}.csv"
         index_label = df.columns.name if legacy else (df.columns.name, None)
-        return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=index_label)
+        return save_csv(df, path, file_name, overwrite=overwrite, sep=sep, index_label=index_label)
 
     @staticmethod
     @deprecated(since="1.1.0", alternatives=["braian.BrainData.is_raw"])

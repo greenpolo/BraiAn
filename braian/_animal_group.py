@@ -513,19 +513,22 @@ class AnimalGroup:
                 df.columns.name = self.metric
         return df
 
-    def to_csv(self, output_path: Path|str, sep: str=",",
+    def to_csv(self, path: Path|str, sep: str=",",
                overwrite: bool=False, legacy: bool=False) -> str:
         """
-        Writes the group's data to a comma-separated values (CSV) file in `output_path`.
+        Writes the group's data to a comma-separated values (CSV) file in `path`.
 
         Parameters
         ----------
-        output_path
+        path
             Any valid string path is acceptable. It also accepts any [os.PathLike][].
+
+            If the path isn't of a `.csv` file, it creates a file in `path` named
+            `<`[`name`][braian.AnimalGroup.name]`>_<`[`metric`][braian.AnimalGroup.metric]`>.csv`.
         sep
             Character to treat as the delimiter.
         overwrite
-            If True, it overwrite any conflicting file in `output_path`.
+            If True, it overwrite any conflicting file in `path`.
         legacy
             If True, it distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
 
@@ -537,7 +540,7 @@ class AnimalGroup:
         Raises
         ------
         FileExistsError
-            If `overwrite=False` and there is a conflicting file in `output_path`.
+            If `overwrite=False` and there is a conflicting file in `path`.
 
         See also
         --------
@@ -547,13 +550,17 @@ class AnimalGroup:
         [`Experiment.to_csv`][braian.Experiment.to_csv]
         """
         df = self.to_pandas(units=True, legacy=legacy, hemisphere_as_str=True)
-        file_name = f"{self._name}_{self.metric}.csv"
+        output_path = Path(path)
+        if (file_name:=output_path.name.lower()).endswith(".csv"):
+            path = output_path.parent
+        else:
+            file_name = f"{self.name}_{self.metric}.csv"
         if legacy:
             labels = (df.columns.name, None,)
-            return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index_label=labels)
+            return save_csv(df, path, file_name, overwrite=overwrite, sep=sep, index_label=labels)
         else:
             multiindex_to_columns(df, inplace=True)
-            return save_csv(df, output_path, file_name, overwrite=overwrite, sep=sep, index=False)
+            return save_csv(df, path, file_name, overwrite=overwrite, sep=sep, index=False)
 
     @staticmethod
     @deprecated(since="1.1.0",
