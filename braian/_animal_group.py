@@ -491,6 +491,9 @@ class AnimalGroup:
             index_sorted = pd.MultiIndex.from_product((hemiregions, self.animal_names))
             df = df.reorder_levels((1,0), axis=0).reindex(index_sorted)
         else:
+            if marker is not None and units:
+                # there is no use of showing the units, if there is no marker index
+                units = False
             df = pd.concat(
                 {brain.name: brain.to_pandas(marker=marker, units=units, missing_as_nan=missing_as_nan,
                                              legacy=legacy, hemisphere_as_value=hemisphere_as_value,
