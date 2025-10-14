@@ -8,7 +8,7 @@ from typing import Generator, Literal, Self
 
 from braian import AtlasOntology, BrainData, BrainHemisphere, SlicedMetric, UnknownBrainRegionsError
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
-from braian.utils import _compatibility_check_bd, deprecated, merge_ordered, save_csv
+from braian.utils import _compatibility_check_bd, deprecated, merge_ordered, multiindex_from_columns, multiindex_to_columns, save_csv
 
 __all__ = ["AnimalBrain"]
 
@@ -670,8 +670,12 @@ class AnimalBrain:
             path = output_path.parent
         else:
             file_name = f"{self.name}_{self.metric}.csv"
-        index_label = df.columns.name if legacy else (df.columns.name, None)
-        return save_csv(df, path, file_name, overwrite=overwrite, sep=sep, index_label=index_label)
+        if legacy:
+            labels = df.columns.name
+            return save_csv(df, path, file_name, overwrite=overwrite, sep=sep, index_label=labels)
+        else:
+            multiindex_to_columns(df, inplace=True)
+            return save_csv(df, path, file_name, overwrite=overwrite, sep=sep, index=False)
 
     @staticmethod
     @deprecated(since="1.1.0", alternatives=["braian.BrainData.is_raw"])
@@ -736,6 +740,8 @@ class AnimalBrain:
         if animal_name is not None:
             name = animal_name
         if legacy:
+            if name is None:
+                raise ValueError("expected 'name' argument, if legacy=True")
             assert not isinstance(df.index, pd.MultiIndex), \
                 "Legacy dataframes are expected to have a simple Index of the acronyms and the hemishere prepended. "+\
                 f"Instead got a '{type(df.index)}'"
@@ -777,8 +783,8 @@ class AnimalBrain:
     @staticmethod
     def from_csv(filepath: Path|str,
                  *,
-                 name: str,
                  ontology: AtlasOntology,
+                 name: str=None,
                  sep: str=",",
                  legacy: bool=False) -> Self:
         """
@@ -809,21 +815,24 @@ class AnimalBrain:
 
         See also
         --------
-        [`to_csv`][braian.AnimalBrain.to_csv]
+        [`from_csv`][braian.from_csv]
+        [`AnimalBrain.to_csv`][braian.AnimalBrain.to_csv]
         [`AnimalGroup.from_csv`][braian.AnimalGroup.from_csv]
         [`Experiment.from_csv`][braian.Experiment.from_csv]
-        [`Experiment.from_brain_csv`][braian.Experiment.from_brain_csv]
-        [`Experiment.from_group_csv`][braian.Experiment.from_group_csv]
         """
         # read CSV
-        # filename = f"{name}.csv" if metric is None else f"{name}_{str(metric)}.csv"
-        df = pd.read_csv(filepath, sep=sep, header=0, index_col=0 if legacy else [0,1])
-        if df.index.name == "Class":
-            # is old csv
-            raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
-        df.columns.name = df.index.names[0] # good whether it's legacy or not
-        df.index.names = (None,)*(1 if legacy else 2)
-        return AnimalBrain.from_pandas(df, name, ontology=ontology, legacy=legacy)
+        if legacy:
+            # filename = f"{name}.csv" if metric is None else f"{name}_{str(metric)}.csv"
+            df = pd.read_csv(filepath, sep=sep, header=0, index_col=0)
+            if df.index.name == "Class":
+                # is old csv
+                raise ValueError("Trying to read an AnimalBrain from an outdated formatted .csv. Please re-run the analysis from the SlicedBrain!")
+            df.columns.name = df.index.names[0] # good whether it's legacy or not
+            df.index.names = (None,)
+        else:
+            df = pd.read_csv(filepath, sep=sep, header=[0,1])
+            multiindex_from_columns(df, index_col=[0,1], inplace=True)
+        return AnimalBrain.from_pandas(df, name=name, ontology=ontology, legacy=legacy)
 
 def _extract_name_and_units(ls) -> Generator[str, None, None]:
     regex = r'(.+) \((.+)\)$'

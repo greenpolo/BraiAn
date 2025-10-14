@@ -287,7 +287,8 @@ def multiindex_to_columns(df: pd.DataFrame, *, inplace: bool) -> None|pd.DataFra
         df.reset_index(inplace=True)    # adds index names as columns (1st level)
     else:
         df = df.reset_index(inplace=False)
-    columns = [[*cols,""] for cols in df.columns]
+    columns = (df.columns if df.columns.nlevels > 1 else zip(df.columns))
+    columns = [[*cols,""] for cols in columns]
     for i in range(nlevels):
         # swap index names to last
         columns[i] = columns[i][::-1]
