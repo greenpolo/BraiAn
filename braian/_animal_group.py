@@ -708,7 +708,7 @@ class AnimalGroup:
         """
         groups = [group1, group2, *groups]
         _compatibility_check(groups) # "The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)"
-        df = pd.concat({g.name: g.to_pandas(marker) for g in groups}, axis=1)
+        df = pd.concat({g.name: g.to_pandas(marker=marker) for g in groups}, axis=1)
         if len(hems:=df.index.unique(level=0)) == 1 and hems[0] is BrainHemisphere.BOTH:
             df.index = df.index.get_level_values(1)
             regions = df.index

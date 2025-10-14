@@ -636,8 +636,8 @@ def markers_correlation(marker1: str, marker2: str,
     assert group.is_split == other.is_split and all(group.hemispheres == other.hemispheres),\
         "Both groups must have data for the same hemispheres."
     atlas = group.atlas
-    marker1_df = group.to_pandas(marker1, missing_as_nan=True, hemisphere_as_value=True)
-    marker2_df = other.to_pandas(marker2, missing_as_nan=True, hemisphere_as_value=True)
+    marker1_df = group.to_pandas(marker=marker1, missing_as_nan=True, hemisphere_as_value=True)
+    marker2_df = other.to_pandas(marker=marker2, missing_as_nan=True, hemisphere_as_value=True)
     if group.is_split:
         return tuple(
             _marker_correlation(marker1_df.loc[hem.value], marker2_df.loc[hem.value],

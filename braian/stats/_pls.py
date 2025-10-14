@@ -93,7 +93,7 @@ class PLS:
         for i,(group,_marker, hemi) in enumerate(zip(groups, marker, self.hemispheres)):
             # TODO: change to group.select to enable check on the ontology
             selected_data = group._select(regions, fill_nan=True, hemisphere=hemi)\
-                                 .to_pandas(_marker, missing_as_nan=True).loc[hemi]
+                                 .to_pandas(marker=_marker, missing_as_nan=True).loc[hemi]
             selected_data.columns = selected_data.columns.str.cat((str(i),)*selected_data.shape[1], sep="_")
             data.loc[regions,selected_data.columns] = selected_data
             data.loc["group",selected_data.columns] = group.name+"_"+str(i)
