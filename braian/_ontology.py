@@ -1176,14 +1176,15 @@ class AtlasOntology:
         # return self._nodes_to_attr(nodes, attr=key)
 
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.to_acronym"])
-    def ids_to_acronym(self, ids: Container[int], mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
+    def ids_to_acronym(self, ids: Container[int],
+                       mode: Literal["breadth", "depth"]|None="depth") -> list[str]|str:
         """
         Converts the given brain region IDs into their corresponding acronyms.
 
         Parameters
         ----------
         ids
-            The brain structures uniquely identified by their IDs.
+            The brain structure(s) uniquely identified by their IDs.
         mode
             If None, it returns the acronyms in the same order as `ids`.
             Otherwise, it returns them in breadth-first or depth-first order.
@@ -1191,7 +1192,7 @@ class AtlasOntology:
         Returns
         -------
         :
-            A list of acronyms
+            The region acronym(s).
 
         Raises
         ------
@@ -1204,14 +1205,15 @@ class AtlasOntology:
         """
         return self.to_acronym(ids, mode=mode)
 
-    def to_acronym(self, regions: Iterable, mode: Literal["breadth", "depth"]|None="depth") -> list[str]:
+    def to_acronym(self, regions: Iterable[int]|int,
+                   *, mode: Literal["breadth", "depth"]|None="depth") -> list[str]|str:
         """
         Converts the given brain regions into their corresponding acronyms.
 
         Parameters
         ----------
         regions
-            The brain structures uniquely identified by their IDs (or their acronyms, even).
+            The brain structure(s) uniquely identified by their IDs (or their acronyms, even).
         mode
             If None, it returns the acronyms in the same order as `regions`.
             Otherwise, it returns them in breadth-first or depth-first order.
@@ -1219,7 +1221,7 @@ class AtlasOntology:
         Returns
         -------
         :
-            A list of acronyms
+            The region acronym(s).
 
         Raises
         ------
@@ -1230,20 +1232,23 @@ class AtlasOntology:
         ValueError
             When `mode` has an invalid value.
         """
+        if isinstance(regions, int):
+            return self._node_to_attr(self._tree_full[regions], attr="acronym")
         regions = self._to_nodes(regions, unreferenced=True, duplicated=False)
         if mode is not None:
             regions = self._sort(regions, mode=mode)
         return self._nodes_to_attr(regions, attr="acronym")
 
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.to_id"])
-    def acronyms_to_id(self, acronyms: Container[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
+    def acronyms_to_id(self, acronyms: Container[str]|str,
+                       mode: Literal["breadth", "depth"]|None="depth") -> list[int]|int:
         """
         Converts the given brain region acronyms into their corresponding IDs.
 
         Parameters
         ----------
         acronyms
-            The brain structures uniquely identified by their acronyms.
+            The brain structure(s) uniquely identified by their acronyms.
         mode
             If None, it returns the IDs in the same order as `acronyms`.
             Otherwise, it returns them in breadth-first or depth-first order.
@@ -1251,7 +1256,7 @@ class AtlasOntology:
         Returns
         -------
         :
-            A list of region IDs
+            The region ID(s).
 
         Raises
         ------
@@ -1264,14 +1269,15 @@ class AtlasOntology:
         """
         return self.to_id(acronyms, mode=mode)
 
-    def to_id(self, regions: Iterable[str], mode: Literal["breadth", "depth"]|None="depth") -> list[int]:
+    def to_id(self, regions: Iterable[str],
+              *, mode: Literal["breadth", "depth"]|None="depth") -> list[int]|int:
         """
         Converts the given brain regions into their corresponding IDs.
 
         Parameters
         ----------
         regions
-            The brain structures uniquely identified by their acronyms (or their IDs, even).
+            The brain structure(s) uniquely identified by their acronyms (or their IDs, even).
         mode
             If None, it returns the IDs in the same order as `regions`.
             Otherwise, it returns them in breadth-first or depth-first order.
@@ -1279,7 +1285,7 @@ class AtlasOntology:
         Returns
         -------
         :
-            A list of region IDs
+            The region ID(s).
 
         Raises
         ------
@@ -1290,6 +1296,8 @@ class AtlasOntology:
         ValueError
             When `mode` has an invalid value.
         """
+        if isinstance(regions, str):
+            return self._to_id(regions, unreferenced=True)
         ids = self._to_ids(regions, unreferenced=True, duplicated=False, check_all=False)
         if mode is not None:
             return self._sort(ids, mode=mode)
