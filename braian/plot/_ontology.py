@@ -1,10 +1,12 @@
 import igraph as ig
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 import plotly.colors as plc
 import plotly.graph_objects as go
 
 from collections.abc import Iterable, Callable
+from typing import Literal
 
 from braian import _graph_utils, AtlasOntology, BrainData
 
@@ -125,8 +127,9 @@ def draw_edges(G: ig.Graph, layout: ig.Layout, width: int, directed: bool=True) 
     return edges_trace
 
 def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: AtlasOntology,
-               node_size: int, fill_mode: str="region",
-               outline_size: float=0.5, outline_mode: str="region",
+               node_size: int,
+               fill_mode: Literal["region","centrality", "cluster"]="region",
+               outline_size: float=0.5, outline_mode: Literal["region","centrality", "cluster"]="region",
                centrality_metric: str=None,
                metrics: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={"degree": ig.VertexSeq.degree}
                ) -> go.Scatter:
@@ -225,7 +228,7 @@ def draw_selection(g: ig.Graph, layout: ig.Layout, width: float):
         mode="lines",
         showlegend=True)
 
-def _region_color(mode: str,
+def _region_color(mode: Literal["region","centrality", "cluster"],
                   G: ig.Graph,
                   region_colors: list[str],
                   centrality_metric: str) -> Callable[[ig.Vertex],str]:
@@ -233,13 +236,18 @@ def _region_color(mode: str,
         case "region":
             return lambda v: region_colors[v["name"]]  # noqa: E731
         case "centrality":
-            if centrality_metric is None or centrality_metric not in G.vs.attributes():
+            if centrality_metric in G.vs.attributes():
+                return lambda v: v[centrality_metric]
+            elif centrality_metric in (dir:=G.vs.__dir__()):
+                # return lambda v: dir[centrality_metric](v)
+                return lambda v: v.__getattribute__(centrality_metric)()
+            else:
                 raise ValueError("No valid centrality metric was specified.") # Check the vertices' attributes to see the available options.")
-            return lambda v: v[centrality_metric]
         case "cluster":
             if "cluster" not in G.vs.attributes():
                 raise ValueError("No clustering was made on the provided connectome")
-            return lambda v: plc.qualitative.Plotly[v["cluster"] % len(plc.qualitative.Plotly)]  # noqa: E731
+            cc = pd.Categorical(G.vs["cluster"])
+            return lambda v: plc.qualitative.Plotly[cc.codes[v.index] % len(plc.qualitative.Plotly)]  # noqa: E731
 
 def _nodes_hover_info(brain_ontology: AtlasOntology, G: ig.Graph,
                      title_dict: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={}
