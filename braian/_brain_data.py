@@ -22,7 +22,11 @@ class UnknownBrainRegionsError(Exception):
     def __init__(self,
                  unknown_regions: Iterable[str],
                  ontology: AtlasOntology):
-        super().__init__(f"Regions unknown in '{ontology.name}' atlas: '"+"', '".join(unknown_regions)+"'")
+        super().__init__(self.message(unknown_regions, ontology.name, ))
+
+    @staticmethod
+    def message(unknown_structures: Iterable[str], ontology: str) -> str:
+        return f"Regions unknown in '{ontology}' atlas: '"+"', '".join(unknown_structures)+"'"
 
 class InvalidRegionsHemisphereError(Exception):
     def __init__(self, context=None):

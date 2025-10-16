@@ -1,6 +1,7 @@
 import functools
 import pandas as pd
 import re
+import warnings
 
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -704,6 +705,7 @@ class AnimalBrain:
                     name: str,
                     ontology: AtlasOntology,
                     legacy: bool=False,
+                    remove_unknown: bool=False,
                     animal_name: str=None) -> Self:
         """
         Creates an instance of [`AnimalBrain`][braian.AnimalBrain] from a `DataFrame`.
@@ -718,6 +720,9 @@ class AnimalBrain:
             The ontology of the atlas used to align the brain data in `df`.
         legacy
             If `df` distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+        remove_unknown
+            If True and `df` contains data for regions not in `ontology`, it removes them
+            instead of raising `UnknownBrainRegionsError`.
         animal_name
             The name of the animal associated  with the data in `df`.
 
@@ -759,7 +764,13 @@ class AnimalBrain:
         hemispheres = sorted(df.index.unique(level=0), key=lambda hem: hem.value)
         regions = df.index.unique(level=1)
         if (missing:=~ontology.are_regions(regions)).any():
-            raise UnknownBrainRegionsError(regions[missing], ontology)
+            unknown_regions = regions[missing]
+            if remove_unknown:
+                message = UnknownBrainRegionsError.message(unknown_regions, ontology.name)
+                warnings.warn(message, UserWarning)
+                df.drop(unknown_regions, axis=0, level=1, inplace=True)
+            else:
+                raise UnknownBrainRegionsError(unknown_regions, ontology)
         regex = r'(.+) \((.+)\)$'
         pattern = re.compile(regex)
         for column, data in df.items():
@@ -786,6 +797,7 @@ class AnimalBrain:
                  ontology: AtlasOntology,
                  name: str=None,
                  sep: str=",",
+                 remove_unknown: bool=False,
                  legacy: bool=False) -> Self:
         """
         Reads a comma-separated values (CSV) file into `AnimalBrain`.
@@ -802,6 +814,9 @@ class AnimalBrain:
             Character or regex pattern to treat as the delimiter.
         legacy
             If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+        remove_unknown
+            If True and `filepath` contains data for regions not in `ontology`, it removes them
+            instead of raising `UnknownBrainRegionsError`.
 
         Returns
         -------
@@ -832,7 +847,7 @@ class AnimalBrain:
         else:
             df = pd.read_csv(filepath, sep=sep, header=[0,1])
             multiindex_from_columns(df, index_col=[0,1], inplace=True)
-        return AnimalBrain.from_pandas(df, name=name, ontology=ontology, legacy=legacy)
+        return AnimalBrain.from_pandas(df, name=name, ontology=ontology, legacy=legacy, remove_unknown=remove_unknown)
 
 def _extract_name_and_units(ls) -> Generator[str, None, None]:
     regex = r'(.+) \((.+)\)$'

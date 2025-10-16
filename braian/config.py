@@ -122,7 +122,9 @@ class BraiAnConfig:
         return self.from_csv(sep=sep, legacy=legacy)
 
     def from_csv(self, name: str=None,
-                 *, sep: str=",", legacy: bool=False) -> Experiment|AnimalGroup|AnimalBrain:
+                 *, sep: str=",",
+                 legacy: bool=False,
+                 remove_unknown: bool=False) -> Experiment|AnimalGroup|AnimalBrain:
         """
         Reads some brain data with metric=`brains > raw-metric` from a comma-separated
         value (CSV) file saved in `experiment > output-dir`.
@@ -134,6 +136,9 @@ class BraiAnConfig:
             By default, it reads the whole experiment.
         sep
             Character or regex pattern to treat as the delimiter.
+        remove_unknown
+            If True and `filepath` contains data for regions not in `ontology`, it removes them
+            instead of raising `UnknownBrainRegionsError`.
 
         Returns
         -------
@@ -169,11 +174,11 @@ class BraiAnConfig:
         if legacy:
             group2brains: dict[str,list[str]] = self._conf["groups"]
             groups = [AnimalGroup.from_csv(self.output_dir/f"{name_}_{metric}.csv", name=name_,
-                                             ontology=self._ontology, sep=sep, legacy=True)
+                                             ontology=self._ontology, sep=sep, remove_unknown=remove_unknown, legacy=True)
                       for name_ in group2brains.keys()]
             
             return Experiment(name, *groups)
-        return from_csv(self.output_dir/f"{name}_{metric}.csv", t, ontology=self._ontology, sep=sep)
+        return from_csv(self.output_dir/f"{name}_{metric}.csv", t, ontology=self._ontology, sep=sep, remove_unknown=remove_unknown)
 
     @deprecated(since="1.1.0", alternatives=["braian.config.BraiAnConfig.from_qupath"])
     def experiment_from_qupath(self, sliced: bool=False, validate: bool=True) -> Experiment|SlicedExperiment:

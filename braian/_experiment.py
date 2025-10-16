@@ -287,7 +287,8 @@ class Experiment:
     def from_pandas(df: pd.DataFrame,
                     *,
                     ontology: AtlasOntology,
-                    name: str=None) -> Self:
+                    name: str=None,
+                    remove_unknown: bool=False) -> Self:
         """
         Creates an instance of [`Experiment`][braian.Experiment] from a `DataFrame`.
 
@@ -300,6 +301,9 @@ class Experiment:
         name
             The name of the group associated with the data in `df`,
             if you want to overwrite the one stated in the first columns' name.
+        remove_unknown
+            If True and `df` contains data for regions not in `ontology`, it removes them
+            instead of raising `UnknownBrainRegionsError`.
 
         Returns
         -------
@@ -323,7 +327,8 @@ class Experiment:
         name = df.columns.names[0]
         groups = [AnimalGroup.from_pandas(
                     df=df[group_name],
-                    name=group_name, ontology=ontology, legacy=False)
+                    name=group_name, ontology=ontology,
+                    legacy=False, remove_unknown=remove_unknown)
                 for group_name in groups]
         return Experiment(name, *groups)
 
@@ -332,6 +337,7 @@ class Experiment:
                  *,
                  ontology: AtlasOntology,
                  name: str=None,
+                 remove_unknown: bool=False,
                  sep: str=",") -> Self:
         """
         Reads a comma-separated values (CSV) file into `Experiment`.
@@ -347,6 +353,9 @@ class Experiment:
             if you want to overwrite the one with which it was saved.
         sep
             Character or regex pattern to treat as the delimiter.
+        remove_unknown
+            If True and `filepath` contains data for regions not in `ontology`, it removes them
+            instead of raising `UnknownBrainRegionsError`.
 
         Returns
         -------
@@ -367,7 +376,7 @@ class Experiment:
         """
         df = pd.read_csv(filepath, sep=sep, header=[0,1,2,3])
         multiindex_from_columns(df, index_col=[0,1], inplace=True)
-        return Experiment.from_pandas(df, name=name, ontology=ontology)
+        return Experiment.from_pandas(df, ontology=ontology, name=name, remove_unknown=remove_unknown)
 
 class SlicedExperiment:
     def __init__(self, name: str, group1: SlicedGroup, group2: SlicedGroup,

@@ -571,6 +571,7 @@ class AnimalGroup:
                     ontology: AtlasOntology,
                     name: str=None,
                     legacy: bool=False,
+                    remove_unknown: bool=False,
                     group_name: str=None) -> Self:
         """
         Creates an instance of [`AnimalGroup`][braian.AnimalGroup] from a `DataFrame`.
@@ -586,6 +587,9 @@ class AnimalGroup:
             if you want to overwrite the one stated in the first columns' name.
         legacy
             If `df` distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+        remove_unknown
+            If True and `df` contains data for regions not in `ontology`, it removes them
+            instead of raising `UnknownBrainRegionsError`.
         group_name
             The name of the group associated  with the data in `df`.
 
@@ -621,7 +625,8 @@ class AnimalGroup:
                 return df[name]
         animals = [AnimalBrain.from_pandas(
                         df=extract_brain(df,animal_name),
-                        name=animal_name, ontology=ontology, legacy=legacy)
+                        name=animal_name, ontology=ontology,
+                        legacy=legacy, remove_unknown=remove_unknown)
                    for animal_name in animals]
         return AnimalGroup(name, animals)
 
@@ -631,6 +636,7 @@ class AnimalGroup:
                  ontology: AtlasOntology,
                  name: str=None,
                  sep: str=",",
+                 remove_unknown: bool=False,
                  legacy: bool=False) -> Self:
         """
         Reads a comma-separated values (CSV) file into `AnimalGroup`.
@@ -648,6 +654,9 @@ class AnimalGroup:
             Character or regex pattern to treat as the delimiter.
         legacy
             If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+        remove_unknown
+            If True and `filepath` contains data for regions not in `ontology`, it removes them
+            instead of raising `UnknownBrainRegionsError`.
 
         Returns
         -------
@@ -673,7 +682,7 @@ class AnimalGroup:
         else:
             df = pd.read_csv(filepath, sep=sep, header=[0,1,2])
             multiindex_from_columns(df, index_col=[0,1], inplace=True)
-        return AnimalGroup.from_pandas(df, name=name, ontology=ontology, legacy=legacy)
+        return AnimalGroup.from_pandas(df, name=name, ontology=ontology, legacy=legacy, remove_unknown=remove_unknown)
 
     @staticmethod
     @deprecated(since="1.1.0", alternatives=["braian.Experiment.to_pandas"])

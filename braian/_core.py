@@ -148,7 +148,8 @@ def from_csv(filepath: Path,
              t: Literal["experiment","group","brain","e","g","b"]="experiment",
              *,
              ontology: AtlasOntology,
-             sep: str=",") -> Experiment|AnimalGroup|AnimalBrain:
+             sep: str=",",
+             remove_unknown: bool=False) -> Experiment|AnimalGroup|AnimalBrain:
     """
     Reads some brain data from a comma-separated value (CSV) file.
 
@@ -162,6 +163,9 @@ def from_csv(filepath: Path,
         The ontology of the atlas used to align the brain data in `filepath`.
     sep
         Character or regex pattern to treat as the delimiter.
+    remove_unknown
+        If True and `filepath` contains data for regions not in `ontology`, it removes them
+        instead of raising `UnknownBrainRegionsError`.
 
     Returns
     -------
@@ -190,6 +194,6 @@ def from_csv(filepath: Path,
         case _:
             raise ValueError(t)
     try:
-        return clazz.from_csv(filepath, ontology=ontology, sep=sep)
+        return clazz.from_csv(filepath, ontology=ontology, sep=sep, remove_unknown=remove_unknown)
     except Exception:
         raise ValueError(f"Could not be read as a '{clazz.__name__}': {filepath}")
