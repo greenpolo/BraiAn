@@ -114,7 +114,7 @@ class AnimalBrain:
             # check markers have the same metric
             _compatibility_check_bd(hemidata, check_atlas=False,
                                     check_metrics=True, check_regions=False)
-        assert all([m.data_name == self.name for ms in markers_data.values() for m in ms]), "All markers' BrainData must be from the same animal!"
+        assert all([m.name == self.name for ms in markers_data.values() for m in ms]), "All markers' BrainData must be from the same animal!"
         assert all([m.metric == self.metric for ms in markers_data.values() for m in ms]), "All markers' BrainData must have the same metric!"
         return
 
@@ -186,8 +186,8 @@ class AnimalBrain:
     @property
     def name(self) -> str:
         """The name of the animal."""
-        return self._sizes[0].data_name
-        # return self._markers_data[self._markers[0]][0].data_name
+        return self._sizes[0].name
+        # return self._markers_data[self._markers[0]][0].name
 
     @property
     def regions(self) -> list[str]:

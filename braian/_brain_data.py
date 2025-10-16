@@ -141,7 +141,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             raise ValueError(msg)
         hemisphere = first.hemisphere
         if name is None:
-            name = ":".join([first.data_name, *[other.data_name for other in others]])
+            name = ":".join([first.name, *[other.name for other in others]])
         if op_name is None:
             op_name = op.__name__
         # TODO: add min_count attribute to set to NaN those values result of a reduction of less than min_count BrainData
@@ -307,9 +307,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         """The internal representation of the current brain data."""
         self.hemisphere = hemisphere
         """The brain hemisphere to which the `data` is referring to."""
-        self.data_name: str = str(name) # data_name
-        """The name of the current `BrainData`."""
-        self.data.name = self.data_name
+        self.name: str = str(name) # data_name
         self.metric: str = str(metric)
         if units is not None:
             self._units = str(units)
@@ -322,6 +320,22 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             if (missing:=~ontology.are_regions(self.data.index)).any():
                 raise UnknownBrainRegionsError(self.data.index[missing], ontology)
         self._atlas = str(ontology) if isinstance(ontology, str) else ontology.name
+
+    @property
+    def name(self) -> str:
+        """The name of the current `BrainData`."""
+        # if 'data.name' is different, it means that the object was created by the @deflector
+        # and it copied the old '_name', but overwrote 'data' (and thus 'data.name' too)
+        if self.data.name != self._name:
+            self.data.name = self._name
+        return self.data.name
+
+    @name.setter
+    def name(self, val: str):
+        # need a private attribute that gets copied during @deflections
+        # it's not actually used
+        self._name = val
+        self.data.name = self._name
 
     @property
     def atlas(self) -> str:
@@ -355,7 +369,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return list(self.data.index)
 
     def __str__(self) -> str:
-        return f"BrainData(name='{self.data_name}', hemisphere={self.hemisphere.name}, metric='{self._metric}', units='{self._units}')"
+        return f"BrainData(name='{self.name}', hemisphere={self.hemisphere.name}, metric='{self._metric}', units='{self._units}')"
 
     def __repr__(self) -> str:
         return str(self)
@@ -428,7 +442,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 # .convert_dtypes() # no need to convert to IntXXArray/FloatXXArray as self.data should already be
         if not inplace:
             return BrainData(data,
-                             name=self.data_name,
+                             name=self.name,
                              metric=self._metric, units=self._units,
                              hemisphere=self.hemisphere,
                              ontology=self.atlas, check=False)
@@ -532,7 +546,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             return self
         else:
             return BrainData(data,
-                             name=self.data_name,
+                             name=self.name,
                              metric=self._metric, units=self._units,
                              hemisphere=self.hemisphere,
                              ontology=self.atlas, check=False)
@@ -588,7 +602,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             data[region] = value
         if not inplace:
             return BrainData(data,
-                             name=self.data_name,
+                             name=self.name,
                              metric=self._metric, units=self._units,
                              hemisphere=self.hemisphere,
                              ontology=self.atlas, check=False)
@@ -617,7 +631,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             data = self.data[self.data.index.isin(regions)]
         if not inplace:
             return BrainData(data,
-                             name=self.data_name,
+                             name=self.name,
                              metric=self._metric, units=self._units,
                              hemisphere=self.hemisphere,
                              ontology=self.atlas, check=False)
@@ -761,7 +775,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have different units ('{self._units}', '{other._units}')")
         data = self.data.add(other.data, fill_value=0)
         return BrainData(data,
-                         name=self.data_name,
+                         name=self.name,
                          metric=self._metric, units=self._units,
                          hemisphere=BrainHemisphere.BOTH,
                          ontology=self.atlas, check=False)

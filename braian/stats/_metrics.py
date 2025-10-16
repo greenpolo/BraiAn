@@ -622,7 +622,7 @@ def markers_correlation(marker1: str, marker2: str,
     -------
     : BrainData
         If the groups are not [split][braian.AnimalGroup.is_split].\\
-        The returned `BrainData`s have the same [`data_name`][braian.BrainData.data_name] as `group`'s
+        The returned `BrainData`s have the same [`name`][braian.BrainData.name] as `group`'s
         [`name`][braian.AnimalGroup.name], and [`units`][braian.BrainData.units]`="corr(<marker1>, <marker2>)"`.
     : tuple[BrainData,BrainData]
         If the groups are [split][braian.AnimalGroup.is_split].

@@ -95,7 +95,7 @@ def heatmap(bd1: BrainData,
         # brain_data = brain_data[brain_data.index.isin(brain_regions)]
         # brain_data = brain_data[~brain_data.isna().all(axis=1)]
         data = (bd1.select_from_list(brain_regions, ontology=ontology, fill_nan=True),)
-        data_names = (bd1.data_name,)
+        data_names = (bd1.name,)
         _cmin = data[0].min(skiinf=True)
         _cmax = data[0].max(skiinf=True)
     else:
@@ -106,7 +106,7 @@ def heatmap(bd1: BrainData,
                 bd2.select_from_list(brain_regions, ontology=ontology, fill_nan=True))
         _cmin = min(data[0].min(skiinf=True), data[1].min(skiinf=True))
         _cmax = max(data[0].max(skiinf=True), data[1].max(skiinf=True))
-        data_names = (bd1.data_name, bd2.data_name)
+        data_names = (bd1.name, bd2.name)
     if cmin is None:
         cmin = math.floor(_cmin)
     if cmax is None:
