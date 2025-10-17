@@ -269,7 +269,7 @@ class AnimalGroup:
     def _select(self, regions: Sequence[str],
                *,
                fill_nan: bool=False, inplace: bool=False,
-               hemisphere: BrainHemisphere|str|int=BrainHemisphere.BOTH,
+               hemisphere: BrainHemisphere|str|int=BrainHemisphere.MERGED,
                select_other_hemisphere: bool=False) -> Self:
         animals = [brain._select(regions=regions,
                                  fill_nan=fill_nan,
@@ -288,7 +288,7 @@ class AnimalGroup:
                *,
                regions: Sequence[str]=None,
                fill_nan: bool=False, inplace: bool=False,
-               hemisphere: BrainHemisphere|str|int=BrainHemisphere.BOTH,
+               hemisphere: BrainHemisphere|str|int=BrainHemisphere.MERGED,
                select_other_hemisphere: bool=False) -> Self:
         """
         Filters the data from based on a non-overlapping list of regions selected
@@ -312,10 +312,10 @@ class AnimalGroup:
         inplace
             If True, it applies the filtering to the current instance.
         hemisphere
-            If not [`BOTH`][braian.BrainHemisphere] and the brains [are split][braian.AnimalGroup.is_split],
+            If not [`MERGED`][braian.BrainHemisphere] and the brains [are split][braian.AnimalGroup.is_split],
             it only selects the brain regions from the given hemisphere.
         select_other_hemisphere
-            If True and `hemisphere` is not [`BOTH`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
+            If True and `hemisphere` is not [`MERGED`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
             If False, it deselect the opposite hemisphere.
 
         Returns
@@ -461,7 +461,7 @@ class AnimalGroup:
         hemisphere_as_value
             If True and `legacy=False`, it converts the regions' hemisphere to the corresponding value (i.e. 0, 1 or 2)
         hemisphere_as_str
-            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "both", "left", "right")
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "merged", "left", "right")
 
         Returns
         -------
@@ -718,7 +718,7 @@ class AnimalGroup:
         groups = [group1, group2, *groups]
         _compatibility_check(groups) # "The AnimalGroups are not comparable! Please check that all groups work on the same kind of data (i.e. markers, hemispheres and metric)"
         df = pd.concat({g.name: g.to_pandas(marker=marker) for g in groups}, axis=1)
-        if len(hems:=df.index.unique(level=0)) == 1 and hems[0] is BrainHemisphere.BOTH:
+        if len(hems:=df.index.unique(level=0)) == 1 and hems[0] is BrainHemisphere.MERGED:
             df.index = df.index.get_level_values(1)
             regions = df.index
         else:
@@ -930,7 +930,7 @@ class SlicedGroup:
                region: str,
                *,
                metric: str,
-               hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+               hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
                as_density: bool=False) -> pd.DataFrame:
         """
         Extracts all values of a brain region from all [`slices`][braian.SlicedBrain.slices] in the group.
@@ -945,7 +945,7 @@ class SlicedGroup:
             The metric to extract from the `SlicedGroup`.
             It can either be `"area"` or any value in [`SlicedGroup.markers`][braian.SlicedGroup.markers].
         hemisphere
-            The hemisphere of the brain region to extract. If [`BOTH`][braian.BrainHemisphere]
+            The hemisphere of the brain region to extract. If [`MERGED`][braian.BrainHemisphere]
             and the group [is split][braian.SlicedGroup.is_split], it may return both hemispheric values
             of the region.
         as_density

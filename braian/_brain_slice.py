@@ -432,9 +432,9 @@ class BrainSlice:
             raise MissingQuantificationError(file=self._name)
         hemispheres = self._data["hemisphere"].unique()
         hemispheres = {BrainHemisphere(v) for v in hemispheres} # if not hemispheres.issubset(BrainHemisphere), it already raises an error
-        if len(hemispheres) > 2 or (len(hemispheres) == 2 and BrainHemisphere.BOTH in hemispheres):
+        if len(hemispheres) > 2 or (len(hemispheres) == 2 and BrainHemisphere.MERGED in hemispheres):
             raise InvalidRegionsSplitError(context=self._name)
-        self._is_split: bool = len(hemispheres) == 2 or BrainHemisphere.BOTH not in hemispheres
+        self._is_split: bool = len(hemispheres) == 2 or BrainHemisphere.MERGED not in hemispheres
         for column in self._data.columns:
             if column in ("acronym", "hemisphere"):
                 continue
@@ -668,7 +668,7 @@ class BrainSlice:
             # raise ValueError("Data already have no distinction between right/left hemispheres")
         # corresponding_region = [extract_acronym(hemisphered_region) for hemisphered_region in self._data.index]
         data = self._data.groupby("acronym").sum(min_count=1)
-        data["hemisphere"] = BrainHemisphere.BOTH.value
+        data["hemisphere"] = BrainHemisphere.MERGED.value
         data["acronym"] = data.index
         data.index = data.index.set_names(None)
         return BrainSlice(data=data, units=self._units,
@@ -679,7 +679,7 @@ class BrainSlice:
                region: str,
                *,
                metric: str,
-               hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+               hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
                as_density: bool=False,
                return_hemispheres: bool=False,
                ) -> Sequence[int|float]|tuple[Sequence[int|float],Sequence[BrainHemisphere]]:
@@ -694,7 +694,7 @@ class BrainSlice:
             The metric to extract from the `BrainSlice`.
             It can either be `"area"` or any value in [`BrainSlice.markers`][braian.BrainSlice.markers].
         hemisphere
-            The hemisphere of the brain region to extract. If [`BOTH`][braian.BrainHemisphere]
+            The hemisphere of the brain region to extract. If [`MERGED`][braian.BrainHemisphere]
             and the brain [is split][braian.BrainSlice.is_split], it may return both hemispheric values
             of the region.
         as_density
@@ -724,7 +724,7 @@ class BrainSlice:
             raise ValueError(f"Invalid metric: '{metric}'. Valid metrics are: {['area', *self.markers]}")
         if metric == "area" and as_density:
             raise ValueError("Cannot request to retrieve values as densities when metric='area'. Choose a metric within the available markers.")
-        if self.is_split and hemisphere is BrainHemisphere.BOTH:
+        if self.is_split and hemisphere is BrainHemisphere.MERGED:
             hems = (BrainHemisphere.RIGHT.value, BrainHemisphere.LEFT.value)
         else:
             hems = (hemisphere.value,)

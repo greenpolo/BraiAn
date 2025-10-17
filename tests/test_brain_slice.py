@@ -26,7 +26,7 @@ def slice1(slice_df: pd.DataFrame, request) -> BrainSlice:
         ([BrainHemisphere.LEFT, BrainHemisphere.RIGHT, BrainHemisphere.LEFT], True),
         ([BrainHemisphere.LEFT]*3, True),
         ([BrainHemisphere.RIGHT]*3, True),
-        ([BrainHemisphere.BOTH.value]*3, False)
+        ([BrainHemisphere.MERGED.value]*3, False)
     ]
 )
 def test_constructor_is_split(hems: list[BrainHemisphere], is_split, request):
@@ -39,10 +39,10 @@ def test_constructor_is_split(hems: list[BrainHemisphere], is_split, request):
 @pytest.mark.parametrize(
     "region, hem, expected",
     [
-        ("root", BrainHemisphere.BOTH, [10]),
+        ("root", BrainHemisphere.MERGED, [10]),
         ("root", BrainHemisphere.LEFT, [10]),
         ("root", BrainHemisphere.RIGHT, []),
-        ("NOT_FOUND", BrainHemisphere.BOTH, []),
+        ("NOT_FOUND", BrainHemisphere.MERGED, []),
         ("NOT_FOUND", BrainHemisphere.LEFT, []),
         ("NOT_FOUND", BrainHemisphere.RIGHT, []),
     ]

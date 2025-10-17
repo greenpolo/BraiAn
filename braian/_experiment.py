@@ -209,7 +209,7 @@ class Experiment:
         hemisphere_as_value
             If True and `legacy=False`, it converts the regions' hemisphere to the corresponding value (i.e. 0, 1 or 2)
         hemisphere_as_str
-            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "both", "left", "right")
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "merged", "left", "right")
 
         Returns
         -------

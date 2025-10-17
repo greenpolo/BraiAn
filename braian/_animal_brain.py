@@ -20,7 +20,7 @@ def _combined_regions(*bd: BrainData) -> list[str]:
     }
 
 def _to_legacy_index(bd: BrainData) -> pd.Series:
-    if bd.hemisphere is not BrainHemisphere.BOTH:
+    if bd.hemisphere is not BrainHemisphere.MERGED:
         return (bd.hemisphere.name.capitalize()+": ")+bd.data.index
     return bd.data.index
 
@@ -90,7 +90,7 @@ class AnimalBrain:
         assert len(markers_data) > 0 and sizes is not None, "You must provide both a dictionary of BrainData (markers) and an additional BrainData for the size of each region"
         markers_data = {m: (ds,) if isinstance(ds, BrainData) else tuple(sorted(ds, key=lambda d: d.hemisphere.value))
                         for m,ds in markers_data.items()}
-        are_merged = [m.hemisphere is BrainHemisphere.BOTH for ms in markers_data.values() for m in ms]
+        are_merged = [m.hemisphere is BrainHemisphere.MERGED for ms in markers_data.values() for m in ms]
         assert all(are_merged) or not any(are_merged), "You must provide BrainData that has merged hemispheres for all markers or for none."
         if all(are_merged):
             if isinstance(sizes, BrainData):
@@ -262,7 +262,7 @@ class AnimalBrain:
         elif isinstance(key,tuple) and len(key) == 2 and isinstance(key[0],str):
             marker,hemi = key
             hemi = BrainHemisphere(hemi)
-            if not self.is_split and hemi is not BrainHemisphere.BOTH:
+            if not self.is_split and hemi is not BrainHemisphere.MERGED:
                 ValueError(f"The brain has no hemisphere distinction. You cannot select data for '{hemi.name}' hemisphere.")
             try:
                 return next(d for d in self._markers_data[marker] if d.hemisphere is hemi)
@@ -275,7 +275,7 @@ class AnimalBrain:
         raise TypeError(f"Unknown marker data selection: '{key}'")
 
     def remove_region(self, region: str, *regions, fill_nan: bool=True,
-                      hemisphere: BrainHemisphere=BrainHemisphere.BOTH) -> None:
+                      hemisphere: BrainHemisphere=BrainHemisphere.MERGED) -> None:
         """
         Removes the data from all the given regions
 
@@ -286,7 +286,7 @@ class AnimalBrain:
         fill_nan
             If True, instead of removing the regions completely, it fills their value to [`NA`][pandas.NA].
         hemisphere
-            If `BOTH`, it completely removes all `regions` from the brain.\
+            If `MERGED`, it completely removes all `regions` from the brain.\
             Else, it remove only the `regions` from the specified hemisphere.
         """
         regions = (region, *regions)
@@ -301,7 +301,8 @@ class AnimalBrain:
                 continue
             sizes.remove_region(*regions, inplace=True, fill_nan=fill_nan)
 
-    def remove_missing(self, kind: str="same") -> None:
+    def remove_missing(self,
+                       kind: Literal["same","both","any"]="same") -> None:
         """
         Removes the regions for which there is no data about the size.
 
@@ -326,13 +327,13 @@ class AnimalBrain:
                 for sizes in self._sizes:
                     missing_regions &= set(sizes.missing_regions())
                 if len(missing_regions) > 0:
-                    self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.BOTH)
+                    self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.MERGED)
             case "any":
                 missing_regions = set()
                 for sizes in self._sizes:
                     missing_regions |= set(sizes.missing_regions())
                 if len(missing_regions) > 0:
-                    self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.BOTH)
+                    self.remove_region(*missing_regions, fill_nan=False, hemisphere=BrainHemisphere.MERGED)
             case _:
                 raise ValueError(f"Unknown kind '{kind}'.")
 
@@ -442,12 +443,12 @@ class AnimalBrain:
     def _select(self, regions: Sequence[str],
                 *,
                 fill_nan: bool=False, inplace: bool=False,
-                hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+                hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
                 select_other_hemisphere: bool=False,
                 select_list: Callable[...,BrainData]=BrainData.select_from_list,
                 **kwargs) -> Self:
         hemisphere = BrainHemisphere(hemisphere)
-        if not self.is_split and hemisphere is not BrainHemisphere.BOTH:
+        if not self.is_split and hemisphere is not BrainHemisphere.MERGED:
             raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
         if regions is None:
             def f1(bd: BrainData):
@@ -456,7 +457,7 @@ class AnimalBrain:
             def f1(bd: BrainData):
                 return select_list(bd, regions, fill_nan=fill_nan, inplace=inplace, **kwargs)
 
-        if hemisphere is BrainHemisphere.BOTH:
+        if hemisphere is BrainHemisphere.MERGED:
             f2 = f1
         elif select_other_hemisphere:
             def f2(bd: BrainData):
@@ -479,7 +480,7 @@ class AnimalBrain:
                *,
                regions: Sequence[str]=None,
                fill_nan: bool=False, inplace: bool=False,
-               hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+               hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
                select_other_hemisphere: bool=False) -> Self:
         """
         Filters the data from based on a non-overlapping list of regions selected
@@ -503,10 +504,10 @@ class AnimalBrain:
         inplace
             If True, it applies the filtering to the current instance.
         hemisphere
-            If not [`BOTH`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
+            If not [`MERGED`][braian.BrainHemisphere] and the brain [is split][braian.AnimalBrain.is_split],
             it only selects the brain regions from the given hemisphere.
         select_other_hemisphere
-            If True and `hemisphere` is not [`BOTH`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
+            If True and `hemisphere` is not [`MERGED`][braian.BrainHemisphere], it also selects the opposite hemisphere.\
             If False, it deselect the opposite hemisphere.
 
         Returns
@@ -579,7 +580,7 @@ class AnimalBrain:
         hemisphere_as_value
             If True and `legacy=False`, it converts the regions' hemisphere to the corresponding value (i.e. 0, 1 or 2)
         hemisphere_as_str
-            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "both", "left", "right")
+            If True and `legacy=False`, it converts the regions' hemisphere to the corresponding string (i.e. "merged", "left", "right")
 
         Returns
         -------

@@ -113,7 +113,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
     # NOTE: if the groups have the same animals (i.e. same name), the heatmaps overlap
 
     if hemisphere is None:
-        hemisphere = BrainHemisphere.BOTH if not groups[0].is_split else (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)
+        hemisphere = BrainHemisphere.MERGED if not groups[0].is_split else (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)
     else:
         if isinstance(hemisphere, (BrainHemisphere, str, int)):
             hemisphere = BrainHemisphere(hemisphere)
@@ -268,7 +268,7 @@ def marker_traces(groups: list[AnimalGroup],
     groups_df: list[pd.DataFrame] = [group.to_pandas(marker=marker, missing_as_nan=True)\
                                           .loc[hemisphere]\
                                           .loc[selected_regions]    # .loc sorts the DatFrame in selected_regions' order
-                                    for group in groups]            # .loc[(braian.BrainHemisphere.BOTH,selected_regions),:], instead, wouldn't sort it
+                                    for group in groups]            # .loc[(braian.BrainHemisphere.MERGED,selected_regions),:], instead, wouldn't sort it
 
     if groups[0].metric == "fold_change":
         for group in groups_df:

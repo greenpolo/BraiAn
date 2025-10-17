@@ -123,7 +123,7 @@ def group(group: AnimalGroup, selected_regions: list[str]|np.ndarray[str],
 
     data = []
     for marker, color in zip(markers, colors):
-        marker_df = group.to_pandas(marker=marker, missing_as_nan=True).loc[BrainHemisphere.BOTH]
+        marker_df = group.to_pandas(marker=marker, missing_as_nan=True).loc[BrainHemisphere.MERGED]
         if check_regions:
             try:
                 selected_data: pd.DataFrame = marker_df.loc[selected_regions]
@@ -326,13 +326,13 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
         A Plotly figure.
     """
     return slices(brains,
-                  region=region, hemisphere=BrainHemisphere.BOTH,
+                  region=region, hemisphere=BrainHemisphere.MERGED,
                   marker=None, as_density=True)
 
 def slices(brains: SlicedExperiment|SlicedGroup,
            *,
            region: str,
-           hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+           hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
            marker: str|Sequence[str]=None,
            as_density: bool=True) -> go.Figure:
     """
@@ -345,7 +345,7 @@ def slices(brains: SlicedExperiment|SlicedGroup,
     region
         The brain structure to plot.
     hemisphere
-        The hemisphere of the brain region. If [`BOTH`][braian.BrainHemisphere]
+        The hemisphere of the brain region. If [`MERGED`][braian.BrainHemisphere]
         and [`BrainSlice.is_split`][braian.BrainSlice.is_split], it can may both values
         of the region found in the two brain hemispheres. Otherwise, it returns zero or one value.
 

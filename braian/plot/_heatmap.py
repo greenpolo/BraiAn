@@ -90,7 +90,7 @@ def heatmap(bd1: BrainData,
     if bd1.atlas != ontology.name:
         raise ValueError(f"Incompatible atlas: data used '{bd1.atlas}' but '{ontology.name}' was used")
     if bd2 is None:
-        hems = ("both",)
+        hems = ("merged",)
         # brain_data = brain_data.loc[brain_regions]
         # brain_data = brain_data[brain_data.index.isin(brain_regions)]
         # brain_data = brain_data[~brain_data.isna().all(axis=1)]
@@ -208,9 +208,9 @@ def plot_slice(position: int, heatmaps: list[bgh.Heatmap],
     # set title
     fig.suptitle(title, x=0.5, y=0.88, fontsize=35)
     for data_name, hem in zip(data_names, reversed(hems)): # the hemispheres are flipped because the brain is cut front->back, not back->front
-        x_pos = 0.5 if hem == "both" else 0.25 if hem == "left" else 0.75
+        x_pos = 0.5 if hem == "merged" else 0.25 if hem == "left" else 0.75
         fig.text(s=data_name, fontsize=25, ha="center", x=x_pos, y=0.12)
-        # ax.set_title(data_name, loc=hem if hem != "both" else "center", y=0, pad=-15)
+        # ax.set_title(data_name, loc=hem if hem != "merged" else "center", y=0, pad=-15)
 
     # style axes
     plt.xlim(*xrange)
@@ -289,13 +289,13 @@ if __name__ == "__main__":
     data1 = pd.Series([100,200,130,np.nan,50])
     data1.index = ["Isocortex", "TH", "HY", "HPF", "not-a-region"]
     brain_data1 = BrainData(data1, name="Control", metric="Density", units="cFos/mm²",
-                            hemisphere=BrainHemisphere.BOTH, ontology="atlas", check=False)
+                            hemisphere=BrainHemisphere.MERGED, ontology="atlas", check=False)
     data2 = pd.Series([100,300,180, np.nan,50])
     data2.index = ["Isocortex", "TH", "HY", "HPF", "not-a-region"]
     brain_data1 = BrainData(data1, name="Control1", metric="Density", units="cFos/mm²",
-                            hemisphere=BrainHemisphere.BOTH, ontology="atlas", check=False)
+                            hemisphere=BrainHemisphere.MERGED, ontology="atlas", check=False)
     brain_data2 = BrainData(data2, name="Control2", metric="Density", units="cFos/mm²",
-                            hemisphere=BrainHemisphere.BOTH, ontology="atlas", check=False)
+                            hemisphere=BrainHemisphere.MERGED, ontology="atlas", check=False)
     heatmap(bd1=brain_data1, bd2=brain_data2,
             brain_regions=["Isocortex", "TH", "HY", "HPF"],
             orientation="frontal", n=11,

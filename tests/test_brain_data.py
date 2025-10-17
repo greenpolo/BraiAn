@@ -17,7 +17,7 @@ def data1() -> pd.Series:
 def bd1_b(request) -> BrainData:
     data: pd.DataFrame = request.getfixturevalue("data1")
     return BrainData(data, name="bd1_b", metric="m", units="cFos",
-                     hemisphere=BrainHemisphere.BOTH, ontology="atlas", check=False)
+                     hemisphere=BrainHemisphere.MERGED, ontology="atlas", check=False)
 
 @pytest.fixture
 def bd1_r(request) -> BrainData:

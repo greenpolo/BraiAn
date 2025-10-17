@@ -78,7 +78,7 @@ class PLS:
         if hemisphere is None:
             if any(g.is_split for g in groups):
                 raise ValueError("You have to specify the hemisphere to compute the analysis on.")
-            self.hemispheres = [BrainHemisphere.BOTH]*len(groups)
+            self.hemispheres = [BrainHemisphere.MERGED]*len(groups)
         elif isinstance(hemisphere, (str,int,BrainHemisphere)):
             self.hemispheres = [BrainHemisphere(hemisphere)]*len(groups)
         assert len(groups) == len(self.hemispheres), "The number of given 'hemisphere' should be the same as the number of groups."
@@ -401,10 +401,10 @@ def pls_regions_salience(group1: AnimalGroup, group2: AnimalGroup,
             v_ = pd.Series(np.nan, index=selected_regions)
             v_[v.index] = v
             v = v_
-        if len(set(pls.hemispheres)) == 1: # the pls is done on the same hemisphere (or on BOTH)
+        if len(set(pls.hemispheres)) == 1: # the pls is done on the same hemisphere (or on MERGED)
             salience_hem = pls.hemispheres[0]
-        else: # the pls is comparing data from different hemispheres -> the salience are on BOTH
-            salience_hem = BrainHemisphere.BOTH
+        else: # the pls is comparing data from different hemispheres -> the salience are on MERGED
+            salience_hem = BrainHemisphere.MERGED
         brain_data = BrainData(v, name=f"{group1.name}+{group2.name}",
                                metric="pls_salience", units="z-score",
                                hemisphere=salience_hem, ontology=group1.atlas, check=False) # TODO: eventually a check on `selected_regions`` should be done

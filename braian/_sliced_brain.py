@@ -308,7 +308,7 @@ class SlicedBrain:
                                    metric="count_slices", units="#slices", hemisphere=hem,
                                    ontology=self.atlas, check=False) # no check in the ontology because _slices should already have been checked
                     for hem in (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)}
-        hem = BrainHemisphere.BOTH
+        hem = BrainHemisphere.MERGED
         return BrainData(count.xs(hem.value, level="hemisphere"), name=self._name,
                          metric="count_slices", units="#slices", hemisphere=hem,
                          ontology=self.atlas, check=False)
@@ -343,7 +343,7 @@ class SlicedBrain:
                region: str,
                *,
                metric: str,
-               hemisphere: BrainHemisphere=BrainHemisphere.BOTH,
+               hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
                as_density: bool=False) -> pd.DataFrame:
         """
         Extracts all values of a brain region from all [`slices`][braian.SlicedBrain.slices] in the brain.
@@ -358,7 +358,7 @@ class SlicedBrain:
             The metric to extract from the `SlicedBrain`.
             It can either be `"area"` or any value in [`SlicedBrain.markers`][braian.SlicedBrain.markers].
         hemisphere
-            The hemisphere of the brain region to extract. If [`BOTH`][braian.BrainHemisphere]
+            The hemisphere of the brain region to extract. If [`MERGED`][braian.BrainHemisphere]
             and the brain [is split][braian.BrainSlice.is_split], it may return both hemispheric values
             of the region.
         as_density
@@ -432,7 +432,7 @@ class SlicedBrain:
         if self.is_split:
             hemispheres = (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)
         else:
-            hemispheres = (BrainHemisphere.BOTH,)
+            hemispheres = (BrainHemisphere.MERGED,)
         # areas = BrainData(redux["area"], name=name, metric=metric, units=sliced_brain.units["area"])
         areas = tuple(BrainData(redux["area"].xs(hem.value, level=1), name=name,
                                 metric=metric, units=self.units["area"], hemisphere=hem,

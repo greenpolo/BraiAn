@@ -40,14 +40,14 @@ class BrainHemisphere(Enum):
 
     Attributes
     ----------
-    BOTH
+    MERGED
         The associated brain region data concerns the whole brain, with no hemisphere distinction.
     LEFT
         The associated brain region data concerns the _left_ hemisphere only.
     RIGHT
         The associated brain region data concerns the _right_ hemisphere only.
     """
-    BOTH = 0
+    MERGED = 0
     LEFT = 1    # same as brainglobe_atlasapi.core.Atlas.left_hemisphere_value
     RIGHT = 2   # same as brainglobe_atlasapi.core.Atlas.right_hemisphere_value
     @classmethod
@@ -55,8 +55,8 @@ class BrainHemisphere(Enum):
         if not isinstance(value, str):
             return None
         match value.lower():
-            case "both" | "b":
-                return BrainHemisphere.BOTH
+            case "merged" | "m":
+                return BrainHemisphere.MERGED
             case "left" | "l":
                 return BrainHemisphere.LEFT
             case "right" | "r":
@@ -76,7 +76,7 @@ def extract_legacy_hemispheres(data: pd.DataFrame, reindex: bool=False, inplace:
     if not inplace:
         data = data.copy()
     if match_groups[1].isna().all():
-        data["hemisphere"] = BrainHemisphere.BOTH.value
+        data["hemisphere"] = BrainHemisphere.MERGED.value
     else:
         try:
             data["hemisphere"] = match_groups[1].map(lambda s: BrainHemisphere(s).value)
@@ -768,7 +768,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         """
         _compatibility_check_bd((self, other), min_count=2,
                                 check_hemisphere=False)
-        if self.hemisphere is BrainHemisphere.BOTH or other.hemisphere is BrainHemisphere.BOTH:
+        if self.hemisphere is BrainHemisphere.MERGED or other.hemisphere is BrainHemisphere.MERGED:
             raise ValueError("Data already have no distinction between right/left hemispheres")
         if self.hemisphere == other.hemisphere:
             raise ValueError(f"Incompatible brain data: '{self}' and '{other}' have the same hemisphere ('{self.hemisphere}', '{other.hemisphere}')")
@@ -781,5 +781,5 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
         return BrainData(data,
                          name=self.name,
                          metric=self._metric, units=self._units,
-                         hemisphere=BrainHemisphere.BOTH,
+                         hemisphere=BrainHemisphere.MERGED,
                          ontology=self.atlas, check=False)
