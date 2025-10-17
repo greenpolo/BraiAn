@@ -515,11 +515,11 @@ class AtlasOntology:
             # NOTE: no check whether the IDs are actually in self._tree_full
             return [id for id in sorted_ids if id in regions]
 
-    def sort(self, regions: Iterable|pd.DataFrame|pd.Series,
+    def sort(self, regions: Sequence[str|int]|pd.DataFrame|pd.Series,
              *, mode: Literal["depth","width"]="depth",
              blacklisted: bool=True, unreferenced: bool=False,
              fill: bool=False, fill_value=np.nan,
-             key: Literal["id", "acronym"]=None) -> list|pd.DataFrame|pd.Series:
+             key: Literal["id", "acronym"]=None) -> list[str|int]|pd.DataFrame|pd.Series:
         """
         Sorts some regionalised data in depth-first order (or width-first), based on the
         atlas hierarchical ontology.\\
@@ -557,7 +557,9 @@ class AtlasOntology:
             regions not present in the ontology (or that are unreferenced when
             `unreferenced=False`)
         fill_value
-            The value used to fill the data with, when `fill=True`
+            The value used to fill the data with, when `fill=True`.
+
+            Note that if it's [`np.nan`][numpy.nan], it converts the dtype to float.
         key
             The region identifier of the returned brain structures.
 
@@ -1886,7 +1888,7 @@ class AtlasOntology:
         else:
             _partition = self._partition(partition, blacklisted=blacklisted, unreferenced=unreferenced, key=key)
         _partition = set(_partition)
-        partition = OrderedDict()
+        partition = OrderedDict() # bap.region_scores uses the OrderedDict feature
         for region in _regions:
             if region in _partition:
                 partition[region] = region

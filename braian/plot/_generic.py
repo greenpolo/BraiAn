@@ -9,7 +9,7 @@ import random
 from collections.abc import Iterable, Collection, Sequence
 from plotly.subplots import make_subplots
 
-from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainHemisphere, Experiment, SlicedBrain, SlicedExperiment, SlicedGroup
+from braian import sort, AnimalBrain, AnimalGroup, AtlasOntology, BrainData, BrainHemisphere, Experiment, SlicedBrain, SlicedExperiment, SlicedGroup
 from braian.legacy._ontology_allen import UPPER_REGIONS
 
 __all__ = [
@@ -419,7 +419,7 @@ def slices(brains: SlicedExperiment|SlicedGroup,
     return fig
 
 
-def region_scores(scores: pd.Series, brain_ontology: AtlasOntology,
+def region_scores(scores: pd.Series|BrainData, brain_ontology: AtlasOntology,
                   title: str=None, title_size: int=20,
                   regions_size: int=15, use_acronyms: bool=True, use_acronyms_in_mjd: bool=True,
                   mjd_opacity: float=0.5, thresholds: float|Collection[float]=None, width: int=800,
@@ -430,7 +430,7 @@ def region_scores(scores: pd.Series, brain_ontology: AtlasOntology,
     Parameters
     ----------
     scores
-        A series of scores for each brain region, where each brain region is represented by its acronym and it is the index of the scores.
+        The scores of a set of brain regions, indentified by their acronyms.
     brain_ontology
         The brain region ontology used to gather the major divisions of each brain area.
     title
@@ -459,6 +459,9 @@ def region_scores(scores: pd.Series, brain_ontology: AtlasOntology,
     --------
     [braian.AtlasOntology.partitioned][]
     """
+    scores = sort(scores, brain_ontology, mode="depth", fill_nan=False, inplace=False)
+    if isinstance(scores,BrainData):
+        scores = scores.data
     active_mjd = tuple(brain_ontology.partitioned(scores.index, partition="major divisions", key="acronym").values())
     allen_colours = brain_ontology.colors()
     fig = go.Figure([

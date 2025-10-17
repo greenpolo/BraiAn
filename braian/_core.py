@@ -1,6 +1,9 @@
+import pandas as pd
+
 from braian import AtlasOntology,\
                    BrainSlice, SlicedBrain, SlicedGroup, SlicedExperiment, SlicedMetric,\
                    BrainData, AnimalBrain, AnimalGroup, Experiment
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -46,10 +49,12 @@ def reduce(d: SlicedBrain|SlicedGroup|SlicedExperiment,
                         densities=densities)
     raise TypeError(type(d))
 
-def sort(d: BrainData|AnimalBrain|AnimalGroup|Experiment, ontology: AtlasOntology,
+def sort(d: Sequence[str|int]|pd.Series|pd.DataFrame|BrainData|AnimalBrain|AnimalGroup|Experiment,
+         ontology: AtlasOntology,
          *, mode: Literal["depth","width"]="depth",
          blacklisted: bool=True, unreferenced: bool=False,
-         fill_nan: bool=False, inplace: bool=False) -> BrainData|AnimalBrain|AnimalGroup|Experiment:
+         fill_nan: bool=False, inplace: bool=False
+         ) -> list[str|int]|pd.Series|pd.DataFrame|BrainData|AnimalBrain|AnimalGroup|Experiment:
     """
     Sorts the data in depth-first order or width-first, based on the
     atlas hierarchical ontology.\\
@@ -57,6 +62,8 @@ def sort(d: BrainData|AnimalBrain|AnimalGroup|Experiment, ontology: AtlasOntolog
 
     Parameters
     ----------
+    d
+        The brain data to sort, identified by the regions' acronyms or IDs.
     ontology
         The ontology of the atlas to which the data was registered.
     mode
@@ -73,6 +80,8 @@ def sort(d: BrainData|AnimalBrain|AnimalGroup|Experiment, ontology: AtlasOntolog
         to the regions missing, but present in `ontology`.
     inplace
         If True, it sorts and returns the instance in place.
+
+        It is ignored, if `d` is a list of acronyms, a `Series` or `DataFrame`.
 
     Returns
     -------
@@ -103,17 +112,23 @@ def sort(d: BrainData|AnimalBrain|AnimalGroup|Experiment, ontology: AtlasOntolog
         return d.sort(ontology=ontology, mode=mode,
                       blacklisted=blacklisted, unreferenced=unreferenced,
                       fill_nan=fill_nan, inplace=inplace)
-    elif inplace: # d: AnimalGroup | Experiment
-        for d_ in d:
-            sort(d_, ontology, mode=mode,
-                 blacklisted=blacklisted, unreferenced=unreferenced,
-                 fill_nan=fill_nan, inplace=True)
-        # if it's just a sorting, it should not need any update on the side of AnimalGroup and Experiment
-        return d
-    else:
-        return d.apply(lambda b: b.sort(ontology, mode=mode,
-                                        blacklisted=blacklisted, unreferenced=unreferenced,
-                                        fill_nan=fill_nan, inplace=inplace))
+    elif isinstance(d, (AnimalGroup, Experiment)):
+        if inplace:
+            for d_ in d:
+                sort(d_, ontology, mode=mode,
+                    blacklisted=blacklisted, unreferenced=unreferenced,
+                    fill_nan=fill_nan, inplace=True)
+            # if it's just a sorting, it should not need any update on the side of AnimalGroup and Experiment
+            return d
+        else:
+            return d.apply(lambda b: b.sort(ontology, mode=mode,
+                                            blacklisted=blacklisted, unreferenced=unreferenced,
+                                            fill_nan=fill_nan, inplace=False))
+    else: #d: pd.Series | pd.DataFrame
+        # no 'inplace' is possible because pd.reindex is a structural change
+        return ontology.sort(d, mode=mode,
+                             blacklisted=blacklisted, unreferenced=unreferenced,
+                             fill=fill_nan, fill_value=pd.NA)
 
 # def merge(d):
 def merge_hemispheres(d: BrainSlice|SlicedBrain|SlicedGroup|SlicedExperiment|\
