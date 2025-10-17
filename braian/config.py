@@ -184,7 +184,7 @@ class BraiAnConfig:
     def experiment_from_qupath(self, sliced: bool=False, validate: bool=True) -> Experiment|SlicedExperiment:
         return self.from_qupath(sliced=sliced)
 
-    def from_qupath(self, sliced: bool=False) -> Experiment|SlicedExperiment:
+    def from_qupath(self, sliced: bool=False, force_exclusion_files: bool=True) -> Experiment|SlicedExperiment:
         """
         Reads all the slice data exported to files with BraiAn's QuPath extension,
         and organises them into braian data structure used to identify an experiment.
@@ -196,6 +196,10 @@ class BraiAnConfig:
             it reduces, for each brain, the data of every brain region into a single value
             accordingly to the method specified in the configuration file.\\
             Otherwise, it keeps the raw data.
+        force_exclusion_files
+            If True, it will skip any section with no exclusion file associated.
+
+            Otherwise, it will keep them, along with every regional data from the section.
 
         See also
         --------
@@ -243,7 +247,8 @@ class BraiAnConfig:
                                             ch2marker=markers, #exclude_parents,
                                             exclude_ancestors_layer1=exclude_ancestors_layer1,
                                             results_subdir=results_subir, results_suffix=results_suffix,
-                                            exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)
+                                            exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix,
+                                            force_exclusion_files=force_exclusion_files)
             groups.append(group)
 
         sliced_exp = SlicedExperiment(self.experiment_name, *groups)

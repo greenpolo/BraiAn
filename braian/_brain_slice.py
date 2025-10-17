@@ -80,7 +80,7 @@ def overlapping_markers(marker1: str, marker2: str) -> str:
     return f"{marker1}+{marker2}"
 
 class QuPathMeasurementType(Enum):
-    r"""
+    """
     Enum of the supported types of measurements available from QuPath.
 
     Attributes
@@ -227,8 +227,10 @@ class BrainSlice:
     def _extract_qupath_hemispheres(data: pd.DataFrame, csv_file: str):
         try:
             extract_legacy_hemispheres(data, reindex=False, inplace=True)
+            return
         except InvalidRegionsHemisphereError as e:
-            raise InvalidRegionsHemisphereError(f"'{csv_file}': {str(e)}")
+            message = str(e) # add path to the CSV file
+        raise InvalidRegionsHemisphereError(f"'{csv_file}': {message}")
         # if (unknown_classes:=match_groups[2] != data["Name"]).any():
         #     raise ValueError("Unknown regions: '"+"', '".join(match_groups.index[unknown_classes])+"'")
 

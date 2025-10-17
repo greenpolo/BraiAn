@@ -744,7 +744,8 @@ class SlicedGroup:
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
-                    exclusions_suffix: str="_regions_to_exclude.txt") -> Self:
+                    exclusions_suffix: str="_regions_to_exclude.txt",
+                    force_exclusion_files: bool=True) -> Self:
         """
         Creates an experimental cohort from the section files exported with QuPath.
 
@@ -775,6 +776,10 @@ class SlicedGroup:
             It can be `None` if no subfolder is used.
         exclusions_suffix
             The suffix used to identify exclusion files saved in `results_subdir`. It includes the file extension.
+        force_exclusion_files
+            If True, it will skip any section with no exclusion file associated.
+
+            Otherwise, it will keep them, along with every regional data from the section.
 
         Returns
         -------
@@ -793,7 +798,8 @@ class SlicedGroup:
                                                    ch2marker=ch2marker,
                                                    exclude_ancestors_layer1=exclude_ancestors_layer1,
                                                    results_subdir=results_subdir, results_suffix=results_suffix,
-                                                   exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix)
+                                                   exclusions_subdir=exclusions_subdir, exclusions_suffix=exclusions_suffix,
+                                                   force_exclusion_files=force_exclusion_files)
             sliced_brains.append(sliced_brain)
         return SlicedGroup(name, sliced_brains, brain_ontology)
 

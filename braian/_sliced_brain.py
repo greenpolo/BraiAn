@@ -4,7 +4,7 @@ import pandas as pd
 import re
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Self
+from typing import Self, Literal
 
 from braian import AnimalBrain, AtlasOntology, BrainData, BrainHemisphere, BrainSlice, SlicedMetric,\
                    BrainSliceFileError, \
@@ -67,7 +67,8 @@ class SlicedBrain:
                     results_subdir: str="results",
                     results_suffix: str="_regions.tsv",
                     exclusions_subdir: str="regions_to_exclude",
-                    exclusions_suffix: str="_regions_to_exclude.txt"
+                    exclusions_suffix: str="_regions_to_exclude.txt",
+                    force_exclusion_files: bool=True
                     ) -> Self:
         """
         Creates a [`SlicedBrain`][braian.SlicedBrain] from all the per-image files exported with
@@ -103,6 +104,10 @@ class SlicedBrain:
             It can be `None` if no subfolder is used.
         exclusions_suffix
             The suffix used to identify exclusion files saved in `results_subdir`. It includes the file extension.
+        force_exclusion_files
+            If True, it will skip any section with no exclusion file associated.
+
+            Otherwise, it will keep them, along with every regional data from the section.
 
         Returns
         -------
@@ -134,6 +139,11 @@ class SlicedBrain:
                 slice.exclude(exclude, ontology=brain_ontology,
                               ancestors_layer1=exclude_ancestors_layer1)
             except BrainSliceFileError as e:
+                if not force_exclusion_files and isinstance(e, ExcludedRegionsNotFoundError):
+                    # _handle_brainslice_error(e, "print", name, results_file, excluded_regions_file)
+                    print(f"Animal '{name}' - '{image}' has no exclusions.")
+                    slices.append(slice)
+                    continue
                 mode = _get_default_error_mode(e)
                 _handle_brainslice_error(e, mode, name, results_file, excluded_regions_file)
             else:
@@ -445,7 +455,8 @@ def _check_same_units(slices: Iterable[BrainSlice]):
         raise ValueError("Some measurements do not have the same unit of measurement for all slices: "+\
                             ", ".join(units.columns[~same_units]))
 
-def _handle_brainslice_error(exception, mode, name, results_file: Path, regions_to_exclude_file: Path):
+def _handle_brainslice_error(exception, mode: Literal["delete","error","print","silent"],
+                             name, results_file: Path, regions_to_exclude_file: Path):
     assert issubclass(type(exception), BrainSliceFileError), ""
     match mode:
         case "delete":

@@ -35,7 +35,7 @@ class InvalidRegionsHemisphereError(Exception):
         " Some rows are in the form '{Left|Right}: <region acronym>', while others are not.")
 
 class BrainHemisphere(Enum):
-    r"""
+    """
     Enum used to tag [brain data][braian.BrainData] as belonging to a certain hemisphere of the brain.
 
     Attributes
