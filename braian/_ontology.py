@@ -1046,6 +1046,10 @@ class AtlasOntology:
             If True, it considers as subregion any possible structure having no reference
             in the atlas annotations.
 
+        Returns
+        -------
+        The complete list of substructures of `acronym`, including `acronym` itself.
+
         Raises
         ------
         KeyError
@@ -1084,6 +1088,10 @@ class AtlasOntology:
         key
             The unique identifier used to identify the returned brain structure
 
+        Returns
+        -------
+        The complete list of substructures of `region`, including `region` itself.
+
         Raises
         ------
         KeyError
@@ -1121,7 +1129,7 @@ class AtlasOntology:
         Returns
         -------
         :
-            The whole ancestry of structures containing `acronym`, excluding `acronym` itself
+            The whole ancestry of structures containing `acronym`, excluding `acronym` itself.
 
         Raises
         ------
@@ -1154,7 +1162,7 @@ class AtlasOntology:
         Returns
         -------
         :
-            The whole ancestry of structures containing `region`, excluding `region` itself
+            The whole ancestry of structures containing `region`, excluding `region` itself.
 
         Raises
         ------
