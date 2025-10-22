@@ -114,7 +114,7 @@ def minimum_treecover(tree: Tree, nids: Iterable) -> set:
 class AtlasOntology:
     def __init__(self,
                  atlas: str|bga.BrainGlobeAtlas,
-                 blacklisted: Iterable[str]=[],
+                 blacklisted: Iterable[str|int]=[],
                  unreferenced: bool=False):
         """
         Creates an ontology of the brain structures as defined by the corresponding
@@ -129,7 +129,7 @@ class AtlasOntology:
             The atlas or the corresponding codename, as defined by
             [BrainGlobe's API](https://brainglobe.info/documentation/brainglobe-atlasapi/index.html#atlases-available)
         blacklisted
-            The brain regions that should be excluded completely from the analysis.
+            The brain regions that should be excluded completely from the analysis, as defined by their acronyms or IDs.
             Any data manipulated, analysed and exported by the ontology, then, will not have
             any reference of the blacklisted regions and subregions.
         unreferenced
@@ -1613,7 +1613,9 @@ class AtlasOntology:
     def select_major_divisions(self):
         """
         Select all major divisions in the ontology.\\
-        This is short list of larger macro brain structures.
+        This is short list of larger macro brain structures.\\
+        This grants that the list of [selected][braian.AtlasOntology.selected] brain structures
+        will be non-overlapping and comprehensive of the whole-brain, excluding eventual blacklisted regions.
 
         The term "Major Divisions" comes from
         [Wang et al., 2020](https://doi.org/10.1016/j.cell.2020.04.007)
@@ -1642,7 +1644,9 @@ class AtlasOntology:
         """
         Select all summary structures in the ontology.\\
         This is a list of finer brain structures that usually reflects the
-        scientific community's interest when investigating brain circuits.
+        scientific community's interest when investigating brain circuits.\\
+        This grants that the list of [selected][braian.AtlasOntology.selected] brain structures
+        will be non-overlapping and comprehensive of the whole-brain, excluding eventual blacklisted regions.
 
         The term "Summary Structures" comes from the Allen Institute, when they defined
         a set of non-overlapping, finer divisions in
