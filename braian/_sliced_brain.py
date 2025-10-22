@@ -45,13 +45,12 @@ MODE_InvalidExcludedRegionsHemisphereError = "print"
 class EmptyBrainError(Exception):
     def __init__(self, context=None):
         context = f"'{context}': " if context is not None else ""
-        super().__init__(f"{context}Inconsistent hemisphere distinction across sections of the same brain!"+\
-                         +" Some report the data with split regions, while others do not.")
+        super().__init__(f"{context}No valid section data found.")
 class InconsistentRegionsSplitError(Exception):
     def __init__(self, context=None):
         context = f"'{context}': " if context is not None else ""
         super().__init__(f"{context}Inconsistent hemisphere distinction across sections of the same brain!"+\
-                         +" Some report the data with split regions, while others do not.")
+                         " Some report the data with split regions, while others do not.")
 
 class SlicedBrain:
     @staticmethod
@@ -464,12 +463,12 @@ def _handle_brainslice_error(exception, mode: Literal["delete","error","print","
             results_file.unlink()
             if not isinstance(exception, ExcludedRegionsNotFoundError):
                 regions_to_exclude_file.unlink()
-        case "error":
-            raise exception
         case "print":
             print(f"Animal '{name}' -", exception)
         case "silent":
             pass
+        case "error"|None:  # if None, just raise it again
+            raise exception
         case _:
             raise ValueError(f"Invalid mode='{mode}' parameter. Supported BrainSliceFileError handling modes: 'delete', 'error', 'print', 'silent'.")
 
@@ -478,22 +477,22 @@ def _get_default_error_mode(exception):
     mode_var = f"MODE_{e_name}"
     if mode_var in globals():
         return globals()[mode_var]
-    match type(exception):
-        case ExcludedAllRegionsError.__class__:
+    match exception:
+        case ExcludedAllRegionsError():
             return "print"
-        case ExcludedRegionsNotFoundError.__class__:
+        case ExcludedRegionsNotFoundError():
             return "print"
-        case EmptyResultsError.__class__:
+        case EmptyResultsError():
             return "print"
-        case NanResultsError.__class__:
+        case NanResultsError():
             return "print"
-        case InvalidResultsError.__class__:
+        case InvalidResultsError():
             return "print"
-        case MissingQuantificationError.__class__:
+        case MissingQuantificationError():
             return "print"
-        case InvalidRegionsHemisphereError.__class__:
+        case InvalidRegionsHemisphereError():
             return "print"
-        case InvalidExcludedRegionsHemisphereError.__class__:
+        case InvalidExcludedRegionsHemisphereError():
             return "print"
         case _:
             ValueError(f"Undercognized exception: {type(exception)}")
