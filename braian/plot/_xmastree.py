@@ -26,7 +26,7 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
               plot_scatter: bool=True,
               scatter_width: float=0.7, space_between_markers: float=0.02,
               groups_marker1_colours: Sequence=["SandyBrown", "LightCoral", "PaleVioletRed", "Plum"],
-              groups_marker2_colours: Sequence=["IndianRed", "Orange"],
+              groups_marker2_colours: Sequence=["IndianRed", "Orange", "Hotpink"],
               max_value: int=None,
               # show_nan: str="all",
               color_heatmap: str="deep_r", width: int=None, height: int=None) -> go.Figure:
@@ -191,7 +191,8 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         # MARKER1 - left side
         units = f"{str(groups[0].metric)} [{groups[0].units(marker1)}]"
         fig.add_traces(m1_bars, rows=1, cols=1)
-        fig.update_xaxes(title=f"{hemisphere[0].name} brain hemisphere<br>{units}", range=data_range[::-1], row=1, col=1) # NOTE: don't use autorange='(min) reversed', as it doesn't play nice with range
+        fig.update_xaxes(title=f"{hemisphere[0].name if isinstance(hemisphere, tuple) else hemisphere.name} brain hemisphere<br>{units}",
+                         range=data_range[::-1], row=1, col=1) # NOTE: don't use autorange='(min) reversed', as it doesn't play nice with range
         fig.add_traces(m1_heatmaps, rows=1, cols=2)
         [fig.add_vline(x=x, line_color="white", row=1, col=2) for x in m1_group_seps]
         fig.update_xaxes(tickangle=45,  row=1, col=2)
@@ -204,7 +205,8 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         [fig.add_vline(x=x, line_color="white", row=1, col=4) for x in m2_group_seps]
         fig.update_xaxes(tickangle=45,  row=1, col=4)
         fig.add_traces(m2_bars, rows=1, cols=5)
-        fig.update_xaxes(title=f"{hemisphere[1].name} brain hemisphere<br>{units}", range=data_range, row=1, col=5)
+        fig.update_xaxes(title=f"{hemisphere[1].name if isinstance(hemisphere, tuple) else hemisphere.name} brain hemisphere<br>{units}",
+                         range=data_range, row=1, col=5)
 
     if brain_ontology is not None:
         # add a fake trace to the empty subplot, otherwise add_annotation yref="y" makes no sense
