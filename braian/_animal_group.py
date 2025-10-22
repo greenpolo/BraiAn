@@ -929,7 +929,7 @@ class SlicedGroup:
     def region(self,
                region: str,
                *,
-               metric: str,
+               metric: str|Sequence[str],
                hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
                as_density: bool=False) -> pd.DataFrame:
         """
@@ -943,7 +943,7 @@ class SlicedGroup:
             A brain structure identified by its acronym.
         metric
             The metric to extract from the `SlicedGroup`.
-            It can either be `"area"` or any value in [`SlicedGroup.markers`][braian.SlicedGroup.markers].
+            It can be any value within the group's [`markers`][braian.SlicedGroup.markers] and `"area"`.
         hemisphere
             The hemisphere of the brain region to extract. If [`MERGED`][braian.BrainHemisphere]
             and the group [is split][braian.SlicedGroup.is_split], it may return both hemispheric values
@@ -971,10 +971,9 @@ class SlicedGroup:
         if len(region_marker) == 0:
             assert self.n > 0, "SlicedGroups should have at least one animal"
             region_marker = next(iter(region_marker_.values()))
-            return pd.DataFrame(
-                index=pd.MultiIndex.from_tuples([], names=("brain", *region_marker.index.names)),
-                columns=[metric])
-        region_marker = pd.concat(region_marker) # fails if region_marker is empty
+            return pd.DataFrame(index=pd.MultiIndex.from_tuples([], names=("brain", *region_marker.index.names)),
+                                columns=(metric,) if isinstance(metric,str) else metric)
+        region_marker = pd.concat(region_marker, axis=0)    # fails if region_marker is empty
         region_marker.index.names = ["brain", *region_marker.index.names[1:]]
         return region_marker
 

@@ -2,7 +2,7 @@ import copy
 import numpy as np
 import pandas as pd
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Self, Literal
 
@@ -341,7 +341,7 @@ class SlicedBrain:
     def region(self,
                region: str,
                *,
-               metric: str,
+               metric: str|Sequence[str],
                hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
                as_density: bool=False) -> pd.DataFrame:
         """
@@ -355,7 +355,7 @@ class SlicedBrain:
             A brain structure identified by its acronym.
         metric
             The metric to extract from the `SlicedBrain`.
-            It can either be `"area"` or any value in [`SlicedBrain.markers`][braian.SlicedBrain.markers].
+            It can be any value within the brain's [`markers`][braian.SlicedBrain.markers] and `"area"`.
         hemisphere
             The hemisphere of the brain region to extract. If [`MERGED`][braian.BrainHemisphere]
             and the brain [is split][braian.BrainSlice.is_split], it may return both hemispheric values
@@ -376,12 +376,19 @@ class SlicedBrain:
 
             If there is no data for `region`, it returns an empty `DataFrame`.
         """
-        vals = [(s.name, hem, val)
-                for s in self.slices
-                for val,hem in zip(*s.region(region=region, metric=metric, hemisphere=hemisphere, as_density=as_density, return_hemispheres=True))
-                if region in s.regions]
-        df = pd.DataFrame(vals, columns=("slice", "hemisphere", metric))
-        df.set_index(["slice", "hemisphere"], drop=True, append=False, inplace=True)
+        vals = {s.name: s.region(region=region, metric=metric,
+                         hemisphere=hemisphere, as_density=as_density,
+                         return_hemispheres=True)
+                for s in self.slices}
+        vals = {s: data for s,data in vals.items() if len(data) != 0}
+        if len(vals) == 0:
+            assert self.n > 0, "SlicedBrain should have at least one slice"
+            return pd.DataFrame(index=pd.MultiIndex.from_tuples([], name=("slice", "hemisphere")),
+                                columns=(metric,) if isinstance(metric,str) else metric)
+        df: pd.DataFrame = pd.concat(vals, axis=0)  # fails if region_marker is empty
+        df.index = df.index.droplevel(1) # old numeric index
+        df.index.name = "slice"
+        df.set_index("hemisphere", drop=True, append=True, inplace=True) # indices are ["slice", "hemisphere"]
         return df
 
     def reduce(self,

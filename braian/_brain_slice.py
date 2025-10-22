@@ -1,5 +1,4 @@
 import itertools
-import numpy as np
 import pandas as pd
 import re
 
@@ -678,11 +677,11 @@ class BrainSlice:
     def region(self,
                region: str,
                *,
-               metric: str,
+               metric: str|Sequence[str],
                hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
                as_density: bool=False,
-               return_hemispheres: bool=False,
-               ) -> Sequence[int|float]|tuple[Sequence[int|float],Sequence[BrainHemisphere]]:
+               return_hemispheres: bool=False
+               ) -> int|float|pd.DataFrame:
         """
         Extract the values of a brain region from a `BrainSlice`.
 
@@ -692,7 +691,7 @@ class BrainSlice:
             A brain structure identified by its acronym.
         metric
             The metric to extract from the `BrainSlice`.
-            It can either be `"area"` or any value in [`BrainSlice.markers`][braian.BrainSlice.markers].
+            It can be any value within the slice's [`markers`][braian.BrainSlice.markers] and `"area"`.
         hemisphere
             The hemisphere of the brain region to extract. If [`MERGED`][braian.BrainHemisphere]
             and the brain [is split][braian.BrainSlice.is_split], it may return both hemispheric values
@@ -702,16 +701,17 @@ class BrainSlice:
 
         Returns
         -------
-        : Sequence[int|float]
-            If the `BrainSlice` is not split between right and left hemisphers, it returns a sequence of length 1.\\
-            Else, it returns a sequence of length 2.
+        : pd.DataFrame
+            A `DataFrame` with `metric` as column(s). If `return_hemispheres=True` or if the slice is
+            [split][braian.BrainSlice.is_split] between right and left hemispheres, there is also
+            a `"hemisphere"` column.
 
-            If there is no data for `region`, it returns an empty sequence.
+            If there is no data for `region`, it always returns an empty `DataFrame`.
 
-        : Sequence[BrainHemisphere]
-            _optional_
-
-            The corresponding [hemispheres's values][braian.BrainHemisphere]. Only provided if return_hemispheres is True.
+        : int|float
+            A single value is returned if a single `metric` is given, and data can only be extracted for one hemisphere
+            (either because the slice is not [split][braian.BrainSlice.is_split] between right and left hemispheres,
+            or because only one of the two `hemisphere`s is specified).
 
         Raises
         ------
@@ -720,17 +720,23 @@ class BrainSlice:
         ValueError
             If `marker="area"` and `as_density=True`.
         """
-        if metric != "area" and metric not in self.markers:
-            raise ValueError(f"Invalid metric: '{metric}'. Valid metrics are: {['area', *self.markers]}")
-        if metric == "area" and as_density:
-            raise ValueError("Cannot request to retrieve values as densities when metric='area'. Choose a metric within the available markers.")
+        if isinstance(metric, str):
+            metrics = (metric,)
+        else: # it's a Sequence[str]
+            metrics = metric
+        for metric in metrics:
+            if metric != "area" and metric not in self.markers:
+                raise ValueError(f"Invalid metric: '{metric}'. Valid metrics are: {['area', *self.markers]}")
+            if metric == "area" and as_density:
+                raise ValueError("Cannot request to retrieve values as densities for metric='area'")
         if self.is_split and hemisphere is BrainHemisphere.MERGED:
             hems = (BrainHemisphere.RIGHT.value, BrainHemisphere.LEFT.value)
         else:
             hems = (hemisphere.value,)
         df = self.markers_density if as_density else self._data
         filtered = df[(df["acronym"] == region) & (df["hemisphere"].isin(hems))]
-        if return_hemispheres:
-            return np.array(filtered[metric].values), np.array(filtered["hemisphere"].values)
+        columns = ["hemisphere", *metrics] if self.is_split or return_hemispheres else metrics
+        if not return_hemispheres and len(filtered) > 0 and len(metrics) == 1 and len(hems) == 1:
+            return filtered[metric].values[0]
         else:
-            return np.array(filtered[metric].values)
+            return filtered.reset_index(drop=True)[columns]
