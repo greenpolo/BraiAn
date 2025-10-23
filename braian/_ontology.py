@@ -1369,8 +1369,13 @@ class AtlasOntology:
         # NOTE: it selects also unreferenced and blacklisted regions
         if not add:
             self.unselect_all()
+        empty_selection = True # use flag so that `regions` can be a generator, or any other iterator
         for n in regions:
             n.selected = True
+            empty_selection = False
+        if not add and empty_selection:
+            # allow empty 'regions', if 'add=True'
+            raise ValueError(f"Invalid selection: {regions}")
         self._selected = True
 
     @deprecated(since="1.1.0", alternatives=["braian.AtlasOntology.select"])
@@ -1419,6 +1424,8 @@ class AtlasOntology:
         ------
         KeyError
             If it can't find at least one of the `regions` in the ontology.
+        ValueError
+            If `regions` is empty.
         ValueError
             If there is at least one brain structure that appears twice in `regions`.
 
@@ -1742,7 +1749,10 @@ class AtlasOntology:
             selection = self._to_nodes(selection, unreferenced=True, duplicated=True)
             self._select(selection, add=False)
         selected = self.selected(blacklisted=blacklisted, unreferenced=unreferenced, key=key)
-        self.select(old_selection)
+        if len(old_selection) > 0:
+            self.select(old_selection)
+        else:
+            self.unselect_all()
         return selected
 
     def partition(self,

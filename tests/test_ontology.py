@@ -598,6 +598,14 @@ def test_partitioned_raises(allen_ontology_complete_unreferenced_hpf: AtlasOntol
         allen_ontology_complete_unreferenced_hpf.partitioned(
             ["RE", "CA1", "CA", "HPF", "CTXpl", "root"], partition="major divisions")
 
+def test_partition(allen_ontology_complete: AtlasOntology):
+    o = allen_ontology_complete
+    assert not o.has_selection()
+    assert o.partition("depth 0") == ["root"]
+    assert not o.has_selection()
+    assert len(o.partition("summary structures")) == 314 # they aren't 316 (as claimed by Wang et al. 2021) because Table S2 contains MDRN and both MDRNd and MDRNv
+    assert not o.has_selection()
+
 @pytest.mark.parametrize("unreferenced, blacklisted", [
     (False, True),
     (False, False)
