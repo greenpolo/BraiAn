@@ -868,7 +868,7 @@ class SlicedGroup:
         return str(self)
 
     def __str__(self) -> str:
-        return f"SlicedGroup('{self._name}', brains={self.n}, split={self.is_split})"
+        return f"SlicedGroup('{self._name}', brains={self.n}, is_split={self.is_split})"
 
     def __iter__(self) -> Iterable[AnimalBrain]:
         return iter(self._animals)

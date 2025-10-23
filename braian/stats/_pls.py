@@ -221,7 +221,8 @@ class PLS:
         Y_np = self.Y.to_numpy()
         count = 0
         for i in range(n):
-            random_index = np.arange(self.X.shape[0])
+            num_animals = self.X.shape[0]
+            random_index = np.arange(num_animals)
             np.random.shuffle(random_index)
 
             #X_perm = X_np[random_index,:]
@@ -235,7 +236,7 @@ class PLS:
 
         self._s_sampling_distribution = singular_values[:count,:]
 
-    def bootstrap_salience_scores(self, n: int, seed: Number=None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def bootstrap_salience_scores(self, n: int, seed: Number=None):
         r"""
         Identifies the regions $r$ and groups $g$ that are _stable_ by assigning them a score akin to Z-score.
         $$
@@ -282,9 +283,7 @@ class PLS:
         self._v_salience_scores = pd.DataFrame(v_salience, index=self.X.columns)
         self._u_salience_scores = pd.DataFrame(u_salience, index=self.Y.columns)
 
-        return self._u_salience_scores, self._v_salience_scores
-
-    def test_null_hypothesis(self) -> float:
+    def test_null_hypothesis(self) -> list[float]:
         """
         Tests the null hypothesis on the [sampling distribution of the singular values][braian.stats.PLS.s_sampling_distribution].
 
