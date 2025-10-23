@@ -187,6 +187,12 @@ class AtlasOntology:
         """The codename of the atlas according to BrainGlobe"""
         return self._atlas.atlas_name
 
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return f"AtlasOntology(name={repr(self.name)})"
+
     def is_compatible(self, atlas_name: str) -> bool:
         """
         Checks whether the ontology is compatible with another atlas, given its codename.
