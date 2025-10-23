@@ -104,7 +104,10 @@ def first_subtrees(tree: Tree, func: Callable[[Node],bool]) -> Iterable[Node]:
             queue = expansion + queue  # depth-first
 
 def minimum_treecover(tree: Tree, nids: Iterable) -> set:
-    nids = set(nids)
+    if not isinstance(nids, set):
+        nids = set(nids)
+    if tree.root in nids:
+        return nids
     nids_ = {tree.parent(nid).identifier if all(child.identifier in nids for child in tree.children(tree.parent(nid).identifier)) else nid
             for nid in nids}
     if nids_ == nids:
@@ -498,7 +501,7 @@ class AtlasOntology:
         if len(regions) == 0:
             return []
         match mode:
-            case "breadth":
+            case "width" | "breadth":
                 mode = Tree.WIDTH
             case "depth":
                 mode = Tree.DEPTH
@@ -1105,7 +1108,7 @@ class AtlasOntology:
         match mode:
             case "depth":
                 mode = Tree.DEPTH
-            case "breadth":
+            case "width" | "breadth":
                 mode = Tree.WIDTH
             case _:
                 raise ValueError(f"Unsupported mode '{mode}'. Available modes are 'breadth' and 'depth'.")
