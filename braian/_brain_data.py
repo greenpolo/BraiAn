@@ -263,7 +263,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
                 alternatives=dict(brain_ontology="atlas"))
     def __init__(self, data: pd.Series,
                  *,
-                 name: str, metric: str, units: str, hemisphere: BrainHemisphere,
+                 name: str, metric: str, units: str, hemisphere: BrainHemisphere|str,
                  ontology: AtlasOntology|str, check: bool=True,
                  brain_ontology: AtlasOntology|None=None, fill_nan=False) -> None:
         """
@@ -309,7 +309,7 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
             ontology = brain_ontology
         self.data: pd.Series = data.copy().convert_dtypes()
         """The internal representation of the current brain data."""
-        self.hemisphere = hemisphere
+        self.hemisphere = BrainHemisphere(hemisphere)
         """The brain hemisphere to which the `data` is referring to."""
         self.name: str = str(name) # data_name
         self.metric: str = str(metric)
