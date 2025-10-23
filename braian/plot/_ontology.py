@@ -54,12 +54,13 @@ def hierarchy(brain_ontology: AtlasOntology,
     )
     if bdata is not None:
         selected_regions = set(bdata.regions) - set(bdata.missing_regions())
+        data = bdata.data.astype(float) # if bdata had pd.NA (missing data), plotly would fail
         for v in g.vs:
             acronym = v["name"]
             v["cluster"] = 2 if acronym in selected_regions else 1
-            v[f"{bdata.units} - {bdata.metric}"] = bdata[acronym] if acronym in bdata else np.nan
+            v[f"{bdata.units} - {bdata.metric}"] = data[acronym] if acronym in data else np.nan
         # nodes_params |= dict(outline_mode="cluster", outline_size=0.5)
-        nodes_params |= dict(fill_mode="cluster")
+        nodes_params |= dict(fill_mode="cluster", cluster_colors=["#EF553B", "#00CC96"]) # not in bdata, in bdata
     nodes_trace = draw_nodes(g, **nodes_params)
     nodes_trace.marker.line = dict(color="black", width=0.25)
     traces = [edges_trace, nodes_trace]
@@ -131,7 +132,8 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: AtlasOntology,
                fill_mode: Literal["region","centrality", "cluster"]="region",
                outline_size: float=0.5, outline_mode: Literal["region","centrality", "cluster"]="region",
                centrality_metric: str=None,
-               metrics: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={"degree": ig.VertexSeq.degree}
+               metrics: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={"degree": ig.VertexSeq.degree},
+               cluster_colors: list[str]=plc.qualitative.Plotly
                ) -> go.Scatter:
     """
     Draws a plotly Scatter plot of the given graph `G`, based on the given layout.
@@ -179,8 +181,8 @@ def draw_nodes(G: ig.Graph, layout: ig.Layout, brain_ontology: AtlasOntology,
         but `G` vertices have no attributes named as defined by `centrality_metric`.
     """
     region_colors = brain_ontology.colors()
-    vertex_fill =       _region_color(fill_mode, G, region_colors, centrality_metric)
-    vertex_outline = _region_color(outline_mode, G, region_colors, centrality_metric)
+    vertex_fill =       _region_color(fill_mode, G, region_colors, centrality_metric, cluster_colors=cluster_colors)
+    vertex_outline = _region_color(outline_mode, G, region_colors, centrality_metric, cluster_colors=cluster_colors)
     nodes_color = []
     outlines_color = []
 
@@ -231,7 +233,8 @@ def draw_selection(g: ig.Graph, layout: ig.Layout, width: float):
 def _region_color(mode: Literal["region","centrality", "cluster"],
                   G: ig.Graph,
                   region_colors: list[str],
-                  centrality_metric: str) -> Callable[[ig.Vertex],str]:
+                  centrality_metric: str,
+                  cluster_colors: list[str]=plc.qualitative.Plotly) -> Callable[[ig.Vertex],str]:
     match mode:
         case "region":
             return lambda v: region_colors[v["name"]]  # noqa: E731
@@ -247,7 +250,7 @@ def _region_color(mode: Literal["region","centrality", "cluster"],
             if "cluster" not in G.vs.attributes():
                 raise ValueError("No clustering was made on the provided connectome")
             cc = pd.Categorical(G.vs["cluster"])
-            return lambda v: plc.qualitative.Plotly[cc.codes[v.index] % len(plc.qualitative.Plotly)]  # noqa: E731
+            return lambda v: cluster_colors[cc.codes[v.index] % len(cluster_colors)]  # noqa: E731
 
 def _nodes_hover_info(brain_ontology: AtlasOntology, G: ig.Graph,
                      title_dict: dict[str,Callable[[ig.VertexSeq],Iterable[float]]]={}
