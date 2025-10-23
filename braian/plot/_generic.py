@@ -329,7 +329,7 @@ def slice_density(brains: SlicedExperiment|SlicedGroup|Sequence[SlicedBrain],
                   region=region, hemisphere=BrainHemisphere.MERGED,
                   marker=None, as_density=True)
 
-def slices(brains: SlicedExperiment|SlicedGroup,
+def slices(groups: SlicedExperiment|SlicedGroup,
            *,
            region: str,
            hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
@@ -340,73 +340,83 @@ def slices(brains: SlicedExperiment|SlicedGroup,
 
     Parameters
     ----------
-    brains
-        The brains from where to get the data.
+    groups
+        The sliced group (or experiment) from where to get the sliced data.
     region
         The brain structure to plot.
     hemisphere
         The hemisphere of the brain region. If [`MERGED`][braian.BrainHemisphere]
         and [`BrainSlice.is_split`][braian.BrainSlice.is_split], it can may both values
         of the region found in the two brain hemispheres. Otherwise, it returns zero or one value.
+    marker
+        The marker(s) to plot for each data in `brains`. If not specified, it plots every marker used in the groups.
+    as_density
+        If True, instead of plotting the raw data coming from each slice, it uses their density (i.e. \\<marker_quantification\\>/\\<area\\>)
 
     Returns
     -------
     :
         A Plotly figure.
     """
-    if isinstance(brains, SlicedExperiment):
-        groups: list[SlicedGroup] = brains.groups
+    if isinstance(groups, SlicedExperiment):
+        groups: list[SlicedGroup] = groups.groups
     if marker is None:
-        markers = groups[0].markers
-    if isinstance(marker, str):
-        markers = (marker,)
+        markers = list(groups[0].markers)
+    elif isinstance(marker, str):
+        markers = [marker]
+    else: # it's a Sequence[str]
+        markers = list(marker)
     units = "marker/mm²" if as_density else "#marker"
 
     fig = go.Figure()
-    tickstext = []
     for group_i,group in enumerate(groups):
-        for marker_i,marker in enumerate(markers):
-            slices = group.region(region, hemisphere=hemisphere,
-                                  metric=marker, as_density=as_density)\
-                          .reset_index()
-            grouped = slices.groupby(["brain"])[marker]
-            means = grouped.mean()
-            fig.add_trace(
-                go.Bar(
-                    x=means.index,
-                    y=means.values,
-                    marker_color=plc.qualitative.Plotly[group_i],
-                    name=group.name,
-                    showlegend=marker_i==0,
-                    legendgroup=group.name,
-                    offsetgroup=marker
-                )
-            )
-            fig.add_scatter(
-                x=slices["brain"],
-                y=slices[marker],
-                text=slices["slice"],
-                opacity=0.7,
-                mode="markers",
-                marker=dict(
-                    size=7,
-                    color=plc.qualitative.Plotly[group_i],
-                    line=dict(
-                        color="rgb(0,0,0)",
-                        width=1
-                    )
-                ),
-                showlegend=False,
+        slices = group.region(region, hemisphere=hemisphere,
+                            metric=markers, as_density=as_density)\
+                    .reset_index()\
+                    .drop("hemisphere", axis=1)
+        grouped = slices.groupby(["brain"])[markers]
+        slice_counts = grouped.count().iloc[:,0]
+        add_count = lambda b: b+" (n="+str(slice_counts[b])+")"  # noqa: E731
+        slices.brain = slices.brain.map(add_count)
+        means = grouped.mean()
+        means.index = means.index.map(add_count)
+        means_brains, means_marker, means_values = zip(*[(s.Index, marker, value)
+                                                         for s in means.itertuples(index=True) # itertuples doens't keep the name if 'column' contains a '+' (i.e. in double positives)
+                                                         for marker, value in zip(markers, s[-len(markers):])])
+        slice_brains, slice_names, slice_marker, slice_values = zip(*[(s.brain, s.slice, marker, value)
+                                                         for s in slices.itertuples(index=False)
+                                                         for marker, value in zip(markers, s[-len(markers):])])
+        fig.add_trace(
+            go.Bar(
+                x=[means_marker, means_brains],
+                y=means_values,
+                marker_color=plc.qualitative.Plotly[group_i],
+                name=group.name,
                 legendgroup=group.name,
-                offsetgroup=marker,
+                # offsetgroup=marker
             )
-        counts = grouped.count()
-        tickstext.extend(counts.index+" (n="+counts.values.astype(str)+")")
-    tickvals = list(range(len(tickstext)))
+        )
+        fig.add_scatter(
+            x=[slice_marker, slice_brains],
+            y=slice_values,
+            text=slice_names,
+            opacity=0.7,
+            mode="markers",
+            marker=dict(
+                size=7,
+                color=plc.qualitative.Plotly[group_i],
+                line=dict(
+                    color="rgb(0,0,0)",
+                    width=1
+                )
+            ),
+            showlegend=False,
+            legendgroup=group.name,
+            # offsetgroup=marker,
+        )
     fig.update_layout(
-        scattermode="group",
+        # scattermode="group",
         title=("density" if as_density else "marker")+f" in '{region}'",
-        xaxis=dict(tickmode="array", tickvals=tickvals, ticktext=tickstext),
         yaxis=dict(title=units),
         template="none",
         margin=dict(l=40, r=0, t=60, b=120),
