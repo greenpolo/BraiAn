@@ -256,7 +256,7 @@ class AnimalBrain:
         """
         if isinstance(key,str):
             if self.is_split:
-                raise ValueError("Cannot get a single marker data for all brain regions because the brain is split between left and right hemispheres."+\
+                raise ValueError("Cannot get a single marker data for all brain regions because the brain is split between left and right hemispheres. "+\
                                  "You should also specify a braian.BrainHemisphere.")
             return self._markers_data[key][0] # there is no hemisphere distinction
         elif isinstance(key,tuple) and len(key) == 2 and isinstance(key[0],str):
@@ -266,12 +266,14 @@ class AnimalBrain:
                 ValueError(f"The brain has no hemisphere distinction. You cannot select data for '{hemi.name}' hemisphere.")
             try:
                 return next(d for d in self._markers_data[marker] if d.hemisphere is hemi)
-            except StopIteration | KeyError:
-                pass
-            msg = f"Cannot find '{marker}' data"
-            if self.is_split:
-                msg += f" for {hemi.name} hemisphere"
-            raise KeyError(msg+".")
+            except StopIteration:
+                key = hemi
+            except KeyError:
+                key = marker
+            # msg = f"Cannot find '{marker}' data"
+            # if self.is_split:
+            #     msg += f" for {hemi.name} hemisphere"
+            raise KeyError(key)
         raise TypeError(f"Unknown marker data selection: '{key}'")
 
     def remove_region(self, region: str, *regions, fill_nan: bool=True,
