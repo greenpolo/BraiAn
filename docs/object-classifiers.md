@@ -56,7 +56,7 @@ As a matter of fact, QuPath's object classifiers don't work by reading pixels of
 
 In order to create a classifier, we suggest you to resort to an ad-hoc QuPath project. This project should be representative of the whole dataset to which you want to apply the classifier, with detections computed with the very same parameters.
 
-The [`classifier_sample_images.groovy` script](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/classifier_sample_images.groovy), accessible also through `Extensions ‣ BraiAn ‣ scripts`, comes in handy for this task. It randomly samples a set number of images from each project and copies all its data into the currently opened QuPath project; pre-computed detection included.
+The [`classifier_sample_images.groovy` script](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/src/main/resources/scripts/classifier_sample_images.groovy), accessible also through `Extensions ‣ BraiAn ‣ scripts`, comes in handy for this task. It randomly samples a set number of images from each project and copies all its data into the currently opened QuPath project; pre-computed detection included.
 
 ### Labelling
 

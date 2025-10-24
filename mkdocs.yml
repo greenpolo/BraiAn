@@ -54,6 +54,7 @@ theme:
 
 plugins:
 - search
+- macros
 - open-in-new-tab # does not work with readthedocs
 - include-markdown:
     opening_tag: "{%"
@@ -159,6 +160,12 @@ markdown_extensions:
       hardbreak: true
   - pymdownx.arithmatex:
       generic: true
+
+extra: # variables for macros
+  braian_qupath:
+    latest: 1.1.0
+  braian_python:
+    latest: 1.0.5
 
 extra_javascript:
   # favicon

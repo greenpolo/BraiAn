@@ -20,7 +20,7 @@ The extensions exposes a proper library [API](https://carlocastoldi.github.io/qu
 - export to file the quantification results (number of detections/double+ found in each brain region)
 - export to file a list of regions flagged to be excluded
 
-Where to start from, though? Reading [this script](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy) and the associated [config file](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/BraiAn.yml) is a good start!
+Where to start from, though? Reading [this script](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy) and the associated [config file](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/BraiAn.yml) is a good start!
 
 ## Installation
 
@@ -51,11 +51,11 @@ This extension does not currently expose any user-friendly interface, but it mos
 
 Once you installed the extension, you can load prebaked scripts by clicking on the top menu: `Extensions ‣ BraiAn ‣ scripts`.
 
-The very same ones can also be checked out from the [official repository](https://github.com/carlocastoldi/qupath-extension-braian/tree/master/src/main/resources/scripts):
+The very same ones can also be checked out from the [official repository](https://github.com/carlocastoldi/qupath-extension-braian/tree/v{{braian_qupath.latest}}/src/main/resources/scripts):
 
-* [compute_classify_overlap_export_exclude_detections.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy): this script reads the YAML configuration file and applies all of its parameters. <!-- SAY MORE HERE! -->
-* [find_threshold.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/find_threshold.groovy): suggests a threshold to apply with WatershedCellDetection algorithm by choosing a local maximum from the image's histogram.
-* [run_script_for_multiple_projects.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/run_script_for_multiple_projects.groovy): helps running a script for multiple project at once. It is compatible with the [LightScriptRunner](light-script-runner.md).
+* [compute_classify_overlap_export_exclude_detections.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy): this script reads the YAML configuration file and applies all of its parameters. <!-- SAY MORE HERE! -->
+* [find_threshold.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/src/main/resources/scripts/find_threshold.groovy): suggests a threshold to apply with WatershedCellDetection algorithm by choosing a local maximum from the image's histogram.
+* [run_script_for_multiple_projects.groovy](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/src/main/resources/scripts/run_script_for_multiple_projects.groovy): helps running a script for multiple project at once. It is compatible with the [LightScriptRunner](light-script-runner.md).
 
 
 However, before running any script using this extension, we need to describe how BraiAn works and its assumptions.
@@ -87,7 +87,7 @@ For it to be read by BraiAn, copy it in the same location where the YAML configu
 
 BraiAn for QuPath can use a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file. This configuration file contains all the customizable image analysis parameters in one place and thus allows to apply the exact same signal quantification settings across all projects (i.e. animals) and runs. In addition, this is the place image analysis details are stored and is great to keep track of how the analysis was done even after a long time.  The file has to be positioned either in a QuPath project folder or in its parent directory (e.g. `QuPath_projects/`), depending on whether the analysis is meant for a specific project or multiple ones.
 
-For a detailed explanation on how to format such file and understanding what each parameter does, we suggest to look at [this example YAML file](https://raw.githubusercontent.com/carlocastoldi/qupath-extension-braian/master/BraiAn.yml).
+For a detailed explanation on how to format such file and understanding what each parameter does, we suggest check out the [template file](https://raw.githubusercontent.com/carlocastoldi/qupath-extension-braian/refs/tags/v{{braian_qupath.latest}}/BraiAn.yml) of the config file expected by BraiAnDetect.
 
 ### Detection containers
 

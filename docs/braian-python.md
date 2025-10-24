@@ -28,9 +28,13 @@ Overall, BraiAn aims at exposing non-trivial operations with an intuitive interf
 
 ### Configuration file
 
-Just like [BraiAn for QuPath](braian-qupath.md#configuration-file), `braian` can use a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file to store metadata about an experiment along with some additional parameters. Such file can be read in `braian` and used to apply a consistent analysis parameters across all animals and runs.
+!!! tip "Template for Configuration file"
+    You don't know where to start from?</br>
+    Take a look at [the template](https://codeberg.org/SilvaLab/BraiAn/raw/tag/{{git.short_tag}}/config_example.yml), change it according to your data and follow [the tutorial](read_qupath_data.ipynb).
 
-For a detailed explanation on how to format such file and understanding what each parameter does, we suggest to look at [this example YAML file](https://codeberg.org/SilvaLab/BraiAn/raw/branch/master/config_example.yml) and [`BraiAnConfig` API][braian.config.BraiAnConfig].
+Just like [BraiAn for QuPath](braian-qupath.md#configuration-file), `braian` can use a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file to store metadata about an experiment along with some additional parameters. Such file can be read in `braian` and used to reproduce the same analysis with consistent parameters across runs and data.
+
+For a detailed explanation on how to format such file and understanding what each parameter does, we suggest to look at [this example YAML file](https://codeberg.org/SilvaLab/BraiAn/raw/tag/{{ git.short_tag}}/config_example.yml) and [`BraiAnConfig` API][braian.config.BraiAnConfig].
 
 ### Prebaked analysis
 

@@ -8,7 +8,7 @@ With this tutorial we will guide you into:
 * exclude brain regions
 * export results to CSV file
 
-All code in this page pretty much traces [this script](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy), available in `Extensions ‣ BraiAn ‣ scripts` in QuPath.
+All code in this page pretty much traces [this script](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/src/main/resources/scripts/compute_classify_overlap_export_exclude_detections.groovy), available in `Extensions ‣ BraiAn ‣ scripts` in QuPath.
 
 ## Before we start
 
@@ -24,9 +24,14 @@ import static qupath.lib.scripting.QP.*
 ## Configuration file
 BraiAnDetect can read a [YAML](https://en.wikipedia.org/wiki/YAML) configuration file to specify basic information about a project and its data.
 
-Here we use the [example](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/BraiAn.yml) configuration file that is in the extension's Git repository, and here commented.
+!!! tip "Template for Configuration file"
+    You don't know where to start from?</br>
+    Take a look at [the template](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/BraiAn.yml), change it according to your data and continue reading this tutorial.
+    You are on the right path!
 
-First we read a file named `BraiAn.yml`. It searches it in the QuPath projects's folder or, if not found, in the parent folder which supposedly contains all the projects of the same experiment.
+Here we use the [example](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/BraiAn.yml) configuration file that is in the extension's Git repository, and here commented.
+
+First we read a file named `BraiAn.yml`. It searches it in the QuPath projects's folder or, if not found, in the parent folder which, supposedly, contains all the projects of the same experiment.
 
 ```groovy
 var config = ProjectsConfig.read("BraiAn.yml")
@@ -81,7 +86,7 @@ As of now, segmentation is managed through [QuPath algorithm](https://qupath.rea
       makeMeasurements: true</code></pre>
 </div>
 
-For an in-depth description of what each parameter do, we suggest you to look at the [example](https://github.com/carlocastoldi/qupath-extension-braian/blob/master/BraiAn.yml) configuration file.
+For an in-depth description of what each parameter do, we suggest you to look at the [example](https://github.com/carlocastoldi/qupath-extension-braian/blob/v{{braian_qupath.latest}}/BraiAn.yml) configuration file.
 
 For each image channel, we can compute the detections within the ROIs accordingly to `detectionsConf.parameters`:
 
