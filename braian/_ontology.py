@@ -487,7 +487,7 @@ class AtlasOntology:
 
     def _sort(self,
               regions: Container[RegionNode|int],
-              mode: Literal["breadth", "depth"]|None="depth") -> list[RegionNode|int]:
+              mode: Literal["breadth", "depth"]="depth") -> list[RegionNode|int]:
         """
         Parameters
         ----------
@@ -1225,7 +1225,7 @@ class AtlasOntology:
         return self.to_acronym(ids, mode=mode)
 
     def to_acronym(self, regions: Iterable[int]|int,
-                   *, mode: Literal["breadth", "depth"]|None="depth") -> list[str]|str:
+                   *, mode: Literal["breadth", "depth"]|None=None) -> list[str]|str:
         """
         Converts the given brain regions into their corresponding acronyms.
 
@@ -1289,7 +1289,7 @@ class AtlasOntology:
         return self.to_id(acronyms, mode=mode)
 
     def to_id(self, regions: Iterable[str],
-              *, mode: Literal["breadth", "depth"]|None="depth") -> list[int]|int:
+              *, mode: Literal["breadth", "depth"]|None=None) -> list[int]|int:
         """
         Converts the given brain regions into their corresponding IDs.
 
