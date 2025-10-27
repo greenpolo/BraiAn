@@ -735,7 +735,7 @@ class BrainSlice:
             hems = (hemisphere.value,)
         df = self.markers_density if as_density else self._data
         filtered = df[(df["acronym"] == region) & (df["hemisphere"].isin(hems))]
-        columns = ["hemisphere", *metrics] if self.is_split or return_hemispheres else metrics
+        columns = ["hemisphere", *metrics] if self.is_split or return_hemispheres else list(metrics)
         if not return_hemispheres and len(filtered) > 0 and len(metrics) == 1 and len(hems) == 1:
             return filtered[metric].values[0]
         else:
