@@ -35,7 +35,7 @@ def permutation(pls: bas.PLS, component: int=1) -> go.Figure:
     experiment = pls._s[component-1]
     permutation = pls.s_sampling_distribution
     fig = go.Figure(data=[
-            go.Histogram(x=permutation[:,component-1], nbinsx=10, name=f"Sampling distribution<br>under H0 ({n} permutations)")
+            go.Histogram(x=permutation[:,component-1], nbinsx=10, name=f"Sampling distribution under H0<br>({n} permutations)")
         ])
     fig.add_vline(x=experiment, line_width=2, line_color="red", annotation_text="Experiment")
     fig.update_layout(
@@ -47,11 +47,16 @@ def permutation(pls: bas.PLS, component: int=1) -> go.Figure:
             ),
             width=800, height=500, showlegend=True,
             legend=dict(
-                yanchor="top",
-                y=0.98,
-                xanchor="left",
-                x=0.63
+                orientation="h",
+                yanchor="bottom", y=1,
+                xanchor="left", x=0
             )
+            # legend=dict(
+            #     yanchor="top",
+            #     y=0.98,
+            #     xanchor="left",
+            #     x=0.63
+            # )
         )
     return fig
 
