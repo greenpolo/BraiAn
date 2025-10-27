@@ -49,13 +49,13 @@ def test_reduce_raises(string1: str, string2: str,
                        should_raise: bool, request):
     data1: pd.Series = request.getfixturevalue("data1")
     if string1 != string2:
-        bd1 = BrainData(data1, name="bd1", metric=string1, units=string1, hemisphere=BrainHemisphere(string1), ontology="atlas", check=False)
-        bd2 = BrainData(data1, name="bd1", metric=string2, units=string2, hemisphere=BrainHemisphere(string2), ontology="atlas", check=False)
+        bd1 = BrainData(data1, name="bd1", metric="metric1", units=string1, hemisphere=BrainHemisphere(string1), ontology="atlas", check=False)
+        bd2 = BrainData(data1, name="bd1", metric="metric2", units=string2, hemisphere=BrainHemisphere(string2), ontology="atlas", check=False)
         with pytest.raises(ValueError):
             BrainData.reduce(bd1, bd2, op=pd.DataFrame.mean, same_units=False, same_hemisphere=False)
     # same metric
-    bd3 = BrainData(data1, name="bd1", metric=string1, units=string1, hemisphere=BrainHemisphere(string1), ontology="atlas", check=False)
-    bd4 = BrainData(data1, name="bd1", metric=string1, units=string2, hemisphere=BrainHemisphere(string2), ontology="atlas", check=False)
+    bd3 = BrainData(data1, name="bd1", metric="metric", units=string1, hemisphere=BrainHemisphere(string1), ontology="atlas", check=False)
+    bd4 = BrainData(data1, name="bd1", metric="metric", units=string2, hemisphere=BrainHemisphere(string2), ontology="atlas", check=False)
     if should_raise:
         with pytest.raises(ValueError):
             BrainData.reduce(bd3, bd4, op=pd.DataFrame.mean, same_units=same_units, same_hemisphere=same_hemisphere)
