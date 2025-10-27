@@ -601,7 +601,8 @@ class AtlasOntology:
             raise ValueError(f"Can't fill any missing data in '{type(regions)}' type")
         else:
             regions_ = regions
-        key = "id" if isinstance(regions_[0], int) else "acronym"
+        if key is None:
+            key = "id" if isinstance(regions_[0], int) else "acronym"
         if fill:
             # before overwriting, check that the all `regions` exist in the ontology
             _ = self._to_ids(regions_, unreferenced=unreferenced, duplicated=True, check_all=False)
