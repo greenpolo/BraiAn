@@ -163,6 +163,7 @@ def from_csv(filepath: Path,
              t: Literal["experiment","group","brain","e","g","b"]="experiment",
              *,
              ontology: AtlasOntology,
+             name: str=None,
              sep: str=",",
              remove_unknown: bool=False) -> Experiment|AnimalGroup|AnimalBrain:
     """
@@ -176,6 +177,8 @@ def from_csv(filepath: Path,
         the type of brain data that is encoded in `filepath`.
     ontology
         The ontology of the atlas used to align the brain data in `filepath`.
+    name
+        Name of the brain data in `filepath`.
     sep
         Character or regex pattern to treat as the delimiter.
     remove_unknown
@@ -209,6 +212,6 @@ def from_csv(filepath: Path,
         case _:
             raise ValueError(t)
     try:
-        return clazz.from_csv(filepath, ontology=ontology, sep=sep, remove_unknown=remove_unknown)
+        return clazz.from_csv(filepath, name=name, ontology=ontology, sep=sep, remove_unknown=remove_unknown)
     except Exception:
         raise ValueError(f"Could not be read as a '{clazz.__name__}': {filepath}")

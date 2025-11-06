@@ -178,7 +178,7 @@ class BraiAnConfig:
                       for name_ in group2brains.keys()]
             
             return Experiment(name, *groups)
-        return from_csv(self.output_dir/f"{name}_{metric}.csv", t, ontology=self._ontology, sep=sep, remove_unknown=remove_unknown)
+        return from_csv(self.output_dir/f"{name}_{metric}.csv", t, ontology=self._ontology, name=name, sep=sep, remove_unknown=remove_unknown)
 
     @deprecated(since="1.1.0", alternatives=["braian.config.BraiAnConfig.from_qupath"])
     def experiment_from_qupath(self, sliced: bool=False, validate: bool=True) -> Experiment|SlicedExperiment:

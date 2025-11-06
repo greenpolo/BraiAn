@@ -747,9 +747,9 @@ class AnimalBrain:
         """
         if animal_name is not None:
             name = animal_name
+        if name is None:
+            raise ValueError("Invalid name: "+str(name))
         if legacy:
-            if name is None:
-                raise ValueError("expected 'name' argument, if legacy=True")
             assert not isinstance(df.index, pd.MultiIndex), \
                 "Legacy dataframes are expected to have a simple Index of the acronyms and the hemishere prepended. "+\
                 f"Instead got a '{type(df.index)}'"
@@ -798,7 +798,7 @@ class AnimalBrain:
     def from_csv(filepath: Path|str,
                  *,
                  ontology: AtlasOntology,
-                 name: str=None,
+                 name: str,
                  sep: str=",",
                  remove_unknown: bool=False,
                  legacy: bool=False) -> Self:
