@@ -442,7 +442,7 @@ class AnimalBrain:
     def select_from_ontology(self, brain_ontology: AtlasOntology, **kwargs):
         return self.select(brain_ontology, **kwargs)
 
-    def _select(self, regions: Sequence[str],
+    def _select(self, regions: Sequence[str]|AtlasOntology,
                 *,
                 fill_nan: bool=False, inplace: bool=False,
                 hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
@@ -452,7 +452,7 @@ class AnimalBrain:
         hemisphere = BrainHemisphere(hemisphere)
         if not self.is_split and hemisphere is not BrainHemisphere.MERGED:
             raise ValueError("You cannot select only one hemisphere because the brain data is merged between left and right hemispheres.")
-        if regions is None:
+        if isinstance(regions, AtlasOntology):
             def f1(bd: BrainData):
                 return bd.select_from_ontology(regions, fill_nan=fill_nan, inplace=inplace)
         else:
@@ -529,6 +529,8 @@ class AnimalBrain:
         [`AtlasOntology.select_regions`][braian.AtlasOntology.select]
         [`AtlasOntology.get_regions`][braian.AtlasOntology.partition]
         """
+        if regions is None:
+            regions = ontology
         return self._select(ontology=ontology, regions=regions, fill_nan=fill_nan, inplace=inplace,
                             hemisphere=hemisphere, select_other_hemisphere=select_other_hemisphere,
                             select_list=BrainData.select_from_list)
