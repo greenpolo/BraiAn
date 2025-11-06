@@ -99,7 +99,7 @@ def heatmap(bd1: BrainData,
         _cmin = data[0].min(skiinf=True)
         _cmax = data[0].max(skiinf=True)
     else:
-        _compatibility_check_bd((bd1, bd2), check_atlas=True, check_metrics=True,
+        _compatibility_check_bd((bd1, bd2), check_atlas=True, check_metrics=False,
                                 check_hemisphere=False, check_regions=False)
         hems = ("right", "left")
         data = (bd1.select_from_list(brain_regions, ontology=ontology, fill_nan=True),
