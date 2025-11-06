@@ -133,10 +133,10 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
         if not groups[0].is_split:
             # don't use `merge_ordered` with `selected_regions` or it might fail if the regions are not sorted
             regions_lr = merge_ordered(*[g.regions for g in groups])
-        elif groups[0].is_split and hemisphere in BrainHemisphere:
-            regions_lr = merge_ordered(*[g.hemiregions[hemisphere] for g in groups])
         elif isinstance(hemisphere, tuple): # `groups` may be split, but it's also possible that `marker2` is specified and the groups are not split
             regions_lr = merge_ordered(*[g.hemiregions[hem] for g in groups for hem in hemisphere])
+        elif hemisphere in BrainHemisphere:
+            regions_lr = merge_ordered(*[g.hemiregions[hemisphere] for g in groups])
         regions_lr = set(regions_lr) # does it even make sense to use `merge_ordered`?
         selected_regions = [r for r in selected_regions if r in regions_lr] # guarantees that `selected_regions` exist in an ontology
         groups = [
