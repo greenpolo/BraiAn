@@ -138,7 +138,7 @@ def _deprecated_message_func(func: Callable,
                              alternatives: list[str]):
     warning_message = f"{func.__name__} is deprecated since {since} and may be removed in future versions."
     if alternatives:
-        warning_message += f" Use any of the following alternatives, instead: '{'\', \''.join(alternatives)}'."
+        warning_message += f" Use any of the following alternatives, instead: '"+"', '".join(alternatives)+"'."
     if message:
         warning_message += " "+message
     warnings.warn(warning_message, category=DeprecationWarning, stacklevel=3)
