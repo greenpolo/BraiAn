@@ -182,14 +182,9 @@ class AnimalGroup:
         """The brains making up the current group."""
         return list(self._animals)
 
-    @property
-    @deprecated(since="1.1.0", alternatives=["braian.AnimalGroup.reduce"])
-    def mean(self) -> dict[str, BrainData]:
+    def mean(self) -> AnimalBrain:
         """The mean between each brain of the group, for each marker and for each region."""
-        if self.is_split:
-            raise ValueError("Cannot get a single marker mean for all brain regions because the group is split between left and right hemispheres."+\
-                             "Use AnimalGroup.reduce(pandas.DataFrame).")
-        return self.reduce(pd.DataFrame.mean, "mean", skipna=True, same_units=True, same_hemisphere=True, return_tuple=False)
+        return self.reduce(pd.DataFrame.mean, "mean", skipna=True, same_units=True, same_hemisphere=True)
 
     @property
     def animal_names(self) -> list[str]:
@@ -212,8 +207,7 @@ class AnimalGroup:
                op_name: str=None,
                same_units: bool=True,
                same_hemisphere: bool=True,
-               return_tuple: bool=True,
-               **kwargs) -> dict[str, BrainData|tuple[BrainData]|tuple[BrainData,BrainData]]:
+               **kwargs) -> AnimalBrain:
         """
         Applies a reduction on each brain structure, between all the brains in the group,
         and for each marker.
@@ -253,8 +247,6 @@ class AnimalGroup:
         >>>  for marker in gm.markers]
         [np.True_, np.True_, np.True_]
         """
-        if not return_tuple and self.is_split:
-            raise ValueError("Can't have a single `BrainData` as result of the reduction of split data.")
         redux = {marker:
                  tuple(BrainData.reduce(*[brain[marker,hemi] for brain in self._animals],
                                         name=self._name, op=op, op_name=op_name,
@@ -262,9 +254,12 @@ class AnimalGroup:
                                         **kwargs)
                       for hemi in self.hemispheres)
                 for marker in self.markers}
-        if return_tuple:
-            return redux
-        return {marker: r[0] for marker,r in redux.items()}
+        sizes = tuple(BrainData.reduce(*[brain[hemi] for brain in self._animals], # brain[hemi] returns the size for hemi
+                                        name=self._name, op=op, op_name=op_name,
+                                        same_units=same_units, same_hemisphere=same_hemisphere,
+                                        **kwargs)
+                      for hemi in self.hemispheres)
+        return AnimalBrain(redux, sizes=sizes)
 
     def _select(self, regions: Sequence[str],
                *,
