@@ -241,8 +241,11 @@ class AnimalBrain:
 
     def __getitem__(self, key) -> BrainData:
         """
-        Get the [`BrainData`][braian.BrainData] associated to `marker`.
-        Fails if there is no data for the the given marker
+        Get the [`BrainData`][braian.BrainData] for the regions' [sizes][braian.AnimalBrain.hemisizes]
+        or for a [marker][braian.AnimalBrain.markers]'s data.
+
+        If the brain is [split][braian.AnimalBrain.is_split], it also requires that the hemisphere is
+        specified, too.
 
         Parameters
         ----------
@@ -253,28 +256,89 @@ class AnimalBrain:
         -------
         :
             The data associated to maker `key`.
+
+        Raises
+        ------
+        TypeError
+            If `key` is not corresponding to a known marker nor an hemisphere of the given `AnimalBrain`.
+        ValueError
+            If the `AnimalBrain` is split between left and right hemispheres, but the given `key` does not specify an hemisphere.
+        KeyError
+            If no brain data could not be found corresponding to `key`.
+
+        Examples
+        --------
+        >>> import braian
+        >>> ontology = braian.AtlasOntology("allen_mouse_10um")
+        >>> b = braian.from_csv("some/brain_sum.csv", "b", name="animal1", ontology=ontology)
+        >>> b.is_split
+        True
+        >>> b["left"].units
+        'mm²'
+        >>> b[braian.BrainHemisphere.LEFT].units
+        'mm²'
+        >>> b["right"].units
+        'mm²'
+        >>> b["cFos", "right"].units
+        'cFos'
+        >>> b["cFos", "merged"]
+        Traceback (most recent call last):
+        File "<python-input-8>", line 1, in <module>
+            b["cFos", "merged"]
+            ~^^^^^^^^^^^^^^^^^^
+        KeyError: '<BrainHemisphere.MERGED: 0>'
+        >>> b[["cFos", "left"]]
+        Traceback (most recent call last):
+        File "<python-input-9>", line 1, in <module>
+            b[["cFos", "left"]]
+            ~^^^^^^^^^^^^^^^^^^
+        TypeError: Unknown data selection: '['cFos', 'left']'
+        >>> b["cFos"]
+        Traceback (most recent call last):
+        File "<python-input-10>", line 1, in <module>
+            b["cFos"]
+            ~^^^^^^^^
+        ValueError: Cannot get a single marker data for all brain regions because the brain is split between left and right hemispheres. You should also specify a braian.BrainHemisphere.
+        >>> bm = braian.merge_hemispheres(b)
+        >>> bm["cFos"].units
+        'cFos'
+        >>> bm["NO_MARKER"]
+        Traceback (most recent call last):
+        File "<python-input-13>", line 1, in <module>
+            bm["NO_MARKER"]
+            ~~^^^^^^^^^^^^^
+        KeyError: 'NO_MARKER'
         """
+        try:
+            key = BrainHemisphere(key)
+        except ValueError:
+            pass
         if isinstance(key,str):
             if self.is_split:
                 raise ValueError("Cannot get a single marker data for all brain regions because the brain is split between left and right hemispheres. "+\
                                  "You should also specify a braian.BrainHemisphere.")
             return self._markers_data[key][0] # there is no hemisphere distinction
+        elif key in BrainHemisphere:
+            # select the size
+            bdata = self._sizes
+            hemi = key
         elif isinstance(key,tuple) and len(key) == 2 and isinstance(key[0],str):
+            # select the marker
             marker,hemi = key
-            hemi = BrainHemisphere(hemi)
-            if not self.is_split and hemi is not BrainHemisphere.MERGED:
-                ValueError(f"The brain has no hemisphere distinction. You cannot select data for '{hemi.name}' hemisphere.")
             try:
-                return next(d for d in self._markers_data[marker] if d.hemisphere is hemi)
-            except StopIteration:
-                key = hemi
+                bdata = self._markers_data[marker]
             except KeyError:
-                key = marker
-            # msg = f"Cannot find '{marker}' data"
-            # if self.is_split:
-            #     msg += f" for {hemi.name} hemisphere"
-            raise KeyError(key)
-        raise TypeError(f"Unknown marker data selection: '{key}'")
+                raise # useless try-catch, but explicit on the errors raised
+            hemi = BrainHemisphere(hemi)
+        else:
+            raise TypeError(f"Unknown data selection: '{key}'")
+        if not self.is_split and hemi is not BrainHemisphere.MERGED:
+            ValueError(f"The brain has no hemisphere distinction. You cannot select data for '{hemi.name}' hemisphere.")
+        try:
+            return next(d for d in bdata if d.hemisphere is hemi)
+        except StopIteration:
+            key = hemi
+        raise KeyError(key)
 
     def remove_region(self, region: str, *regions, fill_nan: bool=True,
                       hemisphere: BrainHemisphere=BrainHemisphere.MERGED) -> None:
