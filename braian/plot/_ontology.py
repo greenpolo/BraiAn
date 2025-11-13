@@ -67,7 +67,7 @@ def hierarchy(brain_ontology: AtlasOntology,
     if selection and brain_ontology.has_selection():
         traces.append(draw_selection(g, graph_layout, width=2))
     plot_layout = go.Layout(
-        title="Allen's brain region hierarchy",
+        title=f"{brain_ontology.name} - brain structure hierarchy",
         titlefont_size=16,
         showlegend=False,
         hovermode="closest",
