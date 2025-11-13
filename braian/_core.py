@@ -165,7 +165,8 @@ def from_csv(filepath: Path,
              ontology: AtlasOntology,
              name: str=None,
              sep: str=",",
-             remove_unknown: bool=False) -> Experiment|AnimalGroup|AnimalBrain:
+             remove_unknown: bool=False,
+             legacy: bool=False) -> Experiment|AnimalGroup|AnimalBrain:
     """
     Reads some brain data from a comma-separated value (CSV) file.
 
@@ -184,6 +185,10 @@ def from_csv(filepath: Path,
     remove_unknown
         If True and `filepath` contains data for regions not in `ontology`, it removes them
         instead of raising `UnknownBrainRegionsError`.
+    legacy
+        If the CSV distinguishes hemispheric data by appending 'Left:' or 'Right:' in front of brain region acronyms.
+
+        Does not work if `t` is "experiment" or "e".
 
     Returns
     -------
@@ -205,13 +210,16 @@ def from_csv(filepath: Path,
     match t:
         case "brain"|"b":
             clazz = AnimalBrain
+            kwargs = dict(legacy=legacy)
         case "group"|"g":
             clazz = AnimalGroup
+            kwargs = dict(legacy=legacy)
         case "experiment"|"e":
             clazz = Experiment
+            kwargs = dict()
         case _:
             raise ValueError(t)
     try:
-        return clazz.from_csv(filepath, name=name, ontology=ontology, sep=sep, remove_unknown=remove_unknown)
+        return clazz.from_csv(filepath, name=name, ontology=ontology, sep=sep, remove_unknown=remove_unknown, **kwargs)
     except Exception:
         raise ValueError(f"Could not be read as a '{clazz.__name__}': {filepath}")
