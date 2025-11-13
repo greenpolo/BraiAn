@@ -28,7 +28,7 @@ def heatmap(bd1: BrainData,
             centered_cmap: bool=False, ccenter: float=0,
             show_acronyms: bool=False, title: str=None,
             ticks: Sequence[float]=None, ticks_labels: Sequence[str]=None,
-            output_path: Path|str=None, filename: str=None) -> mpl.figure.Figure|dict[int,mpl.figure.Figure]:
+            output_path: Path|str=None, filename: str=None, img_extension: str="svg") -> mpl.figure.Figure|dict[int,mpl.figure.Figure]:
     """
     Plots the heatmaps of the given [`BrainData`][braian.BrainData] onto a 2D representation of the brain
     delimited by the desired regions.
@@ -78,7 +78,9 @@ def heatmap(bd1: BrainData,
         If specified, it saves all the resulting heatmaps in the given location.
         It no folder exists at the given location, it creates it.
     filename
-        The name used as prefix for each heatmap SVG file saved into `output_path`.
+        The name used as prefix for each heatmap image file saved into `output_path`.
+    img_extension
+        The image extension used to save the heatmaps to file
 
     Returns
     -------
@@ -176,7 +178,7 @@ def heatmap(bd1: BrainData,
             output_path.mkdir(mode=0o777, parents=True, exist_ok=True)
             filename = "" if filename is None else filename+"_"
             for position,fig in figures.items():
-                plot_filepath = output_path/(filename+f"{position:05.0f}.svg")
+                plot_filepath = output_path/(filename+f"{position:05.0f}.{img_extension}")
                 fig.savefig(plot_filepath)
         return figures
 
