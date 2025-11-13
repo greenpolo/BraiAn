@@ -92,7 +92,7 @@ def heatmap(bd1: BrainData,
     if bd1.atlas != ontology.name:
         raise ValueError(f"Incompatible atlas: data used '{bd1.atlas}' but '{ontology.name}' was used")
     if bd2 is None:
-        hems = ("merged",)
+        hems = ("both",) # nomenclature according to brainrender.Scene.add_brain_region()
         # brain_data = brain_data.loc[brain_regions]
         # brain_data = brain_data[brain_data.index.isin(brain_regions)]
         # brain_data = brain_data[~brain_data.isna().all(axis=1)]
