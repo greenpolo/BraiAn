@@ -1,8 +1,9 @@
+import igraph as ig
 import itertools
 import pandas as pd
 import re
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pandas.api.types import is_numeric_dtype
 from pathlib import Path
@@ -75,8 +76,8 @@ class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
     def __str__(self):
         return f"Exclusions for Slice {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
 
-def overlapping_markers(marker1: str, marker2: str) -> str:
-    return f"{marker1}+{marker2}"
+def overlapping_markers(*marker: str) -> str:
+    return "+".join(marker)
 
 class QuPathMeasurementType(Enum):
     """
@@ -92,30 +93,109 @@ class QuPathMeasurementType(Enum):
     AREA = 0
     CELL_COUNT = 1
 
-@dataclass
+@dataclass(frozen=True)
 class QuPathMeasurement:
     r"""Class for identifying measurements extracted with QuPath."""
     key: str
     measurement: str
     type: QuPathMeasurementType
+    name: str = field(default=None, init=False)
+    channels: list[str] = field(init=False)
 
-    def colabelled_channels(self) -> tuple[str,str]:
-        match = re.match(r"(.+)\~(.+)", self.measurement)
-        if match is None:
-            return None
-        channels = match.groups()
-        if len(channels) == 2:
-            return channels
+    def __post_init__(self):
+        channels = self.measurement.split("~")
+        object.__setattr__(self, "channels", channels)
+
+    def label(self, name: str):
+        object.__setattr__(self, "name", name)
+
+    # def colabelled_channels(self) -> tuple[str,str]:
+    #     match = re.match(r"(.+)\~(.+)", self.measurement)
+    #     if match is None:
+    #         return None
+    #     channels = match.groups()
+    #     if len(channels) == 2:
+    #         return channels
 
     def unit(self) -> str:
         match self.type:
             case QuPathMeasurementType.AREA:
                 return "µm²"
             case QuPathMeasurementType.CELL_COUNT:
-                assert "name" in self.__dict__
+                assert self.name is not None, "Measurement is not labelled"
                 return self.name
             case _:
                 raise ValueError(f"Unknown QuPath measurement type: '{self.type}'")
+
+
+class ColabellingHierarchy:
+    def __init__(self, measurements: list[QuPathMeasurement]):
+        assert all(m.type is QuPathMeasurementType.CELL_COUNT for m in measurements), "Colabelling supported among cell count measurements only"
+        self._g: ig.Graph = ig.Graph(directed=True)
+        # first add the 'primitive' measurements
+        measurements = sorted(measurements, key=lambda m: len(m.channels))
+        for m in measurements:
+            n = len(m.channels)
+            primitives = self._g.vs.select(n_eq=n-1) if n > 1 else []
+            if n > 1 and len(primitives) == 0:
+                print(f"WARNING: no primitive channels found for colabelled quantifications '{m.measurement}'")
+                continue
+            child = self._g.add_vertex(m.measurement, n=n, data=m)
+            for parent in primitives:
+                # assumes there is already a measurement for each primitive measurements
+                if not set(parent["data"].channels).issubset(m.channels):
+                    continue
+                self._g.add_edge(parent, child)
+
+    def __getitem__(self, value: str) -> QuPathMeasurement:
+        return self._g.vs.find(name_eq=value)["data"]
+
+    def prime(self) -> list[QuPathMeasurement]:
+        return [v["data"] for v in self._g.vs.select(n_eq=1)]
+
+    def primitives(self, colabel: str|QuPathMeasurement|ig.Vertex) -> list[QuPathMeasurement]:
+        if isinstance(colabel, QuPathMeasurement):
+            colabel = colabel.measurement
+        if isinstance(colabel, str):
+            colabel = self._g.vs.find(name_eq=colabel)
+        components = self._g.subcomponent(colabel, mode="in")
+        return [primitive["data"] for primitive in self._g.vs[components] if primitive != colabel]
+
+    def inherit_colabellings(self, data: pd.DataFrame):
+        # BraiAn for QuPath re-classifies double-positive detections that are also triple-positive (or more).
+        # This means that triple-positive (or more) quantifications have to be added to those that are only double-positive.
+        # However, colabellings of rank 1 (i.e. those with no overlap) don't need to inherit from rank 2
+        for n in range(max(self._g.vs["n"]), 2, -1):
+            for colabel in self._g.vs.select(n_eq=n):
+                r2_primitives = [p.key for p in self.primitives(colabel) if len(p.channels) > 1]
+                data[r2_primitives] = data[r2_primitives].add(data[colabel["data"].key], axis=0)
+
+    def fix_colabelling_bug(self, data: pd.DataFrame):
+        # ~fixes: https://github.com/carlocastoldi/qupath-extension-braian/issues/2
+        # NOTE: this solution MAY reduce the total number of colabellings,
+        # but no better solution was found to the above issue
+        for n in range(2, max(self._g.vs["n"])+1):
+            for colabel in self._g.vs.select(n_eq=n):
+                qupath_col = colabel["data"].key
+                primitives_vs = self._g.vs[self._g.subcomponent(colabel, mode="in")]
+                primitives = [primitive["data"].key for primitive in primitives_vs if primitive != colabel]
+                max_colabelled = data[primitives].min(axis=1)
+                data[qupath_col] = data[qupath_col].clip(upper=max_colabelled)
+
+    def label(self, ch2marker: dict[str,str]):
+        primes = self._g.vs.select(name_in=ch2marker)
+        for prime in primes:
+            prime["data"].label(ch2marker[prime["name"]])
+        for colabel in self._g.vs.select(n_ne=1):
+            colabel: QuPathMeasurement = colabel["data"]
+            primes = colabel.channels
+            prime_names = [self[ch].name for ch in primes]
+            if any(name is None for name in prime_names):
+                continue
+            colabel.label(overlapping_markers(*prime_names))
+
+    def labelled(self) -> list[QuPathMeasurement]:
+        return [m["data"] for m in self._g.vs if m["data"].name is not None]
 
 QUPATH_REGEX_MEASUREMENT_AREA = re.compile(r"(.+) area [u,µ]m\^2")
 QUPATH_REGEX_MEASUREMENT_COUNT = re.compile(r"Num (.+)")
@@ -205,7 +285,15 @@ class BrainSlice:
         for channel in ch2marker.keys():
             if channel not in unique_channels:
                 raise MissingQuantificationError(file=csv, measure=channel)
-        measurements = BrainSlice._rename_selected_measurements(all_measurements, ch2marker, data)
+        m_cellcounts   = [m for m in all_measurements if m.type is QuPathMeasurementType.CELL_COUNT]
+        m_others       = [m for m in all_measurements if m.type is not QuPathMeasurementType.CELL_COUNT]
+        mhierarchy = ColabellingHierarchy(m_cellcounts)
+        mhierarchy.inherit_colabellings(data)
+        mhierarchy.fix_colabelling_bug(data)
+        mhierarchy.label(ch2marker) # modifies 'all_measurements'
+        BrainSlice._label_measurements(m_others, ch2marker)
+        # only select the measurements for which a label was given
+        measurements = [m for m in all_measurements if m.name is not None]
         if any(m.type is QuPathMeasurementType.CELL_COUNT for m in measurements):
             if data["Num Detections"].count() == 0:
                 raise NanResultsError(file=csv)
@@ -234,38 +322,15 @@ class BrainSlice:
         #     raise ValueError("Unknown regions: '"+"', '".join(match_groups.index[unknown_classes])+"'")
 
     @staticmethod
-    def _rename_selected_measurements(measurements: Iterable[QuPathMeasurement],
-                                      ch2marker: dict[str,str],
-                                      data: pd.DataFrame) -> list[QuPathMeasurement]:
-        selected_measurements = []
+    def _label_measurements(measurements: Iterable[QuPathMeasurement],
+                             ch2marker: dict[str,str]) -> list[QuPathMeasurement]:
         for m in measurements:
-            if (colabelled_channels:=m.colabelled_channels()) is not None:
-                ch1,ch2 = colabelled_channels
-                BrainSlice._fix_double_positive_bug(data, m.key, ch1, ch2)
-                try:
-                    m1 = ch2marker[ch1]
-                    m2 = ch2marker[ch2]
-                except KeyError:
-                    continue
-                m.name = overlapping_markers(m1, m2)
-            elif m.measurement == "area":
-                m.name = "area"
+            if m.measurement == "area":
+                m.label("area")
             elif m.measurement not in ch2marker:
                 continue
             else:
-                m.name = ch2marker[m.measurement]
-            selected_measurements.append(m)
-        return selected_measurements
-
-    @staticmethod
-    def _fix_double_positive_bug(data: pd.DataFrame, dp_col: str, ch1: str, ch2: str):
-        # ~fixes: https://github.com/carlocastoldi/qupath-extension-braian/issues/2
-        # NOTE: this solution MAY reduce the total number of double positive,
-        # but no better solution was found to the above issue
-        ch1_col = BrainSlice._column_from_qupath_channel(ch1)
-        ch2_col = BrainSlice._column_from_qupath_channel(ch2)
-        maximum_overlap = data[[ch1_col, ch2_col]].min(axis=1)
-        data[dp_col] = data[dp_col].clip(upper=maximum_overlap)
+                m.label(ch2marker[m.measurement])
 
     @staticmethod
     def _column_from_qupath_channel(channel: str) -> str:
