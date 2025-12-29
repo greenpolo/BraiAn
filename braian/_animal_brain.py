@@ -190,6 +190,14 @@ class AnimalBrain:
         return self._sizes[0].name
         # return self._markers_data[self._markers[0]][0].name
 
+    @name.setter
+    def name(self, value: str):
+        for bd in self._sizes:
+            bd.name = value
+        for hemidata in self._markers_data.values():
+            for bd in hemidata:
+                bd.name = value
+
     @property
     def regions(self) -> list[str]:
         """
