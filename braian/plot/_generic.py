@@ -250,9 +250,8 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain],
                 y=(~df.isna()).sum(),
                 marker_color="lightsalmon",
                 opacity=0.3,
-                showlegend=marker_i==0,
-                legendgroup="#count",
-                name=f"#regions above {threshold}",
+                showlegend=False,
+                legendgroup=marker,
                 offsetgroup=marker
             ),
             secondary_y=True,
@@ -276,12 +275,17 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain],
             legendgroup=marker,
             mode="markers"
         )
+    fig.add_bar(x=[None], y=[None], marker_color="lightsalmon", opacity=0.3,
+                legendgroup="#count", name=f"#regions above {threshold}")
+    yaxis_max = fig.full_figure_for_development(warn=False)\
+                   .layout.yaxis.range[1] # prevents yaxis rescale when traces are hidden
     fig.update_layout(
             title = f"{metric} > {threshold}",
+            xaxis=dict(type="category"), # if brain names are number, it won't treat them as ranges
             yaxis=dict(
                 title=metric,
                 gridcolor="#d8d8d8",
-                range=(threshold,None)
+                range=(threshold,yaxis_max)
             ),
             yaxis2=dict(
                 title=f"#regions above {threshold}",
@@ -295,7 +299,9 @@ def above_threshold(brains: Experiment|AnimalGroup|Sequence[AnimalBrain],
             legend=dict(
                 orientation="h",
                 yanchor="bottom", y=1,
-                xanchor="left", x=0)
+                xanchor="left", x=0,
+                # itemclick=False, itemdoubleclick=False
+            )
     )
     return fig
 
