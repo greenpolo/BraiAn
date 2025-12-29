@@ -348,8 +348,9 @@ class AnimalBrain:
             key = hemi
         raise KeyError(key)
 
-    def remove_region(self, region: str, *regions, fill_nan: bool=True,
-                      hemisphere: BrainHemisphere=BrainHemisphere.MERGED) -> None:
+    def remove_region(self, region: str, *regions,
+                      hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
+                      inplace: bool=True, fill_nan: bool=True) -> None:
         """
         Removes the data from all the given regions
 
@@ -365,15 +366,24 @@ class AnimalBrain:
         """
         regions = (region, *regions)
         hemisphere = BrainHemisphere(hemisphere)
-        for hemidata in self._markers_data.values():
-            for data in hemidata:
-                if data.hemisphere is not hemisphere:
-                    continue
-                data.remove_region(*regions, inplace=True, fill_nan=fill_nan)
-        for sizes in self._sizes:
-            if sizes.hemisphere is not hemisphere:
-                continue
-            sizes.remove_region(*regions, inplace=True, fill_nan=fill_nan)
+        if hemisphere is BrainHemisphere.MERGED and self.is_split:
+            hemispheres = (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)
+        else:
+            hemispheres = tuple(hemisphere)
+        markers_data_ = dict()
+        for marker,hemidata in self._markers_data.items():
+            hemidata_ = tuple(data.remove_region(*regions, inplace=inplace, fill_nan=fill_nan)
+                              if data.hemisphere in hemispheres
+                              else data
+                              for data in hemidata)
+            if not inplace:
+                markers_data_[marker] = hemidata_
+        hemisizes = tuple(sizes.remove_region(*regions, inplace=inplace, fill_nan=fill_nan)
+                          if sizes.hemisphere in hemispheres
+                          else sizes
+                          for sizes in self._sizes)
+        if not inplace:
+            return AnimalBrain(markers_data_, hemisizes, raw=self.raw)
 
     def remove_missing(self,
                        kind: Literal["same","both","any"]="same") -> None:
