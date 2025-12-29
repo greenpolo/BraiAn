@@ -71,7 +71,7 @@ def hierarchy(brain_ontology: AtlasOntology,
         titlefont_size=16,
         showlegend=False,
         hovermode="closest",
-        margin=dict(b=20,l=5,r=5,t=40),
+        margin=dict(b=20,l=25,r=5,t=40),
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=True, zeroline=False, dtick=1, autorange="reversed", title="depth"),
         template="none"
