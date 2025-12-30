@@ -385,15 +385,39 @@ class AnimalBrain:
             pass
         raise MarkerNotFoundError(f"Colabelled marker not found: '{'\', \''.join(ms)}'")
 
+    def colabelled_markers(self, marker: str) -> str:
+        """
+        Retrieves all markers that are co-labelled with `marker`, `marker` excluded.
+
+        Parameters
+        ----------
+        marker
+            A marker.
+
+        Returns
+        -------
+        :
+            A list of markers. If no co-labels with `marker` are available, the list is empty.
+
+        Raises
+        ------
+        MarkerNotFoundError
+            If no quantifications of `marker` are found.
+        """
+        if marker not in self._markers:
+            raise MarkerNotFoundError(f"Marker not found: '{marker}'")
+        return [m for m in self._markers if m != marker and marker in m.split(SEP_COLABEL)]
+
     def remove_region(self, region: str, *regions,
                       hemisphere: BrainHemisphere=BrainHemisphere.MERGED,
                       inplace: bool=True, fill_nan: bool=True) -> None:
         """
-        Removes the data from all the given regions
+        Removes the data from all the given regions.\
+        Nothing happens if there is no data for `region`.
 
         Parameters
         ----------
-        region
+        region, regions
             The acronyms of the regions to exclude from the data.
         fill_nan
             If True, instead of removing the regions completely, it fills their value to [`NA`][pandas.NA].
@@ -406,7 +430,7 @@ class AnimalBrain:
         if hemisphere is BrainHemisphere.MERGED and self.is_split:
             hemispheres = (BrainHemisphere.LEFT, BrainHemisphere.RIGHT)
         else:
-            hemispheres = tuple(hemisphere)
+            hemispheres = (hemisphere,)
         markers_data_ = dict()
         for marker,hemidata in self._markers_data.items():
             hemidata_ = tuple(data.remove_region(*regions, inplace=inplace, fill_nan=fill_nan)
