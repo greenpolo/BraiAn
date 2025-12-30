@@ -202,6 +202,50 @@ class AnimalGroup:
     def __str__(self) -> str:
         return f"AnimalGroup('{self._name}', brains={self.n}, metric={self.metric}, is_split={self.is_split})"
 
+    def colabelled_marker(self, m1: str, m2: str, *ms: str) -> str:
+        """
+        Retrieves the name of the marker identifying the co-labelling quantification
+        of multiple other markers.\
+        If more instances of the same marker `m` are given, it will match only once with the co-labelling(s) of `m`.
+
+        Parameters
+        ----------
+        m1, m2, ms
+            The co-labelled markers.
+
+        Returns
+        -------
+        :
+            The name of the marker used to identify the co-labelling quantifications.
+
+        Raises
+        ------
+        MarkerNotFoundError
+            If no quantification was found for the co-labelling of the given markers.
+        """
+        return self._animals[0].colabelled_marker(m1, m2, *ms)
+
+    def colabelled_markers(self, marker: str) -> str:
+        """
+        Retrieves all markers that are co-labelled with `marker`, `marker` excluded.
+
+        Parameters
+        ----------
+        marker
+            A marker.
+
+        Returns
+        -------
+        :
+            A list of markers. If no co-labels with `marker` are available, the list is empty.
+
+        Raises
+        ------
+        MarkerNotFoundError
+            If no quantifications of `marker` are found.
+        """
+        return self._animals[0].colabelled_markers(marker)
+
     def reduce(self,
                op: Callable[[pd.DataFrame], pd.Series],
                op_name: str=None,
