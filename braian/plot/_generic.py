@@ -47,11 +47,16 @@ def bar_sample(df: pd.DataFrame, population_name: str,
         line_color = pd.Series(np.where(is_undefined, to_rgba(color, alpha_undefined), color), index=is_undefined.index)
     trace_name = f"{population_name} [{marker}]"
     base, length = ("y", "x") if orientation == "h" else ("x", "y")
-    bar = go.Bar(**{length: df.mean(axis=1), base: df.index,
-                    f"error_{length}": dict(type="data", array=df.sem(axis=1), thickness=1)},
-                    marker=dict(line_color=line_color, line_width=1, color=fill_color), orientation=orientation,
-                    hovertemplate=bar_ht(marker, metric, base, length), showlegend=False, offsetgroup=plot_hash,
-                    name=trace_name, legendgroup=trace_name, meta=trace_name)
+    # NOTE: if df contains np.inf, pd.sem() sends a warning (or an error with numpy.seterr(all="raise"))
+    df_skipinf = df.replace([np.inf, -np.inf], np.nan, inplace=False)
+    bar = go.Bar(
+            **{
+                length: df.mean(axis=1, skipna=True), base: df.index,
+                f"error_{length}": dict(type="data", array=df_skipinf.sem(axis=1, skipna=True), thickness=1)
+            },
+            marker=dict(line_color=line_color, line_width=1, color=fill_color), orientation=orientation,
+            hovertemplate=bar_ht(marker, metric, base, length), showlegend=False, offsetgroup=plot_hash,
+            name=trace_name, legendgroup=trace_name, meta=trace_name)
     traces.append(bar)
     if showlegend:
         legend = go.Scatter(x=[None], y=[None], mode="markers", marker=dict(color=color, symbol="square", size=15),

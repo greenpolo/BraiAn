@@ -300,6 +300,7 @@ def marker_traces(groups: list[AnimalGroup],
                             else bar_sample(group_df, group.name, metric, marker, group_colour, plot_scatter, plot_hash=group.name, showlegend=showlegend))]
     # heatmap() returns 2 traces: a real one and one for NaNs
     heatmaps = [trace for group_df in groups_df for trace in heatmap(group_df, metric, marker, showlegend=False)]
+    # NOTE: if group contains np.inf, pd.sem() sends a warning (or an error with numpy.seterr(all="raise"))
     _max_value = pd.concat((group.mean(axis=1, skipna=True)+group.sem(axis=1, skipna=True) for group in groups_df)).max(skipna=True)
     heatmap_group_seps = np.cumsum([group_df.shape[1] for group_df in groups_df[:-1]])-.5
     return heatmaps, heatmap_group_seps, bars, _max_value
