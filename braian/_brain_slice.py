@@ -11,6 +11,7 @@ from typing import Self
 from collections.abc import Iterable, Sequence
 
 from braian import AtlasOntology, BrainHemisphere, UnknownBrainRegionsError, InvalidRegionsHemisphereError
+from braian._animal_brain import colabelled_markers
 from braian._brain_data import extract_legacy_hemispheres
 from braian.utils import deprecated, search_file_or_simlink
 
@@ -75,9 +76,6 @@ class RegionsWithNoCountError(BrainSliceFileError):
 class InvalidExcludedRegionsHemisphereError(BrainSliceFileError):
     def __str__(self):
         return f"Exclusions for Slice {self.file_path}"+" is badly formatted. Each row is expected to be of the form '{Left|Right}: <region acronym>'"
-
-def overlapping_markers(*marker: str) -> str:
-    return "+".join(marker)
 
 class QuPathMeasurementType(Enum):
     """
@@ -192,7 +190,7 @@ class ColabellingHierarchy:
             prime_names = [self[ch].name for ch in primes]
             if any(name is None for name in prime_names):
                 continue
-            colabel.label(overlapping_markers(*prime_names))
+            colabel.label(colabelled_markers(*prime_names))
 
     def labelled(self) -> list[QuPathMeasurement]:
         return [m["data"] for m in self._g.vs if m["data"].name is not None]

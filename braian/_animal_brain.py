@@ -11,7 +11,16 @@ from braian import AtlasOntology, BrainData, BrainHemisphere, SlicedMetric, Unkn
 from braian._brain_data import extract_legacy_hemispheres #, sort_by_ontology
 from braian.utils import _compatibility_check_bd, deprecated, merge_ordered, multiindex_from_columns, multiindex_to_columns, save_csv
 
-__all__ = ["AnimalBrain"]
+__all__ = ["AnimalBrain", "MarkerNotFoundError", "SEP_COLABEL"]
+
+
+SEP_COLABEL = "+"
+
+def colabelled_markers(*marker: str) -> str:
+    return SEP_COLABEL.join(marker)
+
+class MarkerNotFoundError(RuntimeError):
+    pass
 
 def _combined_regions(*bd: BrainData) -> list[str]:
     return {
@@ -347,6 +356,34 @@ class AnimalBrain:
         except StopIteration:
             key = hemi
         raise KeyError(key)
+
+    def colabelled_marker(self, m1: str, m2: str, *ms: str) -> str:
+        """
+        Retrieves the name of the marker identifying the co-labelling quantification
+        of multiple other markers.\
+        If more instances of the same marker `m` are given, it will match only once with the co-labelling(s) of `m`.
+
+        Parameters
+        ----------
+        m1, m2, ms
+            The co-labelled markers.
+
+        Returns
+        -------
+        :
+            The name of the marker used to identify the co-labelling quantifications.
+
+        Raises
+        ------
+        MarkerNotFoundError
+            If no quantification was found for the co-labelling of the given markers.
+        """
+        ms = {m1, m2, *ms}
+        try:
+            return next(dp for dp in self._markers if set(dp.split(SEP_COLABEL)) == ms)
+        except StopIteration:
+            pass
+        raise MarkerNotFoundError(f"Colabelled marker not found: '{'\', \''.join(ms)}'")
 
     def remove_region(self, region: str, *regions,
                       hemisphere: BrainHemisphere=BrainHemisphere.MERGED,

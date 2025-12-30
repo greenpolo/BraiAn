@@ -3,7 +3,7 @@ import pandas as pd
 
 from collections.abc import Callable
 
-from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainData, BrainHemisphere, merge_hemispheres
+from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainData, BrainHemisphere, merge_hemispheres, SEP_COLABEL
 from braian.utils import _compatibility_check
 from braian._graph_utils import brainwide_selection, is_brainwide_selection
 
@@ -318,33 +318,26 @@ def markers_overlap(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBra
     Raises
     ------
     ValueError
-        If `brain` does not contain raw data of marker countings.
+        If `brain` does not have raw data for its quantifications.
     ValueError
-        If `brain` does not have any raw data of `marker1` or `marker2` countings
-    ValueError
-        If `brain` does not contain any raw data of the `marker1` and
-        `marker2` double positive countings.
+        If `brain` does not quantify `marker1` or `marker2`.
+    MarkerNotFoundError
+        If `brain` does not quantify the co-labelling between `marker1` and `marker2`.
     """
     _enforce_rawdata(brain)
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
-    doublepos = None
-    try:
-        doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
-    except StopIteration:
-        pass
-    if not doublepos:
-        raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
+    colabel = brain.colabelled_marker(marker1, marker2)
     overlaps = dict()
     for m in (marker1, marker2):
         hemidata = set()
         for hemi in brain.hemispheres:
             marker_data = brain[m,hemi]
-            doublepos_data = brain[doublepos,hemi]
+            doublepos_data = brain[colabel,hemi]
             data: BrainData = doublepos_data/marker_data
             data._metric = "overlaps"
-            data._units = f"({marker1}+{marker2})/{m}"
+            data._units = f"({colabel})/{m}"
             hemidata.add(data)
         overlaps[m] = tuple(hemidata)
     return AnimalBrain(markers_data=overlaps, sizes=brain.hemisizes)
@@ -375,34 +368,27 @@ def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> Ani
     Raises
     ------
     ValueError
-        If `brain` does not contain raw data of marker countings.
+        If `brain` does not have raw data for its quantifications.
     ValueError
-        If `brain` does not have any raw data of `marker1` or `marker2` countings
-    ValueError
-        If `brain` does not contain any raw data of the `marker1` and
-        `marker2` double positive countings.
+        If `brain` does not quantify `marker1` or `marker2`.
+    MarkerNotFoundError
+        If `brain` does not quantify the co-labelling between `marker1` and `marker2`.
     """
     _enforce_rawdata(brain)
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
-    doublepos = None
-    try:
-        doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
-    except StopIteration:
-        pass
-    if not doublepos:
-        raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
+    colabel = brain.colabelled_marker(marker1, marker2)
     hemidata = set()
     for hemi in brain.hemispheres:
         marker1_data = brain[marker1,hemi]
         marker2_data = brain[marker2,hemi]
-        doublepos_data = brain[doublepos,hemi]
+        doublepos_data = brain[colabel,hemi]
         data: BrainData = doublepos_data / (marker1_data+marker2_data-doublepos_data)
         data._metric = "jaccard_index"
         data._units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
         hemidata.add(data)
-    similarities = {doublepos: tuple(hemidata)}
+    similarities = {colabel: tuple(hemidata)}
     return AnimalBrain(similarities, sizes=brain.hemisizes)
 
 def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
@@ -435,29 +421,22 @@ def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> 
     Raises
     ------
     ValueError
-        If `brain` does not contain raw data of marker countings.
+        If `brain` does not have raw data for its quantifications.
     ValueError
-        If `brain` does not have any raw data of `marker1` or `marker2` countings
-    ValueError
-        If `brain` does not contain any raw data of the `marker1` and
-        `marker2` double positive countings.
+        If `brain` does not quantify `marker1` or `marker2`.
+    MarkerNotFoundError
+        If `brain` does not quantify the co-labelling between `marker1` and `marker2`.
     """
     _enforce_rawdata(brain)
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
-    doublepos = None
-    try:
-        doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
-    except StopIteration:
-        pass
-    if not doublepos:
-        raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
+    colabel = brain.colabelled_marker(marker1, marker2)
     hemidata = set()
     for sizes in brain.hemisizes:
         marker1_data = brain[marker1,sizes.hemisphere]
         marker2_data = brain[marker2,sizes.hemisphere]
-        doublepos_data = brain[doublepos,sizes.hemisphere]
+        doublepos_data = brain[colabel,sizes.hemisphere]
         # NOT normalized in (0,1)
         # data = doublepos_data / (marker1_data*marker2_data) * sizes
         # NORMALIZED
@@ -465,7 +444,7 @@ def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> 
         data._metric = "similarity_index"
         data._units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
         hemidata.add(data)
-    similarities = {doublepos: tuple(hemidata)}
+    similarities = {colabel: tuple(hemidata)}
     return AnimalBrain(markers_data=similarities, sizes=brain.hemisizes)
 
 def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
@@ -494,35 +473,28 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
     Raises
     ------
     ValueError
-        If `brain` does not contain raw data of marker countings.
+        If `brain` does not have raw data for its quantifications.
     ValueError
-        If `brain` does not have any raw data of `marker1` or `marker2` countings
-    ValueError
-        If `brain` does not contain any raw data of the `marker1` and
-        `marker2` double positive countings.
+        If `brain` does not quantify `marker1` or `marker2`.
+    MarkerNotFoundError
+        If `brain` does not quantify the co-labelling between `marker1` and `marker2`.
     """
     # computes Szymkiewicz–Simpson coefficient
     _enforce_rawdata(brain)
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
-    doublepos = None
-    try:
-        doublepos = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
-    except StopIteration:
-        pass
-    if not doublepos:
-        raise ValueError(f"No double positive data available for '{marker1}' and '{marker2}'. Are you sure you ran the QuPath script correctly?")
+    colabel = brain.colabelled_marker(marker1, marker2)
     hemidata = set()
     for hemi in brain.hemispheres:
         marker1_data = brain[marker1,hemi]
         marker2_data = brain[marker2,hemi]
-        doublepos_data = brain[doublepos,hemi]
+        doublepos_data = brain[colabel,hemi]
         data: BrainData = doublepos_data / BrainData.minimum(marker1_data, marker2_data)
         data._metric = "overlap_coefficient"
         data._units = f"({marker1}∩{marker2})/min({marker1},{marker2})"
         hemidata.add(data)
-    overlap_coeffs = {doublepos: tuple(hemidata)}
+    overlap_coeffs = {colabel: tuple(hemidata)}
     return AnimalBrain(markers_data=overlap_coeffs, sizes=brain.hemisizes)
 
 # def markers_chance_level(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
@@ -543,10 +515,7 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
 #     for m in (marker1, marker2):
 #         if m not in brain.markers:
 #             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
-#     try:
-#         overlapping = next(m for m in (f"{marker1}+{marker2}", f"{marker2}+{marker1}") if m in brain.markers)
-#     except StopIteration as e:
-#         raise ValueError(f"Overlapping data between '{marker1}' and '{marker2}' are not available. Are you sure you ran the QuPath script correctly?")
+#     overlapping = brain.colabelled_marker(marker1, marker2)
 #     chance_level = brain[overlapping] / (brain[marker1]*brain[marker2])
 #     chance_level._metric = "chance_level"
 #     chance_level._units = f"({marker1}∩{marker2})/({marker1}×{marker2})"
@@ -581,7 +550,7 @@ def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> Animal
         data._metric = "marker_difference"
         data._units = f"{marker1_data.units}-{marker2_data.units}"
         hemidata.add(data)
-    diff = {f"{marker1}+{marker2}": tuple(hemidata)}
+    diff = {f"{marker1}{SEP_COLABEL}{marker2}": tuple(hemidata)}
     return AnimalBrain(markers_data=diff, sizes=brain.hemisizes)
 
 def _marker_correlation(marker1_df: pd.DataFrame, marker2_df: pd.DataFrame,
