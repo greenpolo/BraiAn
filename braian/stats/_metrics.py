@@ -403,7 +403,7 @@ def markers_jaccard_index(brain: AnimalBrain, marker1: str, marker2: str) -> Ani
         data._units = f"({marker1}∩{marker2})/({marker1}∪{marker2})"
         hemidata.add(data)
     similarities = {doublepos: tuple(hemidata)}
-    return AnimalBrain(similarities, sizes=brain.sizes)
+    return AnimalBrain(similarities, sizes=brain.hemisizes)
 
 def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     # computes an index of normalized similarity we developed
@@ -466,7 +466,7 @@ def markers_similarity_index(brain: AnimalBrain, marker1: str, marker2: str) -> 
         data._units = f"({marker1}∩{marker2})²/({marker1}×{marker2})"
         hemidata.add(data)
     similarities = {doublepos: tuple(hemidata)}
-    return AnimalBrain(markers_data=similarities, sizes=brain.sizes)
+    return AnimalBrain(markers_data=similarities, sizes=brain.hemisizes)
 
 def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     r"""
@@ -523,7 +523,7 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
         data._units = f"({marker1}∩{marker2})/min({marker1},{marker2})"
         hemidata.add(data)
     overlap_coeffs = {doublepos: tuple(hemidata)}
-    return AnimalBrain(markers_data=overlap_coeffs, sizes=brain.sizes)
+    return AnimalBrain(markers_data=overlap_coeffs, sizes=brain.hemisizes)
 
 # def markers_chance_level(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
 #     # This chance level is good only if the used for the fold change.
@@ -550,7 +550,7 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
 #     chance_level = brain[overlapping] / (brain[marker1]*brain[marker2])
 #     chance_level._metric = "chance_level"
 #     chance_level._units = f"({marker1}∩{marker2})/({marker1}×{marker2})"
-#     return AnimalBrain(markers_data={overlapping: chance_level}, areas=brain.sizes)
+#     return AnimalBrain(markers_data={overlapping: chance_level}, areas=brain.hemisizes)
 
 def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
     """
@@ -582,7 +582,7 @@ def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> Animal
         data._units = f"{marker1_data.units}-{marker2_data.units}"
         hemidata.add(data)
     diff = {f"{marker1}+{marker2}": tuple(hemidata)}
-    return AnimalBrain(markers_data=diff, sizes=brain.sizes)
+    return AnimalBrain(markers_data=diff, sizes=brain.hemisizes)
 
 def _marker_correlation(marker1_df: pd.DataFrame, marker2_df: pd.DataFrame,
                         *,
