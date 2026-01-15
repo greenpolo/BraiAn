@@ -365,7 +365,12 @@ class BrainData(metaclass=deflect(on_attribute="data", arithmetics=True, contain
     @property
     def units(self) -> str:
         """The units of measurement of the `BrainData`."""
-        return self._units
+        return str(self._units)
+
+    @units.setter
+    def units(self, value: str):
+        assert isinstance(value, str)
+        self._units = str(value)
 
     @property
     def regions(self) -> list[str]:
