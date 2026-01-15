@@ -2,6 +2,7 @@ import enum
 import pandas as pd
 
 from collections.abc import Callable
+from copy import deepcopy
 
 from braian import AnimalBrain, AnimalGroup, AtlasOntology, BrainData, BrainHemisphere, merge_hemispheres, SEP_COLABEL
 from braian.utils import _compatibility_check
@@ -521,7 +522,8 @@ def markers_overlap_coefficient(brain: AnimalBrain, marker1: str, marker2: str) 
 #     chance_level._units = f"({marker1}∩{marker2})/({marker1}×{marker2})"
 #     return AnimalBrain(markers_data={overlapping: chance_level}, areas=brain.hemisizes)
 
-def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> AnimalBrain:
+def markers_difference(brain: AnimalBrain, marker1: str, marker2: str,
+                       marker_out: str=None, append: bool=False) -> AnimalBrain:
     """
     For each brain region in `brain`, compute the difference between two markers.
 
@@ -533,25 +535,46 @@ def markers_difference(brain: AnimalBrain, marker1: str, marker2: str) -> Animal
         The first marker to subtract.
     marker2
         The second marker to subtract.
+    marker_out
+        Then name of the marker used to identify the resulting data.
+        By default, it's the merged string of `marker1` and `marker2`.
+    append
+        If True, it appends the result as `brain` data of a new marker `marker_out`.
+        Note that, in this case, the metric and the units of `marker_out` will be the same as `brain`.
+
+        If False, it creates a new `AnimalBrain` with `metric="marker_difference"`.
 
     Returns
     -------
     :
         A new brain of the difference between `marker1` and `marker2`.
+
+    Raises
+    ------
+    ValueError
+        If no data for `marker1` or `marker2` is present in `brain`.
+    ValueError
+        If append is `True`, but the data for the given `marker_out` is already present in `brain` append.
     """
     for m in (marker1, marker2):
         if m not in brain.markers:
             raise ValueError(f"Marker '{m}' is unknown in '{brain.name}'!")
+    if marker_out is None:
+        marker_out = f"{marker1}{SEP_COLABEL}{marker2}"
+    if append and marker_out in brain.markers:
+        raise ValueError(f"Marker '{marker_out}' already exists. Choose a different value for 'marker_out'.")
     hemidata = set()
     for hemi in brain.hemispheres:
         marker1_data = brain[marker1,hemi]
         marker2_data = brain[marker2,hemi]
         data: BrainData = marker1_data - marker2_data
-        data._metric = "marker_difference"
-        data._units = f"{marker1_data.units}-{marker2_data.units}"
+        if not append:
+            data._metric = "marker_difference"
+            data._units = f"{marker1_data.units}-{marker2_data.units}"
         hemidata.add(data)
-    diff = {f"{marker1}{SEP_COLABEL}{marker2}": tuple(hemidata)}
-    return AnimalBrain(markers_data=diff, sizes=brain.hemisizes)
+    markers_data = deepcopy(brain._markers_data) if append else dict()
+    markers_data[marker_out] = tuple(hemidata)
+    return AnimalBrain(markers_data=markers_data, sizes=brain.hemisizes)
 
 def _marker_correlation(marker1_df: pd.DataFrame, marker2_df: pd.DataFrame,
                         *,
