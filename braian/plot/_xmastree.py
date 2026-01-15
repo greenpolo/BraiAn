@@ -25,8 +25,9 @@ def xmas_tree(groups: Experiment|Collection[AnimalGroup],
               markers_salience_scores: dict[str, BrainData]=None,
               plot_scatter: bool=True,
               scatter_width: float=0.7, space_between_markers: float=0.02,
+              # color picked from: https://yoksel.github.io/handy-colors/#full-palette
               groups_marker1_colours: Sequence=["SandyBrown", "LightCoral", "PaleVioletRed", "Plum"],
-              groups_marker2_colours: Sequence=["IndianRed", "Orange", "Hotpink"],
+              groups_marker2_colours: Sequence=["Orange", "IndianRed", "MediumVioletRed", "Orchid"],
               max_value: int=None,
               # show_nan: str="all",
               color_heatmap: str="deep_r", width: int=None, height: int=None) -> go.Figure:
