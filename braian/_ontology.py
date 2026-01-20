@@ -601,6 +601,8 @@ class AtlasOntology:
             raise ValueError(f"Can't fill any missing data in '{type(regions)}' type")
         else:
             regions_ = regions
+        if len(regions_) == 0:
+            key = "id" # doesn't matter, but at least it does not raise IndexError with regions_[0]
         if key is None:
             key = "id" if isinstance(regions_[0], int) else "acronym"
         if fill:
