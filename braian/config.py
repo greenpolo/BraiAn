@@ -133,7 +133,7 @@ class BraiAnConfig:
         ----------
         name
             The name of the group or of the animal to read.\\
-            By default, it reads the whole experiment.
+            By default, if `None`, it reads the whole experiment instead.
         sep
             Character or regex pattern to treat as the delimiter.
         remove_unknown

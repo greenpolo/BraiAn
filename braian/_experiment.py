@@ -274,15 +274,16 @@ class Experiment:
         [`AnimalGroup.to_pandas`][braian.AnimalGroup.to_pandas]
         """
         df = pd.concat(
-            {group.name: group.to_pandas(marker=marker, units=units, missing_as_nan=missing_as_nan,
-                                        legacy=False, hemisphere_as_value=hemisphere_as_value,
-                                        hemisphere_as_str=hemisphere_as_str)
+            {group.name: group.to_pandas(marker=marker, units=units and marker is None,
+                                         missing_as_nan=missing_as_nan,
+                                         legacy=False, hemisphere_as_value=hemisphere_as_value,
+                                         hemisphere_as_str=hemisphere_as_str)
                 for group in self._groups},
             join="outer", axis=1)
         if marker is None:
             df.columns.names = (self.name, None, self.metric)
         else:
-            df.columns.names = (self.name, self.metric)
+            df.columns.names = (self.name, f"{self.metric} ({self[0].units(marker)})" if units else self.metric)
         return df
 
     def to_csv(self, path: Path|str, sep: str=",",

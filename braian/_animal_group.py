@@ -536,11 +536,9 @@ class AnimalGroup:
             index_sorted = pd.MultiIndex.from_product((hemiregions, self.animal_names))
             df = df.reorder_levels((1,0), axis=0).reindex(index_sorted)
         else:
-            if marker is not None and units:
-                # there is no use of showing the units, if there is no marker index
-                units = False
             df = pd.concat(
-                {brain.name: brain.to_pandas(marker=marker, units=units, missing_as_nan=missing_as_nan,
+                {brain.name: brain.to_pandas(marker=marker, units=units and marker is None,
+                                             missing_as_nan=missing_as_nan,
                                              legacy=legacy, hemisphere_as_value=hemisphere_as_value,
                                              hemisphere_as_str=hemisphere_as_str)
                  for brain in self._animals},
@@ -549,7 +547,7 @@ class AnimalGroup:
                 df.columns.names = (self.name, self.metric) # strings are copied
             else: # a marker is specified
                 df = df.xs(marker, level=1, axis=1)
-                df.columns.name = self.metric
+                df.columns.name = f"{self.metric} ({self.units(marker)})" if units else self.metric
         return df
 
     def to_csv(self, path: Path|str, sep: str=",",
