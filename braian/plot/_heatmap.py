@@ -26,6 +26,9 @@ def heatmap(bd1: BrainData,
             highlighted_regions: Sequence[str]|tuple[Sequence[str]]=None,
             cmin: float=None, cmax: float=None, cmap: str|mpl.colors.Colormap="magma_r",
             centered_cmap: bool=False, ccenter: float=0,
+            color_root: str="#DEDEDE",
+            color_edge: str="#7F7F7F",
+            color_missing: str="#9E9E9E",
             show_acronyms: bool=False, title: str=None,
             ticks: Sequence[float]=None, ticks_labels: Sequence[str]=None,
             output_path: Path|str=None, filename: str=None, img_extension: str="svg") -> mpl.figure.Figure|dict[int,mpl.figure.Figure]:
@@ -129,6 +132,7 @@ def heatmap(bd1: BrainData,
     else:
         highlighted_regions = [[],[]]
 
+    missing_regions = [set(d.missing_regions()) for d in data]
     heatmaps = [
         bgh.Heatmap(
             {k: np.nan if v is None else v for k,v in d.to_dict().items()}, # if d has pd.NA, it converts them to None which is unsupported by bgh
@@ -150,8 +154,9 @@ def heatmap(bd1: BrainData,
     xrange, yrange = heatmap_range(heatmaps[0])
 
     if depth is not None and isinstance(depth, (int, float, np.number)):
-        fig, ax = plot_slice(depth, heatmaps, data_names, hems, orientation, title, units,
-                             show_acronyms, highlighted_regions, xrange, yrange, ticks, ticks_labels)
+        fig, ax = plot_slice(depth, heatmaps, missing_regions, data_names, hems, orientation, title, units,
+                             show_acronyms, highlighted_regions, xrange, yrange, ticks, ticks_labels,
+                             color_root, color_edge, color_missing)
         plt.close(fig)
         return fig
     else:
@@ -165,8 +170,9 @@ def heatmap(bd1: BrainData,
             # horizontal: 1500-6300
             # sagittal: 1500-9700
             print(f"{position:.2f}", end="  ")
-            fig,ax = plot_slice(position, heatmaps, data_names, hems, orientation, title, units,
-                              show_acronyms, highlighted_regions, xrange, yrange, ticks, ticks_labels)
+            fig,ax = plot_slice(position, heatmaps, missing_regions, data_names, hems, orientation, title, units,
+                                show_acronyms, highlighted_regions, xrange, yrange, ticks, ticks_labels,
+                                color_root, color_edge, color_missing)
 
             figures[position] = fig
             plt.close(fig)
@@ -192,17 +198,22 @@ def heatmap_range(heatmap: bgh.Heatmap):
     return (x_min, x_max), (y_min, y_max)
 
 def plot_slice(position: int, heatmaps: list[bgh.Heatmap],
+               missing_regions: list[set[str]],
                data_names: list[str], hems: list[str],
                orientation: str, title: str,
                units: str, show_acronyms: bool, hem_highlighted_regions: list[list[str]],
                xrange: tuple[float, float], yrange: tuple[float, float],
-               ticks: list[float], ticks_labels: list[str]):
+               ticks: list[float], ticks_labels: list[str],
+               color_root: str="#DEDEDE",
+               color_edge: str="#7F7F7F",
+               color_missing: str="#9E9E9E"):
     fig, ax = plt.subplots(figsize=(9, 9))
     slicer = bgh.slicer.Slicer(position, orientation, 100, heatmaps[0].scene.root) # requires https://github.com/brainglobe/brainglobe-heatmap/pull/43
-    for heatmap, highlighted_regions in zip(heatmaps, hem_highlighted_regions):
+    for heatmap, hem_missing_regions, highlighted_regions in zip(heatmaps, missing_regions, hem_highlighted_regions):
         if highlighted_regions is None:
             highlighted_regions = []
-        add_projections(ax, heatmap, slicer, show_acronyms, highlighted_regions)
+        add_projections(ax, heatmap, hem_missing_regions, slicer, show_acronyms, highlighted_regions,
+                        color_root, color_edge, color_missing)
 
     if len(heatmaps) == 2:
         ax.axvline(x=sum(ax.get_xlim())/2, linestyle="--", color="black", lw=2)
@@ -240,21 +251,42 @@ def plot_slice(position: int, heatmaps: list[bgh.Heatmap],
     return fig,ax
 
 def add_projections(ax: mpl.axes.Axes, heatmap: bgh.Heatmap,
+                    missing_regions: set[str],
                     slicer: bgh.slicer.Slicer, show_acronyms: bool,
-                    selected_regions: list[str]):
+                    selected_regions: list[str],
+                    color_root: str="#DEDEDE",
+                    color_edge: str="#7F7F7F",
+                    color_missing: str="#9E9E9E"):
     projected,_ = slicer.get_structures_slice_coords(heatmap.regions_meshes, heatmap.scene.root)
     for r, coords in projected.items():
         name, segment = r.split("_segment_")
-        is_selected = name in selected_regions
+        lw = 0.5
+        ec = color_edge # (0, 0, 0, 0.5)
+        zorder = 0
+        if name == "root":
+            color = color_root # black
+            zorder = -2
+            # alpha = 0.5
+        elif name in missing_regions:
+            color = color_missing # black
+            # ec = None # no edge
+            zorder = -1
+            # alpha = 0.5
+        else:
+            color = heatmap.colors[name]
+        if name in selected_regions:
+            lw = 1.5
+            ec = "black"
+            zorder = 1
         filled_polys = ax.fill(
             coords[:, 0],
             coords[:, 1],
-            color=heatmap.colors[name],
+            color=color,
             label=name if segment == "0" and name != "root" else None,
-            linewidth=1.5 if is_selected else 0.5,
-            edgecolor="black" if is_selected else (0, 0, 0, 0.5),
-            zorder=-1 if name == "root" or heatmap.colors[name] == [0,0,0] else 1 if is_selected else 0,
-            alpha=0.5 if name == "root" or heatmap.colors[name] == [0,0,0] else None,
+            linewidth=lw,
+            edgecolor=ec,
+            zorder=zorder,
+            # alpha=0.5 if name == "root" or name in missing_regions else None,
         )
         if show_acronyms and name != "root":
             (x0, y0), (x1, y1) = filled_polys[0].get_path().get_extents().get_points()
