@@ -163,6 +163,8 @@ class ColabellingHierarchy:
         # BraiAn for QuPath re-classifies double-positive detections that are also triple-positive (or more).
         # This means that triple-positive (or more) quantifications have to be added to those that are only double-positive.
         # However, colabellings of rank 1 (i.e. those with no overlap) don't need to inherit from rank 2
+        if len(self._g.vs) == 0:
+            return  # No cell counts to process (area-only exports)
         for n in range(max(self._g.vs["n"]), 2, -1):
             for colabel in self._g.vs.select(n_eq=n):
                 r2_primitives = [p.key for p in self.primitives(colabel) if len(p.channels) > 1]
@@ -172,6 +174,8 @@ class ColabellingHierarchy:
         # ~fixes: https://github.com/carlocastoldi/qupath-extension-braian/issues/2
         # NOTE: this solution MAY reduce the total number of colabellings,
         # but no better solution was found to the above issue
+        if len(self._g.vs) == 0:
+            return  # No cell counts to process (area-only exports)
         for n in range(2, max(self._g.vs["n"])+1):
             for colabel in self._g.vs.select(n_eq=n):
                 qupath_col = colabel["data"].key
@@ -181,6 +185,8 @@ class ColabellingHierarchy:
                 data[qupath_col] = data[qupath_col].clip(upper=max_colabelled)
 
     def label(self, ch2marker: dict[str,str]):
+        if len(self._g.vs) == 0:
+            return  # No cell counts to process (area-only exports)
         primes = self._g.vs.select(name_in=ch2marker)
         for prime in primes:
             prime["data"].label(ch2marker[prime["name"]])

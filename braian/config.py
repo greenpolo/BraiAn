@@ -251,6 +251,9 @@ class BraiAnConfig:
                                             force_exclusion_files=force_exclusion_files)
             groups.append(group)
 
+        if len(groups) == 1:
+            # Single group: return SlicedGroup directly (SlicedExperiment requires 2+)
+            return groups[0] if sliced else self.reduce(groups[0])
         sliced_exp = SlicedExperiment(self.experiment_name, *groups)
         return sliced_exp if sliced else self.reduce(sliced_exp)
 
