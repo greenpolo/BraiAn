@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2024 Carlo Castoldi <carlo.castoldi@outlook.com>
 
 SPDX-License-Identifier: CC-BY-4.0
 -->
-
+(this is a testing fork for https://codeberg.org/SilvaLab/BraiAn)
 # ![braian logo](docs/assets/logo/network.svg) BraiAn
 [![PyPI - Version](https://img.shields.io/pypi/v/braian)](https://pypi.org/project/braian)
 [![status-badge](https://ci.codeberg.org/api/badges/13585/status.svg)](https://ci.codeberg.org/repos/13585)
