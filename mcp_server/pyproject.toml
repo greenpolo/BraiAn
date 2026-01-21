@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 WalshLab
+# SPDX-License-Identifier: MIT
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "braian-mcp-server"
+version = "0.1.0"
+description = "MCP server providing structured access to the BraiAn codebase via AST parsing"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "WalshLab" },
+]
+keywords = ["mcp", "braian", "ast", "code-analysis"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "fastmcp>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+braian-mcp = "mcp_server.braian_mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]

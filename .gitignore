@@ -15,3 +15,5 @@ docs/QuPath_output/
 site/
 .vscode/
 .DS_Store
+braian_mcp.log
+braian_summary.md
